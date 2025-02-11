@@ -13,8 +13,8 @@ interface EmailTemplateData {
 
 export const emailTemplates = {
   bookingConfirmation(data: EmailTemplateData): string {
-    const { quote, clientName, paymentDetails } = data
-    const { tax, total } = priceUtils.calculateTotal(quote.estimatedPrice)
+    const { clientName, paymentDetails } = data
+    const { tax: _tax, total } = priceUtils.calculateTotal(data.quote.estimatedPrice)
 
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -27,15 +27,15 @@ export const emailTemplates = {
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h2 style="color: #334155; margin-top: 0;">Service Details</h2>
           <ul style="list-style: none; padding: 0;">
-            <li><strong>Service Type:</strong> ${quote.cleaningType}</li>
-            <li><strong>Property Type:</strong> ${quote.propertyType}</li>
-            <li><strong>Date:</strong> ${dateUtils.format(quote.preferredDate, 'long')}</li>
-            <li><strong>Time:</strong> ${quote.preferredTime}</li>
+            <li><strong>Service Type:</strong> ${data.quote.cleaningType}</li>
+            <li><strong>Property Type:</strong> ${data.quote.propertyType}</li>
+            <li><strong>Date:</strong> ${dateUtils.format(data.quote.preferredDate, 'long')}</li>
+            <li><strong>Time:</strong> ${data.quote.preferredTime}</li>
           </ul>
           
           <h3 style="color: #334155;">Payment Summary</h3>
           <ul style="list-style: none; padding: 0;">
-            <li><strong>Subtotal:</strong> ${priceUtils.format(quote.estimatedPrice)}</li>
+            <li><strong>Subtotal:</strong> ${priceUtils.format(data.quote.estimatedPrice)}</li>
             <li><strong>TVA (7.7%):</strong> ${priceUtils.format(tax)}</li>
             <li><strong>Total:</strong> ${priceUtils.format(total)}</li>
             ${paymentDetails ? `

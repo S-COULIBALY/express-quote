@@ -1,5 +1,5 @@
 import { rest } from 'msw'
-import { CleaningQuote } from '@/types/quote'
+import { CleaningQuote, QuoteStatus } from '@/types/quote'
 import { mockQuotes } from './testData'
 
 export const handlers = [
@@ -9,14 +9,14 @@ export const handlers = [
 
   rest.put('/api/cleaning/:id', (req, res, ctx) => {
     const { id } = req.params
-    const { status } = req.body as { status: string }
+    const { status } = req.body as { status: QuoteStatus }
     
     const quote = mockQuotes.find(q => q.id === id)
     if (!quote) {
       return res(ctx.status(404))
     }
 
-    quote.status = status as any
+    quote.status = status
     return res(ctx.status(200), ctx.json(quote))
   }),
 

@@ -1,15 +1,17 @@
 import nodemailer from 'nodemailer'
 import { emailTemplates } from './emailTemplates'
 
+interface EmailAttachment {
+  filename: string
+  content: Buffer
+}
+
 interface EmailOptions {
   to: string
   subject: string
   template: keyof typeof emailTemplates
-  templateData: any
-  attachments?: Array<{
-    filename: string
-    content: Buffer
-  }>
+  templateData: Record<string, unknown>
+  attachments?: EmailAttachment[]
 }
 
 // Configuration du transporteur d'email
@@ -43,12 +45,11 @@ export const emailUtils = {
     }
   },
 
-  async sendBookingConfirmation(to: string, templateData: any, pdfBuffer?: Buffer): Promise<void> {
-    const attachments = pdfBuffer ? [{
-      filename: 'booking-confirmation.pdf',
-      content: pdfBuffer
-    }] : undefined
-
+  async sendBookingConfirmation(
+    to: string, 
+    templateData: Record<string, unknown>, 
+    attachments?: EmailAttachment[]
+  ): Promise<void> {
     await this.sendEmail({
       to,
       subject: 'Booking Confirmation - Cleaning Service',
@@ -58,7 +59,11 @@ export const emailUtils = {
     })
   },
 
-  async sendPaymentReceipt(to: string, templateData: any, pdfBuffer: Buffer): Promise<void> {
+  async sendPaymentReceipt(
+    to: string, 
+    templateData: Record<string, unknown>, 
+    pdfBuffer: Buffer
+  ): Promise<void> {
     await this.sendEmail({
       to,
       subject: 'Payment Receipt - Cleaning Service',

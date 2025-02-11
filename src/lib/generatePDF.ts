@@ -21,7 +21,7 @@ interface PDFData {
   }
 }
 
-export async function generatePDF(data: PDFData): Promise<Buffer> {
+export async function generatePDF(_data: PDFData): Promise<Buffer> {
   try {
     // TODO: Implémenter la génération de PDF
     // Utiliser une bibliothèque comme PDFKit ou html-pdf
