@@ -20,7 +20,13 @@ const nextConfig = {
   experimental: {
     optimizeCss: true
   },
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
+    // Résoudre les avertissements de glob
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+    }
     return config
   }
 }
