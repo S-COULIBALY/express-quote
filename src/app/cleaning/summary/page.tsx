@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { QuoteRecap } from '@/components/QuoteRecap'
 import { Button } from '@/components/Button'
+import type { CleaningQuote } from '@/types/quote'
 
 export default function CleaningQuoteSummary() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('id')
-  const [quoteData, setQuoteData] = useState<any>(null)
+  const [quoteData, setQuoteData] = useState<CleaningQuote | null>(null)
 
   useEffect(() => {
     // Récupérer les données du localStorage

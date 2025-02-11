@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { DashboardStats } from '../DashboardStats'
+import type { MovingQuote } from '@/types/quote'
 
-const mockQuotes = [
+const mockQuotes: Partial<MovingQuote>[] = [
   {
     id: '1',
     status: 'pending',
@@ -14,11 +15,11 @@ const mockQuotes = [
     estimatedPrice: 300,
     // ... autres propriétés requises
   }
-] as any[]
+]
 
 describe('DashboardStats', () => {
   it('renders all stats correctly', () => {
-    render(<DashboardStats quotes={mockQuotes} />)
+    render(<DashboardStats quotes={mockQuotes as MovingQuote[]} />)
     
     expect(screen.getByText('Total Quotes')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()

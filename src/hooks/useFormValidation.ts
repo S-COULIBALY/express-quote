@@ -1,22 +1,25 @@
 import { useState } from 'react'
 
-type ValidationRule<T> = {
-  validate: (value: any, formData: T) => boolean
+type ValidationValue = string | number | boolean | null | undefined
+type FormData = Record<string, ValidationValue>
+
+type ValidationRule<T extends FormData> = {
+  validate: (value: ValidationValue, formData: T) => boolean
   message: string
 }
 
-type ValidationRules<T> = {
+type ValidationRules<T extends FormData> = {
   [K in keyof T]?: ValidationRule<T>[]
 }
 
-type ValidationErrors<T> = {
+type ValidationErrors<T extends FormData> = {
   [K in keyof T]?: string
 }
 
-export function useFormValidation<T extends Record<string, any>>(rules: ValidationRules<T>) {
+export function useFormValidation<T extends FormData>(rules: ValidationRules<T>) {
   const [errors, setErrors] = useState<ValidationErrors<T>>({})
 
-  const validateField = (field: keyof T, value: any, formData: T): string | undefined => {
+  const validateField = (field: keyof T, value: ValidationValue, formData: T): string | undefined => {
     const fieldRules = rules[field]
     if (!fieldRules) return undefined
 
@@ -35,7 +38,7 @@ export function useFormValidation<T extends Record<string, any>>(rules: Validati
 
     for (const field in rules) {
       if (Object.prototype.hasOwnProperty.call(rules, field)) {
-        const error = validateField(field as keyof T, formData[field as keyof T], formData)
+        const error = validateField(field as keyof T, formData[field], formData)
         if (error) {
           newErrors[field as keyof T] = error
           isValid = false
@@ -65,8 +68,8 @@ export function useFormValidation<T extends Record<string, any>>(rules: Validati
 
 // Règles de validation prédéfinies
 export const validationRules = {
-  required: (message = 'Ce champ est requis'): ValidationRule<any> => ({
-    validate: (value: any) => {
+  required: (message = 'Ce champ est requis'): ValidationRule<FormData> => ({
+    validate: (value: ValidationValue) => {
       if (typeof value === 'string') return value.trim().length > 0
       if (typeof value === 'number') return true
       return !!value
@@ -74,33 +77,51 @@ export const validationRules = {
     message
   }),
 
-  email: (message = 'Email invalide'): ValidationRule<any> => ({
-    validate: (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+  email: (message = 'Email invalide'): ValidationRule<FormData> => ({
+    validate: (value: ValidationValue) => {
+      if (typeof value !== 'string') return false
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    },
     message
   }),
 
-  minLength: (min: number, message = `Minimum ${min} caractères`): ValidationRule<any> => ({
-    validate: (value: string) => value.length >= min,
+  minLength: (min: number, message = `Minimum ${min} caractères`): ValidationRule<FormData> => ({
+    validate: (value: ValidationValue) => {
+      if (typeof value !== 'string') return false
+      return value.length >= min
+    },
     message
   }),
 
-  maxLength: (max: number, message = `Maximum ${max} caractères`): ValidationRule<any> => ({
-    validate: (value: string) => value.length <= max,
+  maxLength: (max: number, message = `Maximum ${max} caractères`): ValidationRule<FormData> => ({
+    validate: (value: ValidationValue) => {
+      if (typeof value !== 'string') return false
+      return value.length <= max
+    },
     message
   }),
 
-  min: (min: number, message = `La valeur minimum est ${min}`): ValidationRule<any> => ({
-    validate: (value: number) => Number(value) >= min,
+  min: (min: number, message = `La valeur minimum est ${min}`): ValidationRule<FormData> => ({
+    validate: (value: ValidationValue) => {
+      if (typeof value !== 'number') return false
+      return value >= min
+    },
     message
   }),
 
-  max: (max: number, message = `La valeur maximum est ${max}`): ValidationRule<any> => ({
-    validate: (value: number) => Number(value) <= max,
+  max: (max: number, message = `La valeur maximum est ${max}`): ValidationRule<FormData> => ({
+    validate: (value: ValidationValue) => {
+      if (typeof value !== 'number') return false
+      return value <= max
+    },
     message
   }),
 
-  match: (fieldName: string, message = 'Les champs ne correspondent pas'): ValidationRule<any> => ({
-    validate: (value: string, formData: any) => value === formData[fieldName],
+  match: (fieldName: string, message = 'Les champs ne correspondent pas'): ValidationRule<FormData> => ({
+    validate: (value: ValidationValue, formData: FormData) => {
+      if (typeof value !== 'string') return false
+      return value === formData[fieldName]
+    },
     message
   })
 } 

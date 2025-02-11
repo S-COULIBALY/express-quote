@@ -1,6 +1,8 @@
 import { useState, ChangeEvent } from 'react'
 
-export function useForm<T extends Record<string, any>>(initialState: T) {
+type FormValue = string | number | boolean | Record<string, unknown>
+
+export function useForm<T extends Record<string, FormValue>>(initialState: T) {
   const [formData, setFormData] = useState<T>(initialState)
 
   const handleChange = (

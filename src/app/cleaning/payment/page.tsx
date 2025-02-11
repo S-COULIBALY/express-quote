@@ -100,8 +100,8 @@ export default function CleaningPayment() {
     return <div className="p-8 text-center">Quote not found</div>
   }
 
+  const { total } = priceUtils.calculateTotal(quote.estimatedPrice)
   const deposit = priceUtils.calculateDeposit(quote.estimatedPrice)
-  const { tax, total } = priceUtils.calculateTotal(quote.estimatedPrice)
 
   return (
     <main className="p-8">
