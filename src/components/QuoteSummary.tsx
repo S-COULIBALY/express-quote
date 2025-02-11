@@ -64,7 +64,7 @@ export function QuoteSummary({ formData, quoteDetails, isCalculating }: Props) {
                   ) : (
                     <span className="font-medium">
                       {quoteDetails.distance > 0 
-                        ? `${Math.round(quoteDetails.distance / 1000)} km`
+                        ? `${Math.round(quoteDetails.distance)} km`
                         : 'Non calculée'
                       }
                     </span>

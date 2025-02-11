@@ -42,7 +42,7 @@ export async function getDistanceFromGoogleMaps(origin: string, destination: str
     const data: DistanceMatrixResponse = await response.json()
     
     if (data.rows?.[0]?.elements?.[0]?.distance) {
-      return data.rows[0].elements[0].distance.value
+      return data.rows[0].elements[0].distance.value / 1000
     }
     throw new Error('Distance calculation failed')
   } catch (error) {
