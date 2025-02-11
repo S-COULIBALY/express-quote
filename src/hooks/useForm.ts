@@ -7,18 +7,17 @@ export function useForm<T extends Record<string, any>>(initialState: T) {
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target
-    
+    const newValue = type === 'checkbox' 
+      ? (e.target as HTMLInputElement).checked 
+      : value
+
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' 
-        ? (e.target as HTMLInputElement).checked
-        : value
+      [name]: newValue
     }))
   }
 
-  const resetForm = () => {
-    setFormData(initialState)
-  }
+  const resetForm = () => setFormData(initialState)
 
   return {
     formData,

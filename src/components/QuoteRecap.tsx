@@ -10,6 +10,7 @@ interface BaseQuoteRecapProps {
     baseCost: number
     additionalCosts: Array<{ label: string; amount: number }>
     totalCost: number
+    distance?: number
   }
   selectedOptions: Array<{ label: string; price: string | number }>
   additionalDetails?: Record<string, string | number>
@@ -95,6 +96,12 @@ export function QuoteRecap({
         <div className="border-t pt-4 mt-4">
           <h3 className="text-lg font-medium text-gray-900 mb-3">Détails des coûts</h3>
           <div className="space-y-2">
+            {pricing.distance && (
+              <div className="flex justify-between items-center text-gray-600 mb-2">
+                <span>Distance estimée</span>
+                <span>{pricing.distance} km</span>
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Coût de base</span>
               <span className="font-medium">{formatPrice(pricing.baseCost)}</span>

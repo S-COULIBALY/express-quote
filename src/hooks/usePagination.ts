@@ -6,17 +6,25 @@ interface UsePaginationProps<T> {
   itemsPerPage: number
 }
 
-export function usePagination<T>({ items, currentPage, itemsPerPage }: UsePaginationProps<T>) {
-  const totalPages = useMemo(() => 
-    Math.ceil(items.length / itemsPerPage)
-  , [items.length, itemsPerPage])
+interface UsePaginationResult<T> {
+  paginatedItems: T[]
+  totalPages: number
+}
 
-  const paginatedItems = useMemo(() => 
-    items.slice(
+export function usePagination<T>({
+  items,
+  currentPage,
+  itemsPerPage
+}: UsePaginationProps<T>): UsePaginationResult<T> {
+  const totalPages = Math.ceil(items.length / itemsPerPage)
+
+  const paginatedItems = useMemo(
+    () => items.slice(
       (currentPage - 1) * itemsPerPage,
       currentPage * itemsPerPage
-    )
-  , [items, currentPage, itemsPerPage])
+    ),
+    [items, currentPage, itemsPerPage]
+  )
 
   return {
     paginatedItems,

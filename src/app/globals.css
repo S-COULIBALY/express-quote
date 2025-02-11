@@ -46,3 +46,18 @@ body {
     text-wrap: balance;
   }
 }
+
+.slick-dots {
+  bottom: 16px;
+}
+
+.slick-dots li button:before {
+  color: white;
+  opacity: 0.5;
+  font-size: 8px;
+}
+
+.slick-dots li.slick-active button:before {
+  color: white;
+  opacity: 1;
+}

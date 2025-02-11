@@ -26,18 +26,21 @@ export default function CleaningQuoteSummary() {
     return <div className="p-8 text-center">Devis non trouvé</div>
   }
 
+  function getOptionLabel(key: string): string {
+    const labels: Record<string, string> = {
+      windows: 'Nettoyage des vitres',
+      deepCleaning: 'Nettoyage en profondeur',
+      carpets: 'Nettoyage des tapis',
+      furniture: 'Nettoyage des meubles',
+      appliances: 'Nettoyage des électroménagers'
+    }
+    return labels[key] || key
+  }
+
   const selectedOptions = Object.entries(quoteData.options)
     .filter(([_, isSelected]) => isSelected)
     .map(([key]) => ({
-      label: key === 'deepCleaning' ? 'Nettoyage en profondeur' :
-             key === 'windows' ? 'Nettoyage des vitres' :
-             key === 'carpets' ? 'Nettoyage des tapis' :
-             key === 'furniture' ? 'Nettoyage des meubles' :
-             'Nettoyage des électroménagers',
-      price: key === 'deepCleaning' ? '+20%' : 
-             key === 'windows' ? '50€' :
-             key === 'carpets' ? '100€' :
-             key === 'furniture' ? '75€' : '60€'
+      label: getOptionLabel(key)
     }))
 
   const propertyTypeLabel = 

@@ -1,39 +1,77 @@
 import { NextResponse } from 'next/server'
 import { generatePDF } from '@/lib/generatePDF'
 import { sendEmail } from '@/lib/sendEmail'
+import type { MovingQuote } from '@/types/quote'
 
-export async function POST(request: Request) {
+interface PaymentDetails {
+  email: string
+  fullName: string
+  transactionId: string
+  amount: number
+}
+
+interface PaymentRequest {
+  quoteId: string
+  paymentDetails: PaymentDetails
+}
+
+interface PaymentResponse {
+  success: boolean
+  message: string
+  error?: string
+}
+
+export async function POST(request: Request): Promise<NextResponse<PaymentResponse>> {
   try {
-    const data = await request.json()
-    const { quoteId, ...paymentDetails } = data
+    const data = await request.json() as PaymentRequest
+    const { quoteId, paymentDetails } = data
 
-    // TODO: Traiter le paiement avec un service de paiement
-    // TODO: Mettre à jour le statut du devis dans la base de données
+    // Récupérer les détails du devis
+    const quote = await getQuoteFromDB(quoteId)
 
-    // Générer le PDF du devis
+    // Générer le PDF
     const pdfBuffer = await generatePDF({
-      quoteId,
+      quote,
       paymentDetails,
-      // autres données nécessaires
+      type: 'payment'
     })
 
-    // Envoyer l'email de confirmation
+    // Envoyer l'email
     await sendEmail({
       to: paymentDetails.email,
-      subject: 'Moving Quote Confirmation',
+      subject: 'Confirmation de paiement - Devis de déménagement',
       pdfBuffer,
-      // autres détails de l'email
+      context: {
+        clientName: paymentDetails.fullName,
+        quoteId,
+        amount: quote.totalCost,
+        serviceDate: quote.movingDate,
+        serviceTime: '09:00'
+      }
     })
 
     return NextResponse.json({
       success: true,
-      message: 'Payment processed successfully'
+      message: 'Paiement traité avec succès'
     })
   } catch (error) {
-    console.error('Payment processing error:', error)
+    console.error('Erreur de traitement du paiement:', error)
     return NextResponse.json(
-      { error: 'Failed to process payment' },
+      {
+        success: false,
+        message: 'Échec du traitement du paiement',
+        error: error instanceof Error ? error.message : 'Erreur inconnue'
+      },
       { status: 500 }
     )
   }
+}
+
+async function getQuoteFromDB(quoteId: string): Promise<MovingQuote> {
+  // TODO: Implémenter la récupération depuis la base de données
+  const quoteData = localStorage.getItem('movingQuote')
+  if (!quoteData) {
+    throw new Error('Devis non trouvé')
+  }
+  return JSON.parse(quoteData)
 } 

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
+import type { MovingQuote } from '@/types/quote'
 
 // GET /api/moving - Récupérer tous les devis
 export async function GET() {
   try {
     // TODO: Implémenter la connexion à la base de données
-    const quotes = [] // Remplacer par la vraie requête
+    const quotes: MovingQuote[] = [] // Remplacer par la vraie requête
     return NextResponse.json(quotes)
   } catch (error) {
     return NextResponse.json(
@@ -20,11 +21,10 @@ export async function POST(request: Request) {
     const data = await request.json()
     
     // TODO: Valider les données et sauvegarder dans la base de données
-    const newQuote = {
-      id: 'temp-id', // Remplacer par l'ID généré
+    const newQuote: MovingQuote = {
+      id: Date.now().toString(),
       ...data,
-      status: 'pending',
-      createdAt: new Date().toISOString()
+      totalCost: 0 // À calculer selon la logique métier
     }
 
     return NextResponse.json(newQuote, { status: 201 })

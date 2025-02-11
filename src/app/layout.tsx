@@ -1,15 +1,9 @@
-import { Inter } from 'next/font/google'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { QueryProvider } from '@/providers/QueryProvider'
+import { Header } from '@/components/Header'
+import { Footer } from '@/components/Footer'
+import { GoogleMapsScript } from '@/components/GoogleMapsScript'
 import './globals.css'
-import type { Metadata } from 'next'
-
-const inter = Inter({ subsets: ['latin'] })
-
-export const metadata: Metadata = {
-  title: 'Cleaning Service',
-  description: 'Professional cleaning service booking platform'
-}
 
 export default function RootLayout({
   children
@@ -17,13 +11,20 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="fr">
+      <body className="font-sans antialiased">
         <QueryProvider>
           <NotificationProvider>
-            {children}
+            <div className="min-h-screen flex flex-col">
+              <Header />
+              <main className="flex-grow">
+                {children}
+              </main>
+              <Footer />
+            </div>
           </NotificationProvider>
         </QueryProvider>
+        <GoogleMapsScript />
       </body>
     </html>
   )

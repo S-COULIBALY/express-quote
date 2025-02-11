@@ -1,5 +1,5 @@
 // Formats de date disponibles
-type DateFormat = 'short' | 'long' | 'file'
+type DateFormat = 'short' | 'long' | 'iso' | 'time' | 'datetime'
 
 // Options pour le formatage des dates
 const dateFormatOptions: Record<DateFormat, Intl.DateTimeFormatOptions> = {
@@ -7,36 +7,13 @@ const dateFormatOptions: Record<DateFormat, Intl.DateTimeFormatOptions> = {
   long: { day: 'numeric', month: 'long', year: 'numeric' },
   iso: { year: 'numeric', month: '2-digit', day: '2-digit' },
   time: { hour: '2-digit', minute: '2-digit' },
-  datetime: {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }
+  datetime: { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }
 }
 
 export const dateUtils = {
   format(date: Date | string, format: DateFormat = 'short'): string {
     const d = new Date(date)
-    if (isNaN(d.getTime())) {
-      throw new Error('Invalid date')
-    }
-
-    switch (format) {
-      case 'short':
-        return d.toLocaleDateString()
-      case 'long':
-        return d.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        })
-      case 'file':
-        return d.toISOString().split('T')[0]
-      default:
-        return d.toLocaleDateString()
-    }
+    return new Intl.DateTimeFormat('fr-FR', dateFormatOptions[format]).format(d)
   },
 
   toISODate(date: Date): string {

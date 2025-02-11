@@ -8,7 +8,7 @@ import { useForm } from '@/hooks/useForm'
 import { useNotification } from '@/contexts/NotificationContext'
 import { dateUtils } from '@/utils/dateUtils'
 import { priceUtils } from '@/utils/priceUtils'
-import { CleaningQuote } from '@/types/quote'
+import type { CleaningQuote } from '@/types/quote'
 import { cardUtils } from '@/utils/cardUtils'
 
 interface PaymentFormData {

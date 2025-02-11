@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 
 type ValidationRule<T> = {
   validate: (value: any, formData: T) => boolean
@@ -9,68 +9,63 @@ type ValidationRules<T> = {
   [K in keyof T]?: ValidationRule<T>[]
 }
 
-interface ValidationErrors<T> {
+type ValidationErrors<T> = {
   [K in keyof T]?: string
 }
 
 export function useFormValidation<T extends Record<string, any>>(rules: ValidationRules<T>) {
   const [errors, setErrors] = useState<ValidationErrors<T>>({})
 
-  const validateField = useCallback((name: keyof T, value: any, formData: T) => {
-    const fieldRules = rules[name]
-    if (!fieldRules) return true
+  const validateField = (field: keyof T, value: any, formData: T): string | undefined => {
+    const fieldRules = rules[field]
+    if (!fieldRules) return undefined
 
     for (const rule of fieldRules) {
       if (!rule.validate(value, formData)) {
-        setErrors(prev => ({ ...prev, [name]: rule.message }))
-        return false
+        return rule.message
       }
     }
 
-    setErrors(prev => {
-      const newErrors = { ...prev }
-      delete newErrors[name]
-      return newErrors
-    })
-    return true
-  }, [rules])
+    return undefined
+  }
 
-  const validateForm = useCallback((formData: T) => {
+  const validateForm = (formData: T): boolean => {
     const newErrors: ValidationErrors<T> = {}
     let isValid = true
 
     for (const field in rules) {
-      const fieldRules = rules[field]
-      if (!fieldRules) continue
-
-      for (const rule of fieldRules) {
-        if (!rule.validate(formData[field], formData)) {
-          newErrors[field] = rule.message
+      if (Object.prototype.hasOwnProperty.call(rules, field)) {
+        const error = validateField(field as keyof T, formData[field as keyof T], formData)
+        if (error) {
+          newErrors[field as keyof T] = error
           isValid = false
-          break
         }
       }
     }
 
     setErrors(newErrors)
     return isValid
-  }, [rules])
+  }
 
-  const clearErrors = useCallback(() => {
-    setErrors({})
-  }, [])
+  const clearError = (field: keyof T) => {
+    setErrors(prev => {
+      const newErrors = { ...prev }
+      delete newErrors[field]
+      return newErrors
+    })
+  }
 
   return {
     errors,
-    validateField,
     validateForm,
-    clearErrors
+    validateField,
+    clearError
   }
 }
 
 // Règles de validation prédéfinies
 export const validationRules = {
-  required: (message = 'This field is required'): ValidationRule<any> => ({
+  required: (message = 'Ce champ est requis'): ValidationRule<any> => ({
     validate: (value: any) => {
       if (typeof value === 'string') return value.trim().length > 0
       if (typeof value === 'number') return true
@@ -79,39 +74,32 @@ export const validationRules = {
     message
   }),
 
-  email: (message = 'Invalid email address'): ValidationRule<any> => ({
-    validate: (value: string) => {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-    },
+  email: (message = 'Email invalide'): ValidationRule<any> => ({
+    validate: (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
     message
   }),
 
-  minLength: (length: number, message = `Minimum length is ${length}`): ValidationRule<any> => ({
-    validate: (value: string) => value.length >= length,
+  minLength: (min: number, message = `Minimum ${min} caractères`): ValidationRule<any> => ({
+    validate: (value: string) => value.length >= min,
     message
   }),
 
-  maxLength: (length: number, message = `Maximum length is ${length}`): ValidationRule<any> => ({
-    validate: (value: string) => value.length <= length,
+  maxLength: (max: number, message = `Maximum ${max} caractères`): ValidationRule<any> => ({
+    validate: (value: string) => value.length <= max,
     message
   }),
 
-  numeric: (message = 'Must be a number'): ValidationRule<any> => ({
-    validate: (value: string) => !isNaN(Number(value)),
-    message
-  }),
-
-  min: (min: number, message = `Minimum value is ${min}`): ValidationRule<any> => ({
+  min: (min: number, message = `La valeur minimum est ${min}`): ValidationRule<any> => ({
     validate: (value: number) => Number(value) >= min,
     message
   }),
 
-  max: (max: number, message = `Maximum value is ${max}`): ValidationRule<any> => ({
+  max: (max: number, message = `La valeur maximum est ${max}`): ValidationRule<any> => ({
     validate: (value: number) => Number(value) <= max,
     message
   }),
 
-  match: (fieldName: string, message = 'Fields do not match'): ValidationRule<any> => ({
+  match: (fieldName: string, message = 'Les champs ne correspondent pas'): ValidationRule<any> => ({
     validate: (value: string, formData: any) => value === formData[fieldName],
     message
   })

@@ -8,78 +8,57 @@ import {
   Legend
 } from 'chart.js'
 import { Pie } from 'react-chartjs-2'
-import { CleaningQuote } from '@/types/quote'
-import React from 'react'
+import type { MovingQuote } from '@/types/quote'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
 interface ServiceDistributionChartProps {
-  quotes: CleaningQuote[]
+  quotes: MovingQuote[]
 }
 
-export const ServiceDistributionChart = React.memo(function ServiceDistributionChart({ quotes }: ServiceDistributionChartProps) {
-  const { labels, values } = useMemo(() => {
-    const distribution: Record<string, number> = {}
-    
-    quotes.forEach(quote => {
-      distribution[quote.cleaningType] = (distribution[quote.cleaningType] || 0) + 1
-    })
+export function ServiceDistributionChart({ quotes }: ServiceDistributionChartProps) {
+  const data = useMemo(() => {
+    const services = quotes.reduce((acc, quote) => {
+      Object.entries(quote.options).forEach(([service, isSelected]) => {
+        if (isSelected) {
+          acc[service] = (acc[service] || 0) + 1
+        }
+      })
+      return acc
+    }, {} as Record<string, number>)
 
     return {
-      labels: Object.keys(distribution),
-      values: Object.values(distribution)
+      labels: Object.keys(services).map(service => 
+        service.charAt(0).toUpperCase() + service.slice(1)
+      ),
+      datasets: [{
+        data: Object.values(services),
+        backgroundColor: [
+          '#4F46E5',
+          '#10B981',
+          '#F59E0B',
+          '#EF4444',
+          '#8B5CF6'
+        ]
+      }]
     }
   }, [quotes])
-
-  const data = useMemo(() => ({
-    labels,
-    datasets: [
-      {
-        data: values,
-        backgroundColor: [
-          'rgba(34, 197, 94, 0.5)',  // vert
-          'rgba(59, 130, 246, 0.5)', // bleu
-          'rgba(249, 115, 22, 0.5)', // orange
-          'rgba(168, 85, 247, 0.5)'  // violet
-        ],
-        borderColor: [
-          'rgb(34, 197, 94)',
-          'rgb(59, 130, 246)',
-          'rgb(249, 115, 22)',
-          'rgb(168, 85, 247)'
-        ],
-        borderWidth: 1
-      }
-    ]
-  }), [labels, values])
 
   const options = {
     responsive: true,
     plugins: {
       legend: {
-        position: 'bottom' as const,
-        labels: {
-          padding: 20,
-          usePointStyle: true
-        }
-      },
-      title: {
-        display: true,
-        text: 'Service Type Distribution',
-        color: '#374151',
-        font: {
-          size: 16,
-          weight: '500'
-        }
+        position: 'bottom' as const
       }
     }
   }
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <div style={{ height: '400px' }} className="flex items-center justify-center">
+      <h3 className="text-lg font-medium mb-4">Distribution des Services</h3>
+      <div className="h-[400px] flex items-center justify-center">
         <Pie data={data} options={options} />
       </div>
     </div>
   )
-}) 
+} 

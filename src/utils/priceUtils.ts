@@ -1,11 +1,5 @@
 type Currency = 'EUR' | 'USD' | 'CHF'
 
-const currencySymbols: Record<Currency, string> = {
-  EUR: '€',
-  USD: '$',
-  CHF: 'CHF'
-}
-
 const currencyFormats: Record<Currency, Intl.NumberFormatOptions> = {
   EUR: { style: 'currency', currency: 'EUR' },
   USD: { style: 'currency', currency: 'USD' },
@@ -13,15 +7,15 @@ const currencyFormats: Record<Currency, Intl.NumberFormatOptions> = {
 }
 
 export const priceUtils = {
-  format(amount: number): string {
-    return new Intl.NumberFormat('fr-CH', {
-      style: 'currency',
-      currency: 'CHF'
-    }).format(amount)
+  format(amount: number, currency: Currency = 'EUR'): string {
+    return new Intl.NumberFormat('fr-FR', currencyFormats[currency]).format(amount)
   },
 
-  calculateTotal(amount: number) {
-    const tax = amount * 0.077 // 7.7% TVA
+  calculateTotal(amount: number, taxRate = 7.7): {
+    tax: number
+    total: number
+  } {
+    const tax = amount * taxRate / 100
     return {
       tax,
       total: amount + tax
@@ -36,16 +30,16 @@ export const priceUtils = {
     return Math.round((amount * rate) / 100)
   },
 
-  formatWithTax(amount: number, currency: Currency = 'CHF', taxRate = 7.7): {
+  formatWithTax(amount: number, currency: Currency = 'EUR', taxRate = 7.7): {
     subtotal: string
     tax: string
     total: string
   } {
-    const { tax, total } = this.calculateTotal(amount)
+    const { tax, total } = this.calculateTotal(amount, taxRate)
     return {
-      subtotal: this.format(amount),
-      tax: this.format(tax),
-      total: this.format(total)
+      subtotal: this.format(amount, currency),
+      tax: this.format(tax, currency),
+      total: this.format(total, currency)
     }
   },
 

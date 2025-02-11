@@ -1,39 +1,50 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CleaningQuote, QuoteStatus } from '@/types/quote'
+import type { MovingQuote, QuoteStatus } from '@/types/quote'
 import { useNotification } from '@/contexts/NotificationContext'
 import { config } from '@/config'
 
-const QUOTES_QUERY_KEY = 'quotes'
+interface UpdateQuoteStatusParams {
+  quoteId: string
+  status: QuoteStatus
+}
 
 export function useQuotes() {
   const queryClient = useQueryClient()
   const { showNotification } = useNotification()
 
-  const { data: quotes = [], isLoading, error } = useQuery<CleaningQuote[]>({
-    queryKey: [QUOTES_QUERY_KEY],
+  const { data: quotes = [], isLoading, error } = useQuery<MovingQuote[]>({
+    queryKey: ['quotes'],
     queryFn: async () => {
-      const response = await fetch(`${config.api.baseUrl}/cleaning`)
-      if (!response.ok) throw new Error('Failed to fetch quotes')
+      const response = await fetch(`${config.api.baseUrl}/moving`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch quotes')
+      }
       return response.json()
     }
   })
 
-  const updateQuoteMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: QuoteStatus }) => {
-      const response = await fetch(`${config.api.baseUrl}/cleaning/${id}`, {
-        method: 'PUT',
+  const updateQuoteMutation = useMutation<
+    MovingQuote,
+    Error,
+    UpdateQuoteStatusParams
+  >({
+    mutationFn: async ({ quoteId, status }) => {
+      const response = await fetch(`${config.api.baseUrl}/moving/${quoteId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
       })
-      if (!response.ok) throw new Error('Failed to update quote')
+      if (!response.ok) {
+        throw new Error('Failed to update quote status')
+      }
       return response.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUOTES_QUERY_KEY] })
-      showNotification('success', 'Quote updated successfully')
+      queryClient.invalidateQueries({ queryKey: ['quotes'] })
+      showNotification('success', 'Statut du devis mis à jour avec succès')
     },
-    onError: () => {
-      showNotification('error', 'Failed to update quote')
+    onError: (error) => {
+      showNotification('error', error.message)
     }
   })
 

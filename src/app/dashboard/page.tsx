@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { dateUtils } from '@/utils/dateUtils'
 import { priceUtils } from '@/utils/priceUtils'
-import { QuoteStatus } from '@/types/quote'
+import type { MovingQuote, QuoteStatus } from '@/types/quote'
 import { useQuotes } from '@/hooks/useQuotes'
 import { usePagination } from '@/hooks/usePagination'
 import { Button } from '@/components/Button'
@@ -13,6 +13,7 @@ import { RevenueChart } from '@/components/RevenueChart'
 import { ServiceDistributionChart } from '@/components/ServiceDistributionChart'
 import { QuoteFilters } from '@/components/QuoteFilters'
 import { Pagination } from '@/components/Pagination'
+import { DashboardTable } from '@/components/DashboardTable'
 
 const statusColors: Record<QuoteStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -23,79 +24,69 @@ const statusColors: Record<QuoteStatus, string> = {
 
 const ITEMS_PER_PAGE = 10
 
+interface FilterState {
+  status: QuoteStatus | 'all'
+  dateRange: string
+  searchTerm: string
+}
+
 export default function Dashboard() {
   const router = useRouter()
-  const { quotes, isLoading, updateQuoteStatus } = useQuotes()
-  const [filteredQuotes, setFilteredQuotes] = useState(quotes)
+  const { quotes, isLoading, error } = useQuotes()
   const [currentPage, setCurrentPage] = useState(1)
+  const [filters, setFilters] = useState<FilterState>({
+    status: 'all',
+    dateRange: '30',
+    searchTerm: ''
+  })
 
-  const { paginatedItems: paginatedQuotes, totalPages } = usePagination({
+  const filteredQuotes = useMemo(() => {
+    if (!quotes) return []
+
+    return quotes.filter(quote => {
+      // Filtre par statut
+      if (filters.status !== 'all' && quote.status !== filters.status) {
+        return false
+      }
+
+      // Filtre par date
+      const quoteDate = new Date(quote.movingDate)
+      const daysAgo = (Date.now() - quoteDate.getTime()) / (1000 * 60 * 60 * 24)
+      if (Number(filters.dateRange) > 0 && daysAgo > Number(filters.dateRange)) {
+        return false
+      }
+
+      // Filtre par recherche
+      if (filters.searchTerm) {
+        const searchLower = filters.searchTerm.toLowerCase()
+        return (
+          quote.pickupAddress.toLowerCase().includes(searchLower) ||
+          quote.deliveryAddress.toLowerCase().includes(searchLower)
+        )
+      }
+
+      return true
+    })
+  }, [quotes, filters])
+
+  const { paginatedItems, totalPages } = usePagination({
     items: filteredQuotes,
     currentPage,
     itemsPerPage: ITEMS_PER_PAGE
   })
 
-  useEffect(() => {
-    setFilteredQuotes(quotes)
-  }, [quotes])
-
-  const handleStatusChange = async (quoteId: string, newStatus: QuoteStatus) => {
-    updateQuoteStatus({ id: quoteId, status: newStatus })
-  }
-
-  const handleFilter = (filters: any) => {
-    let filtered = [...quotes]
-
-    if (filters.searchTerm) {
-      const search = filters.searchTerm.toLowerCase()
-      filtered = filtered.filter(quote => 
-        quote.id.toLowerCase().includes(search) ||
-        quote.propertyType.toLowerCase().includes(search) ||
-        quote.cleaningType.toLowerCase().includes(search)
-      )
-    }
-
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(quote => quote.status === filters.status)
-    }
-
-    if (filters.cleaningType !== 'all') {
-      filtered = filtered.filter(quote => quote.cleaningType === filters.cleaningType)
-    }
-
-    if (filters.propertyType !== 'all') {
-      filtered = filtered.filter(quote => quote.propertyType === filters.propertyType)
-    }
-
-    if (filters.dateFrom) {
-      filtered = filtered.filter(quote => 
-        new Date(quote.preferredDate) >= new Date(filters.dateFrom)
-      )
-    }
-
-    if (filters.dateTo) {
-      filtered = filtered.filter(quote => 
-        new Date(quote.preferredDate) <= new Date(filters.dateTo)
-      )
-    }
-
-    if (filters.priceMin) {
-      filtered = filtered.filter(quote => 
-        quote.estimatedPrice >= Number(filters.priceMin)
-      )
-    }
-
-    if (filters.priceMax) {
-      filtered = filtered.filter(quote => 
-        quote.estimatedPrice <= Number(filters.priceMax)
-      )
-    }
-
-    setFilteredQuotes(filtered)
+  const handleFilterChange = (newFilters: Partial<FilterState>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }))
+    setCurrentPage(1)
   }
 
   const handleResetFilters = () => {
-    setFilteredQuotes(quotes)
+    setFilters({
+      status: 'all',
+      dateRange: '30',
+      searchTerm: ''
+    })
+    setCurrentPage(1)
   }
 
   const handleExportCSV = () => {
@@ -136,133 +127,35 @@ export default function Dashboard() {
     document.body.removeChild(link)
   }
 
-  if (isLoading) {
-    return <div className="p-8 text-center">Loading...</div>
+  if (error) {
+    return <div className="p-8 text-red-500">Error: {error.message}</div>
   }
 
   return (
-    <main className="p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Cleaning Quotes</h1>
-          <div className="flex gap-4">
-            <Button
-              variant="outline"
-              onClick={handleExportCSV}
-              disabled={filteredQuotes.length === 0}
-            >
-              Export CSV
-            </Button>
-            <Button onClick={() => router.push('/cleaning/new')}>
-              New Quote
-            </Button>
-          </div>
-        </div>
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <DashboardStats quotes={quotes || []} />
+      </div>
 
-        <div className="mb-8">
-          <DashboardStats quotes={quotes} />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RevenueChart quotes={quotes || []} />
+        <ServiceDistributionChart quotes={quotes || []} />
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <RevenueChart quotes={quotes} />
-          <ServiceDistributionChart quotes={quotes} />
-        </div>
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6">
+          <QuoteFilters
+            onFilter={handleFilterChange}
+            onReset={handleResetFilters}
+            initialFilters={filters}
+          />
 
-        <QuoteFilters
-          onFilter={handleFilter}
-          onReset={handleResetFilters}
-        />
+          <DashboardTable
+            data={paginatedItems}
+            isLoading={isLoading}
+            onRowClick={(quote) => router.push(`/moving/${quote.id}`)}
+          />
 
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Client
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Service
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Price
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedQuotes.map((quote) => (
-                <tr key={quote.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {quote.id.slice(0, 8)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {quote.propertyType}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {quote.squareMeters}m²
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {quote.cleaningType}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {quote.frequency}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {dateUtils.format(quote.preferredDate, 'short')}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {quote.preferredTime}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {priceUtils.format(quote.estimatedPrice)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[quote.status]}`}>
-                      {quote.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push(`/cleaning/${quote.id}`)}
-                      >
-                        View
-                      </Button>
-                      <select
-                        value={quote.status}
-                        onChange={(e) => handleStatusChange(quote.id, e.target.value as QuoteStatus)}
-                        className="text-sm rounded border-gray-300"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="paid">Paid</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -270,6 +163,6 @@ export default function Dashboard() {
           />
         </div>
       </div>
-    </main>
+    </div>
   )
 } 

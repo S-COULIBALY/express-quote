@@ -6,56 +6,60 @@ import { FormField, TextInput, Select, TextArea } from '@/components/Form'
 import { Button } from '@/components/Button'
 import { useForm } from '@/hooks/useForm'
 import { useApi } from '@/hooks/useApi'
-import { BaseQuoteFormData, CleaningQuote } from '@/types/quote'
+import type { BaseQuoteFormData, CleaningQuote } from '@/types/quote'
+import { useNotification } from '@/contexts/NotificationContext'
 
-export default function EditCleaningQuote({ 
-  params 
-}: { 
-  params: { id: string } 
-}) {
+interface EditQuoteFormData extends BaseQuoteFormData {
+  id: string
+  status: string
+}
+
+export default function EditQuote({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const { formData, setFormData, handleChange } = useForm<BaseQuoteFormData>({
+  const { showNotification } = useNotification()
+  const api = useApi<CleaningQuote>()
+
+  const { formData, setFormData, handleChange } = useForm<EditQuoteFormData>({
+    id: '',
     propertyType: '',
     squareMeters: '',
     numberOfRooms: '',
     numberOfBathrooms: '',
     cleaningType: '',
-    frequency: 'one-time',
+    frequency: '',
     preferredDate: '',
     preferredTime: '',
+    status: '',
     specialRequests: ''
   })
 
-  const { isLoading, error, request } = useApi<CleaningQuote>({
-    onError: (error) => {
-      // TODO: Afficher une notification d'erreur
-      console.error('API Error:', error)
-    }
-  })
-
   useEffect(() => {
-    request(`/api/cleaning/${params.id}`).then(({ data }) => {
-      if (data) {
-        const { id, status, estimatedPrice, createdAt, ...formFields } = data
-        setFormData(formFields)
+    const fetchQuote = async () => {
+      const result = await api.request(`/api/cleaning/${params.id}`)
+      if (result.data) {
+        setFormData(result.data)
       }
-    })
-  }, [params.id, setFormData, request])
+    }
+    fetchQuote()
+  }, [params.id, api, setFormData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    const { error } = await request(`/api/cleaning/${params.id}`, {
-      method: 'PUT',
-      body: JSON.stringify(formData)
-    })
-
-    if (!error) {
-      router.push(`/cleaning/${params.id}`)
+    try {
+      const result = await api.request(`/api/cleaning/${params.id}`, {
+        method: 'PUT',
+        body: formData
+      })
+      if (result.data) {
+        showNotification('success', 'Devis mis à jour avec succès')
+        router.push('/dashboard/quotes')
+      }
+    } catch (error) {
+      showNotification('error', 'Erreur lors de la mise à jour du devis')
     }
   }
 
-  if (isLoading) {
+  if (api.isLoading) {
     return <div className="p-8 text-center">Loading...</div>
   }
 
