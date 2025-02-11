@@ -44,13 +44,13 @@ export function Header() {
             variant="outline"
             onClick={handleLogin}
           >
-            Se connecter
+            S&apos;identifier
           </Button>
           <Button
             className="bg-orange-500 hover:bg-orange-600"
             onClick={handleSignup}
           >
-            S'inscrire
+            S&apos;inscrire
           </Button>
         </div>
       </nav>

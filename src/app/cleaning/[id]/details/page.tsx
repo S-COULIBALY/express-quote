@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { CleaningQuote, QuoteStatus } from '@/types/quote'
 import { useNotification } from '@/contexts/NotificationContext'
@@ -27,11 +27,7 @@ export default function QuoteDetails({
   const [isLoading, setIsLoading] = useState(true)
   const [showCancelModal, setShowCancelModal] = useState(false)
 
-  useEffect(() => {
-    fetchQuote()
-  }, [params.id])
-
-  const fetchQuote = async () => {
+  const fetchQuote = useCallback(async () => {
     try {
       const response = await fetch(`/api/cleaning/${params.id}`)
       if (!response.ok) throw new Error('Failed to fetch quote')
@@ -43,7 +39,11 @@ export default function QuoteDetails({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [params.id, showNotification])
+
+  useEffect(() => {
+    fetchQuote()
+  }, [fetchQuote])
 
   const handleStatusChange = async (newStatus: QuoteStatus) => {
     try {

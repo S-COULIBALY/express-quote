@@ -14,7 +14,7 @@ interface EmailTemplateData {
 export const emailTemplates = {
   bookingConfirmation(data: EmailTemplateData): string {
     const { clientName, paymentDetails } = data
-    const { tax: _tax, total } = priceUtils.calculateTotal(data.quote.estimatedPrice)
+    const { tax, total } = priceUtils.calculateTotal(data.quote.estimatedPrice)
 
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -68,7 +68,7 @@ export const emailTemplates = {
   },
 
   paymentReceipt(data: EmailTemplateData): string {
-    const { quote, clientName, paymentDetails } = data
+    const { clientName, paymentDetails } = data
     if (!paymentDetails) throw new Error('Payment details required for receipt')
 
     return `

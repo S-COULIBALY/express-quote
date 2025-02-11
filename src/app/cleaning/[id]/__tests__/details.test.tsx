@@ -3,6 +3,7 @@ import QuoteDetails from '../details/page'
 import { QueryProvider } from '@/providers/QueryProvider'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 
+// Mock de next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
@@ -10,22 +11,44 @@ jest.mock('next/navigation', () => ({
   })
 }))
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <QueryProvider>
-    <NotificationProvider>
-      {children}
-    </NotificationProvider>
-  </QueryProvider>
-)
+// Mock des fonctions fetch
+const mockFetch = jest.fn()
+global.fetch = mockFetch
 
-describe('QuoteDetails Page', () => {
+describe('QuoteDetails', () => {
+  beforeEach(() => {
+    // Configuration du mock fetch pour chaque test
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        id: '1',
+        status: 'pending',
+        // ... autres propriétés du devis
+      })
+    })
+  })
+
+  afterEach(() => {
+    jest.clearAllMocks()
+  })
+
+  const renderComponent = () => {
+    render(
+      <QueryProvider>
+        <NotificationProvider>
+          <QuoteDetails params={{ id: '1' }} />
+        </NotificationProvider>
+      </QueryProvider>
+    )
+  }
+
   it('renders loading state initially', () => {
-    render(<QuoteDetails params={{ id: '1' }} />, { wrapper })
+    renderComponent()
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
   it('renders quote details after loading', async () => {
-    render(<QuoteDetails params={{ id: '1' }} />, { wrapper })
+    renderComponent()
 
     await waitFor(() => {
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
@@ -38,7 +61,7 @@ describe('QuoteDetails Page', () => {
   })
 
   it('handles status change correctly', async () => {
-    render(<QuoteDetails params={{ id: '1' }} />, { wrapper })
+    renderComponent()
 
     await waitFor(() => {
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
@@ -53,7 +76,7 @@ describe('QuoteDetails Page', () => {
   })
 
   it('shows cancel confirmation modal', async () => {
-    render(<QuoteDetails params={{ id: '1' }} />, { wrapper })
+    renderComponent()
 
     await waitFor(() => {
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument()

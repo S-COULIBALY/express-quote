@@ -228,11 +228,11 @@ export default function Home() {
                 </div>
                 <div>
                   <h4 className="font-semibold">Michel Dupont</h4>
-                  <p className="text-gray-600">Déménagement d'appartement</p>
+                  <p className="text-gray-600">Déménagement d&apos;appartement</p>
                 </div>
               </div>
               <p className="text-gray-600">
-                "Service impeccable et équipe très professionnelle. Je recommande vivement !"
+                &quot;Service impeccable et équipe très professionnelle. Je recommande vivement !&quot;
               </p>
             </div>
 
@@ -248,7 +248,7 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-gray-600">
-                "Excellent service, rapide et efficace. L'appartement était impeccable !"
+                &quot;Excellent service, rapide et efficace. L&apos;appartement était impeccable !&quot;
               </p>
             </div>
 
@@ -260,11 +260,11 @@ export default function Home() {
                 </div>
                 <div>
                   <h4 className="font-semibold">Laurent Blanc</h4>
-                  <p className="text-gray-600">Déménagement d'entreprise</p>
+                  <p className="text-gray-600">Déménagement d&apos;entreprise</p>
                 </div>
               </div>
               <p className="text-gray-600">
-                "Une équipe réactive et professionnelle. Déménagement réalisé dans les temps."
+                &quot;Une équipe réactive et professionnelle. Déménagement réalisé dans les temps.&quot;
               </p>
             </div>
           </div>

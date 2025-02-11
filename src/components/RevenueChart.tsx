@@ -28,6 +28,17 @@ interface RevenueChartProps {
   period?: 'year' | 'month' | 'week'
 }
 
+interface ChartData {
+  labels: string[]
+  datasets: {
+    label: string
+    data: number[]
+    backgroundColor: string
+    borderColor: string
+    borderWidth: number
+  }[]
+}
+
 export function RevenueChart({ quotes, period = 'month' }: RevenueChartProps) {
   const calculateMonthlyRevenue = () => {
     const monthlyData: Record<string, number> = {}
@@ -62,7 +73,7 @@ export function RevenueChart({ quotes, period = 'month' }: RevenueChartProps) {
     return new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'short' })
   })
 
-  const data = {
+  const data: ChartData = {
     labels,
     datasets: [
       {

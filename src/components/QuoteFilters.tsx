@@ -3,34 +3,24 @@
 import { useState } from 'react'
 import { Button } from './Button'
 import { FormField, TextInput, Select } from './Form'
-import { dateUtils } from '@/utils/dateUtils'
 
 interface FilterOptions {
   status: string
   cleaningType: string
-  propertyType: string
-  dateFrom: string
-  dateTo: string
-  priceMin: string
-  priceMax: string
   searchTerm: string
 }
 
 interface QuoteFiltersProps {
   onFilter: (filters: FilterOptions) => void
   onReset: () => void
+  initialFilters?: Partial<FilterOptions>
 }
 
-export function QuoteFilters({ onFilter, onReset }: QuoteFiltersProps) {
+export function QuoteFilters({ onFilter, onReset, initialFilters }: QuoteFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [filters, setFilters] = useState<FilterOptions>({
     status: 'all',
     cleaningType: 'all',
-    propertyType: 'all',
-    dateFrom: '',
-    dateTo: '',
-    priceMin: '',
-    priceMax: '',
     searchTerm: ''
   })
 
@@ -44,11 +34,6 @@ export function QuoteFilters({ onFilter, onReset }: QuoteFiltersProps) {
     setFilters({
       status: 'all',
       cleaningType: 'all',
-      propertyType: 'all',
-      dateFrom: '',
-      dateTo: '',
-      priceMin: '',
-      priceMax: '',
       searchTerm: ''
     })
     onReset()
@@ -99,54 +84,6 @@ export function QuoteFilters({ onFilter, onReset }: QuoteFiltersProps) {
                 { value: 'post-construction', label: 'Post Construction' }
               ]}
             />
-          </FormField>
-
-          <FormField label="Property Type">
-            <Select
-              value={filters.propertyType}
-              onChange={(e) => handleChange('propertyType', e.target.value)}
-              options={[
-                { value: 'all', label: 'All Properties' },
-                { value: 'apartment', label: 'Apartment' },
-                { value: 'house', label: 'House' },
-                { value: 'office', label: 'Office' },
-                { value: 'commercial', label: 'Commercial' }
-              ]}
-            />
-          </FormField>
-
-          <FormField label="Date Range">
-            <div className="flex gap-2">
-              <TextInput
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => handleChange('dateFrom', e.target.value)}
-                max={filters.dateTo || undefined}
-              />
-              <TextInput
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => handleChange('dateTo', e.target.value)}
-                min={filters.dateFrom || undefined}
-              />
-            </div>
-          </FormField>
-
-          <FormField label="Price Range">
-            <div className="flex gap-2">
-              <TextInput
-                type="number"
-                placeholder="Min"
-                value={filters.priceMin}
-                onChange={(e) => handleChange('priceMin', e.target.value)}
-              />
-              <TextInput
-                type="number"
-                placeholder="Max"
-                value={filters.priceMax}
-                onChange={(e) => handleChange('priceMax', e.target.value)}
-              />
-            </div>
           </FormField>
 
           <div className="md:col-span-3 flex justify-end gap-4">

@@ -14,7 +14,7 @@ interface Payment {
 }
 
 export default function PaymentsPage() {
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, _setIsLoading] = useState(false)
 
   // TODO: Implement data fetching with useEffect
   const payments: Payment[] = []

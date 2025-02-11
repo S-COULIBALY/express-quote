@@ -1,26 +1,18 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { dateUtils } from '@/utils/dateUtils'
 import { priceUtils } from '@/utils/priceUtils'
-import type { MovingQuote, QuoteStatus } from '@/types/quote'
+import type { QuoteStatus } from '@/types/quote'
 import { useQuotes } from '@/hooks/useQuotes'
 import { usePagination } from '@/hooks/usePagination'
-import { Button } from '@/components/Button'
 import { DashboardStats } from '@/components/DashboardStats'
 import { RevenueChart } from '@/components/RevenueChart'
 import { ServiceDistributionChart } from '@/components/ServiceDistributionChart'
 import { QuoteFilters } from '@/components/QuoteFilters'
 import { Pagination } from '@/components/Pagination'
 import { DashboardTable } from '@/components/DashboardTable'
-
-const statusColors: Record<QuoteStatus, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  paid: 'bg-green-100 text-green-800',
-  completed: 'bg-blue-100 text-blue-800',
-  cancelled: 'bg-red-100 text-red-800'
-}
 
 const ITEMS_PER_PAGE = 10
 
@@ -87,44 +79,6 @@ export default function Dashboard() {
       searchTerm: ''
     })
     setCurrentPage(1)
-  }
-
-  const handleExportCSV = () => {
-    const headers = [
-      'ID',
-      'Property Type',
-      'Service Type',
-      'Date',
-      'Time',
-      'Price',
-      'Status'
-    ]
-
-    const csvData = filteredQuotes.map(quote => [
-      quote.id,
-      quote.propertyType,
-      quote.cleaningType,
-      dateUtils.format(quote.preferredDate, 'short'),
-      quote.preferredTime,
-      priceUtils.format(quote.estimatedPrice),
-      quote.status
-    ])
-
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.join(','))
-    ].join('\n')
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    
-    link.setAttribute('href', url)
-    link.setAttribute('download', `cleaning-quotes-${dateUtils.format(new Date(), 'file')}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   if (error) {
