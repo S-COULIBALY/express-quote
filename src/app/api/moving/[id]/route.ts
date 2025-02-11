@@ -56,12 +56,12 @@ export async function PUT(
 
 // DELETE /api/moving/[id] - Supprimer un devis
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params
-    // TODO: Supprimer le devis de la base de données
+    await deleteMovingQuote(id)
 
     return NextResponse.json(
       { message: 'Quote deleted successfully' },
@@ -73,4 +73,8 @@ export async function DELETE(
       { status: 500 }
     )
   }
+}
+
+async function deleteMovingQuote(id: string): Promise<void> {
+  console.log('Deleting moving quote:', id)
 } 

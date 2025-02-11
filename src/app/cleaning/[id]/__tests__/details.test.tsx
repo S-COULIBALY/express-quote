@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import QuoteDetails from '../details/page'
 import { QueryProvider } from '@/providers/QueryProvider'
 import { NotificationProvider } from '@/contexts/NotificationContext'
-import { mockQuotes } from '@/mocks/testData'
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({

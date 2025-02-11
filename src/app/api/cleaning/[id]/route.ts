@@ -66,12 +66,13 @@ export async function PUT(
 
 // DELETE /api/cleaning/[id] - Supprimer un devis de nettoyage
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params
     // TODO: Supprimer le devis de la base de données
+    await deleteQuoteFromDatabase(id)
 
     return NextResponse.json(
       { message: 'Quote deleted successfully' },
@@ -83,4 +84,10 @@ export async function DELETE(
       { status: 500 }
     )
   }
+}
+
+// Fonction fictive pour l'exemple
+async function deleteQuoteFromDatabase(id: string): Promise<void> {
+  // Implémentation à venir
+  console.log('Deleting quote:', id)
 } 

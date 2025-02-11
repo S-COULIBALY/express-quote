@@ -23,11 +23,14 @@ export async function POST(request: Request) {
     const estimatedPrice = calculateCleaningPrice(data)
     
     // TODO: Sauvegarder dans la base de données
+    // Définir un type explicite pour le statut
+    type QuoteStatus = 'pending' | 'paid' | 'completed' | 'cancelled'
+
     const newQuote = {
       id: 'temp-id', // Remplacer par l'ID généré
       ...data,
       estimatedPrice,
-      status: 'pending',
+      status: 'pending' as QuoteStatus,
       createdAt: new Date().toISOString()
     }
 

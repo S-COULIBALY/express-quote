@@ -50,6 +50,18 @@ export async function POST(request: Request): Promise<NextResponse<PaymentRespon
       }
     })
 
+    // Utiliser le quoteId ou le préfixer avec underscore si non utilisé
+    const updatedQuote = {
+      ...quote,
+      id: quoteId, // Utilisation du quoteId
+      status: 'paid',
+      paymentDetails: {
+        ...paymentDetails,
+        transactionId: paymentResult.transactionId,
+        amount: depositAmount
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Paiement traité avec succès'
