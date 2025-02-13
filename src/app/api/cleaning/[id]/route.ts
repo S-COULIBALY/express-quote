@@ -1,27 +1,19 @@
 import { NextResponse } from 'next/server'
+import type { CleaningQuote, QuoteStatus } from '@/types/quote'
+
+interface UpdateQuoteRequest {
+  status: QuoteStatus
+  preferredDate?: string
+  preferredTime?: string
+}
 
 // GET /api/cleaning/[id] - Récupérer un devis de nettoyage spécifique
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params
-    // TODO: Récupérer le devis depuis la base de données
-    const quote = {
-      id,
-      propertyType: 'apartment',
-      squareMeters: '80',
-      numberOfRooms: '3',
-      numberOfBathrooms: '1',
-      cleaningType: 'standard',
-      frequency: 'one-time',
-      preferredDate: '2024-03-20',
-      preferredTime: 'morning',
-      status: 'pending',
-      estimatedPrice: 250,
-      createdAt: new Date().toISOString()
-    }
+    const quote = await getQuoteFromDB(params.id)
 
     if (!quote) {
       return NextResponse.json(
@@ -39,21 +31,14 @@ export async function GET(
   }
 }
 
-// PUT /api/cleaning/[id] - Mettre à jour un devis de nettoyage
-export async function PUT(
+// PATCH /api/cleaning/[id] - Mettre à jour un devis
+export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params
-    const data = await request.json()
-
-    // TODO: Mettre à jour le devis dans la base de données
-    const updatedQuote = {
-      id,
-      ...data,
-      updatedAt: new Date().toISOString()
-    }
+    const updates = await request.json() as UpdateQuoteRequest
+    const updatedQuote = await updateQuoteInDB(params.id, updates)
 
     return NextResponse.json(updatedQuote)
   } catch (error) {
@@ -64,15 +49,13 @@ export async function PUT(
   }
 }
 
-// DELETE /api/cleaning/[id] - Supprimer un devis de nettoyage
+// DELETE /api/cleaning/[id] - Supprimer un devis
 export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params
-    // TODO: Supprimer le devis de la base de données
-    await deleteQuoteFromDatabase(id)
+    await deleteQuoteFromDB(params.id)
 
     return NextResponse.json(
       { message: 'Quote deleted successfully' },
@@ -86,8 +69,33 @@ export async function DELETE(
   }
 }
 
-// Fonction fictive pour l'exemple
-async function deleteQuoteFromDatabase(id: string): Promise<void> {
-  // Implémentation à venir
+async function getQuoteFromDB(id: string): Promise<CleaningQuote | null> {
+  // TODO: Implémenter la récupération depuis la base de données
+  return {
+    id,
+    propertyType: 'apartment',
+    squareMeters: '80',
+    numberOfRooms: '3',
+    numberOfBathrooms: '1',
+    cleaningType: 'standard',
+    frequency: 'one-time',
+    preferredDate: '2024-03-20',
+    preferredTime: 'morning',
+    status: 'pending',
+    estimatedPrice: 250,
+    createdAt: new Date().toISOString()
+  }
+}
+
+async function updateQuoteInDB(id: string, updates: UpdateQuoteRequest): Promise<CleaningQuote> {
+  const quote = await getQuoteFromDB(id)
+  if (!quote) {
+    throw new Error('Quote not found')
+  }
+  return { ...quote, ...updates }
+}
+
+async function deleteQuoteFromDB(id: string): Promise<void> {
+  // TODO: Implémenter la suppression dans la base de données
   console.log('Deleting quote:', id)
 } 

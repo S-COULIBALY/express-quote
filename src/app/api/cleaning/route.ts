@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import type { CleaningQuote } from '@/types/quote'
 
 // GET /api/cleaning - Récupérer tous les devis de nettoyage
 export async function GET() {
@@ -14,27 +15,34 @@ export async function GET() {
   }
 }
 
+interface CreateQuoteRequest extends Omit<CleaningQuote, 'id' | 'createdAt'> {
+  propertyType: string
+  squareMeters: string
+  numberOfRooms: string
+  preferredDate: string
+}
+
 // POST /api/cleaning - Créer un nouveau devis de nettoyage
 export async function POST(request: Request) {
   try {
-    const data = await request.json()
+    const newQuote = await request.json() as CreateQuoteRequest
     
     // TODO: Calculer le prix estimé en fonction des critères
-    const estimatedPrice = calculateCleaningPrice(data)
+    const estimatedPrice = calculateCleaningPrice(newQuote)
     
     // TODO: Sauvegarder dans la base de données
     // Définir un type explicite pour le statut
     type QuoteStatus = 'pending' | 'paid' | 'completed' | 'cancelled'
 
-    const newQuote = {
+    const quote = {
       id: 'temp-id', // Remplacer par l'ID généré
-      ...data,
+      ...newQuote,
       estimatedPrice,
       status: 'pending' as QuoteStatus,
       createdAt: new Date().toISOString()
     }
 
-    return NextResponse.json(newQuote, { status: 201 })
+    return NextResponse.json(quote, { status: 201 })
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to create cleaning quote' },
@@ -44,7 +52,7 @@ export async function POST(request: Request) {
 }
 
 // Fonction utilitaire pour calculer le prix
-function calculateCleaningPrice(data: any): number {
+function calculateCleaningPrice(data: CreateQuoteRequest): number {
   let basePrice = 0
 
   // Prix de base selon le type de propriété

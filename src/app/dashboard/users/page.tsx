@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { DashboardTable } from '@/components/DashboardTable'
 import { Button } from '@/components/Button'
 
@@ -13,38 +14,48 @@ interface User {
   lastQuote: string
 }
 
-export default function UsersPage() {
-  const [isLoading, setIsLoading] = useState(false)
+const columns = [
+  { header: 'Name', accessor: 'name' },
+  { header: 'Email', accessor: 'email' },
+  { header: 'Phone', accessor: 'phone' },
+  { 
+    header: 'Quotes',
+    accessor: 'quotesCount',
+    className: 'text-center'
+  },
+  { 
+    header: 'Last Quote',
+    accessor: (user: User) => new Date(user.lastQuote).toLocaleDateString()
+  }
+]
 
-  // TODO: Implement data fetching with useEffect
+export default function UsersPage() {
+  const router = useRouter()
+  const [isLoading] = useState(false)
   const users: User[] = []
+
+  const handleExportUsers = () => {
+    // TODO: Implement user export functionality
+    console.log('Exporting users...')
+  }
+
+  const handleUserClick = (user: User) => {
+    router.push(`/users/${user.id}`)
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-gray-900">Users</h1>
-        <Button>Export Users</Button>
+        <Button onClick={handleExportUsers}>Export Users</Button>
       </div>
 
       <div className="bg-white shadow rounded-lg">
         <DashboardTable
-          columns={[
-            { header: 'Name', accessor: 'name' },
-            { header: 'Email', accessor: 'email' },
-            { header: 'Phone', accessor: 'phone' },
-            { 
-              header: 'Quotes',
-              accessor: 'quotesCount',
-              className: 'text-center'
-            },
-            { header: 'Last Quote', accessor: 'lastQuote' }
-          ]}
+          columns={columns}
           data={users}
           isLoading={isLoading}
-          onRowClick={(user) => {
-            // TODO: Implement user details view
-            console.log('View user:', user.id)
-          }}
+          onRowClick={handleUserClick}
         />
       </div>
     </div>

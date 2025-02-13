@@ -10,7 +10,7 @@ interface PaginationProps {
 
 export function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
   const getPageNumbers = () => {
-    const pages = []
+    const pages: number[] = []
     const showPages = 5 // Nombre de pages à afficher
     
     const startPage = Math.max(1, currentPage - Math.floor(showPages / 2))

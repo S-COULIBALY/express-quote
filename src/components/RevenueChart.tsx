@@ -24,7 +24,6 @@ ChartJS.register(
 
 interface RevenueChartProps {
   quotes: CleaningQuote[]
-  period?: 'year' | 'month' | 'week'
 }
 
 interface ChartData {
@@ -38,72 +37,42 @@ interface ChartData {
   }[]
 }
 
-export function RevenueChart({ quotes, period = 'month' }: RevenueChartProps) {
-  const calculateMonthlyRevenue = () => {
-    const monthlyData: Record<string, number> = {}
-    const sortedQuotes = [...quotes].sort((a, b) => 
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    )
-
-    // Initialiser les 12 derniers mois
-    const today = new Date()
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      const monthKey = date.toISOString().slice(0, 7) // Format: YYYY-MM
-      monthlyData[monthKey] = 0
-    }
-
-    // Calculer le revenu pour chaque mois
-    sortedQuotes
-      .filter(quote => quote.status === 'completed' || quote.status === 'paid')
-      .forEach(quote => {
-        const monthKey = new Date(quote.createdAt).toISOString().slice(0, 7)
-        if (monthlyData[monthKey] !== undefined) {
-          monthlyData[monthKey] += quote.estimatedPrice
-        }
-      })
-
-    return monthlyData
+interface TooltipContext {
+  raw: number
+  parsed: {
+    y: number
   }
+}
 
-  const monthlyRevenue = calculateMonthlyRevenue()
-  const labels = Object.keys(monthlyRevenue).map(key => {
-    const [year, month] = key.split('-')
-    return new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'short' })
-  })
-
+export function RevenueChart({ quotes }: RevenueChartProps) {
   const data: ChartData = {
-    labels,
-    datasets: [
-      {
-        label: 'Revenue',
-        data: Object.values(monthlyRevenue),
-        backgroundColor: 'rgba(34, 197, 94, 0.5)',
-        borderColor: 'rgb(34, 197, 94)',
-        borderWidth: 1
-      }
-    ]
+    labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'],
+    datasets: [{
+      label: 'Revenu mensuel',
+      data: Array(12).fill(0),
+      backgroundColor: 'rgba(34, 197, 94, 0.2)',
+      borderColor: 'rgb(34, 197, 94)',
+      borderWidth: 1
+    }]
   }
+
+  // Calculer les revenus par mois
+  quotes.forEach(quote => {
+    const date = new Date(quote.createdAt)
+    const monthIndex = date.getMonth()
+    data.datasets[0].data[monthIndex] += quote.estimatedPrice
+  })
 
   const options = {
     responsive: true,
     plugins: {
       legend: {
-        display: false
-      },
-      title: {
-        display: true,
-        text: 'Monthly Revenue',
-        color: '#374151',
-        font: {
-          size: 16,
-          weight: '500'
-        }
+        position: 'top' as const
       },
       tooltip: {
         callbacks: {
-          label: (context: any) => {
-            return `Revenue: ${priceUtils.format(context.raw)}`
+          label: (context: TooltipContext) => {
+            return `Revenu: ${priceUtils.format(context.raw)}`
           }
         }
       }

@@ -1,7 +1,5 @@
 'use client'
 
-import { priceUtils } from '@/utils/priceUtils'
-
 interface BaseQuoteRecapProps {
   title: string
   date: string
@@ -15,6 +13,13 @@ interface BaseQuoteRecapProps {
   selectedOptions: Array<{ label: string; price: string | number }>
   additionalDetails?: Record<string, string | number>
 }
+
+const labels = {
+  startAddress: "L&apos;adresse de départ",
+  endAddress: "L&apos;adresse d&apos;arrivée",
+  basePrice: "Coût de base",
+  totalPrice: "Total TTC"
+};
 
 export function QuoteRecap({
   title,
@@ -57,11 +62,11 @@ export function QuoteRecap({
         ) : (
           <div className="space-y-2">
             <div className="flex justify-between items-start">
-              <span className="text-gray-600">L&apos;adresse de départ</span>
+              <span className="text-gray-600">{labels.startAddress}</span>
               <span className="font-medium text-right">{address.pickup}</span>
             </div>
             <div className="flex justify-between items-start">
-              <span className="text-gray-600">Adresse d&apos;arrivée</span>
+              <span className="text-gray-600">{labels.endAddress}</span>
               <span className="font-medium text-right">{address.delivery}</span>
             </div>
           </div>
@@ -103,7 +108,7 @@ export function QuoteRecap({
               </div>
             )}
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Coût de base</span>
+              <span className="text-gray-600">{labels.basePrice}</span>
               <span className="font-medium">{formatPrice(pricing.baseCost)}</span>
             </div>
             {pricing.additionalCosts.map((cost, index) => (
@@ -114,7 +119,7 @@ export function QuoteRecap({
             ))}
             <div className="border-t pt-2 mt-2">
               <div className="flex justify-between items-center">
-                <span className="text-lg font-bold text-gray-900">Total TTC</span>
+                <span className="text-lg font-bold text-gray-900">{labels.totalPrice}</span>
                 <span className="text-lg font-bold text-blue-600">
                   {formatPrice(pricing.totalCost)}
                 </span>

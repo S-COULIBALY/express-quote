@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function MovingSuccess() {
+export default function SuccessPage() {
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('id')
-  const [quoteData, setQuoteData] = useState(null)
+  const [_quoteData, setQuoteData] = useState(null)
 
   useEffect(() => {
     if (quoteId) {

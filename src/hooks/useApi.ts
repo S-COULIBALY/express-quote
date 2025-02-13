@@ -7,9 +7,15 @@ interface ApiState<T> {
 }
 
 interface ApiOptions {
-  method?: string
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   headers?: Record<string, string>
   body?: Record<string, unknown>
+}
+
+interface ApiResponse<T> {
+  data: T
+  error: string | null
+  isLoading: boolean
 }
 
 export function useApi<T>() {
@@ -19,7 +25,7 @@ export function useApi<T>() {
     isLoading: false
   })
 
-  const request = async (url: string, options: ApiOptions = {}): Promise<ApiState<T>> => {
+  const request = async (url: string, options: ApiOptions = {}): Promise<ApiResponse<T>> => {
     setState(prev => ({ ...prev, isLoading: true }))
 
     try {
@@ -37,12 +43,14 @@ export function useApi<T>() {
       }
 
       const data = await response.json()
-      setState({ data, error: null, isLoading: false })
-      return { data, error: null, isLoading: false }
+      const result = { data, error: null, isLoading: false }
+      setState(result)
+      return result
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue'
-      setState({ data: null, error: errorMessage, isLoading: false })
-      return { data: null, error: errorMessage, isLoading: false }
+      const result = { data: null as T, error: errorMessage, isLoading: false }
+      setState(result)
+      return result
     }
   }
 

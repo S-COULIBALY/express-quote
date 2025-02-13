@@ -20,6 +20,7 @@ module.exports = {
     }],
     '@typescript-eslint/no-explicit-any': 'warn',
     'react/no-unescaped-entities': 'off',
-    'prefer-const': 'warn'
+    'prefer-const': 'warn',
+    'react-hooks/exhaustive-deps': 'warn'
   }
 } 

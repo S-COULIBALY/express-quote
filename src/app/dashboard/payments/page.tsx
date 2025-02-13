@@ -5,50 +5,55 @@ import { DashboardTable } from '@/components/DashboardTable'
 
 interface Payment {
   id: string
-  quoteId: string
+  clientName: string
   amount: number
   status: 'successful' | 'pending' | 'failed'
-  createdAt: string
-  clientName: string
   paymentMethod: string
+  createdAt: string
 }
 
-export default function PaymentsPage() {
-  const [isLoading, _setIsLoading] = useState(false)
+const columns = [
+  { header: 'Client', accessor: 'clientName' },
+  { 
+    header: 'Status',
+    accessor: (payment: Payment) => (
+      <span className={`px-2 py-1 rounded-full text-sm ${
+        payment.status === 'successful' ? 'bg-green-100 text-green-800' :
+        payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+        'bg-red-100 text-red-800'
+      }`}>
+        {payment.status}
+      </span>
+    )
+  },
+  { header: 'Method', accessor: 'paymentMethod' },
+  { 
+    header: 'Date',
+    accessor: (payment: Payment) => new Date(payment.createdAt).toLocaleDateString()
+  },
+  { 
+    header: 'Amount',
+    accessor: (payment: Payment) => new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(payment.amount),
+    className: 'text-right'
+  }
+]
 
-  // TODO: Implement data fetching with useEffect
+export default function PaymentsPage() {
+  const [isLoading] = useState(false)
   const payments: Payment[] = []
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-900">Payments</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold text-gray-900">Payments</h1>
+      </div>
 
       <div className="bg-white shadow rounded-lg">
         <DashboardTable
-          columns={[
-            { header: 'Payment ID', accessor: 'id' },
-            { header: 'Quote ID', accessor: 'quoteId' },
-            { header: 'Client', accessor: 'clientName' },
-            { 
-              header: 'Status',
-              accessor: (payment) => (
-                <span className={`px-2 py-1 rounded-full text-sm ${
-                  payment.status === 'successful' ? 'bg-green-100 text-green-800' :
-                  payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {payment.status}
-                </span>
-              )
-            },
-            { header: 'Method', accessor: 'paymentMethod' },
-            { header: 'Date', accessor: 'createdAt' },
-            { 
-              header: 'Amount',
-              accessor: (payment) => `$${payment.amount.toFixed(2)}`,
-              className: 'text-right'
-            }
-          ]}
+          columns={columns}
           data={payments}
           isLoading={isLoading}
         />

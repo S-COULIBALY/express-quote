@@ -1,8 +1,10 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import Link from 'next/link'
-import { Button } from './Button'
+import { Button } from '@/components/Button'
 import { useRouter } from 'next/navigation'
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 export function Header() {
   const router = useRouter()

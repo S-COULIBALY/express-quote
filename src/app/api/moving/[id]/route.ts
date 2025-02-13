@@ -1,17 +1,21 @@
 import { NextResponse } from 'next/server'
+import type { MovingQuote, QuoteStatus } from '@/types/quote'
+
+interface UpdateQuoteRequest {
+  status: QuoteStatus
+  preferredDate?: string
+  preferredTime?: string
+  totalCost?: number
+}
 
 // GET /api/moving/[id] - Récupérer un devis spécifique
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params
-    // TODO: Récupérer le devis depuis la base de données
-    const quote = {
-      id,
-      // autres données du devis
-    }
+    const quote = await getQuoteFromDB(id)
 
     if (!quote) {
       return NextResponse.json(
@@ -29,21 +33,15 @@ export async function GET(
   }
 }
 
-// PUT /api/moving/[id] - Mettre à jour un devis
-export async function PUT(
+// PATCH /api/moving/[id] - Mettre à jour un devis
+export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params
-    const data = await request.json()
-
-    // TODO: Mettre à jour le devis dans la base de données
-    const updatedQuote = {
-      id,
-      ...data,
-      updatedAt: new Date().toISOString()
-    }
+    const updates = await request.json() as UpdateQuoteRequest
+    const updatedQuote = await updateQuoteInDB(id, updates)
 
     return NextResponse.json(updatedQuote)
   } catch (error) {
@@ -61,7 +59,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = params
-    await deleteMovingQuote(id)
+    await deleteQuoteFromDB(id)
 
     return NextResponse.json(
       { message: 'Quote deleted successfully' },
@@ -75,6 +73,35 @@ export async function DELETE(
   }
 }
 
-async function deleteMovingQuote(id: string): Promise<void> {
-  console.log('Deleting moving quote:', id)
+async function getQuoteFromDB(id: string): Promise<MovingQuote | null> {
+  // TODO: Implémenter la récupération depuis la base de données
+  return {
+    id,
+    status: 'pending',
+    pickupAddress: '123 Rue du Départ',
+    deliveryAddress: '456 Rue d\'Arrivée',
+    preferredDate: '2024-04-01',
+    preferredTime: 'morning',
+    volume: '30',
+    options: {
+      packing: false,
+      assembly: false,
+      insurance: true
+    },
+    estimatedPrice: 500,
+    createdAt: new Date().toISOString()
+  }
+}
+
+async function updateQuoteInDB(id: string, updates: UpdateQuoteRequest): Promise<MovingQuote> {
+  const quote = await getQuoteFromDB(id)
+  if (!quote) {
+    throw new Error('Quote not found')
+  }
+  return { ...quote, ...updates }
+}
+
+async function deleteQuoteFromDB(id: string): Promise<void> {
+  // TODO: Implémenter la suppression dans la base de données
+  console.log('Deleting quote:', id)
 } 
