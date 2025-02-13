@@ -13,7 +13,17 @@ jest.mock('next/navigation', () => ({
 
 // Mock des fonctions fetch
 const mockFetch = jest.fn()
-global.fetch = mockFetch
+global.fetch = mockFetch as jest.Mock
+
+const renderComponent = () => {
+  return render(
+    <QueryProvider>
+      <NotificationProvider>
+        <QuoteDetails params={{ id: '1' }} />
+      </NotificationProvider>
+    </QueryProvider>
+  )
+}
 
 describe('QuoteDetails', () => {
   beforeEach(() => {
@@ -22,8 +32,10 @@ describe('QuoteDetails', () => {
       ok: true,
       json: () => Promise.resolve({
         id: '1',
+        propertyType: 'apartment',
+        cleaningType: 'standard',
         status: 'pending',
-        // ... autres propriétés du devis
+        estimatedPrice: 200
       })
     })
   })
@@ -31,16 +43,6 @@ describe('QuoteDetails', () => {
   afterEach(() => {
     jest.clearAllMocks()
   })
-
-  const renderComponent = () => {
-    render(
-      <QueryProvider>
-        <NotificationProvider>
-          <QuoteDetails params={{ id: '1' }} />
-        </NotificationProvider>
-      </QueryProvider>
-    )
-  }
 
   it('renders loading state initially', () => {
     renderComponent()

@@ -12,9 +12,15 @@ export default function Home() {
               <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
                 Simplifiez votre déménagement et nettoyage
               </h1>
-              <p className="text-xl text-gray-600 mb-8">
-                Obtenez un devis instantané pour vos services de déménagement et nettoyage. 
-                Une solution simple et transparente pour tous vos besoins.
+              <p className="text-lg text-gray-600 mb-8">
+                &ldquo;ExpressQuote nous a permis de simplifier notre déménagement. Le service était impeccable !&rdquo;
+                <br />
+                <span className="text-sm">- Marie D., cliente satisfaite</span>
+              </p>
+              <p className="text-lg text-gray-600 mb-8">
+                &ldquo;Un service client exceptionnel et des prix transparents. Je recommande !&rdquo;
+                <br />
+                <span className="text-sm">- Jean M., client satisfait</span>
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link 

@@ -57,11 +57,11 @@ export function QuoteRecap({
         ) : (
           <div className="space-y-2">
             <div className="flex justify-between items-start">
-              <span className="text-gray-600">Adresse de départ</span>
+              <span className="text-gray-600">L&apos;adresse de départ</span>
               <span className="font-medium text-right">{address.pickup}</span>
             </div>
             <div className="flex justify-between items-start">
-              <span className="text-gray-600">Adresse d'arrivée</span>
+              <span className="text-gray-600">Adresse d&apos;arrivée</span>
               <span className="font-medium text-right">{address.delivery}</span>
             </div>
           </div>

@@ -13,14 +13,14 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
     const pages = []
     const showPages = 5 // Nombre de pages à afficher
     
-    let startPage = Math.max(1, currentPage - Math.floor(showPages / 2))
+    const startPage = Math.max(1, currentPage - Math.floor(showPages / 2))
     const endPage = Math.min(startPage + showPages - 1, totalPages)
     
-    if (endPage - startPage + 1 < showPages) {
-      startPage = Math.max(1, endPage - showPages + 1)
-    }
+    const adjustedStartPage = endPage - startPage + 1 < showPages 
+      ? Math.max(1, endPage - showPages + 1) 
+      : startPage
 
-    for (let i = startPage; i <= endPage; i++) {
+    for (let i = adjustedStartPage; i <= endPage; i++) {
       pages.push(i)
     }
 
