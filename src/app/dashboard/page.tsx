@@ -2,8 +2,6 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { dateUtils } from '@/utils/dateUtils'
-import { priceUtils } from '@/utils/priceUtils'
 import type { QuoteStatus } from '@/types/quote'
 import { useQuotes } from '@/hooks/useQuotes'
 import { usePagination } from '@/hooks/usePagination'

@@ -62,6 +62,11 @@ export async function POST(request: Request): Promise<NextResponse<PaymentRespon
       }
     }
 
+    const _updatedQuote = await updateQuoteInDB(quoteId, {
+      status: 'paid',
+      paymentId: paymentResult.transactionId
+    })
+
     return NextResponse.json({
       success: true,
       message: 'Paiement traité avec succès'
@@ -79,11 +84,23 @@ export async function POST(request: Request): Promise<NextResponse<PaymentRespon
   }
 }
 
-async function getQuoteFromDB(quoteId: string): Promise<MovingQuote> {
+async function getQuoteFromDB(_quoteId: string): Promise<MovingQuote> {
   // TODO: Implémenter la récupération depuis la base de données
   const quoteData = localStorage.getItem('movingQuote')
   if (!quoteData) {
     throw new Error('Devis non trouvé')
   }
   return JSON.parse(quoteData)
+}
+
+async function updateQuoteInDB(quoteId: string, update: Partial<MovingQuote>): Promise<MovingQuote> {
+  // TODO: Implémenter la mise à jour dans la base de données
+  const quoteData = localStorage.getItem('movingQuote')
+  if (!quoteData) {
+    throw new Error('Devis non trouvé')
+  }
+  const quote = JSON.parse(quoteData)
+  const updatedQuote = { ...quote, ...update }
+  localStorage.setItem('movingQuote', JSON.stringify(updatedQuote))
+  return updatedQuote
 } 

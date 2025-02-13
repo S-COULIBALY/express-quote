@@ -12,7 +12,6 @@ import {
 import { Bar } from 'react-chartjs-2'
 import { CleaningQuote } from '@/types/quote'
 import { priceUtils } from '@/utils/priceUtils'
-import { dateUtils } from '@/utils/dateUtils'
 
 ChartJS.register(
   CategoryScale,

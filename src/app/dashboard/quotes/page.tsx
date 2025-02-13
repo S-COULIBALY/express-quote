@@ -8,7 +8,7 @@ type QuoteType = 'all' | 'moving' | 'cleaning'
 
 export default function QuotesPage() {
   const [quoteType, setQuoteType] = useState<QuoteType>('all')
-  const [isLoading, setIsLoading] = useState(false)
+  const [_isLoading, _setIsLoading] = useState(false)
 
   // TODO: Implement data fetching with useEffect
 
@@ -53,7 +53,7 @@ export default function QuotesPage() {
           }
         ]}
         data={[]} // TODO: Add real data
-        isLoading={isLoading}
+        isLoading={_isLoading}
         onRowClick={(quote) => {
           // TODO: Implement navigation to quote details
           console.log('Navigate to quote:', quote.id)

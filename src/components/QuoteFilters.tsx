@@ -12,11 +12,11 @@ interface FilterOptions {
 
 interface QuoteFiltersProps {
   onFilter: (filters: FilterOptions) => void
-  onReset: () => void
-  initialFilters?: Partial<FilterOptions>
+  onReset?: () => void
+  _initialFilters?: FilterOptions
 }
 
-export function QuoteFilters({ onFilter, onReset, initialFilters }: QuoteFiltersProps) {
+export function QuoteFilters({ onFilter, onReset, _initialFilters }: QuoteFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [filters, setFilters] = useState<FilterOptions>({
     status: 'all',
@@ -36,7 +36,7 @@ export function QuoteFilters({ onFilter, onReset, initialFilters }: QuoteFilters
       cleaningType: 'all',
       searchTerm: ''
     })
-    onReset()
+    onReset?.()
   }
 
   return (
