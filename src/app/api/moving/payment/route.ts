@@ -23,7 +23,7 @@ interface PaymentResponse {
 
 export async function POST(request: Request): Promise<NextResponse<PaymentResponse>> {
   try {
-    const { paymentDetails } = await request.json() as PaymentRequest
+    const { _quoteId, ...paymentDetails } = await request.json() as PaymentRequest
 
     // Simuler le traitement du paiement
     const paymentResult = {

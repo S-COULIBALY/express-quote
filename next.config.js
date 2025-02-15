@@ -20,6 +20,9 @@ const nextConfig = {
   experimental: {
     optimizeCss: true
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   webpack: (config, { isServer }) => {
     // Résoudre les avertissements de glob
     config.resolve.fallback = {

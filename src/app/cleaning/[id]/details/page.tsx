@@ -42,8 +42,10 @@ export default function QuoteDetails({
   }, [params.id, showNotification])
 
   useEffect(() => {
-    fetchQuote()
-  }, [fetchQuote])
+    if (params.id) {
+      fetchQuote()
+    }
+  }, [params.id, fetchQuote])
 
   const handleStatusChange = async (newStatus: QuoteStatus) => {
     try {

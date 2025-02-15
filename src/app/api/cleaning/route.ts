@@ -5,7 +5,7 @@ import type { CleaningQuote } from '@/types/quote'
 export async function GET() {
   try {
     // TODO: Implémenter la connexion à la base de données
-    const quotes = [] // Remplacer par la vraie requête
+    const quotes: CleaningQuote[] = [] // Remplacer par la vraie requête
     return NextResponse.json(quotes)
   } catch (error) {
     return NextResponse.json(

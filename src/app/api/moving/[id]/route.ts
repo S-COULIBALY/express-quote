@@ -101,7 +101,7 @@ async function updateQuoteInDB(id: string, updates: UpdateQuoteRequest): Promise
   return { ...quote, ...updates }
 }
 
-async function deleteQuoteFromDB(id: string): Promise<void> {
+async function deleteQuoteFromDB(_id: string): Promise<void> {
   // TODO: Implémenter la suppression dans la base de données
-  console.log('Deleting quote:', id)
+  console.log('Deleting quote:', _id)
 } 
