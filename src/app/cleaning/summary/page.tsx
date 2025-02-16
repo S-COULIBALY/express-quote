@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { QuoteRecap } from '@/components/QuoteRecap'
 import { Button } from '@/components/Button'
@@ -18,7 +18,15 @@ interface CleaningQuoteData extends Omit<CleaningQuote, 'options'> {
   totalCost: number
 }
 
-export default function CleaningQuoteSummary() {
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CleaningSummaryContent />
+    </Suspense>
+  )
+}
+
+function CleaningSummaryContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('id')

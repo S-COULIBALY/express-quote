@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface PaymentFormData {
@@ -12,7 +12,15 @@ interface PaymentFormData {
   cvv: string
 }
 
-export default function MovingPayment() {
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MovingPaymentContent />
+    </Suspense>
+  )
+}
+
+function MovingPaymentContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('id')

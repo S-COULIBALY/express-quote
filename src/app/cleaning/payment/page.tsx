@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FormField, TextInput } from '@/components/Form'
 import { Button } from '@/components/Button'
@@ -20,7 +20,15 @@ interface PaymentFormData extends Record<string, string> {
   cvv: string
 }
 
-export default function CleaningPayment() {
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CleaningPaymentContent />
+    </Suspense>
+  )
+}
+
+function CleaningPaymentContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('id')

@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
 import { emailTemplates } from './emailTemplates'
+import type { EmailTemplateData } from './emailTemplates'
 
 interface EmailAttachment {
   filename: string
@@ -10,7 +11,7 @@ interface EmailOptions {
   to: string
   subject: string
   template: keyof typeof emailTemplates
-  templateData: Record<string, unknown>
+  templateData: EmailTemplateData
   attachments?: EmailAttachment[]
 }
 
@@ -47,7 +48,7 @@ export const emailUtils = {
 
   async sendBookingConfirmation(
     to: string, 
-    templateData: Record<string, unknown>, 
+    templateData: EmailTemplateData,
     attachments?: EmailAttachment[]
   ): Promise<void> {
     await this.sendEmail({
@@ -61,7 +62,7 @@ export const emailUtils = {
 
   async sendPaymentReceipt(
     to: string, 
-    templateData: Record<string, unknown>, 
+    templateData: EmailTemplateData,
     pdfBuffer: Buffer
   ): Promise<void> {
     await this.sendEmail({

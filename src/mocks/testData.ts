@@ -14,7 +14,14 @@ export const mockQuotes: CleaningQuote[] = [
     frequency: 'one-time',
     estimatedPrice: 250,
     status: 'pending',
-    createdAt: '2024-03-15T10:00:00Z'
+    createdAt: '2024-03-15T10:00:00Z',
+    options: {
+      windows: false,
+      deepCleaning: false,
+      carpets: false,
+      furniture: false,
+      appliances: false
+    }
   },
   {
     id: '2',
@@ -28,7 +35,14 @@ export const mockQuotes: CleaningQuote[] = [
     frequency: 'weekly',
     estimatedPrice: 450,
     status: 'paid',
-    createdAt: '2024-03-16T11:00:00Z'
+    createdAt: '2024-03-16T11:00:00Z',
+    options: {
+      windows: false,
+      deepCleaning: true,
+      carpets: true,
+      furniture: false,
+      appliances: true
+    }
   },
   // ... autres devis de test
 ]
@@ -42,6 +56,8 @@ export const mockMovingQuotes: MovingQuote[] = [
     deliveryAddress: '456 Rue Arrivée',
     volume: '30',
     createdAt: '2024-03-15T10:00:00Z',
+    preferredDate: '2024-04-01',
+    preferredTime: '09:00',
     options: {
       packing: false,
       assembly: false,

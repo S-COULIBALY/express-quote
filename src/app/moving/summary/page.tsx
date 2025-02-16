@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { QuoteRecap } from '@/components/QuoteRecap'
 import { Button } from '@/components/Button'
@@ -21,7 +21,15 @@ interface MovingQuoteData extends MovingQuote {
   totalCost: number
 }
 
-export default function MovingQuoteSummary() {
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MovingSummaryContent />
+    </Suspense>
+  )
+}
+
+function MovingSummaryContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('id')

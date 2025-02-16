@@ -2,7 +2,7 @@ import { CleaningQuote } from '@/types/quote'
 import { dateUtils } from './dateUtils'
 import { priceUtils } from './priceUtils'
 
-interface EmailTemplateData {
+export interface EmailTemplateData {
   quote: CleaningQuote
   clientName: string
   paymentDetails?: {

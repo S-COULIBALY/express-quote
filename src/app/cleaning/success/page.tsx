@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -14,7 +14,15 @@ interface CleaningQuote {
   estimatedPrice: number
 }
 
-export default function CleaningSuccess() {
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SuccessContent />
+    </Suspense>
+  )
+}
+
+function SuccessContent() {
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('id')
   const [quoteData, setQuoteData] = useState<CleaningQuote | null>(null)
