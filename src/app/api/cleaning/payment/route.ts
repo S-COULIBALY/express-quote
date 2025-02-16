@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import { generatePDF } from '@/lib/generatePDF'
 import { sendEmail } from '@/lib/sendEmail'
+import type { CleaningQuote } from '@/types/quote'
+
+// Ajout du type pour le devis mis à jour
+interface UpdatedQuote extends CleaningQuote {
+  paymentId: string
+  depositPaid: number
+  updatedAt: string
+}
 
 export async function POST(request: Request) {
   try {
@@ -11,8 +19,13 @@ export async function POST(request: Request) {
     const quote = {
       id: quoteId,
       estimatedPrice: 250,
-      // autres détails du devis...
-    }
+      preferredDate: '2024-04-01',
+      preferredTime: '09:00',
+      propertyType: 'apartment',
+      cleaningType: 'standard',
+      status: 'pending',
+      // ... autres propriétés requises de CleaningQuote
+    } as CleaningQuote
 
     // TODO: Calculer le montant du dépôt (30%)
     const depositAmount = quote.estimatedPrice * 0.3
@@ -30,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     // TODO: Mettre à jour le statut du devis dans la base de données
-    const updatedQuote = {
+    const updatedQuote: UpdatedQuote = {
       ...quote,
       status: 'paid',
       paymentId: paymentResult.transactionId,
@@ -41,11 +54,11 @@ export async function POST(request: Request) {
     // Générer le PDF du devis
     const pdfBuffer = await generatePDF({
       quoteId,
-      quoteData: updatedQuote,
+      quote: updatedQuote,
       paymentDetails: {
         ...paymentDetails,
         transactionId: paymentResult.transactionId,
-        amount: depositAmount
+        amount: paymentResult.amount
       }
     })
 
@@ -54,7 +67,7 @@ export async function POST(request: Request) {
       to: paymentDetails.email,
       subject: 'Cleaning Service Booking Confirmation',
       pdfBuffer,
-      templateData: {
+      context: {
         clientName: paymentDetails.fullName,
         quoteId,
         amount: depositAmount,

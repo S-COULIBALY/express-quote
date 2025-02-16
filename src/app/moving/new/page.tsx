@@ -210,7 +210,14 @@ export default function NewMovingQuote() {
           {/* Résumé du devis */}
           {showQuote && (
             <QuoteSummary 
-              formData={formData} 
+              type="moving"
+              id=""
+              status="pending"
+              createdAt={new Date().toISOString()}
+              date={formData.movingDate}
+              time=""
+              estimatedPrice={quoteDetails.totalCost}
+              formData={formData}
               quoteDetails={quoteDetails}
               isCalculating={isCalculating}
             />

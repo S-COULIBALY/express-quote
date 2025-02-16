@@ -1,4 +1,5 @@
 import { CleaningQuote } from '@/types/quote'
+import { MovingQuote } from '@/types/quote'
 
 export const mockQuotes: CleaningQuote[] = [
   {
@@ -30,4 +31,23 @@ export const mockQuotes: CleaningQuote[] = [
     createdAt: '2024-03-16T11:00:00Z'
   },
   // ... autres devis de test
+]
+
+export const mockMovingQuotes: MovingQuote[] = [
+  {
+    id: '1',
+    status: 'pending',
+    estimatedPrice: 250,
+    pickupAddress: '123 Rue Départ',
+    deliveryAddress: '456 Rue Arrivée',
+    volume: '30',
+    createdAt: '2024-03-15T10:00:00Z',
+    options: {
+      packing: false,
+      assembly: false,
+      disassembly: false,
+      insurance: true,
+      storage: false
+    }
+  }
 ] 

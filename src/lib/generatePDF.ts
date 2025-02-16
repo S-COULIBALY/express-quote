@@ -1,18 +1,8 @@
-interface QuoteData {
-  id: string
-  propertyType: string
-  cleaningType: string
-  preferredDate: string
-  preferredTime: string
-  status: string
-  estimatedPrice: number
-  paymentId?: string
-  depositPaid?: number
-}
+import { CleaningQuote, MovingQuote } from '@/types/quote'
 
 interface PDFData {
   quoteId: string
-  quote: QuoteData
+  quote: CleaningQuote | MovingQuote
   paymentDetails: {
     fullName: string
     email: string

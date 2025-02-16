@@ -4,16 +4,17 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { QuoteRecap } from '@/components/QuoteRecap'
 import { Button } from '@/components/Button'
-import type { CleaningQuote } from '@/types/quote'
+import type { CleaningQuote, CleaningOptions } from '@/types/quote'
 
-interface CleaningQuoteData extends CleaningQuote {
+interface CleaningQuoteData extends Omit<CleaningQuote, 'options'> {
   propertyType: string
   cleaningType: string
   squareMeters: string
   numberOfRooms: string
   numberOfBathrooms: string
   frequency: string
-  options: Record<string, boolean>
+  address: string
+  options: CleaningOptions
   totalCost: number
 }
 

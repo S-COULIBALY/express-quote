@@ -4,59 +4,63 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/Button'
 import { QuoteSummary } from '@/components/QuoteSummary'
+import { Modal } from '@/components/Modal'
+import { useNotification } from '@/contexts/NotificationContext'
+import type { CleaningQuote } from '@/types/quote'
 
-interface CleaningQuote {
+interface QuoteSummaryData {
   id: string
-  propertyType: string
-  squareMeters: string
-  numberOfRooms: string
-  numberOfBathrooms: string
-  cleaningType: string
-  frequency: string
-  preferredDate: string
-  preferredTime: string
-  specialRequests?: string
+  type: 'cleaning'
   status: string
-  estimatedPrice: number
   createdAt: string
+  propertyType: string
+  cleaningType: string
+  date: string
+  time: string
+  estimatedPrice: number
 }
 
-export default function CleaningQuoteDetails({ 
-  params 
-}: { 
-  params: { id: string } 
-}) {
+export default function QuoteDetails({ params }: { params: { id: string } }) {
   const router = useRouter()
+  const { showNotification } = useNotification()
   const [quote, setQuote] = useState<CleaningQuote | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [showCancelModal, setShowCancelModal] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/cleaning/${params.id}`)
-      .then(res => res.json())
-      .then(data => {
+    const fetchQuote = async () => {
+      try {
+        const response = await fetch(`/api/cleaning/${params.id}`)
+        if (!response.ok) throw new Error('Failed to fetch quote')
+        const data = await response.json()
         setQuote(data)
+      } catch (error) {
+        showNotification('error', 'Failed to load quote details')
+        console.error('Error:', error)
+      } finally {
         setIsLoading(false)
-      })
-      .catch(err => {
-        console.error('Error fetching quote:', err)
-        setIsLoading(false)
-      })
-  }, [params.id])
+      }
+    }
+    fetchQuote()
+  }, [params.id, showNotification])
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this quote?')) return
-
+  const handleCancel = async () => {
     try {
       const response = await fetch(`/api/cleaning/${params.id}`, {
-        method: 'DELETE'
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled' })
       })
 
-      if (response.ok) {
-        router.push('/cleaning')
-      }
+      if (!response.ok) throw new Error('Failed to cancel quote')
+      
+      showNotification('success', 'Quote cancelled successfully')
+      router.push('/dashboard/quotes')
     } catch (error) {
-      console.error('Error deleting quote:', error)
+      showNotification('error', 'Failed to cancel quote')
+      console.error('Error:', error)
     }
+    setShowCancelModal(false)
   }
 
   if (isLoading) {
@@ -69,38 +73,62 @@ export default function CleaningQuoteDetails({
 
   return (
     <main className="p-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Quote Details</h1>
           <div className="flex gap-4">
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/cleaning/${params.id}/edit`)}
-            >
-              Edit Quote
+            <Button variant="outline" onClick={() => router.back()}>
+              Back
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleDelete}
-            >
-              Delete Quote
-            </Button>
+            {quote.status === 'pending' && (
+              <>
+                <Button onClick={() => router.push(`/cleaning/${quote.id}/edit`)}>
+                  Edit Quote
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowCancelModal(true)}
+                >
+                  Cancel Quote
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
-        <QuoteSummary
-          quote={{
-            id: quote.id,
-            type: 'cleaning',
-            status: quote.status,
-            createdAt: quote.createdAt,
-            propertyType: quote.propertyType,
-            cleaningType: quote.cleaningType,
-            date: quote.preferredDate,
-            time: quote.preferredTime,
-            estimatedPrice: quote.estimatedPrice
-          }}
+        <QuoteSummary 
+          type="cleaning"
+          id={quote.id}
+          status={quote.status}
+          createdAt={quote.createdAt}
+          propertyType={quote.propertyType}
+          cleaningType={quote.cleaningType}
+          date={quote.preferredDate}
+          time={quote.preferredTime}
+          estimatedPrice={quote.estimatedPrice}
         />
+
+        <Modal
+          isOpen={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+          title="Cancel Quote"
+        >
+          <p className="mb-4">Are you sure you want to cancel this quote?</p>
+          <div className="flex justify-end gap-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelModal(false)}
+            >
+              No, keep it
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleCancel}
+            >
+              Yes, cancel it
+            </Button>
+          </div>
+        </Modal>
       </div>
     </main>
   )

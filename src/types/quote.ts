@@ -12,26 +12,29 @@ export interface BaseQuoteFormData {
 
 export type QuoteStatus = 'pending' | 'paid' | 'completed' | 'cancelled'
 
+export interface CleaningOptions {
+  windows: boolean
+  deepCleaning: boolean
+  carpets: boolean
+  furniture: boolean
+  appliances: boolean
+}
+
 export interface CleaningQuote {
   id: string
   propertyType: string
-  cleaningType: string
   squareMeters: string
   numberOfRooms: string
   numberOfBathrooms: string
+  cleaningType: string
+  frequency: string
   preferredDate: string
   preferredTime: string
-  frequency: string
-  estimatedPrice: number
   status: QuoteStatus
+  estimatedPrice: number
   createdAt: string
-  options: {
-    windows: boolean
-    deepCleaning: boolean
-    carpets: boolean
-    furniture: boolean
-    appliances: boolean
-  }
+  options: CleaningOptions
+  specialRequests?: string
 }
 
 export interface QuoteDetails {
@@ -43,20 +46,25 @@ export interface QuoteDetails {
   totalCost: number
 }
 
+interface MovingOptions {
+  packing: boolean
+  assembly: boolean
+  disassembly: boolean
+  insurance: boolean
+  storage: boolean
+}
+
 export interface MovingQuote {
   id: string
-  movingDate: string
-  volume: string
+  status: QuoteStatus
   pickupAddress: string
   deliveryAddress: string
-  options: {
-    packing: boolean
-    assembly: boolean
-    disassembly: boolean
-    insurance: boolean
-    storage: boolean
-  }
-  totalCost: number
+  preferredDate: string
+  preferredTime: string
+  volume: string
+  options: MovingOptions
+  estimatedPrice: number
+  createdAt: string
 }
 
 export interface MovingFormData {

@@ -24,7 +24,7 @@ export const WithInitialFilters: Story = {
   args: {
     onFilter: (filters) => console.log('Filters:', filters),
     onReset: () => console.log('Reset filters'),
-    initialFilters: {
+    _initialFilters: {
       status: 'pending',
       cleaningType: 'standard',
       searchTerm: 'test'

@@ -86,7 +86,9 @@ async function getQuoteFromDB(id: string): Promise<MovingQuote | null> {
     options: {
       packing: false,
       assembly: false,
-      insurance: true
+      disassembly: false,
+      insurance: true,
+      storage: false
     },
     estimatedPrice: 500,
     createdAt: new Date().toISOString()

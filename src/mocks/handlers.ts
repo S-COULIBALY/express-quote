@@ -1,4 +1,4 @@
-import { rest } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { CleaningQuote, QuoteStatus } from '@/types/quote'
 import { mockQuotes } from './testData'
 
@@ -7,31 +7,31 @@ interface UpdateQuoteRequest {
 }
 
 export const handlers = [
-  rest.get('/api/cleaning', (_req, res, ctx) => {
-    return res(ctx.status(200), ctx.json(mockQuotes))
+  http.get('/api/cleaning', () => {
+    return HttpResponse.json(mockQuotes)
   }),
 
-  rest.put('/api/cleaning/:id', async (req, res, ctx) => {
-    const { id } = req.params
-    const { status } = await req.json() as UpdateQuoteRequest
+  http.put('/api/cleaning/:id', async ({ params, request }) => {
+    const { id } = params
+    const { status } = await request.json() as UpdateQuoteRequest
     
     const quote = mockQuotes.find(q => q.id === id)
     if (!quote) {
-      return res(ctx.status(404))
+      return new HttpResponse(null, { status: 404 })
     }
 
     quote.status = status
-    return res(ctx.status(200), ctx.json(quote))
+    return HttpResponse.json(quote)
   }),
 
-  rest.post('/api/cleaning', async (req, res, ctx) => {
-    const newQuote = await req.json() as Omit<CleaningQuote, 'id' | 'createdAt'>
+  http.post('/api/cleaning', async ({ request }) => {
+    const newQuote = await request.json() as Omit<CleaningQuote, 'id' | 'createdAt'>
     const quote: CleaningQuote = {
       ...newQuote,
       id: Math.random().toString(36).slice(2, 11),
       createdAt: new Date().toISOString()
     }
     mockQuotes.push(quote)
-    return res(ctx.status(201), ctx.json(quote))
+    return HttpResponse.json(quote, { status: 201 })
   })
 ] 

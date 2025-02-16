@@ -11,7 +11,7 @@ import { priceUtils } from '@/utils/priceUtils'
 import type { CleaningQuote } from '@/types/quote'
 import { cardUtils } from '@/utils/cardUtils'
 
-interface PaymentFormData {
+interface PaymentFormData extends Record<string, string> {
   fullName: string
   email: string
   phone: string

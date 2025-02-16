@@ -79,11 +79,19 @@ async function getQuoteFromDB(id: string): Promise<CleaningQuote | null> {
     numberOfBathrooms: '1',
     cleaningType: 'standard',
     frequency: 'one-time',
-    preferredDate: '2024-03-20',
-    preferredTime: 'morning',
+    preferredDate: '2024-04-01',
+    preferredTime: '09:00',
     status: 'pending',
     estimatedPrice: 250,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    options: {
+      windows: false,
+      deepCleaning: false,
+      carpets: false,
+      furniture: false,
+      appliances: false
+    },
+    specialRequests: '' // Ajout si c'est un champ requis
   }
 }
 

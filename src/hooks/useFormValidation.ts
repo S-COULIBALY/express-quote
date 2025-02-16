@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 type ValidationValue = string | number | boolean | null | undefined
 type FormData = Record<string, ValidationValue>
+type FormKey = string & keyof FormData
 
 interface ValidationRule<T extends FormData> {
   validate: (value: ValidationValue, formData: T) => boolean
@@ -9,11 +10,11 @@ interface ValidationRule<T extends FormData> {
 }
 
 interface ValidationRules<T extends FormData> {
-  [K in keyof T]?: ValidationRule<T>[]
+  [key: string]: ValidationRule<T>[] | undefined;
 }
 
 interface ValidationErrors<T extends FormData> {
-  [K in keyof T]?: string
+  [key: string]: string | undefined;
 }
 
 interface ValidationResult<T extends FormData> {
@@ -25,7 +26,7 @@ export function useFormValidation<T extends FormData>(rules: ValidationRules<T>)
   const [errors, setErrors] = useState<ValidationErrors<T>>({})
 
   const validateField = (field: keyof T, value: ValidationValue, formData: T): string | undefined => {
-    const fieldRules = rules[field]
+    const fieldRules = rules[field as FormKey]
     if (!fieldRules) return undefined
 
     for (const rule of fieldRules) {
@@ -43,7 +44,7 @@ export function useFormValidation<T extends FormData>(rules: ValidationRules<T>)
     Object.keys(rules).forEach((field) => {
       const error = validateField(field as keyof T, formData[field], formData)
       if (error) {
-        newErrors[field as keyof T] = error
+        newErrors[field as FormKey] = error
         isValid = false
       }
     })
@@ -55,7 +56,7 @@ export function useFormValidation<T extends FormData>(rules: ValidationRules<T>)
   const clearError = (field: keyof T) => {
     setErrors(prev => {
       const newErrors = { ...prev }
-      delete newErrors[field]
+      delete newErrors[field as FormKey]
       return newErrors
     })
   }

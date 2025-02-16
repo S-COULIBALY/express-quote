@@ -43,7 +43,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
       {getPageNumbers().map(page => (
         <Button
           key={page}
-          variant={currentPage === page ? 'default' : 'outline'}
+          variant={currentPage === page ? 'primary' : 'outline'}
           size="sm"
           onClick={() => onPageChange(page)}
         >

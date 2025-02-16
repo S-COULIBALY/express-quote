@@ -11,7 +11,13 @@ interface MovingQuoteData extends MovingQuote {
   distance: number
   pickupAddress: string
   deliveryAddress: string
-  options: Record<string, boolean>
+  options: {
+    packing: boolean
+    assembly: boolean
+    disassembly: boolean
+    insurance: boolean
+    storage: boolean
+  }
   totalCost: number
 }
 

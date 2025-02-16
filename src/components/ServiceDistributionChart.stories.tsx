@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { ServiceDistributionChart } from './ServiceDistributionChart'
-import { mockQuotes } from '@/mocks/testData'
+import { mockMovingQuotes } from '@/mocks/testData'
 
 const meta = {
   title: 'Components/ServiceDistributionChart',
@@ -16,7 +16,7 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   args: {
-    quotes: mockQuotes
+    quotes: mockMovingQuotes
   }
 }
 
@@ -28,23 +28,23 @@ export const Empty: Story = {
 
 export const SingleService: Story = {
   args: {
-    quotes: mockQuotes.filter(q => q.cleaningType === 'standard')
+    quotes: mockMovingQuotes.filter(q => q.options.packing)
   }
 }
 
 export const MultipleServices: Story = {
   args: {
     quotes: [
-      ...mockQuotes,
+      ...mockMovingQuotes,
       {
-        ...mockQuotes[0],
+        ...mockMovingQuotes[0],
         id: 'demo-3',
-        cleaningType: 'deep',
+        options: { ...mockMovingQuotes[0].options, assembly: true }
       },
       {
-        ...mockQuotes[0],
+        ...mockMovingQuotes[0],
         id: 'demo-4',
-        cleaningType: 'move-in',
+        options: { ...mockMovingQuotes[0].options, storage: true }
       }
     ]
   }

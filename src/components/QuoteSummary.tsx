@@ -1,125 +1,97 @@
 'use client'
 
 import { priceUtils } from '@/utils/priceUtils'
-import type { MovingFormData } from '@/types/quote'
+import type { MovingFormData, QuoteDetails } from '@/types/quote'
 
-interface QuoteDetails {
-  distance: number
-  tollCost: number
-  fuelCost: number
-  baseCost: number
-  optionsCost: number
-  totalCost: number
+interface BaseProps {
+  type: 'cleaning' | 'moving'
+  id: string
+  status: string
+  createdAt: string
+  date: string
+  time: string
+  estimatedPrice: number
 }
 
-interface Props {
+interface CleaningProps extends BaseProps {
+  type: 'cleaning'
+  propertyType: string
+  cleaningType: string
+}
+
+interface MovingProps extends BaseProps {
+  type: 'moving'
   formData: MovingFormData
   quoteDetails: QuoteDetails
   isCalculating: boolean
 }
 
-export function QuoteSummary({ formData, quoteDetails, isCalculating }: Props) {
+type Props = CleaningProps | MovingProps
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: 'En attente',
+    paid: 'Payé',
+    completed: 'Terminé',
+    cancelled: 'Annulé'
+  }
+  return labels[status] || status
+}
+
+export function QuoteSummary(props: Props) {
+  const { type, id, status, createdAt, date, time, estimatedPrice } = props
+
   return (
     <div className="w-full lg:w-1/2">
-      <div className="bg-white rounded-lg shadow-md p-6 lg:sticky lg:top-8">
-        <h2 className="text-xl font-bold mb-6">Détails du Devis</h2>
-        
-        <div className="space-y-4">
-          {/* Informations du déménagement */}
-          <div className="pb-4 border-b">
-            <h3 className="font-medium mb-3">Informations générales</h3>
-            {formData.movingDate && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Date prévue</span>
-                <span className="font-medium">
-                  {new Date(formData.movingDate).toLocaleDateString('fr-FR')}
-                </span>
-              </div>
-            )}
-            {formData.volume && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Volume</span>
-                <span className="font-medium">{formData.volume} m³</span>
-              </div>
-            )}
-          </div>
-
-          {/* Adresses */}
-          <div className="pb-4 border-b">
-            <h3 className="font-medium mb-3">Adresses</h3>
-            <div className="space-y-2">
-              <div>
-                <span className="text-gray-600">Départ</span>
-                <p className="font-medium">{formData.pickupAddress}</p>
-              </div>
-              <div>
-                <span className="text-gray-600">Arrivée</span>
-                <p className="font-medium">{formData.deliveryAddress}</p>
-              </div>
-              {formData.pickupAddress && formData.deliveryAddress && (
-                <div className="flex justify-between pt-2">
-                  <span className="text-gray-600">Distance</span>
-                  {isCalculating ? (
-                    <span className="text-gray-400">Calcul en cours...</span>
-                  ) : (
-                    <span className="font-medium">
-                      {quoteDetails.distance > 0 
-                        ? `${Math.round(quoteDetails.distance)} km`
-                        : 'Non calculée'
-                      }
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Services sélectionnés */}
-          {Object.entries(formData.options).some(([_, value]) => value) && (
-            <div className="pb-4 border-b">
-              <h3 className="font-medium mb-3">Services additionnels</h3>
-              <div className="space-y-1">
-                {Object.entries(formData.options).map(([key, value]) => value && (
-                  <div key={key} className="flex items-center">
-                    <svg className="w-4 h-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>{getServiceLabel(key)}</span>
-                  </div>
-                ))}
-              </div>
+      <div className="bg-white rounded-lg shadow p-6 space-y-6">
+        {/* Informations communes */}
+        <div className="pb-4 border-b">
+          <h3 className="font-medium mb-3">Informations générales</h3>
+          {date && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Date prévue</span>
+              <span className="font-medium">
+                {new Date(date).toLocaleDateString('fr-FR')}
+              </span>
             </div>
           )}
-
-          {/* Détails des coûts */}
-          <div className="space-y-2">
-            <h3 className="font-medium mb-3">Détails des coûts</h3>
+          {time && (
             <div className="flex justify-between">
-              <span className="text-gray-600">Coût de base</span>
-              <span className="font-medium">{priceUtils.format(quoteDetails.baseCost)}</span>
+              <span className="text-gray-600">Heure</span>
+              <span className="font-medium">{time}</span>
             </div>
-            
-            {quoteDetails.optionsCost > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Services supplémentaires</span>
-                <span className="font-medium">{priceUtils.format(quoteDetails.optionsCost)}</span>
+          )}
+        </div>
+
+        {/* Informations spécifiques au type */}
+        {type === 'cleaning' && (
+          <div className="pb-4 border-b">
+            <h3 className="font-medium mb-3">Détails du service</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-gray-600">Type de propriété</span>
+                <p className="font-medium">{props.propertyType}</p>
               </div>
-            )}
-
-            <div className="flex justify-between">
-              <span className="text-gray-600">Frais de péage</span>
-              <span className="font-medium">{priceUtils.format(quoteDetails.tollCost)}</span>
+              <div>
+                <span className="text-gray-600">Type de nettoyage</span>
+                <p className="font-medium">{props.cleaningType}</p>
+              </div>
             </div>
+          </div>
+        )}
 
-            <div className="flex justify-between">
-              <span className="text-gray-600">Frais de carburant</span>
-              <span className="font-medium">{priceUtils.format(quoteDetails.fuelCost)}</span>
-            </div>
+        {type === 'moving' && (
+          <div className="pb-4 border-b">
+            <h3 className="font-medium mb-3">Détails du déménagement</h3>
+            {/* Ajouter les détails spécifiques au déménagement */}
+          </div>
+        )}
 
-            <div className="flex justify-between text-lg font-bold pt-2 border-t">
-              <span>Total TTC</span>
-              <span>{priceUtils.format(quoteDetails.totalCost)}</span>
-            </div>
+        {/* Prix */}
+        <div className="pb-4">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Estimation du prix</span>
+            <span className="font-medium">{priceUtils.format(estimatedPrice)}</span>
           </div>
         </div>
       </div>

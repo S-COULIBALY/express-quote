@@ -7,7 +7,8 @@ import {
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  TooltipItem
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import { CleaningQuote } from '@/types/quote'
@@ -37,13 +38,6 @@ interface ChartData {
   }[]
 }
 
-interface TooltipContext {
-  raw: number
-  parsed: {
-    y: number
-  }
-}
-
 export function RevenueChart({ quotes }: RevenueChartProps) {
   const data: ChartData = {
     labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'],
@@ -71,8 +65,8 @@ export function RevenueChart({ quotes }: RevenueChartProps) {
       },
       tooltip: {
         callbacks: {
-          label: (context: TooltipContext) => {
-            return `Revenu: ${priceUtils.format(context.raw)}`
+          label: (tooltipItem: TooltipItem<'bar'>) => {
+            return `Revenu: ${priceUtils.format(tooltipItem.raw as number)}`
           }
         }
       }
@@ -81,7 +75,9 @@ export function RevenueChart({ quotes }: RevenueChartProps) {
       y: {
         beginAtZero: true,
         ticks: {
-          callback: (value: number) => priceUtils.format(value)
+          callback: function(tickValue: number | string) {
+            return priceUtils.format(Number(tickValue))
+          }
         }
       }
     },

@@ -6,12 +6,24 @@ import { FormField, TextInput, Select, TextArea } from '@/components/Form'
 import { Button } from '@/components/Button'
 import { useForm } from '@/hooks/useForm'
 import { useApi } from '@/hooks/useApi'
-import type { BaseQuoteFormData, CleaningQuote } from '@/types/quote'
+import type { BaseQuoteFormData, CleaningQuote, CleaningOptions } from '@/types/quote'
 import { useNotification } from '@/contexts/NotificationContext'
 
-interface EditQuoteFormData extends BaseQuoteFormData {
+type FormValue = string | number | boolean
+
+interface EditQuoteFormData extends Record<string, FormValue> {
   id: string
-  status: string
+  propertyType: string
+  squareMeters: string
+  numberOfRooms: string
+  numberOfBathrooms: string
+  cleaningType: string
+  frequency: string
+  preferredDate: string
+  preferredTime: string
+  specialRequests: string
+  // Convertir les options en chaînes JSON
+  optionsJson: string
 }
 
 export default function EditQuote({ params }: { params: { id: string } }) {
@@ -29,15 +41,26 @@ export default function EditQuote({ params }: { params: { id: string } }) {
     frequency: '',
     preferredDate: '',
     preferredTime: '',
-    status: '',
-    specialRequests: ''
+    specialRequests: '',
+    optionsJson: JSON.stringify({
+      windows: false,
+      deepCleaning: false,
+      carpets: false,
+      furniture: false,
+      appliances: false
+    })
   })
 
   useEffect(() => {
     const fetchQuote = async () => {
       const result = await api.request(`/api/cleaning/${params.id}`)
       if (result.data) {
-        setFormData(result.data)
+        const { options, ...quoteData } = result.data
+        setFormData({
+          ...quoteData,
+          specialRequests: result.data.specialRequests || '',
+          optionsJson: JSON.stringify(options || {})
+        })
       }
     }
     fetchQuote()
