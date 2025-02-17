@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { FormField, TextInput, Select } from '@/components/Form'
-import { Button } from '@/components/Button'
 import { AddressAutocomplete } from '@/components/AddressAutocomplete'
 import { calculateMovingQuote } from '@/actions/calculateMovingQuote'
 import type { MovingFormData } from '@/types/quote'
 import type { PlaceResult } from '@/types/google-maps'
 import { QuoteSummary } from '@/components/QuoteSummary'
+import { apiConfig } from '@/config/api'
 
 interface QuoteDetails {
   distance: number
@@ -52,7 +52,7 @@ const isFormComplete = (data: MovingFormData): boolean => {
   return !!(data.volume && data.pickupAddress && data.deliveryAddress)
 }
 
-const getServiceLabel = (key: string): string => {
+const _getServiceLabel = (key: string): string => {
   const labels: Record<string, string> = {
     packing: 'Emballage professionnel',
     assembly: 'Montage meubles',
@@ -66,7 +66,48 @@ const getServiceLabel = (key: string): string => {
   return labels[key] || key
 }
 
+const calculateDistance = async (origin: string, destination: string) => {
+  try {
+    const response = await fetch(
+      `${apiConfig.googleMaps.baseUrl}/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&key=${apiConfig.googleMaps.apiKey}`
+    )
+    const data = await response.json()
+    return data.rows[0].elements[0].distance.value / 1000 // Convertir en km
+  } catch (error) {
+    console.error('Erreur lors du calcul de la distance:', error)
+    return 0
+  }
+}
+
+const _getTripCosts = async (origin: string, destination: string) => {
+  try {
+    const response = await fetch(
+      `${apiConfig.toolguru.baseUrl}/trip-costs?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${apiConfig.toolguru.apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+    const data = await response.json()
+    return {
+      distance: data.distance,
+      tollCost: data.tollCost,
+      fuelCost: data.fuelCost
+    }
+  } catch (error) {
+    console.error('Erreur lors du calcul des coûts:', error)
+    return {
+      distance: 0,
+      tollCost: 0,
+      fuelCost: 0
+    }
+  }
+}
+
 export default function NewMovingQuote() {
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const [formData, setFormData] = useState<MovingFormData>(initialFormData)
   const [showQuote, setShowQuote] = useState(false)
@@ -79,6 +120,7 @@ export default function NewMovingQuote() {
   const [currentMessage, setCurrentMessage] = useState('')
 
   useEffect(() => {
+    setMounted(true)
     setShowQuote(Object.entries(formData).some(([key, value]) => 
       key !== 'options' && value.toString().trim() !== ''
     ))
@@ -106,11 +148,19 @@ export default function NewMovingQuote() {
   }
 
   const handleAddressSelect = async (type: 'pickup' | 'delivery', place: PlaceResult) => {
-    setFormData(prev => ({
-      ...prev,
+    const newFormData = {
+      ...formData,
       [`${type}Address`]: place.formatted_address || '',
       [`${type}CarryDistance`]: place.distance ? place.distance.text : ''
-    }))
+    }
+    setFormData(newFormData)
+
+    // Calculer la distance si les deux adresses sont renseignées
+    if (type === 'delivery' && newFormData.pickupAddress && newFormData.deliveryAddress) {
+      const distance = await calculateDistance(newFormData.pickupAddress, newFormData.deliveryAddress)
+      setQuoteDetails(prev => ({ ...prev, distance }))
+      await updateQuote(newFormData)
+    }
   }
 
   const handleOptionChange = async (option: keyof MovingFormData['options'], checked: boolean) => {
@@ -144,6 +194,10 @@ export default function NewMovingQuote() {
     }, 1000)
   }
 
+  if (!mounted) {
+    return <div>Loading...</div>
+  }
+
   return (
     <main className="max-w-3xl mx-auto p-3 sm:p-6 text-sm">
       <div className="bg-white rounded-lg shadow-lg p-4 sm:p-8">
@@ -153,32 +207,40 @@ export default function NewMovingQuote() {
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {/* Section Date et Volume */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 bg-blue-50 p-4 sm:p-6 rounded-lg">
-            <FormField label="Date de déménagement">
-              <TextInput
-                type="date"
-                value={formData.movingDate}
-                onChange={(e) => handleInputChange('movingDate', e.target.value)}
-                className="w-full"
-                required
-              />
-            </FormField>
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <FormField label="Date de déménagement">
+                  <TextInput
+                    type="date"
+                    value={formData.movingDate}
+                    onChange={(e) => handleInputChange('movingDate', e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </FormField>
+              </div>
 
-            <FormField label="Volume (m³)">
-              <TextInput
-                type="number"
-                value={formData.volume}
-                onChange={(e) => handleInputChange('volume', e.target.value)}
-                className="w-full"
-                required
-              />
-            </FormField>
+              <div>
+                <FormField label="Volume (m³)">
+                  <TextInput
+                    type="number"
+                    value={formData.volume}
+                    onChange={(e) => handleInputChange('volume', e.target.value)}
+                    min="1"
+                    required
+                    placeholder="30"
+                  />
+                </FormField>
+              </div>
+            </div>
           </div>
 
           {/* Section Adresses */}
-          <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
             <h2 className="text-base font-semibold mb-3 sm:mb-4">Adresses</h2>
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Adresse de départ */}
               <div className="space-y-4">
                 <FormField label="Adresse de départ">
                   <AddressAutocomplete
@@ -218,6 +280,7 @@ export default function NewMovingQuote() {
                 </FormField>
               </div>
 
+              {/* Adresse d'arrivée */}
               <div className="space-y-4">
                 <FormField label="Adresse d'arrivée">
                   <AddressAutocomplete
@@ -260,18 +323,19 @@ export default function NewMovingQuote() {
           </div>
 
           {/* Section Caractéristiques du logement */}
-          <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
+          <div className="bg-blue-50 p-4 sm:p-6 rounded-lg">
             <h2 className="text-base font-semibold mb-3 sm:mb-4">Caractéristiques du logement</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <FormField label="Type">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Type de propriété">
                 <Select
                   value={formData.propertyType}
                   onChange={(e) => handleInputChange('propertyType', e.target.value)}
                   options={[
                     { value: 'apartment', label: 'Appartement' },
                     { value: 'house', label: 'Maison' },
-                    { value: 'studio', label: 'Studio' }
+                    { value: 'office', label: 'Bureau' }
                   ]}
+                  required
                 />
               </FormField>
 
@@ -280,6 +344,7 @@ export default function NewMovingQuote() {
                   type="number"
                   value={formData.surface}
                   onChange={(e) => handleInputChange('surface', e.target.value)}
+                  required
                 />
               </FormField>
 
@@ -288,6 +353,7 @@ export default function NewMovingQuote() {
                   type="number"
                   value={formData.rooms}
                   onChange={(e) => handleInputChange('rooms', e.target.value)}
+                  required
                 />
               </FormField>
 
@@ -296,78 +362,142 @@ export default function NewMovingQuote() {
                   type="number"
                   value={formData.occupants}
                   onChange={(e) => handleInputChange('occupants', e.target.value)}
+                  required
                 />
               </FormField>
             </div>
           </div>
 
           {/* Section Services supplémentaires */}
-          <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
             <h2 className="text-base font-semibold mb-3 sm:mb-4">Services supplémentaires</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 sm:gap-x-8 gap-y-2 sm:gap-y-3">
-              {Object.entries(formData.options).map(([key, value]) => (
-                <label key={key} className="flex items-center space-x-2 text-xs whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={value}
-                    onChange={(e) => handleOptionChange(
-                      key as keyof MovingFormData['options'],
-                      e.target.checked
-                    )}
-                    className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-gray-600">{getServiceLabel(key)}</span>
-                </label>
-              ))}
+            <div className="bg-gray-50 border rounded-lg p-3">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                {/* Première colonne */}
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.options.packing}
+                      onChange={(e) => handleOptionChange('packing', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Emballage</span>
+                  </label>
+
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.options.assembly}
+                      onChange={(e) => handleOptionChange('assembly', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Montage meubles</span>
+                  </label>
+
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.options.disassembly}
+                      onChange={(e) => handleOptionChange('disassembly', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Démontage meubles</span>
+                  </label>
+
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.options.heavyLifting}
+                      onChange={(e) => handleOptionChange('heavyLifting', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Objets lourds</span>
+                  </label>
+                </div>
+
+                {/* Deuxième colonne */}
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.options.basement}
+                      onChange={(e) => handleOptionChange('basement', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Cave/Grenier</span>
+                  </label>
+
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.options.insurance}
+                      onChange={(e) => handleOptionChange('insurance', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Assurance</span>
+                  </label>
+
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.options.storage}
+                      onChange={(e) => handleOptionChange('storage', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Stockage</span>
+                  </label>
+
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.options.cleaning}
+                      onChange={(e) => handleOptionChange('cleaning', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Nettoyage</span>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Section Chat */}
-          <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
-            <div className="flex items-center gap-2 mb-3 sm:mb-4">
-              <h2 className="text-sm font-medium text-gray-600">💬</h2>
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm">💬</span>
               <p className="text-xs text-gray-500">
-                Discutons ici du remplissage de votre logement pour mieux ajuster le volume
+                Questions sur le volume ?
               </p>
             </div>
-            
-            <div className="bg-white rounded-lg border h-48 sm:h-64 mb-3 sm:mb-4 overflow-y-auto p-3 sm:p-4">
+
+            <div className="bg-white rounded-lg border h-32 overflow-y-auto mb-2 p-2">
               {messages.map((message, index) => (
-                <div 
+                <div
                   key={index}
-                  className={`mb-2 ${
-                    message.sender === 'user' 
-                      ? 'text-right' 
-                      : 'text-left'
+                  className={`text-xs mb-1 ${
+                    message.sender === 'user' ? 'text-right text-blue-600' : 'text-gray-600'
                   }`}
                 >
-                  <div
-                    className={`inline-block rounded-lg px-4 py-2 max-w-[80%] ${
-                      message.sender === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-800'
-                    }`}
-                  >
-                    {message.text}
-                  </div>
+                  {message.text}
                 </div>
               ))}
             </div>
-            
+
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <input
                 type="text"
                 value={currentMessage}
                 onChange={(e) => setCurrentMessage(e.target.value)}
-                placeholder="Écrivez votre message..."
-                className="flex-1 rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 text-sm p-2"
+                placeholder="Votre message..."
+                className="flex-1 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"
               />
-              <Button
+              <button
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700 px-3 sm:px-4 py-2"
+                className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
               >
                 Envoyer
-              </Button>
+              </button>
             </form>
           </div>
         </form>

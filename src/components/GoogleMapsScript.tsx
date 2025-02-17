@@ -6,7 +6,7 @@ import { apiConfig } from '@/config/api'
 declare global {
   interface Window {
     initGoogleMapsCallback: () => void
-    googleMapsLoaded: boolean
+    google: any
   }
 }
 
@@ -14,27 +14,32 @@ export function GoogleMapsScript() {
   const scriptRef = useRef<HTMLScriptElement | null>(null)
 
   useEffect(() => {
-    if (window.googleMapsLoaded || typeof window.google !== 'undefined' || scriptRef.current) {
-      return
+    if (window.google?.maps?.places) return
+
+    const loadGoogleMaps = () => {
+      window.initGoogleMapsCallback = () => {
+        const event = new Event('google-maps-loaded')
+        window.dispatchEvent(event)
+      }
+
+      const script = document.createElement('script')
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiConfig.googleMaps.apiKey}&libraries=places&callback=initGoogleMapsCallback`
+      script.async = true
+      script.defer = true
+      scriptRef.current = script
+
+      document.head.appendChild(script)
     }
 
-    window.initGoogleMapsCallback = () => {
-      window.googleMapsLoaded = true
-      window.dispatchEvent(new Event('google-maps-loaded'))
-    }
-
-    const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiConfig.googleMaps.apiKey}&libraries=places&callback=initGoogleMapsCallback&loading=async`
-    script.async = true
-    script.defer = true
-    scriptRef.current = script
-    document.head.appendChild(script)
+    loadGoogleMaps()
 
     return () => {
       if (scriptRef.current && document.head.contains(scriptRef.current)) {
         document.head.removeChild(scriptRef.current)
       }
-      window.initGoogleMapsCallback = () => {}
+      if (window.initGoogleMapsCallback) {
+        delete window.initGoogleMapsCallback
+      }
     }
   }, [])
 
