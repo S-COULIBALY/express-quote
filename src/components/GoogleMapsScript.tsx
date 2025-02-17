@@ -5,8 +5,8 @@ import { apiConfig } from '@/config/api'
 
 declare global {
   interface Window {
-    initGoogleMapsCallback: () => void
-    google: any
+    initGoogleMapsCallback?: () => void;
+    google: typeof google;
   }
 }
 
