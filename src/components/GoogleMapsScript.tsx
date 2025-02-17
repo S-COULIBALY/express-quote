@@ -12,12 +12,16 @@ declare global {
 
 export function GoogleMapsScript() {
   const scriptRef = useRef<HTMLScriptElement | null>(null)
+  const isLoading = useRef(false)
 
   useEffect(() => {
-    if (window.google?.maps?.places) return
+    if (window.google?.maps?.places || isLoading.current) return
 
     const loadGoogleMaps = () => {
+      isLoading.current = true
+
       window.initGoogleMapsCallback = () => {
+        isLoading.current = false
         const event = new Event('google-maps-loaded')
         window.dispatchEvent(event)
       }
@@ -26,8 +30,12 @@ export function GoogleMapsScript() {
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiConfig.googleMaps.apiKey}&libraries=places&callback=initGoogleMapsCallback`
       script.async = true
       script.defer = true
+      script.onerror = () => {
+        console.error('Erreur lors du chargement de Google Maps')
+        isLoading.current = false
+      }
+      
       scriptRef.current = script
-
       document.head.appendChild(script)
     }
 
@@ -40,6 +48,7 @@ export function GoogleMapsScript() {
       if (window.initGoogleMapsCallback) {
         delete window.initGoogleMapsCallback
       }
+      isLoading.current = false
     }
   }, [])
 
