@@ -1,3 +1,14 @@
+export interface PlaceResult extends google.maps.places.PlaceResult {
+  formatted_address?: string
+  geometry?: {
+    location?: google.maps.LatLng
+  }
+  distance?: {
+    text: string
+    value: number
+  }
+}
+
 declare namespace google.maps {
   interface PlaceResult {
     address_components?: AddressComponent[]

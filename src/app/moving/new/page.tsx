@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { FormField } from '@/components/Form'
+import { FormField, TextInput, Select } from '@/components/Form'
 import { Button } from '@/components/Button'
 import { AddressAutocomplete } from '@/components/AddressAutocomplete'
 import { calculateMovingQuote } from '@/actions/calculateMovingQuote'
 import type { MovingFormData } from '@/types/quote'
-import clsx from 'clsx'
+import type { PlaceResult } from '@/types/google-maps'
 import { QuoteSummary } from '@/components/QuoteSummary'
 
 interface QuoteDetails {
@@ -24,13 +24,28 @@ const initialFormData: MovingFormData = {
   volume: '',
   pickupAddress: '',
   deliveryAddress: '',
+  propertyType: 'apartment',
+  surface: '',
+  floor: '',
+  carryDistance: '',
+  occupants: '',
   options: {
     packing: false,
     assembly: false,
     disassembly: false,
     insurance: false,
-    storage: false
-  }
+    storage: false,
+    heavyLifting: false,
+    basement: false,
+    cleaning: false
+  },
+  pickupFloor: '',
+  pickupElevator: 'no',
+  deliveryFloor: '',
+  deliveryElevator: 'no',
+  pickupCarryDistance: '',
+  deliveryCarryDistance: '',
+  rooms: ''
 }
 
 const isFormComplete = (data: MovingFormData): boolean => {
@@ -40,10 +55,13 @@ const isFormComplete = (data: MovingFormData): boolean => {
 const getServiceLabel = (key: string): string => {
   const labels: Record<string, string> = {
     packing: 'Emballage professionnel',
-    assembly: 'Montage des meubles',
-    disassembly: 'Démontage des meubles',
-    insurance: 'Assurance tous risques',
-    storage: 'Stockage temporaire'
+    assembly: 'Montage meubles',
+    disassembly: 'Démontage meubles',
+    insurance: 'Assurance premium',
+    storage: 'Stockage 1 mois',
+    heavyLifting: 'Manutention lourde',
+    basement: 'Cave',
+    cleaning: 'Nettoyage'
   }
   return labels[key] || key
 }
@@ -57,6 +75,8 @@ export default function NewMovingQuote() {
     baseCost: 0, optionsCost: 0, totalCost: 0
   })
   const [isCalculating, setIsCalculating] = useState(false)
+  const [messages, setMessages] = useState<Array<{text: string, sender: 'user' | 'agent'}>>([])
+  const [currentMessage, setCurrentMessage] = useState('')
 
   useEffect(() => {
     setShowQuote(Object.entries(formData).some(([key, value]) => 
@@ -78,48 +98,19 @@ export default function NewMovingQuote() {
     }
   }
 
-  const handleInputBlur = async (field: keyof MovingFormData, value: string) => {
-    const newFormData = { ...formData, [field]: value }
-    setFormData(newFormData)
-    await updateQuote(newFormData)
+  const handleInputChange = (field: keyof MovingFormData, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
-  const handleAddressSelect = async (type: 'pickup' | 'delivery', place: google.maps.places.PlaceResult) => {
-    if (!place.formatted_address) return
-
-    const newFormData = {
-      ...formData,
-      [type === 'pickup' ? 'pickupAddress' : 'deliveryAddress']: place.formatted_address
-    }
-
-    setFormData(newFormData)
-
-    const hasPickupAddress = type === 'pickup' ? place.formatted_address : formData.pickupAddress
-    const hasDeliveryAddress = type === 'delivery' ? place.formatted_address : formData.deliveryAddress
-
-    if (hasPickupAddress && hasDeliveryAddress) {
-      setIsCalculating(true)
-      try {
-        const details = await calculateMovingQuote({
-          ...newFormData,
-          pickupAddress: hasPickupAddress,
-          deliveryAddress: hasDeliveryAddress
-        })
-
-        setQuoteDetails({
-          distance: details.distance,
-          tollCost: details.tollCost,
-          fuelCost: details.fuelCost,
-          baseCost: details.baseCost,
-          optionsCost: details.optionsCost,
-          totalCost: details.totalCost
-        })
-      } catch (error) {
-        console.error('Erreur lors du calcul du devis:', error)
-      } finally {
-        setIsCalculating(false)
-      }
-    }
+  const handleAddressSelect = async (type: 'pickup' | 'delivery', place: PlaceResult) => {
+    setFormData(prev => ({
+      ...prev,
+      [`${type}Address`]: place.formatted_address || '',
+      [`${type}CarryDistance`]: place.distance ? place.distance.text : ''
+    }))
   }
 
   const handleOptionChange = async (option: keyof MovingFormData['options'], checked: boolean) => {
@@ -138,92 +129,265 @@ export default function NewMovingQuote() {
     router.push(`/moving/summary?id=${quoteData.id}`)
   }
 
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!currentMessage.trim()) return
+
+    setMessages(prev => [...prev, { text: currentMessage, sender: 'user' }])
+    setCurrentMessage('')
+
+    setTimeout(() => {
+      setMessages(prev => [...prev, { 
+        text: "Je suis là pour vous aider avec votre devis de déménagement. Avez-vous des questions spécifiques ?",
+        sender: 'agent'
+      }])
+    }, 1000)
+  }
+
   return (
-    <main className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className={clsx("flex flex-col lg:flex-row gap-8",
-          showQuote ? "lg:justify-between" : "items-center justify-center")}>
-          
-          {/* Formulaire */}
-          <div className={clsx("bg-white rounded-lg shadow-md p-6 w-full",
-            showQuote ? "lg:w-1/2" : "lg:w-3/4 max-w-3xl mx-auto")}>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Devis de Déménagement</h2>
-            
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <FormField label="Date de déménagement">
-                <input type="date" value={formData.movingDate}
-                  onChange={e => handleInputBlur('movingDate', e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md" required />
-              </FormField>
+    <main className="max-w-3xl mx-auto p-3 sm:p-6 text-sm">
+      <div className="bg-white rounded-lg shadow-lg p-4 sm:p-8">
+        <h1 className="text-lg sm:text-xl font-bold text-center text-blue-600 mb-6">
+          Devis Express
+        </h1>
 
-              <FormField label="Volume estimé (m³)">
-                <input type="number" value={formData.volume} min="1" step="0.5"
-                  onChange={e => handleInputBlur('volume', e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md" required />
-              </FormField>
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+          {/* Section Date et Volume */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 bg-blue-50 p-4 sm:p-6 rounded-lg">
+            <FormField label="Date de déménagement">
+              <TextInput
+                type="date"
+                value={formData.movingDate}
+                onChange={(e) => handleInputChange('movingDate', e.target.value)}
+                className="w-full"
+                required
+              />
+            </FormField>
 
-              <FormField label="Adresse de départ">
-                <AddressAutocomplete
-                  id="pickup-address"
-                  value={formData.pickupAddress}
-                  onChange={value => handleInputBlur('pickupAddress', value)}
-                  onSelect={place => handleAddressSelect('pickup', place)}
-                  placeholder="Adresse de départ"
-                  required
-                />
-              </FormField>
+            <FormField label="Volume (m³)">
+              <TextInput
+                type="number"
+                value={formData.volume}
+                onChange={(e) => handleInputChange('volume', e.target.value)}
+                className="w-full"
+                required
+              />
+            </FormField>
+          </div>
 
-              <FormField label="Adresse d'arrivée">
-                <AddressAutocomplete
-                  id="delivery-address"
-                  value={formData.deliveryAddress}
-                  onChange={value => handleInputBlur('deliveryAddress', value)}
-                  onSelect={place => handleAddressSelect('delivery', place)}
-                  placeholder="Adresse d'arrivée"
-                  required
-                />
-              </FormField>
-
+          {/* Section Adresses */}
+          <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
+            <h2 className="text-base font-semibold mb-3 sm:mb-4">Adresses</h2>
+            <div className="grid grid-cols-1 gap-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Services supplémentaires</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(formData.options).map(([key, value]) => (
-                    <label key={key} className="flex items-center space-x-2">
-                      <input type="checkbox" checked={value}
-                        onChange={e => handleOptionChange(
-                          key as keyof MovingFormData['options'],
-                          e.target.checked
-                        )}
-                        className="rounded border-gray-300" />
-                      <span>{getServiceLabel(key)}</span>
-                    </label>
-                  ))}
+                <FormField label="Adresse de départ">
+                  <AddressAutocomplete
+                    id="pickup-address"
+                    value={formData.pickupAddress}
+                    onChange={(value) => handleInputChange('pickupAddress', value)}
+                    onSelect={(place) => handleAddressSelect('pickup', place)}
+                    placeholder="Entrez l'adresse de départ"
+                  />
+                </FormField>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Étage">
+                    <TextInput
+                      type="number"
+                      value={formData.pickupFloor}
+                      onChange={(e) => handleInputChange('pickupFloor', e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Ascenseur">
+                    <Select
+                      value={formData.pickupElevator}
+                      onChange={(e) => handleInputChange('pickupElevator', e.target.value)}
+                      options={[
+                        { value: 'yes', label: 'Oui' },
+                        { value: 'no', label: 'Non' }
+                      ]}
+                    />
+                  </FormField>
                 </div>
+                <FormField label="Distance de portage (m)">
+                  <TextInput
+                    type="number"
+                    value={formData.pickupCarryDistance}
+                    onChange={(e) => handleInputChange('pickupCarryDistance', e.target.value)}
+                    placeholder="Distance en mètres"
+                  />
+                </FormField>
               </div>
 
-              <Button type="submit" className="w-full">
-                Valider le devis
+              <div className="space-y-4">
+                <FormField label="Adresse d'arrivée">
+                  <AddressAutocomplete
+                    id="delivery-address"
+                    value={formData.deliveryAddress}
+                    onChange={(value) => handleInputChange('deliveryAddress', value)}
+                    onSelect={(place) => handleAddressSelect('delivery', place)}
+                    placeholder="Entrez l'adresse d'arrivée"
+                  />
+                </FormField>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Étage">
+                    <TextInput
+                      type="number"
+                      value={formData.deliveryFloor}
+                      onChange={(e) => handleInputChange('deliveryFloor', e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Ascenseur">
+                    <Select
+                      value={formData.deliveryElevator}
+                      onChange={(e) => handleInputChange('deliveryElevator', e.target.value)}
+                      options={[
+                        { value: 'yes', label: 'Oui' },
+                        { value: 'no', label: 'Non' }
+                      ]}
+                    />
+                  </FormField>
+                </div>
+                <FormField label="Distance de portage (m)">
+                  <TextInput
+                    type="number"
+                    value={formData.deliveryCarryDistance}
+                    onChange={(e) => handleInputChange('deliveryCarryDistance', e.target.value)}
+                    placeholder="Distance en mètres"
+                  />
+                </FormField>
+              </div>
+            </div>
+          </div>
+
+          {/* Section Caractéristiques du logement */}
+          <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
+            <h2 className="text-base font-semibold mb-3 sm:mb-4">Caractéristiques du logement</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <FormField label="Type">
+                <Select
+                  value={formData.propertyType}
+                  onChange={(e) => handleInputChange('propertyType', e.target.value)}
+                  options={[
+                    { value: 'apartment', label: 'Appartement' },
+                    { value: 'house', label: 'Maison' },
+                    { value: 'studio', label: 'Studio' }
+                  ]}
+                />
+              </FormField>
+
+              <FormField label="Surface (m²)">
+                <TextInput
+                  type="number"
+                  value={formData.surface}
+                  onChange={(e) => handleInputChange('surface', e.target.value)}
+                />
+              </FormField>
+
+              <FormField label="Nombre de pièces">
+                <TextInput
+                  type="number"
+                  value={formData.rooms}
+                  onChange={(e) => handleInputChange('rooms', e.target.value)}
+                />
+              </FormField>
+
+              <FormField label="Nombre d'occupants">
+                <TextInput
+                  type="number"
+                  value={formData.occupants}
+                  onChange={(e) => handleInputChange('occupants', e.target.value)}
+                />
+              </FormField>
+            </div>
+          </div>
+
+          {/* Section Services supplémentaires */}
+          <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
+            <h2 className="text-base font-semibold mb-3 sm:mb-4">Services supplémentaires</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 sm:gap-x-8 gap-y-2 sm:gap-y-3">
+              {Object.entries(formData.options).map(([key, value]) => (
+                <label key={key} className="flex items-center space-x-2 text-xs whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={value}
+                    onChange={(e) => handleOptionChange(
+                      key as keyof MovingFormData['options'],
+                      e.target.checked
+                    )}
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-600">{getServiceLabel(key)}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Section Chat */}
+          <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+              <h2 className="text-sm font-medium text-gray-600">💬</h2>
+              <p className="text-xs text-gray-500">
+                Discutons ici du remplissage de votre logement pour mieux ajuster le volume
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-lg border h-48 sm:h-64 mb-3 sm:mb-4 overflow-y-auto p-3 sm:p-4">
+              {messages.map((message, index) => (
+                <div 
+                  key={index}
+                  className={`mb-2 ${
+                    message.sender === 'user' 
+                      ? 'text-right' 
+                      : 'text-left'
+                  }`}
+                >
+                  <div
+                    className={`inline-block rounded-lg px-4 py-2 max-w-[80%] ${
+                      message.sender === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-800'
+                    }`}
+                  >
+                    {message.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <input
+                type="text"
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                placeholder="Écrivez votre message..."
+                className="flex-1 rounded-lg border-gray-300 focus:ring-blue-500 focus:border-blue-500 text-sm p-2"
+              />
+              <Button
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-700 px-3 sm:px-4 py-2"
+              >
+                Envoyer
               </Button>
             </form>
           </div>
-
-          {/* Résumé du devis */}
-          {showQuote && (
-            <QuoteSummary 
-              type="moving"
-              id=""
-              status="pending"
-              createdAt={new Date().toISOString()}
-              date={formData.movingDate}
-              time=""
-              estimatedPrice={quoteDetails.totalCost}
-              formData={formData}
-              quoteDetails={quoteDetails}
-              isCalculating={isCalculating}
-            />
-          )}
-        </div>
+        </form>
       </div>
+
+      {/* Résumé du devis */}
+      {showQuote && (
+        <QuoteSummary 
+          type="moving"
+          id=""
+          status="pending"
+          createdAt={new Date().toISOString()}
+          date={formData.movingDate}
+          time=""
+          estimatedPrice={quoteDetails.totalCost}
+          formData={formData}
+          quoteDetails={quoteDetails}
+          isCalculating={isCalculating}
+        />
+      )}
     </main>
   )
 } 
