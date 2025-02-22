@@ -68,15 +68,22 @@ export interface MovingQuote {
 }
 
 export interface MovingFormData {
-  movingDate: string
-  volume: string
   pickupAddress: string
   deliveryAddress: string
-  propertyType: string
+  volume: string
+  movingDate: string
+  propertyType: 'house' | 'apartment' | 'office'
   surface: string
   floor: string
   carryDistance: string
   occupants: string
+  pickupFloor: string
+  pickupElevator: string
+  pickupCarryDistance: string
+  deliveryFloor: string
+  deliveryElevator: string
+  deliveryCarryDistance: string
+  rooms: string
   options: {
     packing: boolean
     assembly: boolean
@@ -87,13 +94,6 @@ export interface MovingFormData {
     basement: boolean
     cleaning: boolean
   }
-  pickupFloor: string
-  pickupElevator: string
-  pickupCarryDistance: string
-  deliveryFloor: string
-  deliveryElevator: string
-  deliveryCarryDistance: string
-  rooms: string
 }
 
 export interface CleaningFormData {
