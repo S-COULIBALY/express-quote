@@ -106,4 +106,4 @@ function calculateOptionsCost(options: MovingFormData['options']): number {
   return Object.entries(options).reduce((total, [option, isSelected]) => {
     return total + (isSelected ? optionPrices[option as keyof typeof optionPrices] : 0)
   }, 0)
-} 
+} // Force update
