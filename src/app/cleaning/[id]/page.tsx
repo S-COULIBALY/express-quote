@@ -106,6 +106,15 @@ export default function QuoteDetails({ params }: { params: { id: string } }) {
           date={quote.preferredDate}
           time={quote.preferredTime}
           estimatedPrice={quote.estimatedPrice}
+          isCalculating={false}
+          quoteDetails={{
+            baseCost: quote.estimatedPrice,
+            optionsCost: 0,
+            totalCost: quote.estimatedPrice,
+            distance: 0,
+            tollCost: 0,
+            fuelCost: 0
+          }}
         />
 
         <Modal

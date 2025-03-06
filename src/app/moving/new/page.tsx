@@ -50,32 +50,25 @@ interface QuoteDetails {
 }
 
 const initialFormData: MovingFormData = {
-  movingDate: '',
-  volume: '',
   pickupAddress: '',
   deliveryAddress: '',
-  propertyType: 'apartment',
-  surface: '',
-  floor: '',
-  carryDistance: '',
-  occupants: '',
-  options: {
-    packing: false,
-    assembly: false,
-    disassembly: false,
-    insurance: false,
-    storage: false,
-    heavyLifting: false,
-    basement: false,
-    cleaning: false
-  },
+  movingDate: '',
+  volume: '',
   pickupFloor: '',
-  pickupElevator: 'no',
   deliveryFloor: '',
+  propertyType: '',
+  surface: '',
+  rooms: '',
+  occupants: '',
+  pickupElevator: 'no',
   deliveryElevator: 'no',
   pickupCarryDistance: '',
   deliveryCarryDistance: '',
-  rooms: ''
+  options: {
+    packing: false,
+    assembly: false,
+    insurance: false
+  }
 }
 
 const isFormComplete = (data: MovingFormData): boolean => {
@@ -86,12 +79,7 @@ const _getServiceLabel = (key: string): string => {
   const labels: Record<string, string> = {
     packing: 'Emballage professionnel',
     assembly: 'Montage meubles',
-    disassembly: 'Démontage meubles',
-    insurance: 'Assurance premium',
-    storage: 'Stockage 1 mois',
-    heavyLifting: 'Manutention lourde',
-    basement: 'Cave',
-    cleaning: 'Nettoyage'
+    insurance: 'Assurance premium'
   }
   return labels[key] || key
 }
@@ -159,8 +147,8 @@ export default function NewMovingQuote() {
     setShowQuote(Object.entries(formData).some(([key, value]) => 
       key !== 'options' && value.toString().trim() !== ''
     ))
-    const areAddressesValid = addressDetails.pickup && addressDetails.delivery
-    const areRequiredFieldsFilled = formData.movingDate && formData.volume
+    const areAddressesValid = Boolean(addressDetails.pickup) && Boolean(addressDetails.delivery)
+    const areRequiredFieldsFilled = Boolean(formData.movingDate) && Boolean(formData.volume)
     setIsFormValid(areAddressesValid && areRequiredFieldsFilled)
   }, [formData, addressDetails])
 
@@ -207,39 +195,23 @@ export default function NewMovingQuote() {
     }
   }
 
-  const handleAddressSelect = async (type: 'pickup' | 'delivery', place: PlaceResult) => {
-    console.log(`Sélection d'adresse pour ${type}:`, place)
-    
-    // Vérifier que nous avons une adresse valide
-    if (!place || !place.formatted_address) {
-      console.warn(`Adresse ${type} invalide:`, place)
-      return
+  const handlePickupAddressSelect = async (value: string, place?: google.maps.places.PlaceResult) => {
+    await handleInputChange('pickupAddress', value)
+    if (place?.formatted_address) {
+      setAddressDetails(prev => ({
+        ...prev,
+        pickup: place
+      }))
     }
+  }
 
-    // Mettre à jour le formulaire avec la nouvelle adresse
-    const newFormData = {
-      ...formData,
-      [`${type}Address`]: place.formatted_address,
-      [`${type}CarryDistance`]: place.distance?.text || ''
-    }
-
-    console.log(`Mise à jour du formulaire pour ${type}:`, {
-      address: newFormData[`${type}Address`],
-      carryDistance: newFormData[`${type}CarryDistance`]
-    })
-
-    setFormData(newFormData)
-
-    // Mettre à jour les détails de l'adresse
-    setAddressDetails(prev => ({
-      ...prev,
-      [type]: place
-    }))
-
-    // Calculer le devis si les deux adresses sont renseignées
-    if (newFormData.pickupAddress && newFormData.deliveryAddress) {
-      console.log('Les deux adresses sont renseignées, calcul du devis...')
-      await updateQuote(newFormData)
+  const handleDeliveryAddressSelect = async (value: string, place?: google.maps.places.PlaceResult) => {
+    await handleInputChange('deliveryAddress', value)
+    if (place?.formatted_address) {
+      setAddressDetails(prev => ({
+        ...prev,
+        delivery: place
+      }))
     }
   }
 
@@ -272,6 +244,20 @@ export default function NewMovingQuote() {
         sender: 'agent'
       }])
     }, 1000)
+  }
+
+  const handleCheckboxChange = (field: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: checked
+    }))
+  }
+
+  const handleStorageChange = (value: string | null) => {
+    setFormData(prev => ({
+      ...prev,
+      storage: value === 'yes'
+    }))
   }
 
   if (!mounted) {
@@ -349,11 +335,11 @@ export default function NewMovingQuote() {
                     <FormField label="Adresse de départ" labelClass="text-gray-700 text-sm">
                       <PickupAddressAutocomplete
                         id="pickup-address"
+                        label="Adresse de départ"
                         value={formData.pickupAddress}
-                        onChange={(value, details) => handleAddressSelect('pickup', details || value)}
-                        onSelect={(place) => handleAddressSelect('pickup', place)}
+                        onChange={handlePickupAddressSelect}
                         placeholder="Entrez l'adresse de départ"
-                        className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-sm py-1.5"
+                        required
                       />
                     </FormField>
 
@@ -397,11 +383,11 @@ export default function NewMovingQuote() {
                     <FormField label="Adresse de livraison" labelClass="text-gray-700 text-sm">
                       <DeliveryAddressAutocomplete
                         id="delivery-address"
+                        label="Adresse d'arrivée"
                         value={formData.deliveryAddress}
-                        onChange={(value, details) => handleAddressSelect('delivery', details || value)}
-                        onSelect={(place) => handleAddressSelect('delivery', place)}
+                        onChange={handleDeliveryAddressSelect}
                         placeholder="Entrez l'adresse d'arrivée"
-                        className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-sm py-1.5"
+                        required
                       />
                     </FormField>
 

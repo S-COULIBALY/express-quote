@@ -74,7 +74,14 @@ export interface MovingFormData {
   volume: string
   pickupFloor: string
   deliveryFloor: string
-  carryDistance: string
+  propertyType: string
+  surface: string
+  rooms: string
+  occupants: string
+  pickupElevator: 'yes' | 'no'
+  deliveryElevator: 'yes' | 'no'
+  pickupCarryDistance: string
+  deliveryCarryDistance: string
   options: {
     packing: boolean
     assembly: boolean

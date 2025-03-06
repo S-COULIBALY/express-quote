@@ -449,9 +449,14 @@ export default function NewCleaningQuote() {
                   >
                     <AddressAutocomplete
                       id="cleaning-address"
+                      label="Adresse"
                       value={formData.address}
-                      onChange={value => handleInputChange('address', value)}
-                      onSelect={handleAddressSelect}
+                      onChange={(value, place) => {
+                        handleInputChange('address', value)
+                        if (place?.formatted_address) {
+                          handleAddressSelect(place)
+                        }
+                      }}
                       placeholder="Entrez une adresse"
                       required
                     />
