@@ -7,6 +7,7 @@ declare global {
   interface Window {
     initGoogleMapsCallback?: () => void;
     google: typeof google;
+    googleMapsLoaded?: boolean;
   }
 }
 
@@ -15,13 +16,14 @@ export function GoogleMapsScript() {
   const isLoading = useRef(false)
 
   useEffect(() => {
-    if (window.google?.maps?.places || isLoading.current) return
+    if (window.google?.maps?.places || isLoading.current || window.googleMapsLoaded) return
 
     const loadGoogleMaps = () => {
       isLoading.current = true
 
       window.initGoogleMapsCallback = () => {
         isLoading.current = false
+        window.googleMapsLoaded = true
         const event = new Event('google-maps-loaded')
         window.dispatchEvent(event)
       }
@@ -33,6 +35,7 @@ export function GoogleMapsScript() {
       script.onerror = () => {
         console.error('Erreur lors du chargement de Google Maps')
         isLoading.current = false
+        window.googleMapsLoaded = false
       }
       
       scriptRef.current = script
@@ -48,6 +51,7 @@ export function GoogleMapsScript() {
       if (window.initGoogleMapsCallback) {
         delete window.initGoogleMapsCallback
       }
+      window.googleMapsLoaded = false
       isLoading.current = false
     }
   }, [])

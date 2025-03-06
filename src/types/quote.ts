@@ -68,32 +68,18 @@ export interface MovingQuote {
 }
 
 export interface MovingFormData {
-  movingDate: string
-  volume: string
   pickupAddress: string
   deliveryAddress: string
-  propertyType: string
-  surface: string
-  floor: string
+  movingDate: string
+  volume: string
+  pickupFloor: string
+  deliveryFloor: string
   carryDistance: string
-  occupants: string
   options: {
     packing: boolean
     assembly: boolean
-    disassembly: boolean
     insurance: boolean
-    storage: boolean
-    heavyLifting: boolean
-    basement: boolean
-    cleaning: boolean
   }
-  pickupFloor: string
-  pickupElevator: string
-  pickupCarryDistance: string
-  deliveryFloor: string
-  deliveryElevator: string
-  deliveryCarryDistance: string
-  rooms: string
 }
 
 export interface CleaningFormData {
@@ -104,11 +90,65 @@ export interface CleaningFormData {
   numberOfBathrooms: string
   frequency: string
   address: string
+  floorTypes: {
+    parquet: boolean
+    carpet: boolean
+    tile: boolean
+    vinyl: boolean
+    marble: boolean
+  }
+  propertyState: string
+  hasBalcony: boolean
+  balconySize: string
+  hasPets: boolean
   options: {
     windows: boolean
     deepCleaning: boolean
     carpets: boolean
     furniture: boolean
     appliances: boolean
+    ironing: boolean
+    dishes: boolean
+    bedding: boolean
+    garbage: boolean
+    sanitizing: boolean
   }
+}
+
+export interface TripCosts {
+  tollCost: number
+  fuelCost: number
+  distance: number
+}
+
+export interface GoogleMapsResponse {
+  status: string
+  destination_addresses: string[]
+  origin_addresses: string[]
+  rows: Array<{
+    elements: Array<{
+      distance: {
+        text: string
+        value: number
+      }
+      duration: {
+        text: string
+        value: number
+      }
+      status: string
+    }>
+  }>
+}
+
+export interface AddressDetails {
+  pickup: google.maps.places.PlaceResult | null
+  delivery: google.maps.places.PlaceResult | null
+}
+
+export interface MovingProps {
+  type: 'moving'
+  formData: MovingFormData
+  quoteDetails?: QuoteDetails
+  addressDetails: AddressDetails
+  isCalculating?: boolean
 } 

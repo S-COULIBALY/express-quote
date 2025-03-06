@@ -1,6 +1,15 @@
 'use server'
 
-import { apiConfig } from '@/config/api'
+import { apiConfig } from '../config/api'
+import axios from 'axios'
+import https from 'https'
+import fetch from 'node-fetch'
+
+// Configuration globale d'axios pour désactiver la vérification SSL
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+// Forcer l'utilisation de l'URL de développement
+const TOOLGURU_DEV_URL = 'https://dev.tollguru.com';
 
 interface DistanceMatrixResponse {
   rows: Array<{
@@ -9,6 +18,8 @@ interface DistanceMatrixResponse {
       status: string
     }>
   }>
+  status?: string
+  error_message?: string
 }
 
 interface ToollguruResponse {
@@ -32,22 +43,61 @@ export async function getDistanceFromGoogleMaps(origin: string, destination: str
   }
 
   try {
-    const response = await fetch(
-      `${apiConfig.googleMaps.baseUrl}/distancematrix/json?` +
-      `origins=${encodeURIComponent(origin)}&` +
-      `destinations=${encodeURIComponent(destination)}&` +
-      `key=${apiConfig.googleMaps.apiKey}`
-    )
+    const params = new URLSearchParams({
+      origins: origin,
+      destinations: destination,
+      key: apiConfig.googleMaps.apiKey
+    })
+
+    const url = `${apiConfig.googleMaps.baseUrl}/distancematrix/json?${params.toString()}`
+    console.log('Calling Google Maps API:', url.replace(apiConfig.googleMaps.apiKey, 'API_KEY'))
+    
+    const response = await fetch(url)
+    console.log('Google Maps response status:', response.status)
     
     const data: DistanceMatrixResponse = await response.json()
+    console.log('Google Maps response data:', data)
     
     if (data.rows?.[0]?.elements?.[0]?.distance) {
-      return data.rows[0].elements[0].distance.value / 1000
+      const distance = data.rows[0].elements[0].distance.value / 1000
+      console.log('Calculated distance:', distance, 'km')
+      return distance
     }
+
+    if (data.status === 'REQUEST_DENIED') {
+      throw new Error(`Google Maps API error: ${data.error_message}`)
+    }
+
     throw new Error('Distance calculation failed')
   } catch (error) {
     console.error('Error calculating distance:', error)
     return 0
+  }
+}
+
+async function getCoordinates(address: string): Promise<{ lat: number, lng: number }> {
+  try {
+    const params = new URLSearchParams({
+      address: address,
+      key: apiConfig.googleMaps.apiKey
+    })
+
+    const url = `${apiConfig.googleMaps.baseUrl}/geocode/json?${params.toString()}`
+    console.log('Calling Google Maps Geocoding API:', url.replace(apiConfig.googleMaps.apiKey, 'API_KEY'))
+    
+    const response = await fetch(url)
+    const data = await response.json()
+    
+    if (data.status === 'OK' && data.results?.[0]?.geometry?.location) {
+      const location = data.results[0].geometry.location
+      console.log('Coordinates found:', location)
+      return location
+    }
+
+    throw new Error('Geocoding failed')
+  } catch (error) {
+    console.error('Error getting coordinates:', error)
+    return { lat: 0, lng: 0 }
   }
 }
 
@@ -56,38 +106,79 @@ export async function getTripCostsFromToolguru(origin: string, destination: stri
     throw new Error('APIs non configurées')
   }
 
+  const distance = await getDistanceFromGoogleMaps(origin, destination)
+  const originCoords = await getCoordinates(origin)
+  const destinationCoords = await getCoordinates(destination)
+
   try {
-    const distance = await getDistanceFromGoogleMaps(origin, destination)
     let retryCount = 0
     let lastError: Error | null = null
+    const hostname = new URL(TOOLGURU_DEV_URL).hostname;
 
     while (retryCount < apiConfig.toolguru.retryAttempts) {
       try {
-        const response = await fetch(`${apiConfig.toolguru.baseUrl}/v1/toll-cost`, {
-          method: 'POST',
+        console.log('Tentative d\'appel Toolguru:', retryCount + 1)
+        console.log('URL:', `${TOOLGURU_DEV_URL}/v1/calc/route`)
+        console.log('Hostname:', hostname)
+        
+        const httpsAgent = new https.Agent({
+          rejectUnauthorized: false,
+          servername: hostname
+        });
+
+        const response = await axios({
+          method: 'post',
+          url: `${TOOLGURU_DEV_URL}/v1/calc/route`,
           headers: {
-            'Authorization': `Bearer ${apiConfig.toolguru.apiKey}`,
-            'Content-Type': 'application/json'
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'x-api-key': apiConfig.toolguru.apiKey,
+            'Host': hostname
           },
-          body: JSON.stringify({
-            from: origin,
-            to: destination,
-            vehicle: {
-              type: 'van',
-              weight: 3500,
-              axles: 2
+          data: {
+            source: {
+              name: origin,
+              latitude: originCoords.lat,
+              longitude: originCoords.lng
             },
-            departure_time: new Date().toISOString()
-          })
+            destination: {
+              name: destination,
+              latitude: destinationCoords.lat,
+              longitude: destinationCoords.lng
+            },
+            waypoints: [],
+            serviceProvider: {
+              name: "here"
+            },
+            vehicle: {
+              type: "2AxlesLCV",
+              weight: {
+                value: 3500,
+                unit: "kg"
+              },
+              height: {
+                value: 2.5,
+                unit: "meter"
+              },
+              length: {
+                value: 5,
+                unit: "meter"
+              },
+              axles: 2,
+              trailers: 0
+            }
+          },
+          httpsAgent,
+          timeout: 60000,
+          validateStatus: null
         })
         
-        if (!response.ok) {
-          throw new Error(`Erreur API: ${response.status}`)
-        }
+        console.log('Toolguru response status:', response.status)
+        console.log('Toolguru response data:', response.data)
 
-        const data: ToollguruResponse = await response.json()
+        const data = response.data
 
-        if (data.status !== 'success') {
+        if (response.status !== 200 || data.status !== 'success') {
           throw new Error(data.message || 'Erreur de calcul des coûts')
         }
     
@@ -96,17 +187,29 @@ export async function getTripCostsFromToolguru(origin: string, destination: stri
           fuelCost: Math.round(data.costs.fuel || distance * 0.12),
           distance
         }
-      } catch (error) {
-        lastError = error as Error
+      } catch (error: any) {
+        console.log('Erreur tentative', retryCount + 1, ':', error.message)
+        if (error.response) {
+          console.log('Détails réponse:', {
+            status: error.response.status,
+            data: error.response.data,
+            headers: error.response.headers
+          })
+        }
+        
+        lastError = error
         retryCount++
-        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+        if (retryCount < apiConfig.toolguru.retryAttempts) {
+          const delay = 1000 * retryCount
+          console.log(`Attente de ${delay}ms avant la prochaine tentative...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
       }
     }
 
     throw lastError || new Error('Échec après plusieurs tentatives')
   } catch (error) {
     console.error('Erreur calcul coûts:', error)
-    const distance = await getDistanceFromGoogleMaps(origin, destination)
     return {
       tollCost: Math.round(distance * 0.07),
       fuelCost: Math.round(distance * 0.12),

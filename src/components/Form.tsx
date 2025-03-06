@@ -2,13 +2,16 @@ interface FormFieldProps {
   label: string
   error?: string
   className?: string
+  labelClass?: string
   children: React.ReactNode
+  icon?: React.ReactNode
 }
 
-export function FormField({ label, error, children }: FormFieldProps) {
+export function FormField({ label, error, className, labelClass, children, icon }: FormFieldProps) {
   return (
-    <div className="space-y-1">
-      <label className="block text-sm font-medium text-gray-700">
+    <div className={`space-y-1 ${className || ''}`}>
+      <label className={`block text-sm font-medium flex items-center gap-2 ${labelClass || 'text-gray-700'}`}>
+        {icon}
         {label}
       </label>
       {children}

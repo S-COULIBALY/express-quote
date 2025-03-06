@@ -1,9 +1,14 @@
+'use client'
+
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { QueryProvider } from '@/providers/QueryProvider'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { GoogleMapsScript } from '@/components/GoogleMapsScript'
 import './globals.css'
+import { Inter } from 'next/font/google'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
   children
@@ -12,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className="font-sans antialiased">
+      <body className={inter.className}>
         <QueryProvider>
           <NotificationProvider>
             <div className="min-h-screen flex flex-col">
