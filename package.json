@@ -30,6 +30,9 @@
     "prisma:db:seed": "node prisma/seed.js",
     "prisma:validate": "prisma validate"
   },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@modelcontextprotocol/sdk": "^1.7.0",
@@ -97,5 +100,21 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "~5.3.3"
-  }
+  },
+  "description": "This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).",
+  "main": ".eslintrc.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/S-COULIBALY/express-quote.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/S-COULIBALY/express-quote/issues"
+  },
+  "homepage": "https://github.com/S-COULIBALY/express-quote#readme"
 }
