@@ -71,54 +71,40 @@ export interface MovingFormData {
   pickupAddress: string
   deliveryAddress: string
   movingDate: string
-  volume: string
-  pickupFloor: string
-  deliveryFloor: string
+  volume?: string
   propertyType: string
   surface: string
   rooms: string
   occupants: string
-  pickupElevator: 'yes' | 'no'
-  deliveryElevator: 'yes' | 'no'
+  pickupFloor: string
+  deliveryFloor: string
+  pickupElevator: boolean
+  deliveryElevator: boolean
   pickupCarryDistance: string
   deliveryCarryDistance: string
-  options: {
-    packing: boolean
-    assembly: boolean
-    insurance: boolean
+  options?: {
+    packaging?: boolean
+    furniture?: boolean
+    fragile?: boolean
+    storage?: boolean
   }
 }
 
 export interface CleaningFormData {
-  cleaningDate: string
-  cleaningType: string
+  cleaningType: 'standard' | 'deep' | 'movingOut' | 'postConstruction'
   squareMeters: string
   numberOfRooms: string
   numberOfBathrooms: string
-  frequency: string
-  address: string
-  floorTypes: {
-    parquet: boolean
-    carpet: boolean
-    tile: boolean
-    vinyl: boolean
-    marble: boolean
-  }
-  propertyState: string
+  frequency: 'oneTime' | 'weekly' | 'biweekly' | 'monthly'
   hasBalcony: boolean
-  balconySize: string
   hasPets: boolean
-  options: {
-    windows: boolean
-    deepCleaning: boolean
-    carpets: boolean
-    furniture: boolean
-    appliances: boolean
-    ironing: boolean
-    dishes: boolean
-    bedding: boolean
-    garbage: boolean
-    sanitizing: boolean
+  date?: string
+  options?: {
+    windows?: boolean
+    deepCleaning?: boolean
+    carpets?: boolean
+    furniture?: boolean
+    appliances?: boolean
   }
 }
 
@@ -158,4 +144,13 @@ export interface MovingProps {
   quoteDetails?: QuoteDetails
   addressDetails: AddressDetails
   isCalculating?: boolean
+}
+
+export interface QuoteResult {
+  basePrice: number
+  discounts: Array<{
+    type: string
+    amount: number
+  }>
+  totalPrice: number
 } 

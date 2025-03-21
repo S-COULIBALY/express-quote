@@ -1,0 +1,311 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  relationMode = "prisma"
+}
+
+// Modèle pour les règles métier
+model BusinessRule {
+  id          Int       @id @default(autoincrement())
+  activityType String    @map("activity_type")
+  rules       Json
+  version     Int
+  validFrom   DateTime  @map("valid_from") @default(now())
+  validTo     DateTime? @map("valid_to")
+  createdAt   DateTime  @map("created_at") @default(now())
+  updatedAt   DateTime  @map("updated_at") @updatedAt
+
+  @@map("business_rules")
+  @@index([activityType])
+  @@index([validFrom, validTo])
+}
+
+// Modèle pour les clients
+model Customer {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  phone     String
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+  bookings  Booking[]
+
+  @@map("customers")
+}
+
+// Modèle pour les professionnels
+model Professional {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  phone     String
+  serviceType String @map("service_type")
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+  bookings  Booking[]
+
+  @@map("professionals")
+}
+
+// Modèle pour les devis
+model Quote {
+  id        String   @id @default(uuid())
+  status    String
+  serviceType String @map("service_type")
+  volume    Float?
+  distance  Float?
+  basePrice Float    @map("base_price")
+  finalPrice Float   @map("final_price")
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+  bookings  Booking[]
+
+  @@map("quotes")
+}
+
+// Modèle pour les packs prédéfinis (forfaits)
+model Pack {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  // Détails spécifiques du pack
+  truckSize   Int?     @map("truck_size")
+  moversCount Int?     @map("movers_count")
+  driverIncluded Boolean @default(false) @map("driver_included")
+  // Métadonnées
+  active      Boolean  @default(true)
+  createdAt   DateTime @map("created_at") @default(now())
+  updatedAt   DateTime @map("updated_at") @updatedAt
+  // Relations
+  bookings    Booking[]
+
+  @@map("packs")
+}
+
+// Modèle pour les services prédéfinis
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  // Type de service (livraison, montage, démontage, etc.)
+  serviceType String   @map("service_type")
+  // Durée en jours, si applicable
+  durationDays Int?    @map("duration_days")
+  // Nombre de personnes nécessaires, si applicable
+  peopleCount  Int?    @map("people_count")
+  // Métadonnées
+  active      Boolean  @default(true)
+  createdAt   DateTime @map("created_at") @default(now())
+  updatedAt   DateTime @map("updated_at") @updatedAt
+  // Relations
+  bookingServices BookingService[]
+
+  @@map("services")
+}
+
+// Relation entre Booking et Service (many-to-many)
+model BookingService {
+  id         String   @id @default(uuid())
+  // Relations
+  bookingId  String   @map("booking_id")
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  serviceId  String   @map("service_id")
+  service    Service  @relation(fields: [serviceId], references: [id])
+  // Date de prestation spécifique au service
+  serviceDate DateTime @map("service_date")
+  // Informations d'adresse spécifiques au service
+  address    String?
+  // Métadonnées
+  createdAt  DateTime @map("created_at") @default(now())
+  updatedAt  DateTime @map("updated_at") @updatedAt
+
+  @@map("booking_services")
+  @@index([bookingId])
+  @@index([serviceId])
+  @@unique([bookingId, serviceId])
+}
+
+// Type de réservation
+enum BookingType {
+  QUOTE     // Devis personnalisé
+  PACK      // Pack prédéfini
+  SERVICE   // Service uniquement
+}
+
+// Statut de réservation (inclut les différents statuts de paiement)
+enum BookingStatus {
+  DRAFT                // Brouillon
+  PENDING              // En attente de confirmation
+  AWAITING_PAYMENT     // En attente de paiement
+  PAYMENT_PROCESSING   // Paiement en cours de traitement  
+  PAYMENT_FAILED       // Échec du paiement
+  CONFIRMED            // Paiement confirmé
+  SCHEDULED            // Planifié
+  IN_PROGRESS          // En cours de réalisation
+  COMPLETED            // Terminé
+  CANCELLED            // Annulé
+}
+
+// Modèle pour les réservations (modèle unifié)
+model Booking {
+  id              String        @id @default(uuid())
+  type            BookingType   // Type de réservation (devis, pack, service)
+  status          BookingStatus
+  totalAmount     Float         @map("total_amount")
+  paymentMethod   String?       @map("payment_method")
+  scheduledDate   DateTime      @map("scheduled_date")
+  scheduledTime   String?       @map("scheduled_time")
+  // Adresses
+  originAddress   String?       @map("origin_address")
+  destAddress     String        @map("dest_address")
+  expiresAt       DateTime?     @map("expires_at")  // Date d'expiration (pour les réservations non confirmées)
+  createdAt       DateTime      @map("created_at") @default(now())
+  updatedAt       DateTime      @map("updated_at") @updatedAt
+  
+  // Relations - un booking a soit un quoteId, soit un packId, mais pas les deux
+  quoteId         String?       @map("quote_id")
+  quote           Quote?        @relation(fields: [quoteId], references: [id])
+  packId          String?       @map("pack_id")
+  pack            Pack?         @relation(fields: [packId], references: [id])
+  // Relations autres
+  customerId      String        @map("customer_id")
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  professionalId  String        @map("professional_id")
+  professional    Professional  @relation(fields: [professionalId], references: [id])
+  // Relation avec les services (many-to-many)
+  services        BookingService[]
+  // Relation avec les documents
+  documents       Document[]
+  // Relation avec les transactions
+  transactions    Transaction[]
+  // Relation avec les emails
+  emailLogs       EmailLog[]
+
+  @@map("bookings")
+  @@index([quoteId])
+  @@index([packId])
+  @@index([customerId])
+  @@index([professionalId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+// Type de document
+enum DocumentType {
+  BOOKING_CONFIRMATION
+  PAYMENT_RECEIPT
+  CONTRACT
+  INVOICE
+}
+
+// Modèle pour les documents (PDFs, etc.)
+model Document {
+  id          String        @id @default(uuid())
+  type        DocumentType
+  name        String
+  content     Bytes         // Contenu binaire du document (PDF)
+  mimeType    String        @map("mime_type")
+  size        Int
+  // Relations
+  bookingId   String        @map("booking_id")
+  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  // Métadonnées
+  createdAt   DateTime      @map("created_at") @default(now())
+  updatedAt   DateTime      @map("updated_at") @updatedAt
+
+  @@map("documents")
+  @@index([bookingId])
+}
+
+// Statut de transaction
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// Modèle pour l'historique des transactions
+model Transaction {
+  id                String             @id @default(uuid())
+  amount            Float
+  currency          String             @default("EUR")
+  status            TransactionStatus
+  paymentMethod     String             @map("payment_method")
+  paymentProvider   String             @map("payment_provider")
+  externalId        String?            @map("external_id")  // ID externe (ex: ID Stripe)
+  externalReference String?            @map("external_reference") // Référence externe
+  metadata          Json?              // Métadonnées supplémentaires
+  // Relations
+  bookingId         String             @map("booking_id")
+  booking           Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  // Métadonnées
+  createdAt         DateTime           @map("created_at") @default(now())
+  updatedAt         DateTime           @map("updated_at") @updatedAt
+
+  @@map("transactions")
+  @@index([bookingId])
+  @@index([externalId])
+  @@index([status])
+}
+
+// Statut d'email
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// Modèle pour les logs d'emails
+model EmailLog {
+  id              String       @id @default(uuid())
+  recipient       String
+  subject         String
+  template        String?      // Nom du template utilisé, si applicable
+  content         String       // Contenu de l'email
+  status          EmailStatus
+  errorMessage    String?      @map("error_message")  // Message d'erreur si échec
+  // Relations
+  bookingId       String       @map("booking_id")
+  booking         Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  attachments     EmailAttachment[]
+  // Métadonnées
+  sentAt          DateTime?    @map("sent_at")  // Date d'envoi (si envoyé)
+  createdAt       DateTime     @map("created_at") @default(now())
+  updatedAt       DateTime     @map("updated_at") @updatedAt
+
+  @@map("email_logs")
+  @@index([bookingId])
+  @@index([status])
+}
+
+// Modèle pour les pièces jointes des emails
+model EmailAttachment {
+  id            String       @id @default(uuid())
+  filename      String
+  documentId    String?      @map("document_id")  // ID du document si la pièce jointe est liée à un document
+  // Relations
+  emailLogId    String       @map("email_log_id")
+  emailLog      EmailLog     @relation(fields: [emailLogId], references: [id], onDelete: Cascade)
+  // Métadonnées
+  createdAt     DateTime     @map("created_at") @default(now())
+
+  @@map("email_attachments")
+  @@index([emailLogId])
+}
