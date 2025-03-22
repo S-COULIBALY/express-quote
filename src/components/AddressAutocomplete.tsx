@@ -14,6 +14,14 @@ interface AddressAutocompleteProps {
   placeholder?: string
 }
 
+// Messages d'erreur selon le type d'erreur
+const ERROR_MESSAGES = {
+  NUMERIC_ONLY: "Ce numéro seul n'est pas une adresse valide",
+  TOO_SHORT: "Cette adresse est trop courte",
+  MISSING_COMPONENTS: "L'adresse doit contenir un numéro, une rue, une ville et un code postal",
+  NOT_SELECTED_FROM_DROPDOWN: "Veuillez sélectionner une adresse dans la liste des suggestions"
+};
+
 export function AddressAutocomplete({
   id,
   label,
@@ -26,6 +34,7 @@ export function AddressAutocomplete({
     inputRef,
     value: inputValue,
     isValid,
+    errorType,
     handleInputChange
   } = useAddressAutocomplete({
     id,
@@ -33,12 +42,45 @@ export function AddressAutocomplete({
     onChange
   })
 
+  // Obtenir le message d'erreur approprié
+  const getErrorMessage = () => {
+    if (!errorType) return "";
+    return ERROR_MESSAGES[errorType as keyof typeof ERROR_MESSAGES] || "Adresse invalide";
+  };
+
+  // Déterminer la couleur de la bordure en fonction du type d'erreur
+  const getBorderClass = () => {
+    if (!inputValue) return 'border-gray-300';
+    if (isValid) return 'border-green-500';
+    
+    // Différentes couleurs selon la gravité de l'erreur
+    switch (errorType) {
+      case 'NUMERIC_ONLY':
+      case 'TOO_SHORT':
+        return 'border-red-500';
+      case 'MISSING_COMPONENTS':
+      case 'NOT_SELECTED_FROM_DROPDOWN': 
+      default:
+        return 'border-yellow-500';
+    }
+  };
+
   // Empêcher la soumission du formulaire sur Enter
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
     }
   }
+
+  // Bloquer les entrées qui sont juste des chiffres
+  const handleInputChangeWithValidation = (value: string) => {
+    // Empêcher la saisie de nombres seuls
+    if (/^\d+$/.test(value)) {
+      console.warn("Tentative de saisie d'un nombre seul:", value);
+    }
+    
+    handleInputChange(value);
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -52,24 +94,24 @@ export function AddressAutocomplete({
           type="text"
           id={id}
           value={inputValue}
-          onChange={(e) => handleInputChange(e.target.value)}
+          onChange={(e) => handleInputChangeWithValidation(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           required={required}
-          className={`w-full p-2 border rounded-md ${
-            !isValid && inputValue ? 'border-yellow-500' : 'border-gray-300'
-          } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+          className={`w-full p-2 border rounded-md ${getBorderClass()} focus:outline-none focus:ring-2 focus:ring-blue-500`}
           autoComplete="off"
+          aria-invalid={!isValid && !!inputValue}
+          aria-describedby={`${id}-error`}
         />
         {!isValid && inputValue && (
           <div className="absolute right-2 top-2 text-yellow-500">
-            <span title="Adresse incomplète">⚠️</span>
+            <span title={getErrorMessage()}>⚠️</span>
           </div>
         )}
       </div>
       {!isValid && inputValue && (
-        <p className="text-sm text-yellow-600">
-          Veuillez sélectionner une adresse dans la liste des suggestions
+        <p id={`${id}-error`} className={`text-sm ${errorType && ['NUMERIC_ONLY', 'TOO_SHORT'].includes(errorType) ? 'text-red-600' : 'text-yellow-600'}`}>
+          {getErrorMessage()}
         </p>
       )}
     </div>

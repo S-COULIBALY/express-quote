@@ -2,6 +2,12 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 
 // Définir les enums pour éviter les problèmes d'import
+enum BookingType {
+  QUOTE = 'QUOTE',
+  PACK = 'PACK',
+  SERVICE = 'SERVICE'
+}
+
 enum BookingStatus {
   DRAFT = 'DRAFT',
   PENDING = 'PENDING',
@@ -37,18 +43,27 @@ interface CreateCheckoutSessionParams {
   customerId: string;
   customerEmail: string;
   amount: number;
-  bookingType: 'QUOTE' | 'PACK' | 'SERVICE';
+  bookingType: 'QUOTE' | 'PACK' | 'SERVICE'; // Types acceptés depuis l'API
   description: string;
-  successUrl: string;
-  cancelUrl: string;
+  metadata?: Record<string, string>;
+  successUrl?: string;
+  cancelUrl?: string;
+}
+
+/**
+ * Interface pour le résultat de la création d'une session Checkout Stripe
+ */
+interface CheckoutSessionResult {
+  url: string;
+  sessionId: string;
 }
 
 /**
  * Crée une session de paiement Stripe Checkout
  * @param params Paramètres de la session
- * @returns URL de la session Checkout
+ * @returns URL de la session Checkout et ID de session
  */
-export async function createCheckoutSession(params: CreateCheckoutSessionParams): Promise<string> {
+export async function createCheckoutSession(params: CreateCheckoutSessionParams): Promise<CheckoutSessionResult> {
   try {
     const {
       bookingId,
@@ -57,9 +72,26 @@ export async function createCheckoutSession(params: CreateCheckoutSessionParams)
       amount,
       bookingType,
       description,
-      successUrl,
-      cancelUrl,
+      metadata = {},
+      successUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/moving/success`,
+      cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/moving/payment`,
     } = params;
+
+    // Convertir le type de réservation fourni en valeur d'enum
+    let bookingTypeEnum: BookingType;
+    switch (bookingType.toUpperCase()) {
+      case 'QUOTE':
+        bookingTypeEnum = BookingType.QUOTE;
+        break;
+      case 'PACK':
+        bookingTypeEnum = BookingType.PACK;
+        break;
+      case 'SERVICE':
+        bookingTypeEnum = BookingType.SERVICE;
+        break;
+      default:
+        throw new Error(`Type de réservation non valide: ${bookingType}`);
+    }
 
     // Vérifier que la réservation existe et n'est pas déjà payée
     const booking = await prisma.booking.findUnique({
@@ -103,8 +135,9 @@ export async function createCheckoutSession(params: CreateCheckoutSessionParams)
       ],
       metadata: {
         bookingId,
-        bookingType,
+        bookingType: bookingTypeEnum,
         customerId,
+        ...metadata
       },
       success_url: `${successUrl}?id=${bookingId}`,
       cancel_url: `${cancelUrl}?id=${bookingId}&status=cancelled`,
@@ -136,7 +169,10 @@ export async function createCheckoutSession(params: CreateCheckoutSessionParams)
       // On continue même si la transaction n'a pas pu être enregistrée
     }
 
-    return session.url || '';
+    return {
+      url: session.url || '',
+      sessionId: session.id
+    };
   } catch (error) {
     console.error('Erreur lors de la création de la session Stripe:', error);
     throw new Error('Erreur lors de la création de la session de paiement: ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
@@ -183,5 +219,5 @@ function getBookingTypeName(type: 'QUOTE' | 'PACK' | 'SERVICE'): string {
     PACK: 'Pack de déménagement',
     SERVICE: 'Service',
   };
-  return types[type] || type;
+  return types[type.toUpperCase()] || type;
 } 

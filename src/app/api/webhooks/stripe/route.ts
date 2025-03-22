@@ -59,24 +59,35 @@ export async function POST(req: NextRequest) {
     }
 
     // Traiter l'événement
+    console.log(`Événement Stripe reçu: ${event.type}`);
+    
+    let result;
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCompletedCheckout(event.data.object);
+        result = await handleCompletedCheckout(event.data.object);
         break;
       case 'payment_intent.succeeded':
-        await handleSuccessfulPayment(event.data.object);
+        result = await handleSuccessfulPayment(event.data.object);
         break;
       case 'payment_intent.payment_failed':
-        await handleFailedPayment(event.data.object);
+        result = await handleFailedPayment(event.data.object);
         break;
       default:
         console.log(`Événement non traité: ${event.type}`);
+        result = { status: 'skipped', message: `Événement ${event.type} non traité` };
     }
 
-    return NextResponse.json({ received: true });
+    return NextResponse.json({ 
+      received: true,
+      eventType: event.type,
+      result
+    });
   } catch (error) {
     console.error('Erreur lors du traitement du webhook:', error);
-    return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Erreur interne du serveur', details: error instanceof Error ? error.message : 'Erreur inconnue' }, 
+      { status: 500 }
+    );
   }
 }
 
@@ -92,10 +103,28 @@ async function handleCompletedCheckout(session: Stripe.Checkout.Session) {
   
   if (!bookingId) {
     console.error('Aucun ID de réservation trouvé dans les métadonnées');
-    return;
+    return { 
+      status: 'error', 
+      message: 'Aucun ID de réservation trouvé dans les métadonnées' 
+    };
   }
 
   try {
+    // Vérifier si la réservation a déjà été traitée
+    const existingBooking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { status: true }
+    });
+
+    if (!existingBooking) {
+      throw new Error(`Réservation ${bookingId} introuvable`);
+    }
+
+    if (existingBooking.status === BookingStatus.CONFIRMED) {
+      console.log(`Réservation ${bookingId} déjà confirmée, ignorée`);
+      return { status: 'skipped', message: 'Réservation déjà confirmée' };
+    }
+
     // Mettre à jour le statut de la réservation et créer la transaction
     const booking = await prisma.$transaction(async (tx) => {
       // Mettre à jour le booking
@@ -105,58 +134,130 @@ async function handleCompletedCheckout(session: Stripe.Checkout.Session) {
           status: BookingStatus.CONFIRMED,
         },
         include: {
-          customer: true,
-          quote: true,
-          pack: true,
-          services: {
-            include: {
-              service: true
-            }
-          }
+          customer: true
         }
       });
 
-      // Créer la transaction
-      await tx.transaction.create({
-        data: {
-          bookingId: updatedBooking.id,
-          amount: parseFloat(session.amount_total ? (session.amount_total / 100).toFixed(2) : '0'),
-          currency: session.currency || 'eur',
-          status: TransactionStatus.COMPLETED,
-          paymentMethod: session.payment_method_types?.[0] || 'card',
-          paymentProvider: 'stripe',
-          externalId: session.id,
-          externalReference: session.payment_intent as string,
-          metadata: {
-            paymentIntentId: session.payment_intent,
-            customerEmail: session.customer_details?.email,
-            customerName: session.customer_details?.name,
-          }
-        }
+      // Vérifier si une transaction pour cette session existe déjà
+      const existingTx = await tx.transaction.findFirst({
+        where: { externalId: session.id }
       });
+
+      if (!existingTx) {
+        // Créer la transaction
+        await tx.transaction.create({
+          data: {
+            bookingId: updatedBooking.id,
+            amount: parseFloat(session.amount_total ? (session.amount_total / 100).toFixed(2) : '0'),
+            currency: session.currency || 'eur',
+            status: TransactionStatus.COMPLETED,
+            paymentMethod: session.payment_method_types?.[0] || 'card',
+            paymentProvider: 'stripe',
+            externalId: session.id,
+            externalReference: session.payment_intent as string || '',
+            metadata: {
+              paymentIntentId: session.payment_intent,
+              customerEmail: session.customer_details?.email,
+              customerName: session.customer_details?.name,
+            }
+          }
+        });
+      }
 
       return updatedBooking;
     });
 
-    // Préparer les données pour le PDF
-    const bookingDetails = mapBookingDataForPDF(booking);
+    try {
+      // Préparer les données pour le PDF
+      const bookingDetails = await getBookingDetailsForConfirmation(booking.id);
 
-    // Générer le PDF
-    const pdfBuffer = await generateBookingConfirmationPdf(bookingDetails);
+      // Générer le PDF
+      const pdfBuffer = await generateBookingConfirmationPdf(bookingDetails);
 
-    // Envoyer l'email avec le PDF en pièce jointe
-    await sendBookingConfirmationEmail(
-      booking.id,
-      booking.customer.email,
-      booking.customer.firstName,
-      pdfBuffer
-    );
+      // Envoyer l'email avec le PDF en pièce jointe
+      await sendBookingConfirmationEmail(
+        booking.id,
+        booking.customer.email,
+        booking.customer.firstName,
+        pdfBuffer
+      );
 
-    console.log(`Réservation ${bookingId} confirmée et email envoyé`);
+      console.log(`Réservation ${bookingId} confirmée et email envoyé`);
+      return { 
+        status: 'success', 
+        message: `Réservation ${bookingId} confirmée et email envoyé` 
+      };
+    } catch (emailError) {
+      console.error(`Erreur lors de l'envoi de l'email pour la réservation ${bookingId}:`, emailError);
+      return { 
+        status: 'partial_success', 
+        message: `Réservation confirmée mais erreur lors de l'envoi de l'email: ${emailError instanceof Error ? emailError.message : 'Erreur inconnue'}` 
+      };
+    }
 
   } catch (error) {
     console.error(`Erreur lors du traitement de la session ${session.id}:`, error);
+    throw error;
   }
+}
+
+/**
+ * Récupère les détails d'une réservation pour la confirmation
+ * @param bookingId ID de la réservation
+ */
+async function getBookingDetailsForConfirmation(bookingId: string) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      customer: true,
+      transactions: {
+        orderBy: { createdAt: 'desc' },
+        take: 1
+      }
+    }
+  });
+
+  if (!booking) {
+    throw new Error(`Réservation ${bookingId} introuvable`);
+  }
+
+  const bookingType = booking.type;
+  const lastTransaction = booking.transactions[0];
+
+  // Construire un objet standard avec les données communes
+  const bookingDetails: any = {
+    id: booking.id,
+    type: bookingType,
+    status: booking.status,
+    date: booking.scheduledDate,
+    amount: booking.totalAmount,
+    paymentMethod: lastTransaction?.paymentMethod || 'Inconnu',
+    customer: {
+      name: `${booking.customer.firstName} ${booking.customer.lastName}`,
+      email: booking.customer.email,
+      phone: booking.customer.phone
+    }
+  };
+
+  // Ajouter des détails spécifiques selon le type de réservation
+  if (bookingType === BookingType.QUOTE) {
+    bookingDetails.pickupAddress = booking.pickupAddress;
+    bookingDetails.deliveryAddress = booking.deliveryAddress;
+    bookingDetails.volume = booking.volume;
+    bookingDetails.distance = booking.distance;
+    bookingDetails.items = booking.items;
+  } 
+  else if (bookingType === BookingType.PACK) {
+    bookingDetails.packName = booking.packName;
+    bookingDetails.location = booking.location || booking.deliveryAddress;
+  }
+  else if (bookingType === BookingType.SERVICE) {
+    bookingDetails.serviceName = booking.serviceName;
+    bookingDetails.description = booking.description;
+    bookingDetails.location = booking.location || booking.deliveryAddress;
+  }
+
+  return bookingDetails;
 }
 
 /**

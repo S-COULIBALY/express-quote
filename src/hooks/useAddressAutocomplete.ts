@@ -11,7 +11,16 @@ interface AddressState {
   value: string
   isValid: boolean
   place: google.maps.places.PlaceResult | null
+  errorType?: string
 }
+
+// Types d'erreurs possibles
+const ERROR_TYPES = {
+  NUMERIC_ONLY: 'NUMERIC_ONLY',
+  TOO_SHORT: 'TOO_SHORT',
+  MISSING_COMPONENTS: 'MISSING_COMPONENTS',
+  NOT_SELECTED_FROM_DROPDOWN: 'NOT_SELECTED_FROM_DROPDOWN'
+};
 
 export function useAddressAutocomplete({
   id,
@@ -28,9 +37,27 @@ export function useAddressAutocomplete({
   const inputRef = useRef<HTMLInputElement | null>(null)
   const isInternalChangeRef = useRef(false)
 
+  // Prévalider l'adresse (avant sélection dans les suggestions)
+  const prevalidateAddress = useCallback((address: string): { isValid: boolean, errorType?: string } => {
+    // Vérifier si c'est seulement des chiffres
+    if (/^\d+$/.test(address)) {
+      return { isValid: false, errorType: ERROR_TYPES.NUMERIC_ONLY };
+    }
+    
+    // Vérifier si c'est trop court
+    if (address.length < 5) {
+      return { isValid: false, errorType: ERROR_TYPES.TOO_SHORT };
+    }
+    
+    // Si pas d'erreur évidente, l'entrée est potentiellement valide
+    return { isValid: true };
+  }, []);
+
   // Valider l'adresse
-  const validateAddress = useCallback((place: google.maps.places.PlaceResult): boolean => {
-    if (!place.address_components) return false
+  const validateAddress = useCallback((place: google.maps.places.PlaceResult): { isValid: boolean, errorType?: string } => {
+    if (!place.address_components) {
+      return { isValid: false, errorType: ERROR_TYPES.NOT_SELECTED_FROM_DROPDOWN };
+    }
 
     const requiredTypes = ['street_number', 'route', 'postal_code', 'locality']
     const foundTypes = place.address_components.map(component => component.types[0])
@@ -38,10 +65,10 @@ export function useAddressAutocomplete({
     const missingComponents = requiredTypes.filter(type => !foundTypes.includes(type))
     if (missingComponents.length > 0) {
       console.debug(`[${id}] Composants d'adresse manquants:`, missingComponents)
-      return false
+      return { isValid: false, errorType: ERROR_TYPES.MISSING_COMPONENTS };
     }
 
-    return true
+    return { isValid: true };
   }, [id])
 
   // Gérer le changement de lieu
@@ -54,13 +81,14 @@ export function useAddressAutocomplete({
       return
     }
 
-    const isValid = validateAddress(place)
+    const { isValid, errorType } = validateAddress(place)
     isInternalChangeRef.current = true
 
     setState({
       value: place.formatted_address,
       isValid,
-      place: isValid ? place : null
+      place: isValid ? place : null,
+      errorType
     })
 
     onChange(place.formatted_address, isValid ? place : undefined)
@@ -81,7 +109,8 @@ export function useAddressAutocomplete({
     console.debug(`[${id}] Initialisation de l'autocomplétion`)
     const options: google.maps.places.AutocompleteOptions = {
       fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-      componentRestrictions: { country: 'fr' }
+      componentRestrictions: { country: 'fr' },
+      types: ['address'] // Restreindre aux adresses uniquement
     }
 
     autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, options)
@@ -104,31 +133,55 @@ export function useAddressAutocomplete({
   // Gérer les changements manuels
   const handleInputChange = useCallback((newValue: string) => {
     console.debug(`[${id}] handleInputChange appelé avec:`, newValue)
+    
+    // Si la valeur est strictement numérique et courte, ne pas la traiter comme une adresse valide
+    const isSimpleNumeric = /^\d+$/.test(newValue);
+    const isTooShort = newValue.length < 5;
+    
     isInternalChangeRef.current = true
+
+    // Prévalider l'adresse
+    const { isValid, errorType } = prevalidateAddress(newValue);
 
     setState(prev => ({
       value: newValue,
-      isValid: false,
-      place: null
+      isValid: false, // Toujours faux jusqu'à ce qu'une suggestion soit sélectionnée
+      place: null,
+      errorType: isValid ? ERROR_TYPES.NOT_SELECTED_FROM_DROPDOWN : errorType
     }))
 
-    onChange(newValue)
+    // Pour les entrées évidemment invalides comme des chiffres seuls,
+    // on met à jour l'interface mais on n'appelle pas onChange pour ne pas 
+    // propager les valeurs invalides au composant parent
+    if (!isSimpleNumeric && !isTooShort) {
+      onChange(newValue)
+    } else {
+      console.debug(`[${id}] Entrée invalide ignorée:`, newValue, 
+        isSimpleNumeric ? "(uniquement numérique)" : "",
+        isTooShort ? "(trop court)" : "");
+    }
 
     setTimeout(() => {
       isInternalChangeRef.current = false
     }, 100)
-  }, [id, onChange])
+  }, [id, onChange, prevalidateAddress])
 
   // Synchroniser avec la valeur externe
   useEffect(() => {
     if (!isInternalChangeRef.current && initialValue !== state.value) {
       console.debug(`[${id}] Synchronisation avec la valeur externe:`, initialValue)
+      
+      // Prévalider la valeur initiale
+      const { isValid, errorType } = prevalidateAddress(initialValue);
+      
       setState(prev => ({
         ...prev,
-        value: initialValue
+        value: initialValue,
+        isValid: false, // Toujours considérer comme invalide jusqu'à sélection
+        errorType: isValid ? ERROR_TYPES.NOT_SELECTED_FROM_DROPDOWN : errorType
       }))
     }
-  }, [id, initialValue, state.value])
+  }, [id, initialValue, state.value, prevalidateAddress])
 
   // Pour les tests uniquement
   const __test_selectPlace = useCallback((place: google.maps.places.PlaceResult) => {
@@ -144,6 +197,7 @@ export function useAddressAutocomplete({
     value: state.value,
     isValid: state.isValid,
     place: state.place,
+    errorType: state.errorType,
     handleInputChange,
     __test_selectPlace
   }

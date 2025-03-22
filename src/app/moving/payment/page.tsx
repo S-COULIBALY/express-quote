@@ -27,6 +27,7 @@ interface QuoteData {
     storage: boolean
   }
   totalCost: number
+  persistedId?: string
 }
 
 export default function Page() {
@@ -78,6 +79,7 @@ function MovingPaymentContent() {
 
     try {
       setProcessing(true)
+      setError(null)
       
       // 1. Créer ou récupérer le client
       const customerResponse = await fetch('/api/customers', {
@@ -97,27 +99,42 @@ function MovingPaymentContent() {
 
       const customer = await customerResponse.json()
 
-      // 2. Créer un devis persistant en base de données
-      const quoteResponse = await fetch('/api/quotation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pickupAddress: quoteData.pickupAddress,
-          deliveryAddress: quoteData.deliveryAddress,
-          volume: parseFloat(quoteData.volume),
-          options: quoteData.options,
-          preferredDate: quoteData.preferredDate,
-          preferredTime: quoteData.preferredTime || 'morning'
-        })
-      })
+      // 2. Identifier le devis - Utiliser l'ID persisté si disponible
+      const persistedQuoteId = quoteData.persistedId || quoteId
+      let persistedQuote
 
-      if (!quoteResponse.ok) {
-        throw new Error('Échec de création du devis')
+      if (!persistedQuoteId) {
+        // Si pas d'ID persisté, on doit récupérer ou créer le devis
+        const quoteResponse = await fetch('/api/quotation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pickupAddress: quoteData.pickupAddress,
+            deliveryAddress: quoteData.deliveryAddress,
+            volume: parseFloat(quoteData.volume),
+            options: quoteData.options,
+            preferredDate: quoteData.preferredDate,
+            preferredTime: quoteData.preferredTime || 'morning'
+          })
+        })
+
+        if (!quoteResponse.ok) {
+          throw new Error('Échec de création du devis')
+        }
+
+        persistedQuote = await quoteResponse.json()
+      } else {
+        // Utiliser le devis existant
+        const quoteResponse = await fetch(`/api/quotation/${persistedQuoteId}`)
+        
+        if (!quoteResponse.ok) {
+          throw new Error('Devis introuvable')
+        }
+        
+        persistedQuote = await quoteResponse.json()
       }
 
-      const persistedQuote = await quoteResponse.json()
-
-      // 4. Créer la réservation
+      // 3. Créer la réservation
       const bookingResponse = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,11 +142,12 @@ function MovingPaymentContent() {
           type: 'quote',
           quoteId: persistedQuote.data.id,
           customerId: customer.id,
-          professionalId: '00000000-0000-0000-0000-000000000001', // ID par défaut ou récupéré dynamiquement
+          professionalId: '00000000-0000-0000-0000-000000000001', // ID par défaut
           scheduledDate: quoteData.preferredDate,
           originAddress: quoteData.pickupAddress,
           destAddress: quoteData.deliveryAddress,
-          status: 'PENDING'
+          status: 'PENDING',
+          price: quoteData.totalCost
         })
       })
 
@@ -139,25 +157,27 @@ function MovingPaymentContent() {
 
       const booking = await bookingResponse.json()
 
-      // 5. Rediriger vers Stripe pour le paiement
+      // 4. Rediriger vers Stripe pour le paiement
       const depositAmount = quoteData.totalCost * 0.3 // 30% d'acompte
-      const { url } = await createCheckoutSession({
+      const result = await createCheckoutSession({
         customerId: customer.id,
         customerEmail: customer.email,
         bookingId: booking.id,
-        bookingType: 'quote',
+        bookingType: 'QUOTE',
         amount: depositAmount,
         description: 'Devis de déménagement personnalisé',
+        successUrl: `${window.location.origin}/moving/success`,
+        cancelUrl: `${window.location.origin}/moving/payment?id=${persistedQuoteId || quoteId}`,
         metadata: {
           quoteId: persistedQuote.data.id,
-          volume: quoteData.volume,
+          volume: quoteData.volume.toString(),
           scheduledDate: quoteData.preferredDate
         }
       })
 
       // Rediriger vers la page de paiement Stripe
-      if (url) {
-        window.location.href = url
+      if (result.url) {
+        window.location.href = result.url
       } else {
         throw new Error('Impossible de créer la session de paiement')
       }

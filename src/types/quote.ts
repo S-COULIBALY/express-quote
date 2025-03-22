@@ -71,18 +71,18 @@ export interface MovingFormData {
   pickupAddress: string
   deliveryAddress: string
   movingDate: string
-  volume?: string
+  volume: string
   propertyType: string
   surface: string
   rooms: string
   occupants: string
   pickupFloor: string
   deliveryFloor: string
-  pickupElevator: boolean
-  deliveryElevator: boolean
+  pickupElevator: string
+  deliveryElevator: string
   pickupCarryDistance: string
   deliveryCarryDistance: string
-  options?: {
+  options: {
     packaging?: boolean
     furniture?: boolean
     fragile?: boolean

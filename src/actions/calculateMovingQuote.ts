@@ -34,10 +34,9 @@ const MOVING_RATES: Record<string, { perKm: number; perM3: number }> = {
 
 // Coûts des services additionnels
 const MOVING_SERVICES = {
-  packing: { cost: 200, type: 'fixed' as const },
-  assembly: { cost: 150, type: 'fixed' as const },
-  disassembly: { cost: 100, type: 'fixed' as const },
-  insurance: { cost: 0.1, type: 'percent' as const },
+  packaging: { cost: 200, type: 'fixed' as const },
+  furniture: { cost: 150, type: 'fixed' as const },
+  fragile: { cost: 0.1, type: 'percent' as const },
   storage: { cost: 300, type: 'fixed' as const },
   heavyLifting: { cost: 100, type: 'fixed' as const },
   basement: { cost: 80, type: 'fixed' as const },
@@ -191,17 +190,7 @@ export async function calculateMovingQuote(formData: MovingFormData) {
     (Math.max(0, deliveryCarryDistanceNum - 10) * CARRY_DISTANCE_COSTS.additional)
 
   // Calculer les coûts des options
-  let optionsCost = 0
-  Object.entries(options).forEach(([key, isSelected]) => {
-    if (isSelected && key in MOVING_SERVICES) {
-      const service = MOVING_SERVICES[key as keyof typeof MOVING_SERVICES]
-      if (service.type === 'fixed') {
-        optionsCost += service.cost
-      } else {
-        optionsCost += baseCost * service.cost
-      }
-    }
-  })
+  const optionsCost = calculateOptionsCost(volumeNum, baseCost, options)
 
   // Coût total
   const totalCost = baseCost + optionsCost + floorCost + carryDistanceCost + tripCosts.tollCost + tripCosts.fuelCost
@@ -217,4 +206,31 @@ export async function calculateMovingQuote(formData: MovingFormData) {
     optionsCost,
     totalCost
   }
+}
+
+const calculateOptionsCost = (volume: number, totalBaseCost: number, options: MovingFormData['options']) => {
+  let optionsCost = 0
+
+  // Vérifier si options existe
+  if (!options) return 0
+
+  // Calcul pour chaque option activée
+  if (options.packaging) {
+    optionsCost += MOVING_SERVICES.packaging.cost
+  }
+  
+  if (options.furniture) {
+    optionsCost += MOVING_SERVICES.furniture.cost
+  }
+  
+  if (options.fragile) {
+    // Assurance basée sur le pourcentage du coût de base
+    optionsCost += totalBaseCost * MOVING_SERVICES.fragile.cost
+  }
+  
+  if (options.storage) {
+    optionsCost += MOVING_SERVICES.storage.cost
+  }
+
+  return optionsCost
 } 

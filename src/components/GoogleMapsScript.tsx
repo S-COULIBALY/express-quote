@@ -32,6 +32,7 @@ export function GoogleMapsScript() {
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiConfig.googleMaps.apiKey}&libraries=places&callback=initGoogleMapsCallback`
       script.async = true
       script.defer = true
+      script.setAttribute('loading', 'async')
       script.onerror = () => {
         console.error('Erreur lors du chargement de Google Maps')
         isLoading.current = false

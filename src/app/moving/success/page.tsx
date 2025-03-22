@@ -7,22 +7,22 @@ import Link from 'next/link'
 interface MovingQuote {
   id: string
   status: string
-  moveDate: string
-  pickupAddress: string
-  deliveryAddress: string
+  moveDate: string | null
+  pickupAddress: string | null
+  deliveryAddress: string | null
   customer: {
     firstName: string
     lastName: string
     email: string
-    phone: string
+    phone: string | null
   }
   items: Array<{
     name: string
     quantity: number
-  }>
+  }> | null
   totalPrice: number
-  distance: number
-  volume: number
+  distance: number | null
+  volume: number | null
 }
 
 export default function MovingSuccessPage() {
@@ -43,14 +43,40 @@ export default function MovingSuccessPage() {
 
     async function fetchQuote() {
       try {
-        const response = await fetch(`/api/quotes/${bookingId}`)
+        // Essayer d'abord l'API des devis
+        let response = await fetch(`/api/quotes/${bookingId}`)
         
+        // Si le devis n'est pas trouvé, essayer l'API des réservations
         if (!response.ok) {
-          throw new Error('Devis introuvable')
+          response = await fetch(`/api/bookings/${bookingId}`)
+          
+          if (!response.ok) {
+            throw new Error('Devis ou réservation introuvable')
+          }
         }
         
         const data = await response.json()
-        setQuote(data)
+
+        // Normaliser les données pour s'adapter à notre interface
+        const normalizedData: MovingQuote = {
+          id: data.id,
+          status: data.status,
+          moveDate: data.moveDate || data.scheduledDate,
+          pickupAddress: data.pickupAddress || data.originAddress,
+          deliveryAddress: data.deliveryAddress || data.destAddress,
+          customer: {
+            firstName: data.customer?.firstName || '',
+            lastName: data.customer?.lastName || '',
+            email: data.customer?.email || '',
+            phone: data.customer?.phone || null
+          },
+          items: Array.isArray(data.items) ? data.items : [],
+          totalPrice: data.totalPrice || data.totalAmount || 0,
+          distance: data.distance || null,
+          volume: data.volume || null
+        }
+
+        setQuote(normalizedData)
       } catch (error) {
         console.error('Error fetching quote:', error)
         setError(error instanceof Error ? error.message : 'Erreur lors de la récupération du devis')
@@ -95,7 +121,8 @@ export default function MovingSuccessPage() {
     )
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Non spécifiée';
     return new Date(dateString).toLocaleDateString('fr-FR')
   }
 
@@ -133,12 +160,12 @@ export default function MovingSuccessPage() {
               
               <div>
                 <dt className="text-sm font-medium text-gray-500">Adresse de départ</dt>
-                <dd className="mt-1 text-sm text-gray-900">{quote.pickupAddress}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{quote.pickupAddress || 'Non spécifiée'}</dd>
               </div>
               
               <div>
                 <dt className="text-sm font-medium text-gray-500">Adresse de destination</dt>
-                <dd className="mt-1 text-sm text-gray-900">{quote.deliveryAddress}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{quote.deliveryAddress || 'Non spécifiée'}</dd>
               </div>
               
               <div>
@@ -155,26 +182,32 @@ export default function MovingSuccessPage() {
                 </dd>
               </div>
               
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Distance</dt>
-                <dd className="mt-1 text-sm text-gray-900">{quote.distance} km</dd>
-              </div>
+              {quote.distance !== null && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Distance</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{quote.distance} km</dd>
+                </div>
+              )}
               
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Volume</dt>
-                <dd className="mt-1 text-sm text-gray-900">{quote.volume} m³</dd>
-              </div>
+              {quote.volume !== null && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Volume</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{quote.volume} m³</dd>
+                </div>
+              )}
               
-              <div className="md:col-span-2">
-                <dt className="text-sm font-medium text-gray-500">Articles</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  <ul className="list-disc pl-5 space-y-1">
-                    {quote.items.map((item, index) => (
-                      <li key={index}>{item.name} (x{item.quantity})</li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
+              {quote.items && quote.items.length > 0 && (
+                <div className="md:col-span-2">
+                  <dt className="text-sm font-medium text-gray-500">Articles</dt>
+                  <dd className="mt-1 text-sm text-gray-900">
+                    <ul className="list-disc pl-5 space-y-1">
+                      {quote.items.map((item, index) => (
+                        <li key={index}>{item.name} (x{item.quantity})</li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
+              )}
               
               <div className="md:col-span-2 border-t pt-4">
                 <dt className="text-base font-medium text-gray-900">Montant total</dt>
