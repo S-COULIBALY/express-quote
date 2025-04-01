@@ -1,271 +1,374 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, BookingType, BookingStatus } from '@prisma/client';
+import { BookingStatus, BookingType } from '@/quotation/domain/entities/Booking';
+import { Booking } from '@/quotation/domain/entities/Booking';
+import { BookingController } from '@/quotation/interfaces/http/controllers/BookingController';
+import { PrismaBookingRepository } from '@/quotation/infrastructure/repositories/PrismaBookingRepository';
+import { PrismaMovingRepository } from '@/quotation/infrastructure/repositories/PrismaMovingRepository';
+import { PrismaPackRepository } from '@/quotation/infrastructure/repositories/PrismaPackRepository';
+import { PrismaServiceRepository } from '@/quotation/infrastructure/repositories/PrismaServiceRepository';
+import { PrismaCustomerRepository } from '@/quotation/infrastructure/repositories/PrismaCustomerRepository';
+import { PrismaQuoteRequestRepository } from '@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository';
+import { PrismaServiceRepository as PrismaServiceTypeRepository } from '@/quotation/infrastructure/repositories/PrismaServiceRepository';
+import { BookingService } from '@/quotation/application/services/BookingService';
+import { CustomerService } from '@/quotation/application/services/CustomerService';
+import { QuoteCalculator } from '@/quotation/domain/calculators/MovingQuoteCalculator';
+import { HttpRequest, HttpResponse } from '@/quotation/interfaces/http/types';
+import { movingRules } from '@/quotation/domain/services/rules/movingRules';
+import { packRules } from '@/quotation/domain/valueObjects/packRules';
+import { serviceRules } from '@/quotation/domain/valueObjects/serviceRules';
+import { Rule } from '@/quotation/domain/valueObjects/Rule';
 
-const prisma = new PrismaClient();
+// Initialisation des dépendances
+const bookingRepository = new PrismaBookingRepository();
+const movingRepository = new PrismaMovingRepository();
+const packRepository = new PrismaPackRepository();
+const serviceRepository = new PrismaServiceRepository();
+const customerRepository = new PrismaCustomerRepository();
+const quoteRequestRepository = new PrismaQuoteRequestRepository();
+const serviceTypeRepository = new PrismaServiceTypeRepository();
 
-// Interface pour les propriétés personnalisées des réservations
-interface EnhancedBooking {
-  id: string;
-  type: BookingType;
-  status: BookingStatus;
-  customerId: string;
-  totalAmount: number;
-  scheduledDate: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  
-  // Propriétés des citations de déménagement
-  pickupAddress?: string;
-  deliveryAddress?: string;
-  moveDate?: Date;
-  distance?: number;
-  volume?: number;
-  items?: any;
-  
-  // Propriétés des packs
-  packId?: string;
-  packName?: string;
-  
-  // Propriétés des services
-  serviceId?: string;
-  serviceName?: string;
-  description?: string;
-  scheduledTime?: string;
-  location?: string;
-  
-  // Relations
-  customer: any;
-  transactions: any[];
-  documents: any[];
-  
-  [key: string]: any; // Pour gérer d'autres propriétés dynamiques
+// Convertir les règles de déménagement depuis le format historique
+const movingRulesList: Rule[] = movingRules.rules.map(ruleData => 
+  new Rule(ruleData.name, ruleData.percentage, ruleData.amount, ruleData.condition)
+);
+
+// Initialiser le calculateur de devis unifié avec les différents types de règles
+const quoteCalculator = new QuoteCalculator(movingRulesList, packRules, serviceRules);
+
+const customerService = new CustomerService(customerRepository);
+
+const bookingService = new BookingService(
+  bookingRepository,
+  movingRepository,
+  packRepository,
+  serviceRepository,
+  quoteCalculator,
+  quoteRequestRepository,
+  customerService
+);
+
+// Initialiser le contrôleur
+const bookingController = new BookingController(bookingService, customerService);
+
+// Fonction de sérialisation d'une réservation et ses détails (à conserver)
+function serializeBooking(booking: Booking, details?: any) {
+  // Base commune à toutes les réservations
+  const serialized = {
+    id: booking.getId(),
+    type: booking.getType(),
+    status: booking.getStatus(),
+    customer: {
+      id: booking.getCustomer().getId(),
+      firstName: booking.getCustomer().getFirstName(),
+      lastName: booking.getCustomer().getLastName(),
+      email: booking.getCustomer().getEmail(),
+      phone: booking.getCustomer().getPhone()
+    },
+    professional: booking.getProfessional() ? {
+      id: booking.getProfessional()?.getId(),
+      companyName: booking.getProfessional()?.getCompanyName(),
+      email: booking.getProfessional()?.getEmail(),
+      phone: booking.getProfessional()?.getPhone()
+    } : null,
+    totalAmount: booking.getTotalAmount().getAmount(),
+    createdAt: booking.getCreatedAt()?.toISOString(),
+    updatedAt: booking.getUpdatedAt()?.toISOString()
+  };
+
+  // Ajouter les détails spécifiques selon le type
+  if (details) {
+    switch (booking.getType()) {
+      case BookingType.MOVING_QUOTE:
+        return {
+          ...serialized,
+          moveDate: details.getMoveDate()?.toISOString(),
+          pickupAddress: details.getPickupAddress(),
+          deliveryAddress: details.getDeliveryAddress(),
+          distance: details.getDistance(),
+          volume: details.getVolume(),
+          pickupFloor: details.getPickupFloor(),
+          deliveryFloor: details.getDeliveryFloor(),
+          pickupElevator: details.hasPickupElevator(),
+          deliveryElevator: details.hasDeliveryElevator()
+        };
+      case BookingType.PACK:
+        return {
+          ...serialized,
+          name: details?.getName() || "",
+          description: details?.getDescription() || "",
+          price: details?.getPrice()?.getAmount() || 0,
+          includes: details?.getIncludedItems() || [],
+          scheduledDate: details?.getScheduledDate()?.toISOString() || new Date().toISOString(),
+          pickupAddress: details?.getPickupAddress() || "",
+          deliveryAddress: details?.getDeliveryAddress() || ""
+        };
+      case BookingType.SERVICE:
+        return {
+          ...serialized,
+          name: details.getName(),
+          description: details.getDescription(),
+          price: details.getPrice(),
+          duration: details.getDuration(),
+          includes: details.getIncludes(),
+          scheduledDate: details.getScheduledDate()?.toISOString(),
+          location: details.getLocation()
+        };
+      default:
+        return serialized;
+    }
+  }
+
+  return serialized;
 }
 
-// GET /api/bookings - Récupérer toutes les réservations
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const customerId = searchParams.get('customerId');
-    
-    const where: any = {};
-    
-    if (customerId) {
-      where.customerId = customerId;
+// Adaptateur pour convertir une requête NextJS en HttpRequest
+function createHttpRequest(request: NextRequest, pathParams?: Record<string, string>, body?: any): HttpRequest {
+  const searchParams = request.nextUrl.searchParams;
+  const query: Record<string, string | string[]> = {};
+  
+  // Convertir les paramètres de recherche
+  searchParams.forEach((value, key) => {
+    query[key] = value;
+  });
+  
+  // Créer un objet HttpRequest
+  return {
+    body: body,
+    params: pathParams || {},
+    query,
+    headers: Object.fromEntries(request.headers.entries())
+  };
+}
+
+// Adaptateur pour convertir NextResponse en HttpResponse
+function createHttpResponse(): HttpResponse & { getStatus: () => number, getData: () => any } {
+  let statusCode = 200;
+  let responseData: any = null;
+  
+  const response = {
+    status: function(code: number) {
+      statusCode = code;
+      return response;
+    },
+    json: function(data: any) {
+      responseData = data;
+      return response;
+    },
+    send: function() {
+      return response;
+    },
+    getStatus: function() {
+      return statusCode;
+    },
+    getData: function() {
+      return responseData;
     }
+  };
+  
+  return response;
+}
 
-    const rawBookings = await prisma.booking.findMany({
-      where,
-      orderBy: { scheduledDate: 'desc' },
-      include: {
-        customer: true,
-        transactions: {
-          orderBy: {
-            createdAt: 'desc'
-          },
-          take: 1
-        },
-        documents: {
-          where: {
-            type: 'BOOKING_CONFIRMATION'
-          },
-          take: 1
-        }
-      },
-    });
+// POST - Traiter les différentes routes selon le chemin
+export async function POST(request: NextRequest) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  
+  try {
+    // Créer un HttpResponse
+    const httpResponse = createHttpResponse();
+    const body = await request.json();
     
-    // Utiliser une assertion de type
-    const bookings = rawBookings as unknown as EnhancedBooking[];
-
-    // Transformer les données pour le format attendu par le frontend
-    const formattedBookings = bookings.map(booking => {
-      // Déterminer le type de réservation
-      const bookingType = booking.type;
-      const lastTransaction = booking.transactions[0];
-      const document = booking.documents[0];
-      
-      let formattedBooking: any = {
-        id: booking.id,
-        status: booking.status,
-        scheduledDate: booking.scheduledDate,
-        createdAt: booking.createdAt,
-        customer: {
-          firstName: booking.customer.firstName,
-          lastName: booking.customer.lastName,
-          email: booking.customer.email,
-          phone: booking.customer.phone
-        },
-        totalPrice: booking.totalAmount,
-        paymentStatus: lastTransaction?.status || 'NONE'
-      };
-      
-      // Ajouter des détails spécifiques au type de réservation
-      if (bookingType === BookingType.QUOTE) {
-        formattedBooking.type = 'quote';
-        formattedBooking.originAddress = booking.pickupAddress;
-        formattedBooking.destAddress = booking.deliveryAddress;
-        formattedBooking.moveDate = booking.moveDate;
-        formattedBooking.distance = booking.distance;
-        formattedBooking.volume = booking.volume;
-        formattedBooking.items = booking.items ? 
-          (typeof booking.items === 'string' ? JSON.parse(booking.items) : booking.items) : 
-          [];
-      } 
-      else if (bookingType === BookingType.PACK) {
-        formattedBooking.type = 'pack';
-        formattedBooking.packId = booking.packId;
-        formattedBooking.packName = booking.packName;
-        formattedBooking.destAddress = booking.location || booking.deliveryAddress;
-      }
-      else if (bookingType === BookingType.SERVICE) {
-        formattedBooking.type = 'service';
-        formattedBooking.serviceId = booking.serviceId;
-        formattedBooking.serviceName = booking.serviceName;
-        formattedBooking.description = booking.description;
-        formattedBooking.scheduledTime = booking.scheduledTime;
-        formattedBooking.destAddress = booking.location || booking.deliveryAddress;
-      }
-
-      // Ajouter l'URL du document si disponible
-      if (document) {
-        formattedBooking.documentId = document.id;
-      }
-      
-      return formattedBooking;
-    });
-
-    return NextResponse.json(formattedBookings);
+    // Déterminer quelle action effectuer selon le chemin
+    if (path.includes('/api/bookings/quote')) {
+      // Création d'une demande de devis temporaire
+      const httpRequest = createHttpRequest(request, {}, body);
+      await bookingController.createQuoteRequest(httpRequest, httpResponse);
+    } 
+    else if (path.includes('/api/bookings/finalize')) {
+      // Finalisation d'une réservation avec les informations client
+      const httpRequest = createHttpRequest(request, {}, body);
+      await bookingController.finalizeBooking(httpRequest, httpResponse);
+    }
+    else if (path.includes('/api/bookings/payment')) {
+      // Traitement du paiement d'une réservation
+      const httpRequest = createHttpRequest(request, {}, body);
+      await bookingController.processPayment(httpRequest, httpResponse);
+    }
+    else {
+      // Création standard d'une réservation
+      const httpRequest = createHttpRequest(request, {}, body);
+      await bookingController.createBooking(httpRequest, httpResponse);
+    }
+    
+    // Extraire les données et le code de statut du HttpResponse
+    const responseData = httpResponse.getData();
+    const statusCode = httpResponse.getStatus();
+    
+    // Retourner une réponse NextResponse
+    return NextResponse.json(responseData, { status: statusCode });
   } catch (error) {
-    console.error('Error fetching bookings:', error);
+    console.error('Error in POST /api/bookings:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch bookings' },
+      { error: `Une erreur est survenue: ${error instanceof Error ? error.message : 'Erreur inconnue'}` },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
-// POST /api/bookings - Créer une nouvelle réservation
-export async function POST(request: NextRequest) {
+// GET - Récupération des réservations
+export async function GET(request: NextRequest) {
   try {
-    const data = await request.json();
-    const { 
-      type, // 'quote', 'pack', or 'service'
-      quoteId,
-      packId,
-      serviceId,
-      customerId,
-      scheduledDate,
-      originAddress,
-      destAddress,
-      serviceDate,
-      packName,
-      serviceName,
-      price,
-      description
-    } = data;
-
-    // Validation des données
-    if (!customerId || !scheduledDate || !destAddress) {
-      return NextResponse.json(
-        { error: 'Customer, scheduled date, and destination address are required' },
-        { status: 400 }
-      );
-    }
+    // Extraction des paramètres de recherche
+    const searchParams = request.nextUrl.searchParams;
+    const id = searchParams.get('id');
     
-    if (type === 'quote' && !quoteId) {
-      return NextResponse.json(
-        { error: 'Quote ID is required for quote-based bookings' },
-        { status: 400 }
-      );
-    }
+    // Créer un HttpRequest à partir de NextRequest
+    const httpRequest = createHttpRequest(request, id ? { id } : {});
     
-    if (type === 'pack' && !packId) {
-      return NextResponse.json(
-        { error: 'Pack ID is required for pack-based bookings' },
-        { status: 400 }
-      );
-    }
+    // Créer un HttpResponse
+    const httpResponse = createHttpResponse();
     
-    if (type === 'service' && !serviceId) {
-      return NextResponse.json(
-        { error: 'Service ID is required for service-only bookings' },
-        { status: 400 }
-      );
-    }
-
-    // Mapper le type de la demande au type de booking
-    let bookingType: BookingType;
-    if (type === 'quote') {
-      bookingType = BookingType.QUOTE;
-    } else if (type === 'pack') {
-      bookingType = BookingType.PACK;
-    } else if (type === 'service') {
-      bookingType = BookingType.SERVICE;
+    // Utiliser le contrôleur
+    if (id) {
+      await bookingController.getBookingById(httpRequest, httpResponse);
     } else {
-      return NextResponse.json(
-        { error: 'Invalid booking type' },
-        { status: 400 }
-      );
+      await bookingController.getBookings(httpRequest, httpResponse);
     }
-
-    // Créer la réservation avec le nouveau modèle unifié
-    const bookingData: any = {
-      type: bookingType,
-      status: BookingStatus.DRAFT,
-      customerId,
-      totalAmount: parseFloat(price || '0'),
-      scheduledDate: new Date(scheduledDate)
-    };
     
-    // Ajouter les champs spécifiques au type de réservation en fonction du type
-    if (bookingType === BookingType.QUOTE) {
-      Object.assign(bookingData, {
-        pickupAddress: originAddress,
-        deliveryAddress: destAddress,
-        quoteId: quoteId
-      });
-    } 
-    else if (bookingType === BookingType.PACK) {
-      Object.assign(bookingData, {
-        packId: packId,
-        packName: packName,
-        location: destAddress
-      });
-    }
-    else if (bookingType === BookingType.SERVICE) {
-      Object.assign(bookingData, {
-        serviceId: serviceId,
-        serviceName: serviceName,
-        description: description,
-        scheduledTime: serviceDate ? new Date(serviceDate).toISOString() : null,
-        location: destAddress
-      });
-    }
-
-    // Créer la réservation
-    const booking = await prisma.booking.create({
-      data: bookingData,
-      include: {
-        customer: true
-      }
-    });
-
-    return NextResponse.json({
-      id: booking.id,
-      status: booking.status,
-      type: type,
-      scheduledDate: booking.scheduledDate,
-      customer: booking.customer,
-      totalPrice: booking.totalAmount
-    }, { status: 201 });
+    // Extraire les données et le code de statut du HttpResponse
+    const responseData = httpResponse.getData();
+    const statusCode = httpResponse.getStatus();
+    
+    // Retourner une réponse NextResponse
+    return NextResponse.json(responseData, { status: statusCode });
   } catch (error) {
-    console.error('Error creating booking:', error);
+    console.error('Error in GET /api/bookings:', error);
     return NextResponse.json(
-      { error: 'Failed to create booking' },
+      { 
+        error: 'Une erreur est survenue lors de la récupération des réservations',
+        details: error instanceof Error ? error.message : 'Erreur inconnue'
+      },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
+  }
+}
+
+// PUT - Mise à jour d'une réservation
+export async function PUT(request: NextRequest) {
+  try {
+    // Extraire l'ID de la réservation depuis l'URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const id = pathParts[pathParts.length - 1];
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID de réservation manquant' },
+        { status: 400 }
+      );
+    }
+    
+    const body = await request.json();
+    
+    // Créer un HttpRequest à partir de NextRequest
+    const httpRequest = createHttpRequest(request, { id }, body);
+    
+    // Créer un HttpResponse
+    const httpResponse = createHttpResponse();
+    
+    // Utiliser le contrôleur
+    await bookingController.updateBooking(httpRequest, httpResponse);
+    
+    // Extraire les données et le code de statut du HttpResponse
+    const responseData = httpResponse.getData();
+    const statusCode = httpResponse.getStatus();
+    
+    // Retourner une réponse NextResponse
+    return NextResponse.json(responseData, { status: statusCode });
+  } catch (error) {
+    console.error('Error updating booking:', error);
+    return NextResponse.json(
+      { error: `Une erreur est survenue lors de la mise à jour de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}` },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Suppression d'une réservation
+export async function DELETE(request: NextRequest) {
+  try {
+    // Extraire l'ID de la réservation depuis l'URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const id = pathParts[pathParts.length - 1];
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID de réservation manquant' },
+        { status: 400 }
+      );
+    }
+    
+    // Créer un HttpRequest à partir de NextRequest
+    const httpRequest = createHttpRequest(request, { id });
+    
+    // Créer un HttpResponse
+    const httpResponse = createHttpResponse();
+    
+    // Utiliser le contrôleur
+    await bookingController.deleteBooking(httpRequest, httpResponse);
+    
+    // Extraire le code de statut du HttpResponse
+    const statusCode = httpResponse.getStatus();
+    
+    // Retourner une réponse NextResponse
+    return new NextResponse(null, { status: statusCode });
+  } catch (error) {
+    console.error('Error deleting booking:', error);
+    return NextResponse.json(
+      { error: `Une erreur est survenue lors de la suppression de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}` },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH - Mise à jour du statut d'une réservation
+export async function PATCH(request: NextRequest) {
+  try {
+    // Extraire l'ID de la réservation depuis l'URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const id = pathParts[pathParts.length - 1];
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID de réservation manquant' },
+        { status: 400 }
+      );
+    }
+    
+    const body = await request.json();
+    
+    // Créer un HttpRequest à partir de NextRequest
+    const httpRequest = createHttpRequest(request, { id }, body);
+    
+    // Créer un HttpResponse
+    const httpResponse = createHttpResponse();
+    
+    // Utiliser le contrôleur
+    await bookingController.updateBookingStatus(httpRequest, httpResponse);
+    
+    // Extraire les données et le code de statut du HttpResponse
+    const responseData = httpResponse.getData();
+    const statusCode = httpResponse.getStatus();
+    
+    // Retourner une réponse NextResponse
+    return NextResponse.json(responseData, { status: statusCode });
+  } catch (error) {
+    console.error('Error updating booking status:', error);
+    return NextResponse.json(
+      { error: `Une erreur est survenue lors de la mise à jour du statut: ${error instanceof Error ? error.message : 'Erreur inconnue'}` },
+      { status: 500 }
+    );
   }
 } 

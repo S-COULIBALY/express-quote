@@ -1,106 +1,108 @@
-import { ServiceType } from '../entities/Service';
+import { ServiceType } from '../enums/ServiceType';
 import { Address } from './Address';
 import { ContactInfo } from './ContactInfo';
 
-export interface QuoteContextData {
-    serviceType: ServiceType;    // Type de service demandé (nettoyage ou déménagement)
-    squareMeters?: number;      // Surface totale du logement en mètres carrés
-    numberOfRooms?: number;     // Nombre total de pièces à nettoyer/déménager
-    hasBalcony?: boolean;       // Indique si le logement possède un balcon à nettoyer
-    hasPets?: boolean;          // Présence d'animaux domestiques dans le logement
-    frequency?: 'ONCE' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';    // Fréquence souhaitée pour le service de nettoyage
-    numberOfMovers?: number;    // Nombre de déménageurs requis pour le service (calculé par le système)
-    numberOfBoxes?: number;     // Estimation du nombre de cartons à déplacer (calculé par le système)
-    hasElevator?: boolean;      // Présence d'un ascenseur dans l'immeuble
-    floorNumber?: number;       // Étage du logement (important pour l'accessibilité)
-    distance?: number;          // Distance en kilomètres pour le déménagement
-    addresses?: {               // Adresses pour le déménagement
-        pickup: Address;
-        delivery: Address;
+/**
+ * Interface pour les données du contexte de devis
+ */
+export type QuoteContextData = {
+    serviceType?: ServiceType;
+    pickupAddress?: Address;
+    deliveryAddress?: Address;
+    contactInfo?: ContactInfo;
+    moveDate?: Date;
+    volume?: number;
+    distance?: number;
+    tollCost?: number;
+    fuelCost?: number;
+    pickupElevator?: boolean;
+    deliveryElevator?: boolean;
+    pickupFloor?: number;
+    deliveryFloor?: number;
+    pickupCarryDistance?: number;
+    deliveryCarryDistance?: number;
+    options?: {
+        packaging?: boolean;
+        furniture?: boolean;
+        fragile?: boolean;
+        storage?: boolean;
+        disassembly?: boolean;
+        unpacking?: boolean;
+        supplies?: boolean;
+        fragileItems?: boolean;
     };
-    contact: ContactInfo;       // Informations de contact (obligatoire)
-    [key: string]: any;         // Propriétés additionnelles
-}
+    [key: string]: any;
+};
 
+/**
+ * Objet-valeur représentant le contexte d'un devis
+ * Contient toutes les informations nécessaires pour calculer un devis
+ */
 export class QuoteContext {
-    private readonly serviceType: ServiceType;
-    private readonly contact: ContactInfo;
-    private readonly addresses?: { pickup: Address; delivery: Address };
-    private readonly data: QuoteContextData;
+    private data: QuoteContextData;
 
     constructor(data: QuoteContextData) {
         this.data = { ...data };
-        this.serviceType = data.serviceType;
-        this.contact = data.contact;
-        this.addresses = data.addresses;
         this.validate();
     }
 
     private validate(): void {
-        if (!this.serviceType) {
-            throw new Error('Service type is required');
-        }
-        if (!Object.values(ServiceType).includes(this.serviceType)) {
-            throw new Error('Invalid service type');
-        }
-
-        // Validation du contact (obligatoire pour tous les services)
-        if (!this.contact) {
-            throw new Error('Contact information is required');
-        }
-
-        // Validate cleaning specific fields
-        if (this.serviceType === ServiceType.CLEANING) {
-            if (!this.data.squareMeters || this.data.squareMeters <= 0) {
-                throw new Error('Square meters is required and must be positive for cleaning service');
-            }
-            if (!this.data.numberOfRooms || this.data.numberOfRooms <= 0) {
-                throw new Error('Number of rooms is required and must be positive for cleaning service');
-            }
-            if (this.data.frequency && !['ONCE', 'WEEKLY', 'BIWEEKLY', 'MONTHLY'].includes(this.data.frequency)) {
-                throw new Error('Invalid frequency value');
-            }
-        }
-
-        // Validate moving specific fields
-        if (this.serviceType === ServiceType.MOVING) {
-            if (!this.addresses) {
-                throw new Error('Addresses are required for moving service');
-            }
-            if (!this.addresses.pickup || !this.addresses.delivery) {
-                throw new Error('Both pickup and delivery addresses are required for moving service');
-            }
-            if (!this.data.distance || this.data.distance <= 0) {
-                throw new Error('Distance must be provided and positive for moving service');
-            }
-            if (!this.data.volume || this.data.volume <= 0) {
-                throw new Error('Volume must be provided and positive for moving service');
-            }
-        }
+        // Vous pouvez ajouter des validations spécifiques ici
     }
 
-    public getServiceType(): ServiceType {
-        return this.serviceType;
-    }
-
-    public getContact(): ContactInfo {
-        return this.contact;
-    }
-
-    public getAddresses(): { pickup: Address; delivery: Address } | undefined {
-        return this.addresses;
-    }
-
-    public getValue<T>(key: keyof QuoteContextData): T | undefined {
+    public getValue<T>(key: string): T | undefined {
         return this.data[key] as T;
     }
 
-    public hasValue(key: keyof QuoteContextData): boolean {
-        return this.data[key] !== undefined;
+    public setValue(key: string, value: any): void {
+        this.data[key] = value;
+    }
+
+    public getServiceType(): ServiceType | undefined {
+        return this.data.serviceType;
+    }
+
+    public getPickupAddress(): Address | undefined {
+        return this.data.pickupAddress;
+    }
+
+    public getDeliveryAddress(): Address | undefined {
+        return this.data.deliveryAddress;
+    }
+
+    public getContactInfo(): ContactInfo | undefined {
+        return this.data.contactInfo;
+    }
+
+    public getMoveDate(): Date | undefined {
+        return this.data.moveDate;
     }
 
     public getAllData(): QuoteContextData {
         return { ...this.data };
+    }
+
+    /**
+     * Crée une représentation exportable du contexte
+     */
+    public toDTO(): Record<string, any> {
+        const dto: Record<string, any> = {};
+        
+        for (const [key, value] of Object.entries(this.data)) {
+            if (typeof value === 'object' && value !== null) {
+                if (value instanceof Date) {
+                    dto[key] = value.toISOString();
+                } else if ('toDTO' in value && typeof value.toDTO === 'function') {
+                    dto[key] = value.toDTO();
+                } else {
+                    dto[key] = { ...value };
+                }
+            } else {
+                dto[key] = value;
+            }
+        }
+        
+        return dto;
     }
 } 
 

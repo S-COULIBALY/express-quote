@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { FormField, TextInput, Select } from '@/components/Form'
 import { PickupAddressAutocomplete, DeliveryAddressAutocomplete } from '@/components/AddressAutocomplete'
+import { QuoteSummary } from '@/components/QuoteSummary'
+import { apiConfig } from '@/config/api'
 import { calculateMovingQuote } from '@/actions/calculateMovingQuote'
 import type { MovingFormData } from '@/types/quote'
 import type { PlaceResult } from '@/types/google-maps'
-import { QuoteSummary } from '@/components/QuoteSummary'
-import { apiConfig } from '@/config/api'
+import { Button } from '@/components/Button'
 
 interface IconProps {
   className?: string
@@ -47,6 +49,9 @@ interface QuoteDetails {
   baseCost: number
   optionsCost: number
   totalCost: number
+  volumeCost?: number
+  distancePrice?: number
+  signature?: string
 }
 
 const initialFormData: MovingFormData = {
@@ -68,7 +73,11 @@ const initialFormData: MovingFormData = {
     packaging: false,
     furniture: false,
     fragile: false,
-    storage: false
+    storage: false,
+    disassembly: false,
+    unpacking: false,
+    supplies: false,
+    fragileItems: false
   }
 }
 
@@ -86,7 +95,12 @@ const _getServiceLabel = (key: string): string => {
   const labels: Record<string, string> = {
     packaging: 'Emballage professionnel',
     furniture: 'Montage meubles',
-    fragile: 'Assurance premium'
+    fragile: 'Assurance premium',
+    storage: 'Stockage',
+    disassembly: 'Démontage de meubles',
+    unpacking: 'Déballages',
+    supplies: 'Fournitures',
+    fragileItems: 'Objets fragiles'
   }
   return labels[key] || key
 }
@@ -143,17 +157,28 @@ const elevatorValueToBoolean = (value: string): boolean => {
   return value === 'yes'
 }
 
+// Structure enrichie pour les messages
+interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'agent';
+  timestamp: string;
+  isRead?: boolean;
+}
+
 export default function NewMovingQuote() {
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const [formData, setFormData] = useState<MovingFormData>(initialFormData)
   const [showQuote, setShowQuote] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [showQuoteSummary, setShowQuoteSummary] = useState(false)
   const [quoteDetails, setQuoteDetails] = useState<QuoteDetails>({
     distance: 0, tollCost: 0, fuelCost: 0,
     baseCost: 0, optionsCost: 0, totalCost: 0
   })
   const [isCalculating, setIsCalculating] = useState(false)
-  const [messages, setMessages] = useState<Array<{text: string, sender: 'user' | 'agent'}>>([])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [currentMessage, setCurrentMessage] = useState('')
   const [addressDetails, setAddressDetails] = useState({
     pickup: null as google.maps.places.PlaceResult | null,
@@ -165,6 +190,7 @@ export default function NewMovingQuote() {
     delivery?: string;
     general?: string;
   }>({});
+  const [isAgentTyping, setIsAgentTyping] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -190,10 +216,18 @@ export default function NewMovingQuote() {
   }, [formData, addressDetails])
 
   const updateQuote = async (newFormData: MovingFormData) => {
+    // Afficher l'état complet du devis pour inspection
+    console.log('État du devis de déménagement:', {
+      formData: newFormData,
+      quoteDetails,
+      addressDetails
+    });
+    
     if (!isFormComplete(newFormData, addressDetails)) return
     
     setIsCalculating(true)
     try {
+      // Utiliser la fonction de calcul pour les devis de déménagement
       const details = await calculateMovingQuote(newFormData)
       setQuoteDetails(prev => ({ ...prev, ...details }))
     } catch (error) {
@@ -315,7 +349,9 @@ export default function NewMovingQuote() {
     const newOptions = { ...formData.options }
     
     // Vérifier si l'option existe avant de l'assigner
-    if (option === 'packaging' || option === 'furniture' || option === 'fragile' || option === 'storage') {
+    if (option === 'packaging' || option === 'furniture' || option === 'fragile' || 
+        option === 'storage' || option === 'disassembly' || option === 'unpacking' ||
+        option === 'supplies' || option === 'fragileItems') {
       newOptions[option] = checked
     } else {
       console.warn(`Option inconnue: ${option}`)
@@ -338,7 +374,6 @@ export default function NewMovingQuote() {
     const formIsReady = isFormComplete(formData, addressDetails);
     
     if (!formIsReady) {
-      // Afficher un message d'erreur approprié
       console.error('Veuillez remplir tous les champs obligatoires et sélectionner des adresses valides');
       return;
     }
@@ -346,14 +381,20 @@ export default function NewMovingQuote() {
     try {
       setIsCalculating(true)
       
-      // Extraire les informations géographiques des objets d'adresse pour des calculs plus précis
+      // Extraire les informations géographiques des objets d'adresse
       const pickupLat = addressDetails.pickup?.geometry?.location?.lat();
       const pickupLng = addressDetails.pickup?.geometry?.location?.lng();
       const deliveryLat = addressDetails.delivery?.geometry?.location?.lat();
       const deliveryLng = addressDetails.delivery?.geometry?.location?.lng();
       
-      // Persister le devis dans la base de données avec des informations géographiques précises
-      const response = await fetch('/api/quotation', {
+      // Préparer l'objet de conversation pour l'API
+      const conversationData = messages.length > 0 ? {
+        messages: messages,
+        summary: extractConversationSummary(messages) // Fonction à implémenter pour extraire les points clés
+      } : undefined;
+      
+      // Persister le devis dans la base de données avec les conversations
+      const response = await fetch('/api/moving', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -365,37 +406,71 @@ export default function NewMovingQuote() {
           preferredTime: 'morning', // Valeur par défaut
           distance: quoteDetails.distance,
           items: [], // À remplir avec les items réels si disponibles
+          
+          // Inclure les détails du calcul
           totalCost: quoteDetails.totalCost,
+          baseCost: quoteDetails.baseCost,
+          volumeCost: quoteDetails.volumeCost,
+          distancePrice: quoteDetails.distancePrice,
+          optionsCost: quoteDetails.optionsCost,
+          signature: quoteDetails.signature,
+          
           // Ajouter les coordonnées géographiques
           pickupCoordinates: pickupLat && pickupLng ? { lat: pickupLat, lng: pickupLng } : undefined,
-          deliveryCoordinates: deliveryLat && deliveryLng ? { lat: deliveryLat, lng: deliveryLng } : undefined
+          deliveryCoordinates: deliveryLat && deliveryLng ? { lat: deliveryLat, lng: deliveryLng } : undefined,
+          
+          // Ajouter les données de conversation
+          conversation: conversationData
         })
       })
 
+      // Gérer les réponses non-OK (erreurs HTTP)
       if (!response.ok) {
-        throw new Error('Erreur lors de la création du devis')
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Erreur HTTP lors de la création du devis:', response.status, errorData);
+        throw new Error(errorData.error || `Erreur ${response.status} lors de la création du devis`);
       }
       
-      const result = await response.json()
+      // Analyser la réponse JSON
+      const result = await response.json();
       
-      // Sauvegarder l'ID du devis et les détails dans localStorage pour faciliter la transition
+      // Vérifier que la réponse contient des données valides
+      if (!result.success || !result.data || !result.data.id) {
+        console.error('Réponse invalide de l\'API:', result);
+        throw new Error('Réponse invalide de l\'API');
+      }
+      
+      // Sauvegarder l'ID du devis et les détails dans localStorage
       const quoteData = { 
         id: result.data.id, 
         ...formData, 
         ...quoteDetails,
-        persistedId: result.data.id // Important: stocker l'ID de base de données
+        persistedId: result.data.id,
+        conversation: conversationData // Inclure la conversation dans les données stockées
       }
       
-      localStorage.setItem('movingQuote', JSON.stringify(quoteData))
-      router.push(`/moving/summary?id=${result.data.id}`)
+      console.log('Devis persisté avec succès, ID:', result.data.id);
+      localStorage.setItem('movingQuote', JSON.stringify(quoteData));
+      router.push(`/moving/summary?id=${result.data.id}`);
     } catch (error) {
-      console.error('Erreur lors de la soumission du devis:', error)
+      console.error('Erreur lors de la soumission du devis:', error);
+      
+      // Créer un ID temporaire basé sur la date actuelle
+      const tempId = Date.now().toString();
+      
       // Fallback au comportement précédent en cas d'erreur
-      const quoteData = { id: Date.now().toString(), ...formData, ...quoteDetails }
-      localStorage.setItem('movingQuote', JSON.stringify(quoteData))
-      router.push(`/moving/summary?id=${quoteData.id}`)
+      const quoteData = { 
+        id: tempId, 
+        ...formData, 
+        ...quoteDetails,
+        // Ne pas ajouter de persistedId car le devis n'est pas persisté
+      };
+      
+      console.log('Utilisation du mode fallback avec ID temporaire:', tempId);
+      localStorage.setItem('movingQuote', JSON.stringify(quoteData));
+      router.push(`/moving/summary?id=${tempId}`);
     } finally {
-      setIsCalculating(false)
+      setIsCalculating(false);
     }
   }
 
@@ -403,15 +478,83 @@ export default function NewMovingQuote() {
     e.preventDefault()
     if (!currentMessage.trim()) return
 
-    setMessages(prev => [...prev, { text: currentMessage, sender: 'user' }])
+    // Créer un nouveau message avec ID et timestamp
+    const newMessage: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      text: currentMessage,
+      sender: 'user',
+      timestamp: new Date().toISOString(),
+      isRead: true
+    }
+    
+    // Ajouter le message à l'état
+    setMessages(prev => [...prev, newMessage])
     setCurrentMessage('')
 
-    setTimeout(() => {
-      setMessages(prev => [...prev, { 
-        text: "Je suis là pour vous aider avec votre devis de déménagement. Avez-vous des questions spécifiques ?",
-        sender: 'agent'
-      }])
-    }, 1000)
+    // Simuler un état "en train d'écrire"
+    setIsAgentTyping(true)
+    
+    try {
+      // Envoyer le message au backend pour traitement (optionnel)
+      // Cela permettrait de générer des réponses plus intelligentes
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentMessage,
+          context: {
+            formData,
+            previousMessages: messages
+          }
+        })
+      })
+
+      // Si le backend répond (système avancé)
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Ajouter la réponse de l'agent
+        const agentMessage: ChatMessage = {
+          id: `msg_${Date.now() + 1}`,
+          text: data.reply || "Je suis là pour vous aider avec votre devis de déménagement. Avez-vous des questions spécifiques ?",
+          sender: 'agent',
+          timestamp: new Date().toISOString(),
+          isRead: false
+        }
+        
+        setMessages(prev => [...prev, agentMessage])
+      } else {
+        // Réponse par défaut si le backend ne répond pas
+        setTimeout(() => {
+          const agentMessage: ChatMessage = {
+            id: `msg_${Date.now() + 1}`,
+            text: "Je suis là pour vous aider avec votre devis de déménagement. Avez-vous des questions spécifiques ?",
+            sender: 'agent', 
+            timestamp: new Date().toISOString(),
+            isRead: false
+          }
+          setMessages(prev => [...prev, agentMessage])
+          setIsAgentTyping(false)
+        }, 1500)
+      }
+    } catch (error) {
+      console.error('Erreur lors de la communication avec l\'agent:', error)
+      
+      // Réponse par défaut en cas d'erreur
+      setTimeout(() => {
+        const agentMessage: ChatMessage = {
+          id: `msg_${Date.now() + 1}`,
+          text: "Je suis là pour vous aider avec votre devis de déménagement. Avez-vous des questions spécifiques ?",
+          sender: 'agent',
+          timestamp: new Date().toISOString(),
+          isRead: false
+        }
+        setMessages(prev => [...prev, agentMessage])
+        setIsAgentTyping(false)
+      }, 1500)
+    } finally {
+      setIsAgentTyping(false)
+    }
   }
 
   const handleCheckboxChange = (field: string, checked: boolean) => {
@@ -428,42 +571,76 @@ export default function NewMovingQuote() {
     }))
   }
 
+  // Fonction utilitaire pour extraire les points clés de la conversation
+  const extractConversationSummary = (messages: ChatMessage[]): string => {
+    // Filtrer pour ne garder que les messages de l'utilisateur
+    const userMessages = messages.filter(m => m.sender === 'user');
+    
+    // Si très peu de messages, retourner tout
+    if (userMessages.length <= 2) {
+      return userMessages.map(m => m.text).join(' | ');
+    }
+    
+    // Sinon, prendre le premier et les deux derniers messages
+    return [
+      userMessages[0],
+      ...userMessages.slice(-2)
+    ].map(m => m.text).join(' | ');
+  }
+
+  // Fonction pour marquer les messages comme lus
+  const markMessagesAsRead = () => {
+    setMessages(messages.map(msg => 
+      msg.sender === 'agent' && !msg.isRead 
+        ? {...msg, isRead: true} 
+        : msg
+    ));
+  }
+
+  // Gestionnaire de focus pour le champ de texte
+  const handleChatFocus = () => {
+    markMessagesAsRead();
+  }
+
   if (!mounted) {
     return <div>Loading...</div>
   }
 
   return (
     <main className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gradient-to-b from-sky-50/50 to-white min-h-screen">
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
         {/* Formulaire */}
         <div className="flex-1">
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-sky-400 via-blue-400 to-sky-400 p-8 relative overflow-hidden">
-              <div className="absolute inset-0 bg-[url('/pattern.svg')] opacity-10 mix-blend-overlay"></div>
-              <div className="relative z-10 space-y-3">
-                <h1 className="text-4xl font-bold text-white text-center tracking-tight">
-                  <span className="inline-block transform hover:scale-105 transition-transform duration-300">
-                    Votre Déménagement
-                  </span>
-                  <br />
-                  <span className="relative inline-block mt-1">
-                    Sur Mesure
-                    <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-white/50 rounded-full transform origin-left"></div>
-                  </span>
-                </h1>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-12 h-0.5 bg-white/30 rounded-full"></div>
-                  <div className="text-white/90 text-sm font-medium tracking-wider uppercase">Simple • Rapide • Efficace</div>
-                  <div className="w-12 h-0.5 bg-white/30 rounded-full"></div>
+            {/* En-tête fixe sur mobile */}
+            <div className="fixed lg:relative top-[64px] lg:top-0 left-0 right-0 z-40 bg-gradient-to-r from-sky-400 via-blue-400 to-sky-400">
+              <div className="container mx-auto p-3 sm:p-6 relative overflow-hidden">
+                <div className="absolute inset-0 bg-[url('/pattern.svg')] opacity-10 mix-blend-overlay"></div>
+                <div className="relative z-10 space-y-1 sm:space-y-2">
+                  <h1 className="text-xl sm:text-3xl font-bold text-white text-center tracking-tight">
+                    <span className="inline-block transform hover:scale-105 transition-transform duration-300">
+                      Votre Déménagement
+                    </span>
+                    <br />
+                    <span className="relative inline-block mt-0.5 sm:mt-1">
+                      Sur Mesure
+                      <div className="absolute -bottom-0.5 sm:-bottom-1 left-0 right-0 h-0.5 bg-white/50 rounded-full transform origin-left"></div>
+                    </span>
+                  </h1>
+                  <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+                    <div className="w-6 sm:w-8 h-0.5 bg-white/30 rounded-full"></div>
+                    <div className="text-white/90 text-[10px] sm:text-xs font-medium tracking-wider uppercase">Simple • Rapide • Efficace</div>
+                    <div className="w-6 sm:w-8 h-0.5 bg-white/30 rounded-full"></div>
+                  </div>
                 </div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
               </div>
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 space-y-4 mt-[76px] lg:mt-0">
               {/* Section Date et Volume */}
               <div className="bg-gradient-to-br from-sky-50 to-blue-50 p-3 rounded-xl border border-sky-100/50">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <FormField label="Date de déménagement" labelClass="text-sky-800 font-medium text-sm" icon={<CalendarIcon className="w-3.5 h-3.5" />}>
                     <TextInput
                       type="date"
@@ -497,7 +674,7 @@ export default function NewMovingQuote() {
                     Point A ➔ Point B
                   </h2>
                 </div>
-                <div className="p-3 grid grid-cols-2 gap-3">
+                <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Adresse de départ */}
                   <div className="space-y-3">
                     <FormField label="" labelClass="text-gray-700 text-sm">
@@ -603,13 +780,13 @@ export default function NewMovingQuote() {
               </div>
 
               {/* Section Caractéristiques du logement */}
-              <div className="bg-gradient-to-br from-sky-50 to-blue-50 p-3 rounded-xl border border-sky-100/50">
-                <h2 className="inline-flex items-center gap-1.5 text-base font-medium text-emerald-800 mb-2">
+              <div className="bg-gradient-to-br from-sky-50 to-blue-50 p-2.5 rounded-xl border border-sky-100/50">
+                <h2 className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-800 mb-2">
                   <HomeIcon className="w-3.5 h-3.5" />
                   Votre Nid Douillet
                 </h2>
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField label="Type de propriété" labelClass="text-gray-700 text-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <FormField label="Type" labelClass="text-gray-700 text-xs">
                     <Select
                       value={formData.propertyType}
                       onChange={(e) => handleInputChange('propertyType', e.target.value)}
@@ -619,37 +796,37 @@ export default function NewMovingQuote() {
                         { value: 'office', label: 'Bureau' }
                       ]}
                       required
-                      className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-sm py-1.5"
+                      className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-xs py-1"
                     />
                   </FormField>
 
-                  <FormField label="Surface (m²)" labelClass="text-gray-700 text-sm">
+                  <FormField label="Surface m²" labelClass="text-gray-700 text-xs">
                     <TextInput
                       type="number"
                       value={formData.surface}
                       onChange={(e) => handleInputChange('surface', e.target.value)}
                       required
-                      className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-sm py-1.5"
+                      className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-xs py-1"
                     />
                   </FormField>
 
-                  <FormField label="Nombre de pièces" labelClass="text-gray-700 text-sm">
+                  <FormField label="Pièces" labelClass="text-gray-700 text-xs">
                     <TextInput
                       type="number"
                       value={formData.rooms}
                       onChange={(e) => handleInputChange('rooms', e.target.value)}
                       required
-                      className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-sm py-1.5"
+                      className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-xs py-1"
                     />
                   </FormField>
 
-                  <FormField label="Nombre d'occupants" labelClass="text-gray-700 text-sm">
+                  <FormField label="Occupants" labelClass="text-gray-700 text-xs">
                     <TextInput
                       type="number"
                       value={formData.occupants}
                       onChange={(e) => handleInputChange('occupants', e.target.value)}
                       required
-                      className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-sm py-1.5"
+                      className="w-full rounded-lg border-gray-200 focus:border-sky-500 focus:ring-sky-500 text-xs py-1"
                     />
                   </FormField>
                 </div>
@@ -657,104 +834,193 @@ export default function NewMovingQuote() {
 
               {/* Section Services supplémentaires */}
               <div className="bg-white rounded-xl border border-gray-200">
-                <div className="px-3 pt-3 mb-1">
-                  <h2 className="inline-flex items-center gap-1.5 text-base font-medium text-emerald-800">
+                <div className="px-2.5 pt-2.5">
+                  <h2 className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-800">
                     <CheckCircleIcon className="w-3.5 h-3.5" />
                     La Cerise sur le Gâteau
                   </h2>
                 </div>
-                <div className="p-3">
-                  <div className="bg-gray-50 border rounded-lg p-2">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                      {Object.entries(formData.options).map(([key, checked]) => (
-                        <label key={key} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => handleOptionChange(key as keyof typeof formData.options, e.target.checked)}
-                            className="w-3.5 h-3.5 text-sky-600 rounded border-gray-300 focus:ring-sky-500"
-                          />
-                          <span className="text-gray-700 text-sm">{_getServiceLabel(key)}</span>
-                        </label>
-                      ))}
-                    </div>
+                <div className="p-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5">
+                    {Object.entries(formData.options).map(([key, checked]) => (
+                      <label key={key} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => handleOptionChange(key as keyof typeof formData.options, e.target.checked)}
+                          className="w-3.5 h-3.5 text-sky-600 rounded border-gray-300 focus:ring-sky-500"
+                        />
+                        <span className="text-gray-700 text-xs">{_getServiceLabel(key)}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Section Chat */}
-              <div className="relative bg-[#F0F2F5] rounded-xl border border-gray-200 shadow-sm">
-                <div className="absolute -top-3 right-3 bg-[#EDFDF5] text-[#0A9669] px-2.5 py-1 rounded-full text-xs font-medium shadow-md ring-[3px] ring-white">
-                  En ligne
-                </div>
-                <div className="px-3 pt-4 pb-2 bg-[#0A9669] rounded-t-xl">
-                  <h2 className="inline-flex items-center gap-1.5 text-base font-medium text-white">
+              {/* Bouton pour afficher/masquer le chat */}
+              <button
+                type="button"
+                onClick={() => setShowChat(!showChat)}
+                className="w-full bg-white rounded-xl border border-gray-200 p-3 hover:bg-gray-50 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
                     <div className="relative">
-                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                      </svg>
-                      <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-[#0A9669] rounded-full"></span>
+                      <div className="p-1.5 bg-emerald-50 rounded-lg shadow-inner">
+                        <svg className="w-5 h-5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <span className="absolute -top-1 -right-1 h-2 w-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+                      </div>
                     </div>
-                    Un Doute ? On Est Là !
-                  </h2>
-                  <p className="mt-1 text-xs text-white/80">Notre équipe est disponible pour répondre à vos questions</p>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-900">Vos commentaires et questions ?</h3>
+                      <p className="text-xs text-gray-500">Notre équipe à besoin de vos commentaires pour bien affiner votre VOLUME et vous faire de meilleurs propositions de prix.</p>
+                    </div>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 text-gray-400 transform transition-transform duration-200 ${showChat ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
+              </button>
 
-                <div className="p-3 pt-1 bg-[#E4DDD6]">
-                  <div className="bg-[url('/whatsapp-bg.png')] bg-repeat h-24 overflow-y-auto mb-2 p-2">
-                    {messages.map((message, index) => (
+              {/* Section Chat - Design Modernisé et Discret */}
+              {showChat && (
+                <div className="relative bg-white rounded-xl shadow-sm overflow-hidden border border-gray-300">
+                  {/* Badge en ligne */}
+                  <div className="absolute -top-3 right-3 bg-emerald-500 text-white px-2 py-0.5 rounded-full text-xs font-medium shadow-sm ring-[2px] ring-white">
+                    <span className="flex items-center gap-1">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                      </span>
+                      En ligne
+                    </span>
+                  </div>
+                  
+                  {/* En-tête du chat - couleur assortie au bouton d'envoi */}
+                  <div className="px-3 pt-2 pb-2 bg-emerald-500 relative">
+                    <div className="relative z-10">
+                      <h2 className="flex items-center gap-1.5 text-base font-bold text-white">
+                        <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Un Doute ? On Est Là !
+                      </h2>
+                      <p className="text-xs text-white/90">
+                        Notre équipe est disponible pour répondre à vos questions
+                      </p>
+                    </div>
+                    
+                    {/* Ligne de séparation plus subtile sur fond foncé */}
+                    <div className="absolute bottom-0 left-0 right-0 h-px bg-white/20"></div>
+                  </div>
+
+                  {/* Corps du chat - TEXTE ALIGNÉ À GAUCHE DANS LES BULLES VERTES */}
+                  <div className="bg-gray-50 h-56 overflow-y-auto mb-1 p-2">
+                    {messages.map((message) => (
                       <div
-                        key={index}
-                        className={`relative mb-2 last:mb-0 ${
+                        key={message.id}
+                        className={`relative mb-1.5 last:mb-0 ${
                           message.sender === 'user' 
-                            ? 'ml-12 text-right' 
-                            : 'mr-12'
+                            ? 'ml-16 text-right' 
+                            : 'mr-16'
                         }`}
                       >
-                        <div className={`inline-block rounded-lg px-3 py-2 text-sm ${
+                        <div className={`inline-block rounded-lg px-2.5 py-1.5 text-xs max-w-[70%] break-words text-left ${
                           message.sender === 'user'
-                            ? 'bg-[#D9FDD3] text-gray-800'
-                            : 'bg-white text-gray-800'
+                            ? 'bg-[#E7FFDB] text-gray-800'
+                            : 'bg-white text-gray-800 shadow-sm'
                         }`}>
                           {message.text}
                         </div>
-                        <div className={`text-[10px] mt-0.5 ${
+                        <div className={`text-[9px] mt-0.5 ${
                           message.sender === 'user'
-                            ? 'text-gray-600'
-                            : 'text-gray-500'
+                            ? 'text-gray-500'
+                            : 'text-gray-400'
                         }`}>
-                          {message.sender === 'user' ? 'Vous' : 'Assistant'} • Maintenant
+                          {message.sender === 'user' ? 'Vous' : 'Assistant'} • {new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          {message.sender === 'user' && (
+                            <span className="ml-1">
+                              {message.isRead ? (
+                                <svg className="w-2.5 h-2.5 inline text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-2.5 h-2.5 inline text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              )}
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Indicateur "en train d'écrire" */}
+                    {isAgentTyping && (
+                      <div className="mr-16 mb-1.5">
+                        <div className="inline-block rounded-lg px-2.5 py-1.5 text-xs bg-gray-100 text-gray-800">
+                          <div className="flex space-x-1">
+                            <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce"></div>
+                            <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                            <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex gap-2 bg-white p-2 rounded-lg">
-                    <input
-                      type="text"
-                      value={currentMessage}
-                      onChange={(e) => setCurrentMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          handleSendMessage(e)
-                        }
-                      }}
-                      placeholder="Tapez votre message..."
-                      className="flex-1 text-sm border-0 focus:ring-0 placeholder-gray-500 bg-transparent"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSendMessage}
-                      className="p-2 bg-[#0A9669] text-white rounded-full hover:bg-[#098960] transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                      </svg>
-                    </button>
+                  {/* Zone de saisie - AVEC RETOUR À LA LIGNE ET PLUS DE HAUTEUR */}
+                  <div className="p-2 bg-white border-t border-gray-200">
+                    <div className="flex items-start gap-2 bg-gray-50 rounded-lg px-3 py-2 shadow-inner transition-all">
+                      {/* Bouton emoji (optionnel) */}
+                      <button type="button" className="text-gray-400 hover:text-emerald-500 transition-colors mt-1">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z" />
+                        </svg>
+                      </button>
+                      
+                      {/* Champ de saisie remplacé par textarea */}
+                      <textarea
+                        value={currentMessage}
+                        onChange={(e) => setCurrentMessage(e.target.value)}
+                        onFocus={handleChatFocus}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSendMessage(e)
+                          }
+                        }}
+                        placeholder="Tapez votre message..."
+                        className="flex-1 text-xs border-0 ring-0 focus:ring-0 focus:outline-none placeholder-gray-500 bg-transparent py-1 min-h-[40px] max-h-[80px] resize-none overflow-auto"
+                        rows={2}
+                      />
+                      
+                      {/* Bouton d'envoi */}
+                      <button
+                        type="button"
+                        onClick={handleSendMessage}
+                        className={`p-1.5 rounded-full mt-1 ${
+                          currentMessage.trim() 
+                            ? 'bg-emerald-500 text-white shadow-sm hover:shadow-md' 
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        } transition-all`}
+                        disabled={!currentMessage.trim()}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex justify-center">
                 <button
@@ -774,10 +1040,44 @@ export default function NewMovingQuote() {
           </div>
         </div>
 
+        {/* Bouton pour afficher/masquer le résumé */}
+        {showQuote && (
+          <button
+            type="button"
+            onClick={() => setShowQuoteSummary(!showQuoteSummary)}
+            className="lg:hidden w-full bg-white rounded-xl border border-gray-200 p-3 hover:bg-gray-50 transition-all duration-200 mb-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <div className="p-1.5 bg-sky-50 rounded-lg shadow-inner">
+                    <svg className="w-5 h-5 text-sky-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    <span className="absolute -top-1 -right-1 h-2 w-2 bg-sky-500 rounded-full ring-2 ring-white"></span>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Résumé du devis</h3>
+                  <p className="text-xs text-gray-500">Voir les détails de votre devis</p>
+                </div>
+              </div>
+              <svg 
+                className={`w-5 h-5 text-gray-400 transform transition-transform duration-200 ${showQuoteSummary ? 'rotate-180' : ''}`} 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </button>
+        )}
+
         {/* Résumé du devis */}
         {showQuote && (
-          <div className="lg:w-1/3">
-            <div className="sticky top-8">
+          <div className={`lg:w-1/3 ${showQuoteSummary ? 'block' : 'hidden lg:block'}`}>
+            <div className="lg:sticky lg:top-8">
               <QuoteSummary
                 type="moving"
                 id={Date.now().toString()}

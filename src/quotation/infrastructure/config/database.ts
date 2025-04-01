@@ -1,56 +1,46 @@
 /**
- * Gestionnaire de connexions aux bases de données
+ * Gestionnaire de connexion à la base de données via Prisma
  * 
  * Ce fichier est responsable de :
- * - Établir les connexions aux bases de données (PostgreSQL et Redis)
- * - Gérer la configuration des connexions
- * - Fournir une interface unifiée pour accéder aux clients DB
+ * - Établir les connexions à la base de données via Prisma
+ * - Gérer le cycle de vie du client Prisma
+ * - Fournir une interface unifiée pour accéder au client Prisma
  */
 
-import { Pool } from 'pg';
-import Redis from 'ioredis';
-
-interface DatabaseConfig {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-}
-
-interface RedisConfig {
-  host: string;
-  port: number;
-  password?: string;
-}
-
-const dbConfig: DatabaseConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'quotation',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || ''
-};
-
-const redisConfig: RedisConfig = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD
-};
+import { PrismaClient } from '@prisma/client';
 
 /**
- * Crée et initialise les connexions aux bases de données
- * 
- * @returns {Object} Objet contenant les clients initialisés
- * - dbClient: Client PostgreSQL pour le stockage persistant des règles
- * - redisClient: Client Redis pour le cache des règles fréquemment utilisées
- * 
- * Usage:
- * const { dbClient, redisClient } = await createConnections();
+ * Singleton Prisma client pour gérer les connexions à la base de données
  */
-export async function createConnections() {
-  const dbClient = new Pool(dbConfig);
-  const redisClient = new Redis(redisConfig);
+export class Database {
+  private static instance: PrismaClient;
 
-  return { dbClient, redisClient };
+  /**
+   * Retourne une instance unique du client Prisma
+   */
+  public static getClient(): PrismaClient {
+    if (!Database.instance) {
+      Database.instance = new PrismaClient({
+        log: process.env.NODE_ENV === 'development' 
+          ? ['query', 'info', 'warn', 'error'] 
+          : ['error'],
+      });
+      
+      // Log de connexion réussie
+      console.log('Connexion à la base de données établie');
+    }
+    
+    return Database.instance;
+  }
+
+  /**
+   * Déconnecte le client Prisma de la base de données
+   */
+  public static async disconnect(): Promise<void> {
+    if (Database.instance) {
+      await Database.instance.$disconnect();
+      console.log('Déconnexion de la base de données effectuée');
+      Database.instance = null as unknown as PrismaClient;
+    }
+  }
 } 

@@ -2,7 +2,7 @@
 
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { QueryProvider } from '@/providers/QueryProvider'
-import { Header } from '@/components/Header'
+import Navbar from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
 import { GoogleMapsScript } from '@/components/GoogleMapsScript'
 import './globals.css'
@@ -21,8 +21,8 @@ export default function RootLayout({
         <QueryProvider>
           <NotificationProvider>
             <div className="min-h-screen flex flex-col">
-              <Header />
-              <main className="flex-grow">
+              <Navbar />
+              <main className="flex-grow pt-16">
                 {children}
               </main>
               <Footer />

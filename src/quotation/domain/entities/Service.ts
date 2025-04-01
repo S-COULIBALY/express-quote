@@ -1,72 +1,68 @@
-import { Entity, UniqueId } from './Entity';
+import { Entity } from '../../../shared/domain/Entity';
 import { Money } from '../valueObjects/Money';
-import { Rule } from '../valueObjects/Rule';
-
-export enum ServiceType {
-    CLEANING = 'CLEANING',
-    MOVING = 'MOVING'
-}
+import { ServiceType } from '../enums/ServiceType';
 
 export class Service extends Entity {
-    private rules: Rule[] = [];
+    private readonly bookingId?: string;
+    private readonly serviceType: ServiceType;
+    private readonly description: string;
+    private readonly duration: number; // en minutes
+    private readonly price: Money;
+    private readonly date?: Date;
+    private readonly status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    private readonly options: Record<string, any>;
 
     constructor(
-        private name: string,
-        private type: ServiceType,
-        private basePrice: Money,
-        id?: UniqueId
+        id: string,
+        serviceType: ServiceType,
+        description: string,
+        duration: number,
+        price: Money,
+        date?: Date,
+        bookingId?: string,
+        status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' = 'SCHEDULED',
+        options: Record<string, any> = {}
     ) {
         super(id);
-        this.validate();
+        this.serviceType = serviceType;
+        this.description = description;
+        this.duration = duration;
+        this.price = price;
+        this.date = date;
+        this.bookingId = bookingId;
+        this.status = status;
+        this.options = { ...options };
     }
 
-    private validate(): void {
-        if (!this.name || this.name.trim().length === 0) {
-            throw new Error('Service name is required');
-        }
-        if (!Object.values(ServiceType).includes(this.type)) {
-            throw new Error('Invalid service type');
-        }
-        if (this.basePrice.getAmount() < 0) {
-            throw new Error('Base price cannot be negative');
-        }
+    public getServiceType(): ServiceType {
+        return this.serviceType;
     }
 
-    public updateName(name: string): void {
-        if (!name || name.trim().length === 0) {
-            throw new Error('Service name is required');
-        }
-        this.name = name;
+    public getDescription(): string {
+        return this.description;
     }
 
-    public updateBasePrice(price: Money): void {
-        if (price.getAmount() < 0) {
-            throw new Error('Base price cannot be negative');
-        }
-        this.basePrice = price;
+    public getDuration(): number {
+        return this.duration;
     }
 
-    public addRule(rule: Rule): void {
-        this.rules.push(rule);
+    public getPrice(): Money {
+        return this.price;
     }
 
-    public removeRule(ruleName: string): void {
-        this.rules = this.rules.filter(rule => rule.name !== ruleName);
+    public getDate(): Date | undefined {
+        return this.date;
     }
 
-    public getName(): string {
-        return this.name;
+    public getBookingId(): string | undefined {
+        return this.bookingId;
     }
 
-    public getType(): ServiceType {
-        return this.type;
+    public getStatus(): 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' {
+        return this.status;
     }
 
-    public getBasePrice(): Money {
-        return this.basePrice;
-    }
-
-    public getRules(): Rule[] {
-        return [...this.rules];
+    public getOptions(): Record<string, any> {
+        return { ...this.options };
     }
 } 

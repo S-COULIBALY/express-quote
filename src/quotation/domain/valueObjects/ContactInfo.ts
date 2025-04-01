@@ -1,37 +1,49 @@
+/**
+ * Objet-valeur représentant les informations de contact d'une personne
+ */
 export class ContactInfo {
+    private readonly firstName: string;
+    private readonly lastName: string;
+    private readonly email: string;
+    private readonly phone: string;
+    private readonly preferredLanguage?: string;
+
     constructor(
-        private readonly firstName: string,
-        private readonly lastName: string,
-        private readonly email: string,
-        private readonly phone: string
+        firstName: string,
+        lastName: string,
+        email: string,
+        phone: string,
+        preferredLanguage: string = 'fr'
     ) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+        this.phone = phone;
+        this.preferredLanguage = preferredLanguage;
         this.validate();
     }
 
     private validate(): void {
-        if (!this.firstName || this.firstName.trim().length === 0) {
+        if (!this.firstName) {
             throw new Error('First name is required');
         }
-        if (!this.lastName || this.lastName.trim().length === 0) {
+        if (!this.lastName) {
             throw new Error('Last name is required');
         }
-        if (!this.isValidEmail(this.email)) {
+        if (!this.email) {
+            throw new Error('Email is required');
+        }
+        if (!this.validateEmail(this.email)) {
             throw new Error('Invalid email format');
         }
-        if (!this.isValidPhone(this.phone)) {
-            throw new Error('Invalid phone format');
+        if (!this.phone) {
+            throw new Error('Phone number is required');
         }
     }
 
-    private isValidEmail(email: string): boolean {
+    private validateEmail(email: string): boolean {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
-    }
-
-    private isValidPhone(phone: string): boolean {
-        // Format français: +33612345678 ou 0612345678
-        const phoneRegex = /^(\+33|0)[1-9](\d{8})$/;
-        return phoneRegex.test(phone);
     }
 
     public getFirstName(): string {
@@ -54,10 +66,17 @@ export class ContactInfo {
         return this.phone;
     }
 
-    public equals(other: ContactInfo): boolean {
-        return this.firstName === other.firstName &&
-            this.lastName === other.lastName &&
-            this.email === other.email &&
-            this.phone === other.phone;
+    public getPreferredLanguage(): string | undefined {
+        return this.preferredLanguage;
+    }
+
+    public toDTO(): Record<string, any> {
+        return {
+            firstName: this.firstName,
+            lastName: this.lastName,
+            email: this.email,
+            phone: this.phone,
+            preferredLanguage: this.preferredLanguage
+        };
     }
 } 

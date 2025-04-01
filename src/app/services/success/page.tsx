@@ -21,6 +21,9 @@ interface ServiceBooking {
   scheduledDate: string
   scheduledTime: string
   destAddress: string
+  duration: number
+  workers: number
+  additionalInfo?: string
   totalPrice: number
 }
 
@@ -144,6 +147,16 @@ export default function ServiceSuccessPage() {
               <div>
                 <dt className="text-sm font-medium text-gray-500">Adresse de destination</dt>
                 <dd className="mt-1 text-sm text-gray-900">{booking.destAddress}</dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Durée (jours)</dt>
+                <dd className="mt-1 text-sm text-gray-900">{booking.duration}</dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Nombre de travailleurs</dt>
+                <dd className="mt-1 text-sm text-gray-900">{booking.workers}</dd>
               </div>
               
               <div>

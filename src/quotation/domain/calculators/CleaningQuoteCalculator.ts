@@ -4,7 +4,7 @@ import { Money } from '../valueObjects/Money';
 import { Rule } from '../valueObjects/Rule';
 import { QuoteCalculationError } from '../../interfaces/http/errors';
 import { Quote } from '../valueObjects/Quote';
-import { ServiceType } from '../entities/Service';
+import { ServiceType } from '../enums/ServiceType';
 import { Discount, DiscountType } from '../valueObjects/Discount';
 import { CleaningFrequency } from '../valueObjects/types/CleaningTypes';
 

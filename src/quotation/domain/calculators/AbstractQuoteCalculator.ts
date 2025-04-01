@@ -9,17 +9,22 @@ import { ValidationError } from '../../interfaces/http/ValidationError';
 import { QuoteCalculationError } from '../../interfaces/http/errors';
 
 export abstract class AbstractQuoteCalculator implements IQuoteCalculator {
-  protected ruleEngine: RuleEngine;
+  protected readonly rules: Rule[];
+  protected readonly ruleEngine: RuleEngine;
 
-  constructor(rules: Rule[]) {
-    // Validation des règles
-    if (!Array.isArray(rules)) {
-      throw new ValidationError('Rules must be an array');
-    }
-    if (rules.some(rule => !(rule instanceof Rule))) {
-      throw new ValidationError('All rules must be instances of Rule');
-    }
-    this.ruleEngine = new RuleEngine(rules);
+  constructor(rules: Rule[] = []) {
+    this.rules = [...rules];
+    this.ruleEngine = new RuleEngine(this.rules);
+  }
+
+  public addRule(rule: Rule): void {
+    this.rules.push(rule);
+    // Mettre à jour le moteur de règles
+    this.ruleEngine.addRule(rule);
+  }
+
+  public getRules(): Rule[] {
+    return [...this.rules];
   }
 
   abstract getBasePrice(context: QuoteContext): Money;

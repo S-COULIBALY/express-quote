@@ -19,14 +19,22 @@ interface QuoteData {
   preferredDate: string
   preferredTime?: string
   volume: string
+  distance?: number
+  movingDate?: string
   options: {
     packing: boolean
     assembly: boolean
     disassembly: boolean
     insurance: boolean
     storage: boolean
+    cleaning?: boolean
   }
   totalCost: number
+  baseCost?: number
+  volumeCost?: number
+  distancePrice?: number
+  optionsCost?: number
+  signature?: string
   persistedId?: string
 }
 
@@ -81,109 +89,120 @@ function MovingPaymentContent() {
       setProcessing(true)
       setError(null)
       
-      // 1. Créer ou récupérer le client
+      // Afficher les données avant la création de la réservation
+      console.log('Données avant création de la réservation:', {
+        quoteData,
+        customerData: formData,
+        persistedId: quoteData.persistedId || 'Non persisté'
+      })
+
+      // 1. Créer le client
       const customerResponse = await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: formData.fullName.split(' ')[0],
-          lastName: formData.fullName.split(' ').slice(1).join(' '),
-          email: formData.email,
-          phone: formData.phone
-        })
+        body: JSON.stringify(formData)
       })
-
+      
       if (!customerResponse.ok) {
-        throw new Error('Échec de création du client')
+        throw new Error('Erreur lors de la création du client')
       }
-
-      const customer = await customerResponse.json()
-
-      // 2. Identifier le devis - Utiliser l'ID persisté si disponible
-      const persistedQuoteId = quoteData.persistedId || quoteId
-      let persistedQuote
-
-      if (!persistedQuoteId) {
-        // Si pas d'ID persisté, on doit récupérer ou créer le devis
+      
+      const customerResult = await customerResponse.json()
+      const customerId = customerResult.data.id
+      
+      // 2. Si le devis n'est pas déjà persisté, le créer via l'API
+      let quoteId = quoteData.persistedId
+      
+      if (!quoteId) {
+        // Récupérer l'ID du devis depuis les données localStorage (ID temporaire)
+        const tempQuoteId = quoteData.id
+        
+        // Calculer une dernière fois le devis pour s'assurer des valeurs correctes
+        // et utiliser le calcul centralisé pour le déménagement
+        const quotePayload = {
+          customerId,
+          origin: quoteData.pickupAddress,
+          destination: quoteData.deliveryAddress,
+          movingDate: quoteData.preferredDate || quoteData.movingDate,
+          needPacking: quoteData.options?.packing || false,
+          needStorage: quoteData.options?.storage || false,
+          needCleaning: quoteData.options?.cleaning || false,
+          
+          // Inclure les détails de calcul et la signature pour vérification
+          baseCost: quoteData.baseCost,
+          volumeCost: quoteData.volumeCost,
+          distancePrice: quoteData.distancePrice,
+          optionsCost: quoteData.optionsCost,
+          signature: quoteData.signature,
+          
+          // ... autres champs
+          ...quoteData  // Inclure toutes les données originales
+        }
+        
+        // Créer le devis dans la base de données
         const quoteResponse = await fetch('/api/quotation', {
-          method: 'POST',
+          method: 'POST', 
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pickupAddress: quoteData.pickupAddress,
-            deliveryAddress: quoteData.deliveryAddress,
-            volume: parseFloat(quoteData.volume),
-            options: quoteData.options,
-            preferredDate: quoteData.preferredDate,
-            preferredTime: quoteData.preferredTime || 'morning'
-          })
+          body: JSON.stringify(quotePayload)
         })
-
-        if (!quoteResponse.ok) {
-          throw new Error('Échec de création du devis')
-        }
-
-        persistedQuote = await quoteResponse.json()
-      } else {
-        // Utiliser le devis existant
-        const quoteResponse = await fetch(`/api/quotation/${persistedQuoteId}`)
         
         if (!quoteResponse.ok) {
-          throw new Error('Devis introuvable')
+          throw new Error('Erreur lors de la création du devis permanent')
         }
         
-        persistedQuote = await quoteResponse.json()
+        const quoteResult = await quoteResponse.json()
+        quoteId = quoteResult.data.id
+        
+        // Mettre à jour le localStorage avec l'ID persisté
+        quoteData.persistedId = quoteId
+        localStorage.setItem('movingQuote', JSON.stringify(quoteData))
       }
-
+      
       // 3. Créer la réservation
       const bookingResponse = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'quote',
-          quoteId: persistedQuote.data.id,
-          customerId: customer.id,
-          professionalId: '00000000-0000-0000-0000-000000000001', // ID par défaut
-          scheduledDate: quoteData.preferredDate,
-          originAddress: quoteData.pickupAddress,
-          destAddress: quoteData.deliveryAddress,
-          status: 'PENDING',
-          price: quoteData.totalCost
+          quoteId,
+          customerId,
+          type: 'MOVING_QUOTE',
+          totalAmount: quoteData.totalCost,
+          moveDate: quoteData.movingDate,
+          pickupAddress: quoteData.pickupAddress,
+          deliveryAddress: quoteData.deliveryAddress,
+          volume: parseFloat(quoteData.volume) || 0,
+          distance: quoteData.distance || 0,
+          options: quoteData.options || {},
+          source: 'web'
         })
       })
-
+      
       if (!bookingResponse.ok) {
-        throw new Error('Échec de création de la réservation')
+        throw new Error('Erreur lors de la création de la réservation')
       }
-
-      const booking = await bookingResponse.json()
-
-      // 4. Rediriger vers Stripe pour le paiement
-      const depositAmount = quoteData.totalCost * 0.3 // 30% d'acompte
-      const result = await createCheckoutSession({
-        customerId: customer.id,
-        customerEmail: customer.email,
-        bookingId: booking.id,
-        bookingType: 'QUOTE',
-        amount: depositAmount,
-        description: 'Devis de déménagement personnalisé',
-        successUrl: `${window.location.origin}/moving/success`,
-        cancelUrl: `${window.location.origin}/moving/payment?id=${persistedQuoteId || quoteId}`,
-        metadata: {
-          quoteId: persistedQuote.data.id,
-          volume: quoteData.volume.toString(),
-          scheduledDate: quoteData.preferredDate
-        }
+      
+      const bookingResult = await bookingResponse.json()
+      
+      // Rediriger vers Stripe pour le paiement
+      const stripeResponse = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: bookingResult.data.id,
+          customerId,
+          amount: quoteData.totalCost
+        })
       })
-
-      // Rediriger vers la page de paiement Stripe
-      if (result.url) {
-        window.location.href = result.url
-      } else {
-        throw new Error('Impossible de créer la session de paiement')
+      
+      if (!stripeResponse.ok) {
+        throw new Error('Erreur lors de la création de la session Stripe')
       }
+      
+      const stripeResult = await stripeResponse.json()
+      router.push(`/success?id=${bookingResult.data.id}`)
     } catch (error) {
-      console.error('Error in payment process:', error)
-      setError(error instanceof Error ? error.message : 'Une erreur est survenue lors du traitement')
+      console.error('Erreur lors du processus de paiement:', error)
+      setError('Une erreur est survenue lors du traitement de votre paiement. Veuillez réessayer.')
       setProcessing(false)
     }
   }

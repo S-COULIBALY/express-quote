@@ -47,11 +47,14 @@ export interface QuoteDetails {
 }
 
 interface MovingOptions {
-  packing: boolean
-  assembly: boolean
-  disassembly: boolean
-  insurance: boolean
-  storage: boolean
+  packaging?: boolean
+  furniture?: boolean
+  fragile?: boolean
+  storage?: boolean
+  disassembly?: boolean
+  unpacking?: boolean
+  supplies?: boolean
+  fragileItems?: boolean
 }
 
 export interface MovingQuote {
@@ -87,6 +90,10 @@ export interface MovingFormData {
     furniture?: boolean
     fragile?: boolean
     storage?: boolean
+    disassembly?: boolean
+    unpacking?: boolean
+    supplies?: boolean
+    fragileItems?: boolean
   }
 }
 
@@ -98,13 +105,28 @@ export interface CleaningFormData {
   frequency: 'oneTime' | 'weekly' | 'biweekly' | 'monthly'
   hasBalcony: boolean
   hasPets: boolean
-  date?: string
-  options?: {
-    windows?: boolean
-    deepCleaning?: boolean
-    carpets?: boolean
-    furniture?: boolean
-    appliances?: boolean
+  cleaningDate: string
+  address: string
+  balconySize: string
+  propertyState: string
+  floorTypes: {
+    parquet: boolean
+    carpet: boolean
+    tile: boolean
+    vinyl: boolean
+    marble: boolean
+  }
+  options: {
+    windows: boolean
+    deepCleaning: boolean
+    carpets: boolean
+    furniture: boolean
+    appliances: boolean
+    ironing: boolean
+    dishes: boolean
+    bedding: boolean
+    garbage: boolean
+    sanitizing: boolean
   }
 }
 

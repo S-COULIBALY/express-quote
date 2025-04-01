@@ -1,25 +1,25 @@
-import { ServiceType } from '../../domain/entities/Service';
+import { ServiceType } from '../../domain/enums/ServiceType';
 
 export interface MovingQuoteRequest {
+  volume: number;
+  distance: number;
+  pickupFloor: number;
+  deliveryFloor: number;
+  pickupElevator: boolean;
+  deliveryElevator: boolean;
   pickupAddress: string;
   deliveryAddress: string;
-  volume: number;
-  hasElevator: boolean;
-  floorNumber: number;
-  date?: string;
 }
 
 export interface CleaningQuoteRequest {
-  squareMeters: number;
-  numberOfRooms: number;
-  frequency: 'ONCE' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
-  hasBalcony?: boolean;
-  hasPets?: boolean;
-  date?: string;
+  surfaceArea: number;
+  roomCount: number;
+  cleaningType: string;
+  location: string;
 }
 
 export interface QuoteRequest {
-  serviceType: ServiceType;
+  serviceType: string;
   context: MovingQuoteRequest | CleaningQuoteRequest;
 }
 
@@ -28,8 +28,15 @@ export interface HttpError {
   message: string;
 }
 
-export interface HttpResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: HttpError;
+export interface HttpRequest {
+  body: any;
+  params: Record<string, string>;
+  query: Record<string, string | string[]>;
+  headers: Record<string, string | string[]>;
+}
+
+export interface HttpResponse<T = any> {
+  status: (code: number) => HttpResponse<T>;
+  json: (data: T) => HttpResponse<T>;
+  send: () => HttpResponse<T>;
 } 

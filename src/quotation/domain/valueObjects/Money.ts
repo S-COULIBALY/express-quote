@@ -1,55 +1,68 @@
+/**
+ * Objet-valeur représentant un montant monétaire
+ */
 export class Money {
-  constructor(
-    private readonly amount: number,
-    private readonly currency: string = 'EUR'
-  ) {
-    this.validate();
-  }
+    private readonly amount: number;
+    private readonly currency: string;
 
-  private validate(): void {
-    if (typeof this.amount !== 'number') {
-      throw new Error('Amount must be a number');
+    constructor(amount: number, currency: string = 'EUR') {
+        this.amount = Math.round(amount * 100) / 100; // Arrondi à 2 décimales
+        this.currency = currency;
     }
-    if (!this.currency || this.currency.length !== 3) {
-      throw new Error('Currency must be a 3-letter ISO code');
+
+    public getAmount(): number {
+        return this.amount;
     }
-  }
 
-  static fromCents(cents: number, currency: string = 'EUR'): Money {
-    return new Money(cents / 100, currency);
-  }
-
-  public getAmount(): number {
-    return this.amount;
-  }
-
-  public getCurrency(): string {
-    return this.currency;
-  }
-
-  public add(other: Money): Money {
-    if (other.currency !== this.currency) {
-      throw new Error('Cannot add money with different currencies');
+    public getCurrency(): string {
+        return this.currency;
     }
-    return new Money(this.amount + other.amount, this.currency);
-  }
 
-  public subtract(other: Money): Money {
-    if (other.currency !== this.currency) {
-      throw new Error('Cannot subtract money with different currencies');
+    public toString(): string {
+        return `${this.amount.toFixed(2)} ${this.currency}`;
     }
-    return new Money(this.amount - other.amount, this.currency);
-  }
 
-  public multiply(factor: number): Money {
-    return new Money(this.amount * factor, this.currency);
-  }
+    public add(money: Money): Money {
+        this.ensureSameCurrency(money);
+        return new Money(this.amount + money.getAmount(), this.currency);
+    }
 
-  public equals(other: Money): boolean {
-    return this.amount === other.amount && this.currency === other.currency;
-  }
+    public subtract(money: Money): Money {
+        this.ensureSameCurrency(money);
+        return new Money(this.amount - money.getAmount(), this.currency);
+    }
 
-  public toString(): string {
-    return `${this.amount.toFixed(2)} ${this.currency}`;
-  }
+    public multiply(factor: number): Money {
+        return new Money(this.amount * factor, this.currency);
+    }
+
+    public divide(divisor: number): Money {
+        if (divisor === 0) {
+            throw new Error('Cannot divide by zero');
+        }
+        return new Money(this.amount / divisor, this.currency);
+    }
+
+    public equals(money: Money): boolean {
+        if (this.currency !== money.getCurrency()) {
+            return false;
+        }
+        return this.amount === money.getAmount();
+    }
+
+    public isGreaterThan(money: Money): boolean {
+        this.ensureSameCurrency(money);
+        return this.amount > money.getAmount();
+    }
+
+    public isLessThan(money: Money): boolean {
+        this.ensureSameCurrency(money);
+        return this.amount < money.getAmount();
+    }
+
+    private ensureSameCurrency(money: Money): void {
+        if (this.currency !== money.getCurrency()) {
+            throw new Error(`Cannot operate on amounts with different currencies: ${this.currency} and ${money.getCurrency()}`);
+        }
+    }
 } 

@@ -3,34 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-
-interface MovingQuote {
-  id: string
-  status: string
-  moveDate: string | null
-  pickupAddress: string | null
-  deliveryAddress: string | null
-  customer: {
-    firstName: string
-    lastName: string
-    email: string
-    phone: string | null
-  }
-  items: Array<{
-    name: string
-    quantity: number
-  }> | null
-  totalPrice: number
-  distance: number | null
-  volume: number | null
-}
+import { BookingDetails } from '@/components/BookingDetails'
+import { BookingService, type BookingData } from '@/services/bookingService'
 
 export default function MovingSuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const bookingId = searchParams.get('id')
   
-  const [quote, setQuote] = useState<MovingQuote | null>(null)
+  const [booking, setBooking] = useState<BookingData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,51 +22,22 @@ export default function MovingSuccessPage() {
       return
     }
 
-    async function fetchQuote() {
+    async function fetchBooking() {
       try {
-        // Essayer d'abord l'API des devis
-        let response = await fetch(`/api/quotes/${bookingId}`)
-        
-        // Si le devis n'est pas trouvé, essayer l'API des réservations
-        if (!response.ok) {
-          response = await fetch(`/api/bookings/${bookingId}`)
-          
-          if (!response.ok) {
-            throw new Error('Devis ou réservation introuvable')
-          }
+        const data = await BookingService.getBookingById(bookingId)
+        if (!data) {
+          throw new Error('Réservation introuvable')
         }
-        
-        const data = await response.json()
-
-        // Normaliser les données pour s'adapter à notre interface
-        const normalizedData: MovingQuote = {
-          id: data.id,
-          status: data.status,
-          moveDate: data.moveDate || data.scheduledDate,
-          pickupAddress: data.pickupAddress || data.originAddress,
-          deliveryAddress: data.deliveryAddress || data.destAddress,
-          customer: {
-            firstName: data.customer?.firstName || '',
-            lastName: data.customer?.lastName || '',
-            email: data.customer?.email || '',
-            phone: data.customer?.phone || null
-          },
-          items: Array.isArray(data.items) ? data.items : [],
-          totalPrice: data.totalPrice || data.totalAmount || 0,
-          distance: data.distance || null,
-          volume: data.volume || null
-        }
-
-        setQuote(normalizedData)
+        setBooking(data)
       } catch (error) {
-        console.error('Error fetching quote:', error)
-        setError(error instanceof Error ? error.message : 'Erreur lors de la récupération du devis')
+        console.error('Error fetching booking:', error)
+        setError(error instanceof Error ? error.message : 'Erreur lors de la récupération de la réservation')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchQuote()
+    fetchBooking()
   }, [bookingId])
 
   if (loading) {
@@ -102,13 +54,13 @@ export default function MovingSuccessPage() {
     )
   }
 
-  if (error || !quote) {
+  if (error || !booking) {
     return (
       <main className="p-8">
         <div className="max-w-2xl mx-auto text-center">
           <div className="mb-6 text-red-500">
             <h1 className="text-2xl font-bold mb-2">Erreur</h1>
-            <p>{error || 'Devis introuvable'}</p>
+            <p>{error || 'Réservation introuvable'}</p>
           </div>
           <Link
             href="/moving"
@@ -121,103 +73,24 @@ export default function MovingSuccessPage() {
     )
   }
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Non spécifiée';
-    return new Date(dateString).toLocaleDateString('fr-FR')
-  }
-
   return (
     <main className="p-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <div className="mb-8 text-center">
           <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Devis confirmé !</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Réservation confirmée !</h1>
           <p className="text-gray-600">
-            Votre réservation de déménagement a été confirmée et un e-mail de confirmation vous a été envoyé.
+            Votre réservation a été confirmée et un e-mail de confirmation vous a été envoyé.
           </p>
         </div>
         
-        <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
-          <div className="px-6 py-4 bg-gray-50 border-b">
-            <h2 className="text-xl font-semibold">Récapitulatif de votre déménagement</h2>
-          </div>
-          
-          <div className="p-6">
-            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Numéro de réservation</dt>
-                <dd className="mt-1 text-sm text-gray-900">{quote.id.slice(0, 8)}</dd>
-              </div>
-              
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Date de déménagement</dt>
-                <dd className="mt-1 text-sm text-gray-900">{formatDate(quote.moveDate)}</dd>
-              </div>
-              
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Adresse de départ</dt>
-                <dd className="mt-1 text-sm text-gray-900">{quote.pickupAddress || 'Non spécifiée'}</dd>
-              </div>
-              
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Adresse de destination</dt>
-                <dd className="mt-1 text-sm text-gray-900">{quote.deliveryAddress || 'Non spécifiée'}</dd>
-              </div>
-              
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Client</dt>
-                <dd className="mt-1 text-sm text-gray-900">{quote.customer.firstName} {quote.customer.lastName}</dd>
-              </div>
-              
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Statut</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Confirmé
-                  </span>
-                </dd>
-              </div>
-              
-              {quote.distance !== null && (
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Distance</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{quote.distance} km</dd>
-                </div>
-              )}
-              
-              {quote.volume !== null && (
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Volume</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{quote.volume} m³</dd>
-                </div>
-              )}
-              
-              {quote.items && quote.items.length > 0 && (
-                <div className="md:col-span-2">
-                  <dt className="text-sm font-medium text-gray-500">Articles</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    <ul className="list-disc pl-5 space-y-1">
-                      {quote.items.map((item, index) => (
-                        <li key={index}>{item.name} (x{item.quantity})</li>
-                      ))}
-                    </ul>
-                  </dd>
-                </div>
-              )}
-              
-              <div className="md:col-span-2 border-t pt-4">
-                <dt className="text-base font-medium text-gray-900">Montant total</dt>
-                <dd className="mt-1 text-lg font-bold text-gray-900">{quote.totalPrice.toFixed(2)} €</dd>
-              </div>
-            </dl>
-          </div>
-        </div>
+        <BookingDetails booking={booking} />
         
-        <div className="bg-blue-50 rounded-lg p-6 mb-8">
+        <div className="bg-blue-50 rounded-lg p-6 mt-8">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -227,13 +100,13 @@ export default function MovingSuccessPage() {
             <div className="ml-3">
               <h3 className="text-sm font-medium text-blue-800">Information</h3>
               <div className="mt-2 text-sm text-blue-700">
-                <p>Un e-mail de confirmation a été envoyé à {quote.customer.email} avec tous les détails de votre déménagement.</p>
+                <p>Un e-mail de confirmation a été envoyé à {booking.customer.email} avec tous les détails de votre réservation.</p>
               </div>
             </div>
           </div>
         </div>
         
-        <div className="flex justify-between">
+        <div className="flex justify-between mt-8">
           <Link
             href="/moving"
             className="px-6 py-2 bg-white border border-gray-300 rounded text-gray-700 hover:bg-gray-50"

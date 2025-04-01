@@ -1,14 +1,260 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+}
+
+model Professional {
+  id              String           @id @default(uuid())
+  companyName     String
+  businessType    ProfessionalType
+  email           String           @unique
+  phone           String
+  address         String?
+  city            String?
+  postalCode      String?
+  country         String           @default("France")
+  website         String?
+  logoUrl         String?
+  description     String?
+  taxIdNumber     String?
+  insuranceNumber String?
+  verified        Boolean          @default(false)
+  verifiedAt      DateTime?
+  rating          Float?
+  servicedAreas   Json?
+  specialties     Json?
+  availabilities  Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  bookings        Booking[]
+
+  @@index([businessType])
+  @@index([city])
+  @@index([verified])
+}
+
+model Customer {
+  id             String     @id @default(uuid())
+  email          String     @unique
+  firstName      String
+  lastName       String
+  phone          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  bookings       Booking[]
+  emailsReceived EmailLog[]
+}
+
+model Booking {
+  id             String        @id @default(uuid())
+  type           BookingType
+  status         BookingStatus @default(DRAFT)
+  customerId     String
+  professionalId String?
+  totalAmount    Float
+  paymentMethod  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  professional   Professional? @relation(fields: [professionalId], references: [id])
+  documents      Document[]
+  emails         EmailLog[]
+  moving         Moving?
+  pack           Pack?
+  service        Service?
+  transactions   Transaction[]
+  quoteRequestId String?
+  quoteRequest   QuoteRequest?     @relation(fields: [quoteRequestId], references: [id])
+
+  @@index([customerId])
+  @@index([professionalId])
+  @@index([type])
+  @@index([status])
+  @@index([quoteRequestId])
+}
+
+model Moving {
+  id                    String   @id @default(uuid())
+  bookingId             String   @unique
+  moveDate              DateTime
+  pickupAddress         String
+  deliveryAddress       String
+  distance              Float
+  volume                Float
+  pickupFloor           Int?
+  deliveryFloor         Int?
+  pickupElevator        Boolean  @default(false)
+  deliveryElevator      Boolean  @default(false)
+  pickupCarryDistance   Float?
+  deliveryCarryDistance Float?
+  propertyType          String?
+  surface               Float?
+  rooms                 Int?
+  occupants             Int?
+  pickupCoordinates     Json?
+  deliveryCoordinates   Json?
+  packaging             Boolean  @default(false)
+  furniture             Boolean  @default(false)
+  fragile               Boolean  @default(false)
+  storage               Boolean  @default(false)
+  disassembly           Boolean  @default(false)
+  unpacking             Boolean  @default(false)
+  supplies              Boolean  @default(false)
+  fragileItems          Boolean  @default(false)
+  baseCost              Float?
+  volumeCost            Float?
+  distancePrice         Float?
+  optionsCost           Float?
+  tollCost              Float?
+  fuelCost              Float?
+  items                 Json?
+  booking               Booking  @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([moveDate])
+}
+
+model Pack {
+  id              String   @id @default(uuid())
+  bookingId       String   @unique
+  name            String
+  description     String
+  price           Float
+  includes        String[]
+  scheduledDate   DateTime
+  pickupAddress   String
+  deliveryAddress String
+  duration        Int      @default(1)
+  workers         Int      @default(2)
+  additionalInfo  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  booking         Booking  @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([scheduledDate])
+}
+
+model Service {
+  id            String   @id @default(uuid())
+  bookingId     String   @unique
+  name          String
+  description   String
+  price         Float
+  duration      Int
+  workers       Int      @default(2)
+  includes      String[]
+  scheduledDate DateTime
+  location      String
+  additionalInfo String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  booking       Booking  @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([scheduledDate])
+}
+
+model Transaction {
+  id              String            @id @default(uuid())
+  bookingId       String
+  amount          Float
+  currency        String            @default("EUR")
+  status          TransactionStatus
+  paymentMethod   String?
+  paymentIntentId String?
+  stripeSessionId String?
+  errorMessage    String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  booking         Booking           @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([status])
+  @@index([paymentIntentId])
+  @@index([stripeSessionId])
+}
+
+model Document {
+  id          String            @id @default(uuid())
+  bookingId   String
+  type        DocumentType
+  filename    String
+  content     Bytes
+  createdAt   DateTime          @default(now())
+  booking     Booking           @relation(fields: [bookingId], references: [id])
+  attachments EmailAttachment[]
+
+  @@index([bookingId])
+  @@index([type])
+}
+
+model EmailLog {
+  id           String            @id @default(uuid())
+  bookingId    String
+  customerId   String
+  subject      String
+  text         String
+  html         String?
+  status       EmailStatus       @default(QUEUED)
+  errorMessage String?
+  sentAt       DateTime?
+  createdAt    DateTime          @default(now())
+  attachments  EmailAttachment[]
+  booking      Booking           @relation(fields: [bookingId], references: [id])
+  customer     Customer          @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@index([bookingId])
+  @@index([status])
+}
+
+model EmailAttachment {
+  id          String    @id @default(uuid())
+  emailId     String
+  documentId  String?
+  filename    String
+  contentType String
+  content     Bytes?
+  document    Document? @relation(fields: [documentId], references: [id])
+  email       EmailLog  @relation(fields: [emailId], references: [id])
+
+  @@index([emailId])
+  @@index([documentId])
+}
+
+model Rule {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String
+  value       Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("rules")
+}
+
+model QuoteRequest {
+  id            String             @id @default(uuid())
+  type          String
+  status        String
+  quoteData     Json
+  temporaryId   String             @unique
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  expiresAt     DateTime
+  bookings      Booking[]
+
+  @@index([temporaryId])
+  @@index([status])
+  @@index([type])
 }
 
 enum BookingType {
@@ -48,130 +294,10 @@ enum EmailStatus {
   FAILED
 }
 
-model Customer {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  firstName String
-  lastName  String
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  bookings       Booking[]
-  emailsReceived EmailLog[]
-}
-
-model Booking {
-  id            String        @id @default(uuid())
-  type          BookingType
-  status        BookingStatus @default(DRAFT)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  
-  // Common fields for all booking types
-  customerId    String
-  customer      Customer      @relation(fields: [customerId], references: [id])
-  totalAmount   Float
-  paymentMethod String?
-  
-  // Moving quote specific fields
-  moveDate      DateTime?
-  pickupAddress String?
-  deliveryAddress String?
-  distance      Float?
-  volume        Float?
-  items         Json?         // Array of items to move
-  
-  // Pack specific fields
-  packId        String?
-  packName      String?
-  scheduledDate DateTime?
-  
-  // Service specific fields
-  serviceId     String?
-  serviceName   String?
-  description   String?
-  scheduledTime String?
-  location      String?
-  
-  // Relations
-  transactions  Transaction[]
-  documents     Document[]
-  emailLogs     EmailLog[]
-  
-  @@index([customerId])
-  @@index([status])
-  @@index([type])
-}
-
-model Transaction {
-  id                String            @id @default(uuid())
-  bookingId         String
-  booking           Booking           @relation(fields: [bookingId], references: [id])
-  amount            Float
-  currency          String            @default("EUR")
-  status            TransactionStatus
-  paymentMethod     String?
-  paymentIntentId   String?           // Stripe payment intent ID
-  stripeSessionId   String?           // Stripe checkout session ID
-  errorMessage      String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  
-  @@index([bookingId])
-  @@index([status])
-  @@index([paymentIntentId])
-  @@index([stripeSessionId])
-}
-
-model Document {
-  id            String       @id @default(uuid())
-  bookingId     String
-  booking       Booking      @relation(fields: [bookingId], references: [id])
-  type          DocumentType
-  filename      String
-  content       Bytes        // PDF content stored as binary
-  createdAt     DateTime     @default(now())
-  
-  // Related email attachments
-  attachments   EmailAttachment[]
-  
-  @@index([bookingId])
-  @@index([type])
-}
-
-model EmailLog {
-  id            String       @id @default(uuid())
-  bookingId     String
-  booking       Booking      @relation(fields: [bookingId], references: [id])
-  customerId    String
-  customer      Customer     @relation(fields: [customerId], references: [id])
-  subject       String
-  text          String       @db.Text
-  html          String?      @db.Text
-  status        EmailStatus  @default(QUEUED)
-  errorMessage  String?
-  sentAt        DateTime?
-  createdAt     DateTime     @default(now())
-  
-  // Relations
-  attachments   EmailAttachment[]
-  
-  @@index([customerId])
-  @@index([bookingId])
-  @@index([status])
-}
-
-model EmailAttachment {
-  id            String   @id @default(uuid())
-  emailId       String
-  email         EmailLog @relation(fields: [emailId], references: [id])
-  documentId    String?
-  document      Document? @relation(fields: [documentId], references: [id])
-  filename      String
-  contentType   String
-  content       Bytes?   // Only stored here if not linked to a document
-  
-  @@index([emailId])
-  @@index([documentId])
+enum ProfessionalType {
+  MOVER
+  PACKER
+  SERVICE_PROVIDER
+  ADMIN
+  OTHER
 }

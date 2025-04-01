@@ -9,14 +9,16 @@ interface FormFieldProps {
 
 export function FormField({ label, error, className, labelClass, children, icon }: FormFieldProps) {
   return (
-    <div className={`space-y-1 ${className || ''}`}>
-      <label className={`block text-sm font-medium flex items-center gap-2 ${labelClass || 'text-gray-700'}`}>
+    <div className={`flex flex-col ${className || ''}`}>
+      <label className={`block text-sm font-medium flex items-center gap-2 mb-1.5 ${labelClass || 'text-gray-700'}`}>
         {icon}
         {label}
       </label>
-      {children}
+      <div className="flex-1">
+        {children}
+      </div>
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-red-600 mt-1">{error}</p>
       )}
     </div>
   )

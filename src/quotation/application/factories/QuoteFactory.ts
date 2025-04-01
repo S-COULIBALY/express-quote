@@ -1,4 +1,4 @@
-import { ServiceType } from '../../domain/entities/Service';
+import { ServiceType } from '../../domain/enums/ServiceType';
 import { IQuoteCalculator } from '../../domain/interfaces/IQuoteCalculator';
 import { CleaningQuoteCalculator } from '../../domain/calculators/CleaningQuoteCalculator';
 import { MovingQuoteCalculator } from '../../domain/calculators/MovingQuoteCalculator';

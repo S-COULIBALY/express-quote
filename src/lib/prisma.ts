@@ -1,19 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 
-// Initialiser une seule instance de Prisma Client et la réutiliser
-// pour éviter la création de multiples connexions à la base de données
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
 
-let prisma: PrismaClient;
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
-if (process.env.NODE_ENV === 'production') {
-  prisma = new PrismaClient();
-} else {
-  // En développement, on garde une référence globale pour éviter 
-  // les connexions multiples lors des rechargements à chaud
-  if (!(global as any).prisma) {
-    (global as any).prisma = new PrismaClient();
-  }
-  prisma = (global as any).prisma;
-}
-
-export { prisma }; 
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma; 

@@ -1,4 +1,4 @@
-import { ServiceType } from '../../../domain/entities/Service';
+import { ServiceType } from '../../../domain/enums/ServiceType';
 
 export interface QuoteRequestDto {
   serviceType: ServiceType;
@@ -24,6 +24,13 @@ export interface QuoteRequestDto {
     city: string;
     postalCode: string;
     country: string;
+  };
+  // Contact info (now optional)
+  contact?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
   };
   // Common fields
   [key: string]: any;

@@ -1,6 +1,10 @@
 import { Money } from './Money';
-import { IBusinessRule } from '../interfaces/IRule';
 import { QuoteContext } from './QuoteContext';
+
+// Création de l'interface IBusinessRule qui manquait
+export interface IBusinessRule {
+  apply(basePrice: Money, context?: QuoteContext): RuleApplicationResult;
+}
 
 export interface RuleApplicationResult {
     newPrice: Money;
@@ -36,21 +40,27 @@ export class Rule implements IBusinessRule {
         }
     }
 
-    // Créer une interface pour le résultat de l'application d'une règle
     public apply(basePrice: Money, context?: QuoteContext): RuleApplicationResult {
         if (!context) {
             return { newPrice: basePrice, impact: 0, isApplied: false };
         }
 
-        // Vérifier si la condition existe et est satisfaite
-        if (this.condition && !this.condition(context)) {
-            return { newPrice: basePrice, impact: 0, isApplied: false };
-        }
-
         try {
+            // Vérifier si la condition existe et est satisfaite
+            if (this.condition) {
+                try {
+                    if (!this.condition(context)) {
+                        return { newPrice: basePrice, impact: 0, isApplied: false };
+                    }
+                } catch (error) {
+                    console.error(`Error evaluating condition for rule ${this.name}:`, error);
+                    return { newPrice: basePrice, impact: 0, isApplied: false };
+                }
+            }
+
             if (this.percentage !== undefined) {
                 // Pour les règles en pourcentage, on calcule l'impact sur le prix de base
-                const impact = basePrice.getAmount() * (this.percentage / 100);
+                const impact = Math.round(basePrice.getAmount() * (this.percentage / 100));
                 return { 
                     newPrice: basePrice.add(new Money(impact)), 
                     impact: impact, 
@@ -83,6 +93,15 @@ export class Rule implements IBusinessRule {
                         const distance = context.getValue<number>('distance') ?? 0;
                         if (distance > 50) {
                             appliedAmount = this.amount * (distance - 50);
+                        } else {
+                            appliedAmount = 0;
+                        }
+                        break;
+                        
+                    case 'Tarif minimum':
+                        const currentPrice = basePrice.getAmount();
+                        if (currentPrice < this.amount) {
+                            appliedAmount = this.amount - currentPrice;
                         } else {
                             appliedAmount = 0;
                         }

@@ -126,4 +126,56 @@ export function PickupAddressAutocomplete(props: AddressAutocompleteProps) {
 // Composant spécialisé pour l'adresse d'arrivée
 export function DeliveryAddressAutocomplete(props: AddressAutocompleteProps) {
   return <AddressAutocomplete {...props} />
+}
+
+// Composant simplifié pour le formulaire de nettoyage
+export interface SimpleAddressAutocompleteProps {
+  onSelect?: (place: google.maps.places.PlaceResult) => void
+  className?: string
+  placeholder?: string
+}
+
+export function SimpleAddressAutocomplete({
+  onSelect,
+  className = '',
+  placeholder = 'Entrez une adresse'
+}: SimpleAddressAutocompleteProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [inputValue, setInputValue] = useState('')
+  
+  // Initialiser l'autocomplete
+  useEffect(() => {
+    if (!inputRef.current || !window.google) return
+
+    const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+      componentRestrictions: { country: 'fr' },
+      fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+      types: ['address']
+    })
+
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace()
+      if (place.formatted_address) {
+        setInputValue(place.formatted_address)
+        if (onSelect) onSelect(place)
+      }
+    })
+
+    return () => {
+      // Google Maps API n'offre pas de méthode pour nettoyer les event listeners
+      // Cette fonction est appelée lors du démontage du composant
+    }
+  }, [onSelect])
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      value={inputValue}
+      onChange={(e) => setInputValue(e.target.value)}
+      placeholder={placeholder}
+      className={className}
+      autoComplete="off"
+    />
+  )
 } 

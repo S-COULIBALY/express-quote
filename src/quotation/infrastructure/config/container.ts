@@ -1,4 +1,4 @@
-import { SupabaseRuleRepository } from '../repositories/SupabaseRuleRepository';
+import { PrismaRuleRepository } from '../repositories/PrismaRuleRepository';
 import { IRuleRepository } from '@/quotation/domain/interfaces/IRuleRepository';
 
 // Container simple pour l'injection de dépendance
@@ -22,7 +22,7 @@ class Container {
   // Initialisation des services par défaut
   init(): void {
     // Repositories
-    this.register<IRuleRepository>('IRuleRepository', new SupabaseRuleRepository());
+    this.register<IRuleRepository>('IRuleRepository', new PrismaRuleRepository());
 
     // Services
     // TODO: Ajouter d'autres services au besoin

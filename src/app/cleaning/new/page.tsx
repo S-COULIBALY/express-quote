@@ -7,7 +7,7 @@ import { Button } from '@/components/Button'
 import { calculateCleaningQuote } from '@/actions/calculateCleaningQuote'
 import type { CleaningFormData } from '@/types/quote'
 import clsx from 'clsx'
-import { AddressAutocomplete } from '@/components/AddressAutocomplete'
+import { SimpleAddressAutocomplete } from '@/components/AddressAutocomplete'
 import { CleaningQuoteSummary } from '@/components/CleaningQuoteSummary'
 
 interface IconProps {
@@ -203,40 +203,27 @@ export default function NewCleaningQuote() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-[1600px] mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+    <div className="min-h-screen bg-gradient-to-b from-sky-50/50 to-white">
+      <div className="max-w-[1600px] mx-auto px-4 py-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Formulaire */}
           <div className="w-full lg:w-[55%]">
-            <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="bg-white rounded-lg shadow-sm p-4">
               {/* En-tête avec gradient */}
-              <div className="relative mb-6">
-                <div className="absolute inset-0 bg-emerald-600 rounded-lg"></div>
-                <div className="relative p-4 flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-white">
+              <div className="relative mb-4">
+                <div className="absolute inset-0 bg-emerald-600 rounded-md"></div>
+                <div className="relative p-3 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-white">
                     Devis Express Nettoyage
                   </h2>
-                  <CheckCircleIcon className="w-5 h-5 text-white" />
+                  <CheckCircleIcon className="w-4 h-4 text-white" />
                 </div>
-                <div className="h-0.5 w-20 bg-white rounded-full mx-4"></div>
+                <div className="h-0.5 w-16 bg-white rounded-full mx-3"></div>
               </div>
               
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Date et Type de nettoyage */}
-                <div className="grid md:grid-cols-2 gap-4">
-                  <FormField 
-                    label="Date de nettoyage" 
-                    icon={<CalendarIcon />}
-                  >
-                    <input 
-                      type="date" 
-                      value={formData.cleaningDate}
-                      onChange={e => handleInputChange('cleaningDate', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
-                      required 
-                    />
-                  </FormField>
-
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {/* Type et Date */}
+                <div className="grid md:grid-cols-2 gap-3">
                   <FormField 
                     label="Type de nettoyage"
                     icon={<SparklesIcon />}
@@ -244,7 +231,7 @@ export default function NewCleaningQuote() {
                     <select 
                       value={formData.cleaningType}
                       onChange={e => handleInputChange('cleaningType', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
                     >
                       {['standard', 'deep', 'movingOut', 'postConstruction'].map(type => (
                         <option key={type} value={type}>
@@ -253,56 +240,73 @@ export default function NewCleaningQuote() {
                       ))}
                     </select>
                   </FormField>
+
+                  <FormField 
+                    label="Date de nettoyage" 
+                    icon={<CalendarIcon />}
+                  >
+                    <input 
+                      type="date" 
+                      value={formData.cleaningDate}
+                      onChange={e => handleInputChange('cleaningDate', e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
+                      required 
+                    />
+                  </FormField>
                 </div>
 
-                {/* Caractéristiques du logement */}
-                <div className="bg-emerald-50 rounded-lg p-4 space-y-4">
-                  <h3 className="text-base font-semibold text-emerald-800 flex items-center gap-2">
-                    <HomeIcon />
-                    Caractéristiques du logement
-                  </h3>
-                  
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <FormField label="Surface (m²)">
-                      <input 
-                        type="number" 
-                        value={formData.squareMeters}
-                        onChange={e => handleInputChange('squareMeters', e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
-                        min="1" 
-                        required 
-                      />
-                    </FormField>
+                {/* Surface et Pièces */}
+                <div className="grid md:grid-cols-2 gap-3">
+                  <FormField 
+                    label="Surface (m²)" 
+                    icon={<HomeIcon />}
+                  >
+                    <input 
+                      type="number" 
+                      value={formData.squareMeters}
+                      onChange={e => handleInputChange('squareMeters', e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
+                      required 
+                    />
+                  </FormField>
 
-                    <FormField label="Nombre de pièces">
-                      <input 
-                        type="number" 
-                        value={formData.numberOfRooms}
-                        onChange={e => handleInputChange('numberOfRooms', e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
-                        min="1" 
-                        required 
-                      />
-                    </FormField>
+                  <FormField 
+                    label="Nombre de pièces"
+                    icon={<HomeIcon />}
+                  >
+                    <input 
+                      type="number" 
+                      value={formData.numberOfRooms}
+                      onChange={e => handleInputChange('numberOfRooms', e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
+                      required 
+                    />
+                  </FormField>
+                </div>
 
-                    <FormField label="Nombre de SDB">
-                      <input 
-                        type="number" 
-                        value={formData.numberOfBathrooms}
-                        onChange={e => handleInputChange('numberOfBathrooms', e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
-                        min="1" 
-                        required 
-                      />
-                    </FormField>
-                  </div>
+                {/* Salles de bain et État */}
+                <div className="grid md:grid-cols-2 gap-3">
+                  <FormField 
+                    label="Nombre de salles de bain"
+                    icon={<HomeIcon />}
+                  >
+                    <input 
+                      type="number" 
+                      value={formData.numberOfBathrooms}
+                      onChange={e => handleInputChange('numberOfBathrooms', e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
+                      required 
+                    />
+                  </FormField>
 
-                  {/* État du logement */}
-                  <FormField label="État du logement">
+                  <FormField 
+                    label="État du bien"
+                    icon={<HomeIcon />}
+                  >
                     <select 
                       value={formData.propertyState}
                       onChange={e => handleInputChange('propertyState', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
                     >
                       {['normal', 'dirty', 'construction', 'moving'].map(state => (
                         <option key={state} value={state}>
@@ -311,129 +315,29 @@ export default function NewCleaningQuote() {
                       ))}
                     </select>
                   </FormField>
-
-                  {/* Types de sols */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Types de sols présents
-                    </label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {(Object.keys(formData.floorTypes) as Array<keyof typeof formData.floorTypes>).map(type => (
-                        <label key={type} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={formData.floorTypes[type]}
-                            onChange={e => {
-                              const newFormData = {
-                                ...formData,
-                                floorTypes: {
-                                  ...formData.floorTypes,
-                                  [type]: e.target.checked
-                                }
-                              }
-                              setFormData(newFormData)
-                              updateQuote(newFormData)
-                            }}
-                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-400"
-                          />
-                          <span className="text-xs text-gray-600">{getFloorTypeLabel(type)}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Balcon */}
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.hasBalcony}
-                        onChange={e => {
-                          const newFormData = {
-                            ...formData,
-                            hasBalcony: e.target.checked,
-                            balconySize: e.target.checked ? formData.balconySize : ''
-                          }
-                          setFormData(newFormData)
-                          updateQuote(newFormData)
-                        }}
-                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-400"
-                      />
-                      <span className="text-xs font-medium text-gray-700">Balcon ou terrasse</span>
-                    </div>
-                    {formData.hasBalcony && (
-                      <FormField label="Surface du balcon (m²)">
-                        <input
-                          type="number"
-                          value={formData.balconySize}
-                          onChange={e => handleInputChange('balconySize', e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
-                          min="1"
-                        />
-                      </FormField>
-                    )}
-                  </div>
-
-                  {/* Animaux */}
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.hasPets}
-                      onChange={e => {
-                        const newFormData = {
-                          ...formData,
-                          hasPets: e.target.checked
-                        }
-                        setFormData(newFormData)
-                        updateQuote(newFormData)
-                      }}
-                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-400"
-                    />
-                    <span className="text-xs font-medium text-gray-700">Présence d'animaux domestiques</span>
-                  </div>
                 </div>
 
-                {/* Services supplémentaires */}
-                <div className="bg-emerald-50 rounded-lg p-4 space-y-3">
-                  <h3 className="text-base font-semibold text-emerald-800 flex items-center gap-2">
-                    <CheckCircleIcon />
-                    Services supplémentaires
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {(Object.keys(formData.options) as Array<keyof typeof formData.options>).map(option => (
-                      <label key={option} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={formData.options[option]}
-                          onChange={e => {
-                            const newFormData = {
-                              ...formData,
-                              options: {
-                                ...formData.options,
-                                [option]: e.target.checked
-                              }
-                            }
-                            setFormData(newFormData)
-                            updateQuote(newFormData)
-                          }}
-                          className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-400"
-                        />
-                        <span className="text-xs text-gray-600">{getOptionLabel(option)}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Fréquence et Adresse */}
-                <div className="space-y-4">
+                {/* Adresse et Fréquence */}
+                <div className="grid md:grid-cols-2 gap-3">
                   <FormField 
-                    label="Fréquence" 
+                    label="Adresse"
+                    icon={<MapPinIcon />}
+                  >
+                    <SimpleAddressAutocomplete 
+                      onSelect={handleAddressSelect}
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
+                      placeholder="Indiquez une adresse"
+                    />
+                  </FormField>
+
+                  <FormField 
+                    label="Fréquence"
                     icon={<ArrowPathIcon />}
                   >
                     <select 
                       value={formData.frequency}
                       onChange={e => handleInputChange('frequency', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
                     >
                       {['oneTime', 'weekly', 'biweekly', 'monthly'].map(freq => (
                         <option key={freq} value={freq}>
@@ -442,32 +346,99 @@ export default function NewCleaningQuote() {
                       ))}
                     </select>
                   </FormField>
-
-                  <FormField 
-                    label="Adresse" 
-                    icon={<MapPinIcon />}
-                  >
-                    <AddressAutocomplete
-                      id="cleaning-address"
-                      label="Adresse"
-                      value={formData.address}
-                      onChange={(value, place) => {
-                        handleInputChange('address', value)
-                        if (place?.formatted_address) {
-                          handleAddressSelect(place)
-                        }
-                      }}
-                      placeholder="Entrez une adresse"
-                      required
-                    />
-                  </FormField>
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 text-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                {/* Types de sol */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-700">
+                    Types de sol
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {Object.entries(formData.floorTypes).map(([type, checked]) => (
+                      <label key={type} className="flex items-center space-x-1.5">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const newFloorTypes = { ...formData.floorTypes }
+                            newFloorTypes[type as keyof typeof newFloorTypes] = e.target.checked
+                            setFormData({ ...formData, floorTypes: newFloorTypes })
+                          }}
+                          className="w-3 h-3 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                        />
+                        <span className="text-xs text-gray-600">{getFloorTypeLabel(type)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Caractéristiques supplémentaires */}
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-1.5">
+                      <input
+                        type="checkbox"
+                        checked={formData.hasBalcony}
+                        onChange={e => handleInputChange('hasBalcony', e.target.checked.toString())}
+                        className="w-3 h-3 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                      />
+                      <span className="text-xs font-medium text-gray-700">Balcon</span>
+                    </label>
+                    {formData.hasBalcony && (
+                      <input
+                        type="text"
+                        value={formData.balconySize}
+                        onChange={e => handleInputChange('balconySize', e.target.value)}
+                        placeholder="Surface du balcon (m²)"
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md shadow-sm focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all duration-200"
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-1.5">
+                      <input
+                        type="checkbox"
+                        checked={formData.hasPets}
+                        onChange={e => handleInputChange('hasPets', e.target.checked.toString())}
+                        className="w-3 h-3 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                      />
+                      <span className="text-xs font-medium text-gray-700">Animaux présents</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Options de nettoyage */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-700">
+                    Options de nettoyage
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(formData.options).map(([option, checked]) => (
+                      <label key={option} className="flex items-center space-x-1.5">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const newOptions = { ...formData.options }
+                            newOptions[option as keyof typeof newOptions] = e.target.checked
+                            setFormData({ ...formData, options: newOptions })
+                          }}
+                          className="w-3 h-3 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                        />
+                        <span className="text-xs text-gray-600">{getOptionLabel(option)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bouton de soumission */}
+                <Button
+                  type="submit"
+                  disabled={!isFormComplete(formData)}
+                  className="w-full mt-4 bg-gradient-to-r from-emerald-500 to-sky-500 hover:from-emerald-600 hover:to-sky-600 text-white px-3 py-1.5 rounded-md font-medium transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] text-xs"
                 >
-                  Valider le devis
+                  Calculer le devis
                 </Button>
               </form>
             </div>
@@ -475,14 +446,12 @@ export default function NewCleaningQuote() {
 
           {/* Résumé du devis */}
           <div className="w-full lg:w-[45%]">
-            <div className="lg:sticky lg:top-8">
-              {showQuote && (
-                <CleaningQuoteSummary 
-                  formData={formData} 
-                  quoteDetails={quoteDetails}
-                  isCalculating={isCalculating}
-                />
-              )}
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <CleaningQuoteSummary 
+                formData={formData} 
+                quoteDetails={quoteDetails}
+                isCalculating={isCalculating}
+              />
             </div>
           </div>
         </div>
