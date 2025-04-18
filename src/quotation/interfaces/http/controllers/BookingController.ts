@@ -6,6 +6,12 @@ import { BookingType } from '../../../domain/enums/BookingType';
 import { QuoteRequestStatus } from '../../../domain/enums/QuoteRequestStatus';
 import { BookingRequestDTO, BookingResponseDTO } from '../dtos/BookingDTO';
 import { validate } from '../validators/BookingValidator';
+import { ServiceType } from '../../../domain/enums/ServiceType';
+
+// Import les classes nécessaires pour le calcul de prix
+// Chemin à ajuster selon la structure réelle du projet
+import { QuoteCalculatorFactory } from '../../../application/factories/QuoteCalculatorFactory';
+import { QuoteContext } from '../../../domain/valueObjects/QuoteContext';
 
 export class BookingController {
   constructor(
@@ -94,31 +100,98 @@ export class BookingController {
    */
   async createBooking(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
     try {
+      console.log('📌 CTRL - Données reçues du router:', JSON.stringify(req.body, null, 2));
+      
       // Valider les données d'entrée
       const errors = validate(req.body);
       if (errors.length > 0) {
+        console.error('❌ CTRL - Erreurs de validation:', errors);
         return res.status(400).json({ errors });
       }
 
-      const bookingData: BookingRequestDTO = req.body;
+      // Utiliser any pour éviter les problèmes de typage avec le DTO
+      const bookingData: any = req.body;
       
-      // Récupérer ou créer le client
-      const customer = await this.customerService.findOrCreateCustomer({
-        email: bookingData.customer.email,
-        firstName: bookingData.customer.firstName,
-        lastName: bookingData.customer.lastName,
-        phone: bookingData.customer.phone
-      });
+      // Recalculer le prix côté serveur (sécurité)
+      if (bookingData.type === 'service' && bookingData.calculatedPrice) {
+        try {
+          // Simulation d'un recalcul simplifié
+          console.log('🔒 CTRL - Vérification du prix pour sécurité');
+          
+          // Calcul manuel pour vérification (méthode simplifiée)
+          const basePrice = bookingData.basePrice || 0;
+          const serviceDuration = bookingData.defaultDuration || 1;
+          const serviceWorkers = bookingData.defaultWorkers || 1;
+          
+          const heuresSupp = Math.max(0, bookingData.duration - serviceDuration);
+          const prixHeuresSupp = heuresSupp * (basePrice / serviceDuration);
+          
+          const travailleursSupp = Math.max(0, bookingData.workers - serviceWorkers);
+          const prixTravailleursSupp = travailleursSupp * 50 * bookingData.duration;
+          
+          const serverCalculatedPrice = basePrice + prixHeuresSupp + prixTravailleursSupp;
+          
+          // Logguer les calculs pour debugging
+          console.log('💲 CTRL - Calcul manuel du prix:', {
+            basePrice,
+            heuresSupp,
+            prixHeuresSupp,
+            travailleursSupp,
+            prixTravailleursSupp,
+            total: serverCalculatedPrice
+          });
+          
+          // Compare avec le prix envoyé par le client
+          if (Math.abs(bookingData.calculatedPrice - serverCalculatedPrice) > 1) {
+            console.warn('⚠️ CTRL - Différence de prix détectée!', {
+              prixClient: bookingData.calculatedPrice,
+              prixServeur: serverCalculatedPrice,
+              différence: serverCalculatedPrice - bookingData.calculatedPrice
+            });
+            
+            // Remplacer par le prix serveur
+            bookingData.calculatedPrice = serverCalculatedPrice;
+            console.log('✅ CTRL - Prix recalculé appliqué:', serverCalculatedPrice);
+          }
+        } catch (error) {
+          console.error('❌ CTRL - Erreur lors de la vérification du prix:', error);
+          // Continue with the client price if calculation fails
+          console.warn('⚠️ CTRL - Conservation du prix client:', bookingData.calculatedPrice);
+        }
+      }
       
-      // Créer la réservation
-      const booking = await this.bookingService.createBooking(bookingData, customer);
+      let customer;
+      // Si des informations client sont fournies, les utiliser
+      if (bookingData.customer) {
+        console.log('ℹ️ CTRL - Données client reçues:', JSON.stringify(bookingData.customer, null, 2));
+        try {
+          // Récupérer ou créer le client
+          customer = await this.customerService.findOrCreateCustomer({
+            email: bookingData.customer.email,
+            firstName: bookingData.customer.firstName,
+            lastName: bookingData.customer.lastName,
+            phone: bookingData.customer.phone
+          });
+          console.log('✅ CTRL - Client trouvé/créé:', customer.getId());
+        } catch (error) {
+          console.error('❌ CTRL - Erreur lors de la création ou récupération du client:', error);
+          throw error;
+        }
+      } else {
+        console.log('ℹ️ CTRL - Aucune donnée client fournie - création d\'une réservation sans client');
+      }
+      
+      // Créer la réservation en typant customer comme optionnel (pour contourner l'erreur)
+      const booking = await this.bookingService.createBooking(bookingData, customer as any);
+      
+      console.log('✅ CTRL - Réservation créée avec ID:', booking.getId());
       
       // Construire la réponse
       const response = this.buildBookingResponse(booking);
       
       return res.status(201).json(response);
     } catch (error) {
-      console.error('Erreur lors de la création de la réservation:', error);
+      console.error('❌ CTRL - Erreur complète lors de la création de la réservation:', error);
       return res.status(500).json({ 
         message: `Erreur lors de la création de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
       });

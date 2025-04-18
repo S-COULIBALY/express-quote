@@ -26,6 +26,7 @@ import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
 import { packRules } from '../../domain/valueObjects/packRules';
 import { serviceRules } from '../../domain/valueObjects/serviceRules';
 import { movingRules } from '../../domain/services/rules/movingRules';
+import { StripePaymentService } from '../../infrastructure/services/StripePaymentService';
 
 export class BookingService {
   constructor(
@@ -35,7 +36,10 @@ export class BookingService {
     private readonly serviceRepository: IServiceRepository,
     private readonly quoteCalculator: QuoteCalculator,
     private readonly quoteRequestRepository: IQuoteRequestRepository,
-    private readonly customerService: CustomerService
+    private readonly customerService: CustomerService,
+    private readonly transactionService: any,
+    private readonly documentService: any,
+    private readonly emailService: any
   ) {}
 
   /**
@@ -236,7 +240,7 @@ export class BookingService {
   }
 
   /**
-   * Création unifiée d'une réservation basée sur son type
+   * Création unifiée d'une réservation basée sur son type (CREATION DIRECTE)
    */
   async createBooking(dto: any, customer: Customer, professional?: Professional): Promise<Booking> {
     const { type } = dto;
@@ -270,8 +274,8 @@ export class BookingService {
         // Contexte pour déménagement
         context = new QuoteContext({
           serviceType: ServiceType.MOVING,
-          volume: dto.volume || 0,
-          distance: dto.distance || 0,
+        volume: dto.volume || 0,
+        distance: dto.distance || 0,
           pickupAddress: new Address(
             dto.pickupAddress,
             dto.pickupCity,
@@ -319,6 +323,7 @@ export class BookingService {
           basePrice: dto.price || 0,
           duration: dto.duration || 1,
           workers: dto.workers || 2,
+          distance: dto.distance || 0,
           bookingDate: new Date(),
           serviceDate: dto.scheduledDate ? new Date(dto.scheduledDate) : null,
           address: new Address(
@@ -546,6 +551,10 @@ export class BookingService {
       new Money(dto.price || 0),
       dto.includes || [],
       bookingId,
+      dto.pickupAddress || "",
+      dto.deliveryAddress || "",
+      dto.distance || 0,
+      dto.includedDistance || 20,
       dto.customOptions || {}
     );
     
@@ -558,7 +567,7 @@ export class BookingService {
   private async createService(dto: any, bookingId: string): Promise<Service> {
     const service = new Service(
       bookingId,
-      ServiceType.MOVING,
+      dto.serviceType || ServiceType.SERVICE,
       dto.description || "",
       dto.duration || 60, // durée par défaut de 60 minutes
       new Money(dto.price || 0),
@@ -617,6 +626,56 @@ export class BookingService {
     } catch (error) {
       console.error(`Erreur lors de la recherche des réservations par type ${type}:`, error);
       throw new Error(`Erreur lors de la recherche des réservations: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  /**
+   * Traite le callback de paiement Stripe après une transaction réussie
+   */
+  async handlePaymentCallback(sessionId: string): Promise<Booking> {
+    try {
+      console.log(`Traitement du callback de paiement pour la session ${sessionId}`);
+      
+      // Récupérer les détails de la session de paiement depuis Stripe
+      const stripePaymentService = new StripePaymentService(
+        process.env.STRIPE_SECRET_KEY || '',
+        process.env.FRONTEND_URL || ''
+      );
+      
+      const sessionStatus = await stripePaymentService.checkSessionStatus(sessionId);
+      
+      if (sessionStatus.status !== 'paid') {
+        throw new Error(`Session de paiement non payée: ${sessionId}`);
+      }
+      
+      // Dans une implémentation réelle, nous utiliserions une méthode spécifique pour trouver la réservation
+      // Pour le moment, nous allons simuler cette fonctionnalité en utilisant les méthodes existantes
+      
+      // Récupérer toutes les réservations et trouver celle qui correspond
+      const allBookings = await this.bookingRepository.findAll();
+      const booking = allBookings.find(booking => {
+        // Simuler la recherche par sessionId - en réalité, vous pourriez avoir un champ dédié
+        // ou une relation avec les transactions de paiement
+        // @ts-ignore - Dans un cas réel, nous aurions une propriété pour stocker le sessionId
+        return booking.paymentSessionId === sessionId || 
+               // Vérifier aussi dans les métadonnées si disponibles
+               (booking as any).metadata?.sessionId === sessionId;
+      });
+      
+      if (!booking) {
+        throw new Error(`Réservation introuvable pour la session de paiement ${sessionId}`);
+      }
+      
+      // Mettre à jour le statut de la réservation
+      booking.updateStatus(BookingStatus.PAYMENT_COMPLETED);
+      await this.bookingRepository.updateStatus(booking.getId(), BookingStatus.PAYMENT_COMPLETED);
+      
+      console.log(`Paiement confirmé pour la réservation ${booking.getId()}`);
+      
+      return booking;
+    } catch (error) {
+      console.error('Erreur lors du traitement du callback de paiement:', error);
+      throw new Error(`Erreur lors du traitement du callback de paiement: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
   }
 } 

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { QuoteRecap } from '@/components/QuoteRecap'
 import { Button } from '@/components/Button'
 import type { MovingQuote } from '@/types/quote'
+import { getCurrentBooking } from '@/actions/bookingManager'
+import { ServiceType } from '@/quotation/domain/enums/ServiceType'
 
 interface MovingQuoteData extends MovingQuote {
   volume: string
@@ -49,36 +51,56 @@ function MovingSummaryContent() {
       }
       
       try {
-        // 1. D'abord essayer de récupérer depuis localStorage
-        const storedQuote = localStorage.getItem('movingQuote')
+        // Récupérer les données depuis les bookings actifs
+        console.log('Récupération des données via getCurrentBooking')
+        const currentBooking = await getCurrentBooking()
         
-        if (storedQuote) {
-          try {
-            const parsedQuote = JSON.parse(storedQuote)
+        if (currentBooking && currentBooking.items && currentBooking.items.length > 0) {
+          console.log('Booking trouvé:', currentBooking)
+          
+          // Chercher un item de type déménagement
+          const movingItem = currentBooking.items.find(item => 
+            item.type.toLowerCase().includes('moving') || 
+            item.type.toLowerCase().includes('demenagement') || 
+            item.type.toLowerCase().includes('déménagement')
+          )
+          
+          if (movingItem) {
+            console.log('Item déménagement trouvé:', movingItem)
+            const movingData = movingItem.data as any; // Utiliser any pour éviter les erreurs TypeScript
             
-            // Vérifier que c'est bien le devis demandé
-            if (parsedQuote.id === quoteId) {
-              console.log('Données du devis récupérées du localStorage:', {
-                id: quoteId,
-                devis: parsedQuote,
-                persistedId: parsedQuote.persistedId || 'Non persisté'
-              })
-              
-              setQuoteData(parsedQuote)
-              setIsLoading(false)
-              return
-            }
-          } catch (parseError) {
-            console.error('Erreur de parsing du localStorage:', parseError)
+            // Convertir les données du booking en format MovingQuoteData
+            const formattedQuote = {
+              id: quoteId || '',
+              preferredDate: movingData.moveDate || movingData.scheduledDate || new Date().toISOString(),
+              preferredTime: '09:00', // Valeur par défaut
+              status: 'pending',
+              serviceType: movingData.serviceType || ServiceType.MOVING,
+              estimatedPrice: currentBooking.totalTTC || 0,
+              createdAt: movingData.createdAt || new Date().toISOString(),
+              volume: (movingData.volume || '0').toString(),
+              distance: movingData.distance || 0,
+              pickupAddress: movingData.pickupAddress || '',
+              deliveryAddress: movingData.deliveryAddress || '',
+              options: {
+                packing: movingData.options?.packing || false,
+                assembly: movingData.options?.assembly || false,
+                disassembly: movingData.options?.disassembly || false,
+                insurance: movingData.options?.insurance || false,
+                storage: movingData.options?.storage || false
+              },
+              totalCost: currentBooking.totalTTC || 0
+            } as MovingQuoteData;
+            
+            setQuoteData(formattedQuote)
+            setIsLoading(false)
+            return
           }
         }
         
-        // 2. Si persistedId est présent ou le localStorage n'a pas fonctionné, essayer l'API
-        // Note: Cette partie sera implémentée quand l'API sera prête pour récupérer un devis
-        // directement par son ID persisté
-        
-        // En cas d'échec, afficher une erreur
+        // Si aucune donnée n'est trouvée, afficher une erreur
         setError("Impossible de trouver les informations du devis")
+        
       } catch (error) {
         console.error('Erreur lors de la récupération du devis:', error)
         setError("Une erreur est survenue lors de la récupération du devis")
@@ -107,14 +129,28 @@ function MovingSummaryContent() {
   }
 
   if (error || !quoteData) {
+    // Essayer de rediriger vers la page de paiement après 3 secondes
+    setTimeout(() => {
+      if (quoteId) {
+        console.log('Redirection automatique vers la page de paiement...');
+        router.push(`/moving/payment?id=${quoteId}`);
+      }
+    }, 3000);
+
     return (
       <div className="max-w-4xl mx-auto p-8">
         <div className="bg-white rounded-lg shadow-lg p-8 text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Erreur</h1>
-          <p className="mb-6">{error || "Données du devis non disponibles"}</p>
-          <Button onClick={() => router.push('/moving/new')} color="primary">
-            Créer un nouveau devis
+          <p className="mb-2">{error || "Données du devis non disponibles"}</p>
+          <p className="mb-6 text-sm text-gray-500">Redirection vers la page de paiement dans quelques secondes...</p>
+          <Button onClick={() => router.push(`/moving/payment?id=${quoteId || ''}`)} color="primary">
+            Continuer vers le paiement
           </Button>
+          <div className="mt-4">
+            <Button onClick={() => router.push('/moving/new')} color="secondary" variant="outline">
+              Créer un nouveau devis
+            </Button>
+          </div>
         </div>
       </div>
     )

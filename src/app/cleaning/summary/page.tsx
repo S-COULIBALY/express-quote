@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { QuoteRecap } from '@/components/QuoteRecap'
 import { Button } from '@/components/Button'
 import type { CleaningQuote, CleaningOptions } from '@/types/quote'
+import { getCurrentBooking } from '@/actions/bookingManager'
 
 interface CleaningQuoteData extends Omit<CleaningQuote, 'options'> {
   propertyType: string
@@ -31,17 +32,86 @@ function CleaningSummaryContent() {
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('id')
   const [quoteData, setQuoteData] = useState<CleaningQuoteData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Récupérer les données du localStorage
-    const savedQuote = localStorage.getItem('cleaningQuote')
-    if (savedQuote) {
-      const parsedQuote = JSON.parse(savedQuote) as CleaningQuoteData
-      if (parsedQuote.id === quoteId) {
-        setQuoteData(parsedQuote)
+    const fetchQuoteData = async () => {
+      setIsLoading(true)
+      setError(null)
+      
+      if (!quoteId) {
+        setError("Identifiant de devis manquant")
+        setIsLoading(false)
+        return
+      }
+      
+      try {
+        // Récupérer les données depuis les bookings actifs
+        console.log('Récupération des données via getCurrentBooking')
+        const currentBooking = await getCurrentBooking()
+        
+        if (currentBooking && currentBooking.items && currentBooking.items.length > 0) {
+          console.log('Booking trouvé:', currentBooking)
+          
+          // Chercher un item de type nettoyage
+          const cleaningItem = currentBooking.items.find(item => 
+            item.type.toLowerCase().includes('cleaning') || 
+            item.type.toLowerCase().includes('nettoyage')
+          )
+          
+          if (cleaningItem) {
+            console.log('Item nettoyage trouvé:', cleaningItem)
+            const cleaningData = cleaningItem.data as any;
+            
+            // Convertir les données du booking en format CleaningQuoteData
+            const formattedQuote = {
+              id: quoteId || '',
+              status: 'pending',
+              propertyType: cleaningData.propertyType || 'apartment',
+              propertySize: parseFloat(cleaningData.propertySize) || 0,
+              serviceName: cleaningData.name || 'Nettoyage standard',
+              serviceDescription: cleaningData.description || '',
+              preferredDate: cleaningData.scheduledDate || new Date().toISOString(),
+              preferredTime: cleaningData.scheduledTime || '09:00',
+              address: cleaningData.address || '',
+              options: cleaningData.options || {
+                deepCleaning: false,
+                windows: false,
+                fridge: false,
+                oven: false,
+                cabinets: false
+              },
+              totalCost: currentBooking.totalTTC || 0
+            };
+            
+            setQuoteData(formattedQuote)
+            setIsLoading(false)
+            return
+          }
+        }
+        
+        // Si aucune donnée n'est trouvée, afficher une erreur
+        setError("Impossible de trouver les informations du devis")
+        
+      } catch (error) {
+        console.error('Erreur lors de la récupération du devis:', error)
+        setError("Une erreur est survenue lors de la récupération du devis")
+      } finally {
+        setIsLoading(false)
       }
     }
+    
+    fetchQuoteData()
   }, [quoteId])
+
+  if (isLoading) {
+    return <div className="p-8 text-center">Chargement...</div>
+  }
+
+  if (error) {
+    return <div className="p-8 text-center">{error}</div>
+  }
 
   if (!quoteData) {
     return <div className="p-8 text-center">Devis non trouvé</div>

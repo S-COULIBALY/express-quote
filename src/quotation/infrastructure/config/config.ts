@@ -28,6 +28,11 @@ interface Config {
       interval: number;
     };
   };
+  redis: {
+    host: string;
+    port: number;
+    password?: string;
+  };
 }
 
 export const config: Config = {
@@ -54,9 +59,9 @@ export const config: Config = {
    * - Stocker temporairement les règles fréquemment utilisées
    */
   redis: {
-    host: process.env.REDIS_HOST || 'localhost',   // Hôte Redis, par défaut localhost
-    port: parseInt(process.env.REDIS_PORT || '6379'), // Port Redis standard
-    password: process.env.REDIS_PASSWORD           // Mot de passe Redis (optionnel)
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+    password: process.env.REDIS_PASSWORD
   },
 
   /**

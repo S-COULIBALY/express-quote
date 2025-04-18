@@ -44,6 +44,12 @@ export interface QuoteDetails {
   baseCost: number
   optionsCost: number
   totalCost: number
+  volumeCost?: number
+  distancePrice?: number
+  signature?: string
+  packingCost?: number
+  storageCost?: number
+  cleaningCost?: number
 }
 
 interface MovingOptions {
@@ -60,6 +66,7 @@ interface MovingOptions {
 export interface MovingQuote {
   id: string
   status: QuoteStatus
+  serviceType: string
   pickupAddress: string
   deliveryAddress: string
   preferredDate: string
@@ -74,6 +81,7 @@ export interface MovingFormData {
   pickupAddress: string
   deliveryAddress: string
   movingDate: string
+  preferredTime?: string
   volume: string
   propertyType: string
   surface: string
@@ -95,6 +103,7 @@ export interface MovingFormData {
     supplies?: boolean
     fragileItems?: boolean
   }
+  legalConsent?: boolean
 }
 
 export interface CleaningFormData {

@@ -1,130 +1,86 @@
 import { Money } from './Money';
 import { QuoteContext } from './QuoteContext';
 
-// Création de l'interface IBusinessRule qui manquait
-export interface IBusinessRule {
-  apply(basePrice: Money, context?: QuoteContext): RuleApplicationResult;
-}
+/**
+ * Représente une règle de calcul pour un devis
+ */
+export class Rule {
+  constructor(
+    public readonly name: string,
+    public readonly serviceType: string,
+    public readonly value: number,
+    private readonly condition?: string | ((context: QuoteContext) => boolean),
+    public readonly isActive: boolean = true,
+    public readonly id?: string
+  ) {}
 
-export interface RuleApplicationResult {
-    newPrice: Money;
-    impact: number;
-    isApplied: boolean;
-}
+  /**
+   * Vérifie si deux règles sont égales
+   */
+  public equals(other: Rule): boolean {
+    return this.id === other.id || (this.name === other.name && this.serviceType === other.serviceType);
+  }
 
-export class Rule implements IBusinessRule {
-    constructor(
-        public readonly name: string,
-        public readonly percentage?: number,
-        public readonly amount?: number,
-        public readonly condition?: (context: any) => boolean
-    ) {
-        this.validate();
+  /**
+   * Vérifie si la règle s'applique au contexte donné
+   */
+  public isApplicable(context: QuoteContext): boolean {
+    if (!this.isActive) return false;
+
+    if (!this.condition) return true;
+
+    if (typeof this.condition === 'function') {
+      return this.condition(context);
     }
 
-    private validate(): void {
-        if (!this.name || this.name.trim().length === 0) {
-            throw new Error('Rule name is required');
-        }
+    try {
+      // Si la condition est une chaîne, tenter de l'évaluer comme une expression
+      // Note: ce n'est pas sécurisé et devrait être remplacé par une solution plus robuste
+      const conditionFn = new Function('context', `return ${this.condition}`);
+      return conditionFn(context);
+    } catch (error) {
+      console.error(`Error evaluating rule condition: ${this.condition}`, error);
+      return false;
+    }
+  }
 
-        if (this.percentage !== undefined && this.amount !== undefined) {
-            throw new Error('Rule cannot have both percentage and amount');
-        }
-
-        if (this.percentage !== undefined && (this.percentage < -100 || this.percentage > 100)) {
-            throw new Error('Percentage must be between -100 and 100');
-        }
-
-        if (this.amount !== undefined && this.amount < 0) {
-            throw new Error('Amount cannot be negative');
-        }
+  /**
+   * Applique la règle au prix donné
+   */
+  public apply(basePrice: Money, context: QuoteContext): { isApplied: boolean; newPrice: Money; impact: number } {
+    if (!this.isApplicable(context)) {
+      return { isApplied: false, newPrice: basePrice, impact: 0 };
     }
 
-    public apply(basePrice: Money, context?: QuoteContext): RuleApplicationResult {
-        if (!context) {
-            return { newPrice: basePrice, impact: 0, isApplied: false };
-        }
+    let newPrice: Money;
+    let impact: number = 0;
 
-        try {
-            // Vérifier si la condition existe et est satisfaite
-            if (this.condition) {
-                try {
-                    if (!this.condition(context)) {
-                        return { newPrice: basePrice, impact: 0, isApplied: false };
-                    }
-                } catch (error) {
-                    console.error(`Error evaluating condition for rule ${this.name}:`, error);
-                    return { newPrice: basePrice, impact: 0, isApplied: false };
-                }
-            }
-
-            if (this.percentage !== undefined) {
-                // Pour les règles en pourcentage, on calcule l'impact sur le prix de base
-                const impact = Math.round(basePrice.getAmount() * (this.percentage / 100));
-                return { 
-                    newPrice: basePrice.add(new Money(impact)), 
-                    impact: impact, 
-                    isApplied: true 
-                };
-            }
-
-            if (this.amount !== undefined) {
-                let appliedAmount = this.amount;
-
-                // Cas spéciaux nécessitant un calcul du montant
-                switch (this.name) {
-                    case 'pickup_floor_charge':
-                    case 'delivery_floor_charge':
-                        const floor = this.name.startsWith('pickup') ? 
-                            context.getValue<number>('pickupFloor') ?? 0 :
-                            context.getValue<number>('deliveryFloor') ?? 0;
-                        const hasElevator = context.getValue<boolean>(
-                            this.name.startsWith('pickup') ? 'pickupElevator' : 'deliveryElevator'
-                        ) ?? false;
-                        
-                        if (!hasElevator && floor > 0) {
-                            appliedAmount = this.amount * Math.min(floor, 3);
-                        } else {
-                            appliedAmount = 0;
-                        }
-                        break;
-
-                    case 'long_distance':
-                        const distance = context.getValue<number>('distance') ?? 0;
-                        if (distance > 50) {
-                            appliedAmount = this.amount * (distance - 50);
-                        } else {
-                            appliedAmount = 0;
-                        }
-                        break;
-                        
-                    case 'Tarif minimum':
-                        const currentPrice = basePrice.getAmount();
-                        if (currentPrice < this.amount) {
-                            appliedAmount = this.amount - currentPrice;
-                        } else {
-                            appliedAmount = 0;
-                        }
-                        break;
-                }
-
-                return {
-                    newPrice: basePrice.add(new Money(appliedAmount)),
-                    impact: appliedAmount,
-                    isApplied: appliedAmount !== 0
-                };
-            }
-
-            return { newPrice: basePrice, impact: 0, isApplied: false };
-        } catch (error) {
-            console.error(`Error applying rule ${this.name}:`, error);
-            return { newPrice: basePrice, impact: 0, isApplied: false };
-        }
+    if (this.isPercentage()) {
+      // Si c'est un pourcentage, calculer l'impact proportionnel au prix de base
+      impact = Math.round(basePrice.getAmount() * (this.value / 100));
+      newPrice = basePrice.add(new Money(impact));
+    } else {
+      // Si c'est un montant fixe, l'appliquer directement
+      impact = this.value;
+      newPrice = basePrice.add(new Money(impact));
     }
 
-    public equals(other: Rule): boolean {
-        return this.name === other.name &&
-            this.percentage === other.percentage &&
-            this.amount === other.amount;
-    }
+    return { isApplied: true, newPrice, impact };
+  }
+
+  /**
+   * Vérifie si la règle est un pourcentage
+   */
+  public isPercentage(): boolean {
+    // On considère qu'une règle est un pourcentage si sa valeur est entre -100 et 100
+    return this.value >= -100 && this.value <= 100;
+  }
+
+  get percentage(): number | undefined {
+    return this.isPercentage() ? this.value : undefined;
+  }
+
+  get amount(): number | undefined {
+    return this.isPercentage() ? undefined : this.value;
+  }
 }

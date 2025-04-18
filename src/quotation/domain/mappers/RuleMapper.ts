@@ -7,15 +7,17 @@ export class RuleMapper implements IRuleMapper {
             name: rule.name,
             type: this.determineType(rule),
             value: this.determineValue(rule),
-            condition: rule.condition ? rule.condition.toString() : undefined
+            condition: rule.condition ? rule.condition.toString() : undefined,
+            serviceType: "SERVICE",
+            priority: 1
         };
     }
 
     public toBusinessRule(rule: IPersistedRule): IBusinessRule {
         return new Rule(
             rule.name,
-            rule.type === 'PERCENTAGE' ? rule.value : undefined,
-            rule.type === 'AMOUNT' ? rule.value : undefined,
+            rule.serviceType.toString(),
+            typeof rule.value === 'string' ? parseFloat(rule.value) : rule.value,
             rule.condition ? this.parseCondition(rule.condition) : undefined
         );
     }

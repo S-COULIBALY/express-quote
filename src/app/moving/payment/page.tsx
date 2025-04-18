@@ -2,7 +2,9 @@
 
 import { useState, Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createCheckoutSession } from '@/services/stripe'
+import { createPaymentIntent } from '@/actions/paymentManager'
+import { StripeElementsProvider, PaymentForm } from '@/components/StripeElements'
+import { getCurrentBooking } from '@/actions/bookingManager'
 
 interface PaymentFormData {
   fullName: string
@@ -53,6 +55,9 @@ function MovingPaymentContent() {
   const [quoteData, setQuoteData] = useState<QuoteData | null>(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [totalAmount, setTotalAmount] = useState<number>(0)
+  const [bookingId, setBookingId] = useState<string | null>(null)
   
   const [formData, setFormData] = useState<PaymentFormData>({
     fullName: '',
@@ -62,26 +67,89 @@ function MovingPaymentContent() {
   })
 
   useEffect(() => {
-    // Récupérer les données du devis depuis le localStorage
-    const savedQuote = localStorage.getItem('movingQuote')
-    if (savedQuote && quoteId) {
-      const parsedQuote = JSON.parse(savedQuote) as QuoteData
-      if (parsedQuote.id === quoteId) {
-        setQuoteData(parsedQuote)
+    const fetchQuoteData = async () => {
+      try {
+        // Récupérer les données via getCurrentBooking
+        console.log('Récupération des données via getCurrentBooking');
+        const currentBooking = await getCurrentBooking();
+        
+        if (currentBooking && currentBooking.items && currentBooking.items.length > 0) {
+          console.log('Booking trouvé:', currentBooking);
+          
+          // Chercher un item de type déménagement
+          const movingItem = currentBooking.items.find(item => 
+            typeof item.type === 'string' && (
+              item.type.toLowerCase().includes('moving') || 
+              item.type.toLowerCase().includes('demenagement') || 
+              item.type.toLowerCase().includes('déménagement')
+            )
+          );
+          
+          if (movingItem) {
+            console.log('Item déménagement trouvé:', movingItem);
+            const movingData = movingItem.data as any;
+            
+            // Convertir les données du booking en format QuoteData
+            const formattedQuote: QuoteData = {
+              id: quoteId || '',
+              status: 'pending',
+              pickupAddress: movingData.pickupAddress || '',
+              deliveryAddress: movingData.deliveryAddress || '',
+              preferredDate: movingData.moveDate || movingData.scheduledDate || new Date().toISOString(),
+              preferredTime: movingData.scheduledTime || '09:00',
+              volume: (movingData.volume || '0').toString(),
+              distance: movingData.distance || 0,
+              options: {
+                packing: movingData.options?.packing || false,
+                assembly: movingData.options?.assembly || false,
+                disassembly: movingData.options?.disassembly || false,
+                insurance: movingData.options?.insurance || false,
+                storage: movingData.options?.storage || false,
+                cleaning: movingData.options?.cleaning || false
+              },
+              totalCost: currentBooking.totalTTC || 0,
+              baseCost: movingData.baseCost || currentBooking.totalTTC || 0
+            };
+            
+            console.log('Données formatées:', formattedQuote);
+            setQuoteData(formattedQuote);
+            setTotalAmount(formattedQuote.totalCost);
+            return;
+          }
+        }
+        
+        console.warn('Impossible de récupérer les données du devis');
+      } catch (error) {
+        console.error('Erreur lors de la récupération des données:', error);
       }
-    }
-  }, [quoteId])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    };
     
+    fetchQuoteData();
+  }, [quoteId]);
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, checked, type } = e.target
+    setFormData({
+      ...formData,
+      [name]: type === 'checkbox' ? checked : value
+    })
+  }
+
+  const validateForm = (): boolean => {
+    if (!formData.fullName || !formData.email || !formData.phone || !formData.terms) {
+      setError('Veuillez remplir tous les champs et accepter les conditions générales')
+      return false
+    }
+    return true
+  }
+
+  const initializePayment = async () => {
     if (!quoteData) {
       setError('Données du devis non trouvées')
       return
     }
 
-    if (!formData.terms) {
-      setError('Vous devez accepter les conditions générales')
+    if (!validateForm()) {
       return
     }
 
@@ -89,122 +157,43 @@ function MovingPaymentContent() {
       setProcessing(true)
       setError(null)
       
-      // Afficher les données avant la création de la réservation
-      console.log('Données avant création de la réservation:', {
+      console.log('Préparation du paiement avec les données:', {
         quoteData,
-        customerData: formData,
-        persistedId: quoteData.persistedId || 'Non persisté'
+        customerData: formData
       })
 
-      // 1. Créer le client
-      const customerResponse = await fetch('/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
+      // Créer directement l'intention de paiement
+      const paymentDescription = `Déménagement: ${quoteData.pickupAddress.substring(0, 20)}... → ${quoteData.deliveryAddress.substring(0, 20)}...`
       
-      if (!customerResponse.ok) {
-        throw new Error('Erreur lors de la création du client')
+      // Créer l'intention de paiement
+      const { clientSecret } = await createPaymentIntent(
+        quoteId || 'MOVING-' + Date.now(), 
+        quoteData.totalCost, 
+        paymentDescription
+      )
+      
+      if (!clientSecret) {
+        throw new Error("Erreur lors de la création de l'intention de paiement")
       }
       
-      const customerResult = await customerResponse.json()
-      const customerId = customerResult.data.id
+      // Utiliser quoteId comme bookingId
+      setBookingId(quoteId || 'MOVING-' + Date.now())
+      setClientSecret(clientSecret)
       
-      // 2. Si le devis n'est pas déjà persisté, le créer via l'API
-      let quoteId = quoteData.persistedId
-      
-      if (!quoteId) {
-        // Récupérer l'ID du devis depuis les données localStorage (ID temporaire)
-        const tempQuoteId = quoteData.id
-        
-        // Calculer une dernière fois le devis pour s'assurer des valeurs correctes
-        // et utiliser le calcul centralisé pour le déménagement
-        const quotePayload = {
-          customerId,
-          origin: quoteData.pickupAddress,
-          destination: quoteData.deliveryAddress,
-          movingDate: quoteData.preferredDate || quoteData.movingDate,
-          needPacking: quoteData.options?.packing || false,
-          needStorage: quoteData.options?.storage || false,
-          needCleaning: quoteData.options?.cleaning || false,
-          
-          // Inclure les détails de calcul et la signature pour vérification
-          baseCost: quoteData.baseCost,
-          volumeCost: quoteData.volumeCost,
-          distancePrice: quoteData.distancePrice,
-          optionsCost: quoteData.optionsCost,
-          signature: quoteData.signature,
-          
-          // ... autres champs
-          ...quoteData  // Inclure toutes les données originales
-        }
-        
-        // Créer le devis dans la base de données
-        const quoteResponse = await fetch('/api/quotation', {
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(quotePayload)
-        })
-        
-        if (!quoteResponse.ok) {
-          throw new Error('Erreur lors de la création du devis permanent')
-        }
-        
-        const quoteResult = await quoteResponse.json()
-        quoteId = quoteResult.data.id
-        
-        // Mettre à jour le localStorage avec l'ID persisté
-        quoteData.persistedId = quoteId
-        localStorage.setItem('movingQuote', JSON.stringify(quoteData))
-      }
-      
-      // 3. Créer la réservation
-      const bookingResponse = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          quoteId,
-          customerId,
-          type: 'MOVING_QUOTE',
-          totalAmount: quoteData.totalCost,
-          moveDate: quoteData.movingDate,
-          pickupAddress: quoteData.pickupAddress,
-          deliveryAddress: quoteData.deliveryAddress,
-          volume: parseFloat(quoteData.volume) || 0,
-          distance: quoteData.distance || 0,
-          options: quoteData.options || {},
-          source: 'web'
-        })
-      })
-      
-      if (!bookingResponse.ok) {
-        throw new Error('Erreur lors de la création de la réservation')
-      }
-      
-      const bookingResult = await bookingResponse.json()
-      
-      // Rediriger vers Stripe pour le paiement
-      const stripeResponse = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: bookingResult.data.id,
-          customerId,
-          amount: quoteData.totalCost
-        })
-      })
-      
-      if (!stripeResponse.ok) {
-        throw new Error('Erreur lors de la création de la session Stripe')
-      }
-      
-      const stripeResult = await stripeResponse.json()
-      router.push(`/success?id=${bookingResult.data.id}`)
     } catch (error) {
-      console.error('Erreur lors du processus de paiement:', error)
-      setError('Une erreur est survenue lors du traitement de votre paiement. Veuillez réessayer.')
+      console.error('Erreur lors du processus de préparation du paiement:', error)
+      setError('Une erreur est survenue lors de la préparation de votre paiement. Veuillez réessayer.')
       setProcessing(false)
     }
+  }
+  
+  const handlePaymentSuccess = () => {
+    router.push(`/moving/success?id=${bookingId}`)
+  }
+  
+  const handlePaymentError = (errorMessage: string) => {
+    setError(errorMessage)
+    setProcessing(false)
   }
 
   if (!quoteData) {
@@ -252,98 +241,131 @@ function MovingPaymentContent() {
             </div>
           </div>
           
-          <div className="border-t pt-4">
-            <div className="flex justify-between mb-2">
-              <span>Montant total</span>
-              <span className="font-semibold">{quoteData.totalCost.toFixed(2)} €</span>
+          <div className="space-y-1 border-t pt-4">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Prix de base</span>
+              <span>{quoteData.baseCost?.toFixed(2)} €</span>
             </div>
-            <div className="flex justify-between mb-2 text-emerald-700">
-              <span>Acompte à verser maintenant (30%)</span>
-              <span className="font-semibold">{(quoteData.totalCost * 0.3).toFixed(2)} €</span>
-            </div>
-            <div className="flex justify-between text-gray-500">
-              <span>Solde à régler le jour du déménagement</span>
-              <span>{(quoteData.totalCost * 0.7).toFixed(2)} €</span>
+            {quoteData.volumeCost && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Supplément volume</span>
+                <span>{quoteData.volumeCost.toFixed(2)} €</span>
+              </div>
+            )}
+            {quoteData.distancePrice && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Supplément distance</span>
+                <span>{quoteData.distancePrice.toFixed(2)} €</span>
+              </div>
+            )}
+            {quoteData.optionsCost && quoteData.optionsCost > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Options</span>
+                <span>{quoteData.optionsCost.toFixed(2)} €</span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold pt-2 border-t mt-2">
+              <span>Total</span>
+              <span>{quoteData.totalCost.toFixed(2)} €</span>
             </div>
           </div>
         </div>
-
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Vos coordonnées</h2>
-          
-          {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded mb-4">
-              {error}
+        
+        {!clientSecret ? (
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4">Vos informations</h2>
+            
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+            )}
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nom complet
+                </label>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleFormChange}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleFormChange}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Téléphone
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleFormChange}
+                  className="w-full p-2 border border-gray-300 rounded"
+                  required
+                />
+              </div>
+              <div className="flex items-start">
+                <input
+                  type="checkbox"
+                  name="terms"
+                  id="terms"
+                  checked={formData.terms}
+                  onChange={handleFormChange}
+                  className="mt-1 mr-2"
+                  required
+                />
+                <label htmlFor="terms" className="text-sm text-gray-700">
+                  J'accepte les <a href="/conditions" className="text-blue-600 hover:underline">conditions générales</a> et la <a href="/privacy" className="text-blue-600 hover:underline">politique de confidentialité</a>.
+                </label>
+              </div>
             </div>
-          )}
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block mb-2">Nom complet</label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block mb-2">Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block mb-2">Téléphone</label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-
-            <div className="flex items-start mt-4">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={formData.terms}
-                onChange={(e) => setFormData({...formData, terms: e.target.checked})}
-                className="mt-1 mr-2"
-                required
-              />
-              <label htmlFor="terms" className="text-sm text-gray-600">
-                J'accepte les <a href="/terms" className="text-blue-600 hover:underline">conditions générales</a> et la <a href="/privacy" className="text-blue-600 hover:underline">politique de confidentialité</a>
-              </label>
-            </div>
-
+            
             <button
-              type="submit"
-              className="w-full py-3 px-4 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
+              onClick={initializePayment}
               disabled={processing}
+              className="w-full bg-blue-600 text-white p-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {processing ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Traitement en cours...
-                </>
-              ) : (
-                "Procéder au paiement"
-              )}
+              {processing ? 'Préparation...' : 'Procéder au paiement'}
             </button>
-          </form>
-        </div>
+          </div>
+        ) : (
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4">Paiement sécurisé</h2>
+            
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+            )}
+            
+            <StripeElementsProvider clientSecret={clientSecret}>
+              <PaymentForm 
+                clientSecret={clientSecret}
+                onSuccess={handlePaymentSuccess}
+                onError={handlePaymentError}
+                amount={totalAmount}
+                returnUrl={`${window.location.origin}/moving/success?id=${bookingId}`}
+              />
+            </StripeElementsProvider>
+          </div>
+        )}
       </div>
     </main>
   )

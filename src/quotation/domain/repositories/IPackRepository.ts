@@ -5,6 +5,6 @@ export interface IPackRepository {
   findById(id: string): Promise<Pack | null>;
   findByBookingId(bookingId: string): Promise<Pack | null>;
   save(pack: Pack): Promise<Pack>;
-  update(pack: Pack): Promise<Pack>;
-  delete(id: string): Promise<void>;
+  update(id: string, pack: Pack): Promise<Pack>;
+  delete(id: string): Promise<boolean>;
 } 

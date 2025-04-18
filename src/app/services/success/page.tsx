@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { getCurrentBooking } from '@/actions/bookingManager'
 
 interface ServiceBooking {
   id: string
   status: string
   service: {
+    id: string
     name: string
     description: string
     price: number
@@ -20,54 +22,107 @@ interface ServiceBooking {
   }
   scheduledDate: string
   scheduledTime: string
-  destAddress: string
+  address: string
+  deliveryAddress: string
   duration: number
   workers: number
-  additionalInfo?: string
   totalPrice: number
 }
 
-export default function ServiceSuccessPage() {
+interface PaymentSuccessPageProps {
+  searchParams: {
+    payment_intent_client_secret?: string
+    payment_intent?: string
+    redirect_status?: string
+  }
+}
+
+export default function PaymentSuccessPage({ searchParams }: PaymentSuccessPageProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const bookingId = searchParams.get('id')
-  
   const [booking, setBooking] = useState<ServiceBooking | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
+  
   useEffect(() => {
-    if (!bookingId) {
-      setError('Aucun identifiant de réservation fourni')
-      setLoading(false)
-      return
-    }
-
-    async function fetchBooking() {
+    const fetchBooking = async () => {
       try {
-        const response = await fetch(`/api/bookings/${bookingId}`)
+        setLoading(true)
         
-        if (!response.ok) {
-          throw new Error('Réservation introuvable')
+        // Récupérer l'ID de l'intention de paiement depuis l'URL
+        const paymentIntentId = searchParams.payment_intent
+        if (!paymentIntentId) {
+          throw new Error('Aucun identifiant de paiement trouvé dans l\'URL')
+        }
+
+        // Vérifier l'état du paiement via l'API
+        const statusResponse = await fetch(`/api/payment/verify/${paymentIntentId}`)
+        if (!statusResponse.ok) {
+          throw new Error('Échec de la vérification du paiement')
+        }
+        const paymentStatus = await statusResponse.json()
+        
+        if (paymentStatus.status !== 'succeeded') {
+          throw new Error(`Statut de paiement inattendu: ${paymentStatus.status}`)
         }
         
-        const data = await response.json()
-        
-        if (data.type !== 'service') {
-          throw new Error('Type de réservation invalide')
+        // Récupérer les détails de la réservation associée
+        const bookingResponse = await fetch(`/api/bookings/${paymentStatus.bookingId}`)
+        if (!bookingResponse.ok) {
+          throw new Error('Échec de la récupération des détails de la réservation')
         }
         
-        setBooking(data)
-      } catch (error) {
-        console.error('Error fetching booking:', error)
-        setError(error instanceof Error ? error.message : 'Erreur lors de la récupération de la réservation')
+        const bookingData = await bookingResponse.json()
+        console.log('Données de réservation récupérées:', bookingData)
+        
+        // Mettre à jour le statut de la réservation
+        const updateResponse = await fetch(`/api/bookings/${bookingData.id}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            status: 'CONFIRMED'
+          })
+        })
+        
+        if (!updateResponse.ok) {
+          console.warn('Impossible de mettre à jour le statut de la réservation')
+        }
+        
+        setBooking(bookingData)
+        
+        // Envoyer l'email de confirmation
+        await fetch(`/api/email/booking-confirmation`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            bookingId: bookingData.id
+          })
+        })
+        
+      } catch (err) {
+        console.error('Erreur lors de la récupération de la réservation:', err)
+        setError(err instanceof Error ? err.message : 'Une erreur est survenue')
       } finally {
         setLoading(false)
       }
     }
 
     fetchBooking()
-  }, [bookingId])
+  }, [searchParams.payment_intent])
+
+  // Rediriger si une erreur est survenue
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        router.push('/services')
+      }, 5000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [error, router])
 
   if (loading) {
     return (
@@ -145,8 +200,8 @@ export default function ServiceSuccessPage() {
               </div>
               
               <div>
-                <dt className="text-sm font-medium text-gray-500">Adresse de destination</dt>
-                <dd className="mt-1 text-sm text-gray-900">{booking.destAddress}</dd>
+                <dt className="text-sm font-medium text-gray-500">Adresse de livraison</dt>
+                <dd className="mt-1 text-sm text-gray-900">{booking.deliveryAddress}</dd>
               </div>
               
               <div>

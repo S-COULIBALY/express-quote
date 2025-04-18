@@ -8,12 +8,24 @@ import { HttpRequest, HttpResponse } from '@/quotation/interfaces/http/types';
 const bookingRepository = new PrismaBookingRepository();
 
 // Mock services pour l'exemple - dans une implémentation réelle, initialisez-les correctement
+const movingRepository = {} as any;
+const packRepository = {} as any;
+const serviceRepository = {} as any;
+const quoteCalculator = {} as any;
+const quoteRequestRepository = {} as any;
+const customerService = {} as any;
 const transactionService = {} as any;
 const documentService = {} as any;
 const emailService = {} as any;
 
 const bookingService = new BookingService(
   bookingRepository,
+  movingRepository,
+  packRepository,
+  serviceRepository,
+  quoteCalculator,
+  quoteRequestRepository,
+  customerService,
   transactionService,
   documentService,
   emailService

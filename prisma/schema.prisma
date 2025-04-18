@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -51,31 +52,42 @@ model Customer {
 }
 
 model Booking {
-  id             String        @id @default(uuid())
-  type           BookingType
-  status         BookingStatus @default(DRAFT)
-  customerId     String
-  professionalId String?
-  totalAmount    Float
-  paymentMethod  String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  customer       Customer      @relation(fields: [customerId], references: [id])
-  professional   Professional? @relation(fields: [professionalId], references: [id])
-  documents      Document[]
-  emails         EmailLog[]
-  moving         Moving?
-  pack           Pack?
-  service        Service?
-  transactions   Transaction[]
-  quoteRequestId String?
-  quoteRequest   QuoteRequest?     @relation(fields: [quoteRequestId], references: [id])
+  id              String        @id @default(uuid())
+  type            BookingType
+  status          BookingStatus @default(DRAFT)
+  customerId      String
+  professionalId  String?
+  totalAmount     Float
+  paymentMethod   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  quoteRequestId  String?
+  packId          String?
+  serviceId       String?
+  scheduledDate   DateTime?
+  locationAddress String?
+  pickupAddress   String?
+  deliveryAddress String?
+  distance        Float?
+  additionalInfo  Json?
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  Pack            Pack?         @relation(fields: [packId], references: [id])
+  professional    Professional? @relation(fields: [professionalId], references: [id])
+  quoteRequest    QuoteRequest? @relation(fields: [quoteRequestId], references: [id])
+  Service         Service?      @relation(fields: [serviceId], references: [id])
+  documents       Document[]
+  emails          EmailLog[]
+  moving          Moving?
+  transactions    Transaction[]
 
   @@index([customerId])
   @@index([professionalId])
   @@index([type])
   @@index([status])
   @@index([quoteRequestId])
+  @@index([packId])
+  @@index([scheduledDate])
+  @@index([serviceId])
 }
 
 model Moving {
@@ -120,44 +132,42 @@ model Moving {
 }
 
 model Pack {
-  id              String   @id @default(uuid())
-  bookingId       String   @unique
-  name            String
-  description     String
-  price           Float
-  includes        String[]
-  scheduledDate   DateTime
-  pickupAddress   String
-  deliveryAddress String
-  duration        Int      @default(1)
-  workers         Int      @default(2)
-  additionalInfo  String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  booking         Booking  @relation(fields: [bookingId], references: [id])
-
-  @@index([bookingId])
-  @@index([scheduledDate])
+  id               String    @id @default(uuid())
+  name             String
+  description      String
+  price            Float
+  includes         String[]
+  includedDistance Float     @default(0)
+  duration         Int       @default(1)
+  workers          Int       @default(1)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  categoryId       String?
+  content          String?
+  distanceUnit     String    @default("km")
+  features         String[]
+  imagePath        String?
+  isAvailable      Boolean   @default(true)
+  popular          Boolean   @default(false)
+  workersNeeded    Int       @default(1)
+  Booking          Booking[]
 }
 
 model Service {
-  id            String   @id @default(uuid())
-  bookingId     String   @unique
-  name          String
-  description   String
-  price         Float
-  duration      Int
-  workers       Int      @default(2)
-  includes      String[]
-  scheduledDate DateTime
-  location      String
-  additionalInfo String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  booking       Booking  @relation(fields: [bookingId], references: [id])
-
-  @@index([bookingId])
-  @@index([scheduledDate])
+  id          String    @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  duration    Int
+  includes    String[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  categoryId  String?
+  features    String[]
+  imagePath   String?
+  isActive    Boolean   @default(true)
+  workers     Int       @default(1)
+  Booking     Booking[]
 }
 
 model Transaction {
@@ -229,32 +239,80 @@ model EmailAttachment {
 }
 
 model Rule {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  type        String
-  value       Float
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String       @id @default(cuid())
+  name         String
+  description  String?
+  value        Float
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  category     RuleCategory
+  condition    String?
+  percentBased Boolean      @default(true)
+  serviceType  ServiceType  @default(SERVICE)
 
   @@map("rules")
 }
 
 model QuoteRequest {
-  id            String             @id @default(uuid())
-  type          String
-  status        String
-  quoteData     Json
-  temporaryId   String             @unique
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  expiresAt     DateTime
-  bookings      Booking[]
+  id          String    @id @default(uuid())
+  type        String
+  status      String
+  quoteData   Json
+  temporaryId String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  expiresAt   DateTime
+  bookings    Booking[]
 
   @@index([temporaryId])
   @@index([status])
   @@index([type])
+}
+
+model Configuration {
+  id          String    @id @default(uuid())
+  category    String
+  key         String
+  value       Json
+  description String?
+  isActive    Boolean   @default(true)
+  validFrom   DateTime  @default(now())
+  validTo     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([category, key])
+  @@index([category])
+  @@index([isActive])
+  @@index([validFrom, validTo])
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum ServiceType {
+  MOVING
+  PACKING
+  CLEANING
+  DELIVERY
+  PACK
+  SERVICE
+}
+
+enum RuleCategory {
+  REDUCTION
+  SURCHARGE
+  MINIMUM
+  MAXIMUM
+  FIXED
+  PERCENTAGE
 }
 
 enum BookingType {

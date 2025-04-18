@@ -19,7 +19,8 @@ const ERROR_TYPES = {
   NUMERIC_ONLY: 'NUMERIC_ONLY',
   TOO_SHORT: 'TOO_SHORT',
   MISSING_COMPONENTS: 'MISSING_COMPONENTS',
-  NOT_SELECTED_FROM_DROPDOWN: 'NOT_SELECTED_FROM_DROPDOWN'
+  NOT_SELECTED_FROM_DROPDOWN: 'NOT_SELECTED_FROM_DROPDOWN',
+  MAPS_API_ERROR: 'MAPS_API_ERROR'
 };
 
 export function useAddressAutocomplete({
@@ -27,7 +28,8 @@ export function useAddressAutocomplete({
   initialValue,
   onChange
 }: UseAddressAutocompleteProps) {
-  const mapsLoaded = useGoogleMaps()
+  const { mapsLoaded, error: mapsError } = useGoogleMaps()
+  
   const [state, setState] = useState<AddressState>({
     value: initialValue,
     isValid: false,
@@ -36,6 +38,18 @@ export function useAddressAutocomplete({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const isInternalChangeRef = useRef(false)
+
+  // Si Google Maps n'est pas chargé, définir l'erreur appropriée
+  useEffect(() => {
+    if (mapsError) {
+      console.error(`[${id}] Erreur Google Maps:`, mapsError)
+      setState(prev => ({
+        ...prev,
+        isValid: false,
+        errorType: ERROR_TYPES.MAPS_API_ERROR
+      }))
+    }
+  }, [id, mapsError])
 
   // Prévalider l'adresse (avant sélection dans les suggestions)
   const prevalidateAddress = useCallback((address: string): { isValid: boolean, errorType?: string } => {
@@ -73,60 +87,90 @@ export function useAddressAutocomplete({
 
   // Gérer le changement de lieu
   const handlePlaceChange = useCallback(() => {
-    console.debug(`[${id}] handlePlaceChange appelé`)
-    const place = autocompleteRef.current?.getPlace()
-    
-    if (!place || !place.formatted_address) {
-      console.debug(`[${id}] Adresse invalide sélectionnée:`, place)
+    if (!autocompleteRef.current) {
+      console.debug(`[${id}] Autocomplete non initialisé lors de handlePlaceChange`)
       return
     }
+    
+    console.debug(`[${id}] handlePlaceChange appelé`)
+    
+    try {
+      const place = autocompleteRef.current.getPlace()
+      
+      if (!place || !place.formatted_address) {
+        console.debug(`[${id}] Adresse invalide sélectionnée:`, place)
+        return
+      }
 
-    const { isValid, errorType } = validateAddress(place)
-    isInternalChangeRef.current = true
+      const { isValid, errorType } = validateAddress(place)
+      isInternalChangeRef.current = true
 
-    setState({
-      value: place.formatted_address,
-      isValid,
-      place: isValid ? place : null,
-      errorType
-    })
+      setState({
+        value: place.formatted_address,
+        isValid,
+        place: isValid ? place : null,
+        errorType
+      })
 
-    onChange(place.formatted_address, isValid ? place : undefined)
+      onChange(place.formatted_address, isValid ? place : undefined)
 
-    // Reset internal change flag
-    setTimeout(() => {
-      isInternalChangeRef.current = false
-    }, 100)
+      // Reset internal change flag
+      setTimeout(() => {
+        isInternalChangeRef.current = false
+      }, 100)
+    } catch (error) {
+      console.error(`[${id}] Erreur lors de la récupération du lieu:`, error)
+    }
   }, [id, onChange, validateAddress])
 
   // Initialiser l'autocomplétion
   useEffect(() => {
     if (!mapsLoaded || !inputRef.current) {
-      console.debug(`[${id}] Maps non chargé ou input non initialisé`)
+      if (!mapsLoaded) {
+        console.debug(`[${id}] Maps non chargé, en attente...`)
+      } else if (!inputRef.current) {
+        console.debug(`[${id}] Input non initialisé`)
+      }
       return
     }
 
-    console.debug(`[${id}] Initialisation de l'autocomplétion`)
-    const options: google.maps.places.AutocompleteOptions = {
-      fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-      componentRestrictions: { country: 'fr' },
-      types: ['address'] // Restreindre aux adresses uniquement
-    }
-
-    autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, options)
-    console.debug(`[${id}] Autocomplétion créée`)
-
-    const listener = autocompleteRef.current.addListener('place_changed', handlePlaceChange)
-    console.debug(`[${id}] Listener ajouté`)
-
-    return () => {
-      console.debug(`[${id}] Nettoyage des listeners`)
-      if (listener) {
-        listener.remove()
+    try {
+      console.debug(`[${id}] Initialisation de l'autocomplétion`)
+      
+      // S'assurer que google.maps.places est disponible
+      if (!window.google?.maps?.places) {
+        console.error(`[${id}] L'API Google Maps Places n'est pas disponible`)
+        return
       }
-      if (autocompleteRef.current) {
-        google.maps.event.clearInstanceListeners(autocompleteRef.current)
+      
+      const options: google.maps.places.AutocompleteOptions = {
+        fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+        componentRestrictions: { country: 'fr' },
+        types: ['address'] // Restreindre aux adresses uniquement
       }
+
+      autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, options)
+      console.debug(`[${id}] Autocomplétion créée`)
+
+      const listener = autocompleteRef.current.addListener('place_changed', handlePlaceChange)
+      console.debug(`[${id}] Listener ajouté`)
+
+      return () => {
+        console.debug(`[${id}] Nettoyage des listeners`)
+        if (listener) {
+          listener.remove()
+        }
+        if (autocompleteRef.current) {
+          google.maps.event.clearInstanceListeners(autocompleteRef.current)
+        }
+      }
+    } catch (error) {
+      console.error(`[${id}] Erreur lors de l'initialisation de l'autocomplétion:`, error)
+      setState(prev => ({
+        ...prev,
+        isValid: false,
+        errorType: ERROR_TYPES.MAPS_API_ERROR
+      }))
     }
   }, [mapsLoaded, id, handlePlaceChange])
 
@@ -198,6 +242,7 @@ export function useAddressAutocomplete({
     isValid: state.isValid,
     place: state.place,
     errorType: state.errorType,
+    mapsError: mapsError,
     handleInputChange,
     __test_selectPlace
   }

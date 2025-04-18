@@ -14,15 +14,15 @@ export interface CustomerDTO {
 
 // DTO de base pour les réservations
 export interface BaseBookingDTO {
-  type: BookingType;
-  customer: CustomerDTO;
+  type: BookingType | string; // Accepter également les strings pour faciliter la validation
+  customer?: CustomerDTO;     // Customer rendu optionnel
   paymentMethod?: string;
   professionalId?: string;
 }
 
 // DTO pour la création d'un déménagement
 export interface MovingDTO extends BaseBookingDTO {
-  type: BookingType.MOVING_QUOTE;
+  type: BookingType.MOVING_QUOTE | 'MOVING_QUOTE';
   moveDate: string;
   pickupAddress: string;
   deliveryAddress: string;
@@ -69,7 +69,7 @@ export class PackDTO {
     this.name = pack.getName();
     this.description = pack.getDescription();
     this.price = pack.getPrice().getAmount();
-    this.includes = pack.getIncludedItems();
+    this.includes = pack.getIncludes ? pack.getIncludes() : [];
     this.scheduledDate = new Date(); // Valeur par défaut car non disponible dans l'entité
     this.pickupAddress = ''; // Valeur par défaut car non disponible dans l'entité
     this.deliveryAddress = ''; // Valeur par défaut car non disponible dans l'entité
@@ -79,7 +79,7 @@ export class PackDTO {
 
 // DTO pour la création d'un service
 export interface ServiceDTO extends BaseBookingDTO {
-  type: BookingType.SERVICE;
+  type: BookingType.SERVICE | 'SERVICE' | 'service';
   name: string;
   description: string;
   price: number;
@@ -89,15 +89,30 @@ export interface ServiceDTO extends BaseBookingDTO {
   location: string;
 }
 
+// DTO pour la réservation simplifiée d'un service existant (depuis la page web)
+export interface ServiceReservationDTO extends BaseBookingDTO {
+  type: BookingType.SERVICE | 'SERVICE' | 'service';
+  serviceId: string;              // ID du service existant à réserver
+  scheduledDate: string;          // Date de réservation
+  location: string;               // Adresse du service
+  duration: number;               // Durée en heures
+  workers: number;                // Nombre de professionnels
+  defaultDuration?: number;       // Durée par défaut du service
+  defaultWorkers?: number;        // Nombre de professionnels par défaut
+  basePrice?: number;             // Prix de base du service
+  calculatedPrice?: number;       // Prix calculé par le frontend
+  additionalInfo?: string;        // Informations supplémentaires
+}
+
 // DTO pour la création d'une réservation (union type)
-export type BookingRequestDTO = MovingDTO | PackDTO | ServiceDTO;
+export type BookingRequestDTO = MovingDTO | PackDTO | ServiceDTO | ServiceReservationDTO;
 
 // DTO pour la réponse d'une réservation
 export interface BookingResponseDTO {
   id: string;
   type: BookingType;
   status: BookingStatus;
-  customer: CustomerDTO;
+  customer?: CustomerDTO;          // Customer rendu optionnel
   professional?: {
     id: string;
     companyName: string;

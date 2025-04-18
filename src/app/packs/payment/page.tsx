@@ -1,8 +1,24 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { createCheckoutSession } from '@/services/stripe'
+import { useRouter } from 'next/navigation'
+import { Service, Pack } from '@/types/booking'
+import { getCurrentBooking } from '@/actions/bookingManager'
+import { createPaymentIntent } from '@/actions/paymentManager'
+import Link from 'next/link'
+import { 
+  CalendarIcon, 
+  ClockIcon, 
+  MapPinIcon, 
+  CreditCardIcon, 
+  ShieldCheckIcon, 
+  LockClosedIcon,
+  ArrowLeftIcon,
+  BuildingStorefrontIcon,
+  CheckIcon,
+  ExclamationCircleIcon
+} from '@heroicons/react/24/outline'
+import { StripeElementsProvider, PaymentForm } from '@/components/StripeElements'
 
 interface PackBookingData {
   id: string
@@ -27,102 +43,240 @@ interface PackBookingData {
     lastName: string
   }
   scheduledDate: string
-  scheduledTime: string
-  destAddress: string
+  scheduledTime?: string
+  pickupAddress?: string
+  deliveryAddress?: string
+  duration?: number
+  workers?: number
   totalPrice: number
+}
+
+interface BookingSummary {
+  id: string;
+  status: string;
+  pack: {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+  };
+  scheduledDate: string;
+  scheduledTime?: string;
+  pickupAddress?: string;
+  deliveryAddress?: string;
+  duration?: number;
+  workers?: number;
+  totalPrice: number;
 }
 
 export default function PackPaymentPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const bookingId = searchParams.get('id')
   
   const [booking, setBooking] = useState<PackBookingData | null>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [depositAmount, setDepositAmount] = useState<number>(0)
+  
+  // États pour les informations client modifiables
+  const [customerInfo, setCustomerInfo] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: ''
+  });
 
   const fetchBooking = async () => {
-    if (!bookingId) {
-      setError('Aucun identifiant de réservation fourni')
-      setLoading(false)
-      return
-    }
-
     try {
-      const response = await fetch(`/api/bookings/${bookingId}`)
+      // Utiliser le server action getCurrentBooking
+      const currentBooking = await getCurrentBooking();
+      console.log("Récupération de la réservation par session:", !!currentBooking, currentBooking?.status);
       
-      if (!response.ok) {
-        throw new Error('Réservation introuvable')
+      if (!currentBooking || !currentBooking.items || currentBooking.items.length === 0) {
+        throw new Error('Réservation vide ou introuvable')
       }
       
-      const data = await response.json()
+      // Vérifier que la réservation est en attente de paiement
+      if (currentBooking.status !== 'awaiting_payment') {
+        console.warn(`Statut de réservation inattendu: ${currentBooking.status}, attendu: awaiting_payment`);
+      }
       
-      if (data.type !== 'pack') {
+      // Trouver le premier pack dans la réservation
+      const packItem = currentBooking.items.find(item => item.type === 'pack')
+      
+      if (!packItem) {
         throw new Error('Type de réservation invalide')
       }
       
-      setBooking(data)
-    } catch (error) {
-      console.error('Error fetching booking:', error)
-      setError(error instanceof Error ? error.message : 'Erreur lors de la récupération de la réservation')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handlePayment = async () => {
-    if (!booking) {
-      setError('Données de réservation manquantes')
-      return
-    }
-    
-    try {
-      setProcessing(true)
+      // Générer un ID client temporaire si nécessaire
+      const customerId = currentBooking.customerId || `guest-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+      
+      // Construire l'objet de données nécessaire pour la page de paiement
+      const formattedBooking: PackBookingData = {
+        id: currentBooking.id,
+        status: currentBooking.status,
+        pack: {
+          id: packItem.data.id,
+          name: packItem.data.name,
+          description: packItem.data.description,
+          price: packItem.data.price
+        },
+        customer: {
+          id: customerId,
+          firstName: currentBooking.customerData?.firstName || 'Client',
+          lastName: currentBooking.customerData?.lastName || '',
+          email: currentBooking.customerData?.email || 'client@example.com',
+          phone: currentBooking.customerData?.phone || ''
+        },
+        scheduledDate: packItem.data.scheduledDate ? new Date(packItem.data.scheduledDate).toISOString() : new Date().toISOString(),
+        scheduledTime: packItem.data.scheduledTime || '',
+        pickupAddress: packItem.data.pickupAddress || '',
+        deliveryAddress: 'deliveryAddress' in packItem.data ? packItem.data.deliveryAddress : '',
+        duration: packItem.data.duration,
+        workers: packItem.data.workers,
+        totalPrice: currentBooking.totalTTC
+      }
+      
+      console.log('Données de réservation formatées:', formattedBooking);
+      setBooking(formattedBooking);
       
       // Calculer le montant de l'acompte (30% du prix total)
-      const depositAmount = booking.totalPrice * 0.3
+      const deposit = formattedBooking.totalPrice * 0.3;
+      setDepositAmount(deposit);
       
-      // Créer la session de paiement Stripe
-      const { url } = await createCheckoutSession({
-        customerId: booking.customer.id,
-        customerEmail: booking.customer.email,
-        bookingId: booking.id,
-        bookingType: 'pack',
-        amount: depositAmount,
-        description: `Forfait: ${booking.pack.name}`,
-        metadata: {
-          packId: booking.pack.id,
-          scheduledDate: booking.scheduledDate,
-          destAddress: booking.destAddress
-        }
-      })
+      // Utiliser le server action createPaymentIntent
+      const { clientSecret, amount } = await createPaymentIntent(
+        formattedBooking.id, 
+        deposit, 
+        `Acompte pour ${formattedBooking.pack.name}`
+      );
+      setClientSecret(clientSecret);
       
-      // Rediriger vers la page de paiement Stripe
-      if (url) {
-        window.location.href = url
-      } else {
-        throw new Error('Impossible de créer la session de paiement')
-      }
     } catch (error) {
-      console.error('Error in payment process:', error)
-      setError(error instanceof Error ? error.message : 'Une erreur est survenue lors du traitement du paiement')
-      setProcessing(false)
+      console.error('Error fetching booking:', error);
+      setError(error instanceof Error ? error.message : 'Erreur lors de la récupération de la réservation');
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
     fetchBooking()
-  }, [bookingId])
+  }, [])
+  
+  // Mettre à jour les informations client chaque fois que booking change
+  useEffect(() => {
+    if (booking) {
+      setCustomerInfo({
+        firstName: booking.customer.firstName,
+        lastName: booking.customer.lastName,
+        email: booking.customer.email,
+        phone: booking.customer.phone
+      });
+    }
+  }, [booking]);
+  
+  // Valider les informations client
+  const validateCustomerInfo = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!customerInfo.firstName.trim()) {
+      errors.firstName = 'Le prénom est requis';
+    }
+    
+    if (!customerInfo.lastName.trim()) {
+      errors.lastName = 'Le nom est requis';
+    }
+    
+    if (!customerInfo.email.trim()) {
+      errors.email = 'L\'email est requis';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerInfo.email)) {
+      errors.email = 'Format d\'email invalide';
+    }
+    
+    if (!customerInfo.phone.trim()) {
+      errors.phone = 'Le numéro de téléphone est requis';
+    } else if (!/^[0-9+\s()-]{8,15}$/.test(customerInfo.phone)) {
+      errors.phone = 'Format de téléphone invalide';
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCustomerInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setCustomerInfo(prev => ({
+      ...prev,
+      [id]: value
+    }));
+    
+    // Effacer l'erreur pour ce champ lorsqu'il est modifié
+    if (validationErrors[id]) {
+      setValidationErrors(prev => {
+        const updated = { ...prev };
+        delete updated[id];
+        return updated;
+      });
+    }
+  };
+  
+  // Mettre à jour les informations client avant paiement
+  const updateCustomerInfo = async (): Promise<boolean> => {
+    try {
+      // Vérifier que les informations sont valides
+      if (!validateCustomerInfo()) {
+        return false;
+      }
+      
+      // Appeler l'API pour mettre à jour les informations client
+      const response = await fetch('/api/bookings/customer', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          bookingId: booking?.id,
+          customerInfo
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur lors de la mise à jour des informations client: ${response.status}`);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating customer info:', error);
+      setError(error instanceof Error ? error.message : 'Erreur lors de la mise à jour des informations client');
+      return false;
+    }
+  };
+  
+  const handlePaymentSuccess = async () => {
+    // Mettre à jour les informations client avant de rediriger
+    const updated = await updateCustomerInfo();
+    if (updated) {
+      router.push('/packs/success');
+    }
+  };
+  
+  const handlePaymentError = (errorMessage: string) => {
+    setError(errorMessage);
+    setProcessing(false);
+  };
 
   if (loading) {
     return (
-      <main className="p-8">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="animate-pulse flex flex-col items-center">
-            <div className="h-8 w-64 bg-gray-200 rounded mb-4"></div>
-            <div className="h-4 w-48 bg-gray-200 rounded mb-2"></div>
-            <div className="h-4 w-36 bg-gray-200 rounded"></div>
+      <main className="min-h-screen bg-gray-50 py-10">
+        <div className="max-w-3xl mx-auto px-6 sm:px-6 lg:px-8">
+          <div className="animate-pulse flex flex-col items-center py-16">
+            <div className="h-10 w-64 bg-gray-300 rounded mb-6"></div>
+            <div className="h-6 w-48 bg-gray-300 rounded mb-4"></div>
+            <div className="h-6 w-36 bg-gray-300 rounded"></div>
+            <div className="mt-8 h-28 w-full max-w-md bg-white rounded-lg shadow-md"></div>
           </div>
         </div>
       </main>
@@ -131,97 +285,304 @@ export default function PackPaymentPage() {
 
   if (error || !booking) {
     return (
-      <main className="p-8">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="mb-6 text-red-500">
-            <h1 className="text-2xl font-bold mb-2">Erreur</h1>
-            <p>{error || 'Réservation introuvable'}</p>
+      <main className="min-h-screen bg-gray-50 py-10">
+        <div className="max-w-3xl mx-auto px-6 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+            <ExclamationCircleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Une erreur est survenue</h1>
+            <p className="text-gray-600 mb-8">{error || 'Impossible de récupérer les détails de votre réservation'}</p>
+            <Link
+              href="/packs"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700"
+            >
+              Retour aux packs disponibles
+            </Link>
           </div>
-          <button
-            onClick={() => router.push('/packs')}
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Retour aux forfaits
-          </button>
         </div>
       </main>
     )
   }
+  
+  if (!clientSecret) {
+    return (
+      <main className="min-h-screen bg-gray-50 py-10">
+        <div className="max-w-3xl mx-auto px-6 sm:px-6 lg:px-8">
+          <div className="animate-pulse flex flex-col items-center py-16">
+            <div className="h-10 w-64 bg-gray-300 rounded mb-6"></div>
+            <div className="h-6 w-48 bg-gray-300 rounded mb-4"></div>
+            <div className="h-6 w-36 bg-gray-300 rounded"></div>
+            <div className="mt-8 h-28 w-full max-w-md bg-white rounded-lg shadow-md"></div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const formattedDate = new Date(booking.scheduledDate).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
 
   return (
-    <main className="p-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Finalisation de votre réservation</h1>
-        
-        <div className="bg-white shadow rounded-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Récapitulatif de votre réservation</h2>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div>
-              <p className="text-gray-600">Forfait</p>
-              <p className="font-medium">{booking.pack.name}</p>
-            </div>
-            <div>
-              <p className="text-gray-600">Date prévue</p>
-              <p className="font-medium">{new Date(booking.scheduledDate).toLocaleDateString('fr-FR')}</p>
-            </div>
-            <div>
-              <p className="text-gray-600">Heure</p>
-              <p className="font-medium">{booking.scheduledTime}</p>
-            </div>
-            <div>
-              <p className="text-gray-600">Adresse de destination</p>
-              <p className="font-medium">{booking.destAddress}</p>
-            </div>
+    <div className="bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <button 
+              onClick={() => router.back()}
+              className="mr-4 text-gray-400 hover:text-gray-600"
+            >
+              <ArrowLeftIcon className="w-5 h-5" />
+            </button>
+            <h1 className="text-xl font-medium text-gray-900">Paiement</h1>
           </div>
-          
-          <div className="border-t pt-4">
-            <div className="flex justify-between mb-2">
-              <span>Montant total</span>
-              <span className="font-semibold">{booking.totalPrice.toFixed(2)} €</span>
-            </div>
-            <div className="flex justify-between mb-2 text-emerald-700">
-              <span>Acompte à verser maintenant (30%)</span>
-              <span className="font-semibold">{(booking.totalPrice * 0.3).toFixed(2)} €</span>
-            </div>
-            <div className="flex justify-between text-gray-500">
-              <span>Solde à régler le jour du service</span>
-              <span>{(booking.totalPrice * 0.7).toFixed(2)} €</span>
-            </div>
+          <div className="flex items-center text-sm text-gray-500">
+            <span className="text-violet-600 font-medium">Paiement</span>
+            <span className="mx-2">›</span>
+            <span>Confirmation</span>
           </div>
-        </div>
-
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Procéder au paiement</h2>
-          
-          {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded mb-4">
-              {error}
-            </div>
-          )}
-          
-          <p className="mb-6 text-gray-600">
-            Pour confirmer votre réservation, un acompte de 30% du montant total est requis. Vous serez redirigé vers une page de paiement sécurisée.
-          </p>
-          
-          <button
-            onClick={handlePayment}
-            className="w-full py-3 px-4 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
-            disabled={processing}
-          >
-            {processing ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Traitement en cours...
-              </>
-            ) : (
-              "Procéder au paiement"
-            )}
-          </button>
         </div>
       </div>
-    </main>
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left column: Payment */}
+          <div className="lg:col-span-2 order-2 lg:order-1">
+            <div className="bg-white shadow-sm rounded-xl p-6 border border-gray-100 mb-6">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Informations de paiement</h2>
+              
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start">
+                  <svg className="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-red-800">{error}</p>
+                    {Object.keys(validationErrors).length > 0 && (
+                      <p className="text-xs text-red-600 mt-1">Veuillez vérifier vos informations personnelles.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Informations client */}
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-1 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Informations client
+                </h3>
+                <p className="text-xs text-gray-500 mb-4">
+                  Veuillez vérifier et compléter vos informations de contact ci-dessous. Ces informations seront utilisées pour la facturation et la communication.
+                </p>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="firstName" className="block text-xs font-medium text-gray-700 mb-1">Prénom *</label>
+                      <input
+                        type="text"
+                        id="firstName"
+                        className={`w-full p-2 border ${validationErrors.firstName ? 'border-red-500' : 'border-gray-300'} rounded-md text-sm focus:ring-violet-500 focus:border-violet-500`}
+                        value={customerInfo.firstName}
+                        onChange={handleCustomerInfoChange}
+                        required
+                      />
+                      {validationErrors.firstName && (
+                        <p className="mt-1 text-xs text-red-500">{validationErrors.firstName}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="lastName" className="block text-xs font-medium text-gray-700 mb-1">Nom *</label>
+                      <input
+                        type="text"
+                        id="lastName"
+                        className={`w-full p-2 border ${validationErrors.lastName ? 'border-red-500' : 'border-gray-300'} rounded-md text-sm focus:ring-violet-500 focus:border-violet-500`}
+                        value={customerInfo.lastName}
+                        onChange={handleCustomerInfoChange}
+                        required
+                      />
+                      {validationErrors.lastName && (
+                        <p className="mt-1 text-xs text-red-500">{validationErrors.lastName}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="email" className="block text-xs font-medium text-gray-700 mb-1">Email *</label>
+                    <input
+                      type="email"
+                      id="email"
+                      className={`w-full p-2 border ${validationErrors.email ? 'border-red-500' : 'border-gray-300'} rounded-md text-sm focus:ring-violet-500 focus:border-violet-500`}
+                      value={customerInfo.email}
+                      onChange={handleCustomerInfoChange}
+                      required
+                    />
+                    {validationErrors.email && (
+                      <p className="mt-1 text-xs text-red-500">{validationErrors.email}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="phone" className="block text-xs font-medium text-gray-700 mb-1">Téléphone *</label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      className={`w-full p-2 border ${validationErrors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md text-sm focus:ring-violet-500 focus:border-violet-500`}
+                      value={customerInfo.phone}
+                      onChange={handleCustomerInfoChange}
+                      required
+                    />
+                    {validationErrors.phone && (
+                      <p className="mt-1 text-xs text-red-500">{validationErrors.phone}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border-t border-gray-200 my-6 pt-6"></div>
+              
+              {/* Formulaire de paiement Stripe */}
+              {clientSecret && (
+                <StripeElementsProvider clientSecret={clientSecret}>
+                  <PaymentForm 
+                    clientSecret={clientSecret}
+                    onSuccess={handlePaymentSuccess}
+                    onError={handlePaymentError}
+                    amount={depositAmount}
+                    returnUrl={`${window.location.origin}/packs/success`}
+                  />
+                </StripeElementsProvider>
+              )}
+              
+              <p className="mt-4 text-xs text-center text-gray-500">
+                En cliquant sur "Payer maintenant", vous acceptez nos {" "}
+                <Link href="/conditions" className="text-violet-600 hover:text-violet-800">
+                  conditions générales
+                </Link>{" "}
+                et notre{" "}
+                <Link href="/privacy" className="text-violet-600 hover:text-violet-800">
+                  politique de confidentialité
+                </Link>
+                .
+              </p>
+            </div>
+            
+            {/* Security badges */}
+            <div className="bg-white shadow-sm rounded-xl p-6 border border-gray-100">
+              <div className="flex flex-wrap justify-between items-center gap-4">
+                <div className="flex items-center">
+                  <svg className="w-8 h-8 text-gray-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <div>
+                    <span className="block text-sm font-medium text-gray-700">Paiement sécurisé</span>
+                    <span className="block text-xs text-gray-500">SSL / TLS Encryption</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center">
+                  <svg className="w-8 h-8 text-gray-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <div>
+                    <span className="block text-sm font-medium text-gray-700">Protection client</span>
+                    <span className="block text-xs text-gray-500">100% garantie satisfaction</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center">
+                  <svg className="w-8 h-8 text-gray-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <span className="block text-sm font-medium text-gray-700">Remboursement</span>
+                    <span className="block text-xs text-gray-500">Annulation sous 48h</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Right column: Order Summary */}
+          <div className="lg:col-span-1 order-1 lg:order-2">
+            <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100 sticky top-24">
+              <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-violet-50 to-white">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  Récapitulatif de votre réservation
+                </h2>
+              </div>
+              
+              <div className="p-6">
+                <div className="mb-6">
+                  <div className="flex items-center mb-4">
+                    <BuildingStorefrontIcon className="w-5 h-5 text-gray-400 mr-3" />
+                    <div>
+                      <span className="block text-sm font-medium text-gray-700">Pack</span>
+                      <span className="block text-base text-gray-900">{booking.pack.name}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center mb-4">
+                    <CalendarIcon className="w-5 h-5 text-gray-400 mr-3" />
+                    <div>
+                      <span className="block text-sm font-medium text-gray-700">Date prévue</span>
+                      <span className="block text-base text-gray-900">
+                        {new Date(booking.scheduledDate).toLocaleDateString('fr-FR', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center mb-4">
+                    <ClockIcon className="w-5 h-5 text-gray-400 mr-3" />
+                    <div>
+                      <span className="block text-sm font-medium text-gray-700">Heure prévue</span>
+                      <span className="block text-base text-gray-900">
+                        {booking.scheduledTime || 'Non spécifiée'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <MapPinIcon className="w-5 h-5 text-gray-400 mr-3" />
+                    <div>
+                      <span className="block text-sm font-medium text-gray-700">Adresse</span>
+                      <div className="flex flex-col space-y-1">
+                        <span className="text-xs text-gray-500">Adresse de livraison:</span>
+                        <span className="block text-base text-gray-900">{booking.deliveryAddress}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-t border-gray-100 pt-4 my-6">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm text-gray-600">Prix du pack</span>
+                    <span className="text-sm text-gray-900">{(booking.totalPrice).toFixed(2)} €</span>
+                  </div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm text-gray-600">Acompte (30%)</span>
+                    <span className="text-sm text-violet-600 font-medium">{(booking.totalPrice * 0.3).toFixed(2)} €</span>
+                  </div>
+                  <div className="flex justify-between pt-4 border-t border-gray-100">
+                    <span className="text-base font-medium text-gray-900">Reste à payer</span>
+                    <span className="text-base font-medium text-gray-900">{(booking.totalPrice * 0.7).toFixed(2)} €</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Le solde sera à régler le jour de la prestation</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 } 

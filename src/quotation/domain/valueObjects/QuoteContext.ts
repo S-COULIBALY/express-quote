@@ -1,6 +1,7 @@
 import { ServiceType } from '../enums/ServiceType';
 import { Address } from './Address';
 import { ContactInfo } from './ContactInfo';
+import { ValidationError } from '../errors/ValidationError';
 
 /**
  * Interface pour les données du contexte de devis
@@ -39,70 +40,141 @@ export type QuoteContextData = {
  * Contient toutes les informations nécessaires pour calculer un devis
  */
 export class QuoteContext {
-    private data: QuoteContextData;
+    private readonly serviceType: ServiceType;
+    private readonly values: Record<string, any>;
 
-    constructor(data: QuoteContextData) {
-        this.data = { ...data };
-        this.validate();
-    }
-
-    private validate(): void {
-        // Vous pouvez ajouter des validations spécifiques ici
-    }
-
-    public getValue<T>(key: string): T | undefined {
-        return this.data[key] as T;
-    }
-
-    public setValue(key: string, value: any): void {
-        this.data[key] = value;
-    }
-
-    public getServiceType(): ServiceType | undefined {
-        return this.data.serviceType;
-    }
-
-    public getPickupAddress(): Address | undefined {
-        return this.data.pickupAddress;
-    }
-
-    public getDeliveryAddress(): Address | undefined {
-        return this.data.deliveryAddress;
-    }
-
-    public getContactInfo(): ContactInfo | undefined {
-        return this.data.contactInfo;
-    }
-
-    public getMoveDate(): Date | undefined {
-        return this.data.moveDate;
-    }
-
-    public getAllData(): QuoteContextData {
-        return { ...this.data };
+    /**
+     * Crée un nouveau contexte pour un type de service spécifique
+     */
+    constructor(serviceType: ServiceType) {
+        this.serviceType = serviceType;
+        this.values = {};
     }
 
     /**
-     * Crée une représentation exportable du contexte
+     * Récupère le type de service
      */
-    public toDTO(): Record<string, any> {
-        const dto: Record<string, any> = {};
-        
-        for (const [key, value] of Object.entries(this.data)) {
-            if (typeof value === 'object' && value !== null) {
-                if (value instanceof Date) {
-                    dto[key] = value.toISOString();
-                } else if ('toDTO' in value && typeof value.toDTO === 'function') {
-                    dto[key] = value.toDTO();
-                } else {
-                    dto[key] = { ...value };
-                }
-            } else {
-                dto[key] = value;
+    getServiceType(): ServiceType {
+        return this.serviceType;
+    }
+
+    /**
+     * Définit une valeur dans le contexte avec validation
+     * @throws {ValidationError} Si la valeur ne respecte pas les règles de validation
+     */
+    setValue<T>(key: string, value: any): void {
+        // Validation spécifique en fonction du type de valeur attendu
+        if (key === 'volume' || key === 'distance' || key === 'workers' || 
+            key === 'basePrice' || key === 'duration') {
+            // Conversion en nombre
+            const numValue = Number(value);
+            
+            // Validation que c'est un nombre valide
+            if (isNaN(numValue)) {
+                throw new ValidationError(`La valeur pour '${key}' doit être un nombre valide`);
             }
+            
+            // Validation des nombres positifs
+            if (numValue < 0) {
+                throw new ValidationError(`La valeur pour '${key}' doit être un nombre positif`);
+            }
+            
+            // Validation spécifique pour certains champs
+            if (key === 'workers' && numValue < 1) {
+                throw new ValidationError(`La valeur pour '${key}' doit être au moins 1`);
+            }
+            
+            if (key === 'duration' && numValue < 1) {
+                throw new ValidationError(`La valeur pour '${key}' doit être au moins 1`);
+            }
+            
+            // Assigner la valeur convertie
+            this.values[key] = numValue;
+            return;
         }
         
-        return dto;
+        // Validation pour les champs booléens
+        if (key.includes('Elevator') || key.includes('NeedsLift') ||
+            key === 'packaging' || key === 'fragile' || key === 'storage' ||
+            key === 'disassembly' || key === 'unpacking' || key === 'supplies') {
+            // Conversion en booléen
+            this.values[key] = Boolean(value);
+            return;
+        }
+        
+        // Si aucune validation spécifique, stocker la valeur telle quelle
+        this.values[key] = value;
+    }
+
+    /**
+     * Récupère une valeur du contexte avec son type
+     */
+    getValue<T>(key: string): T | undefined {
+        return this.values[key] as T;
+    }
+
+    /**
+     * Vérifie si une clé existe dans le contexte
+     */
+    hasValue(key: string): boolean {
+        return key in this.values;
+    }
+
+    /**
+     * Convertit le contexte en objet simple pour la sérialisation
+     */
+    toDTO(): Record<string, any> {
+        return {
+            serviceType: this.serviceType,
+            ...this.values
+        };
+    }
+
+    /**
+     * Valide que le contexte contient toutes les valeurs requises pour un type de service
+     * @throws {ValidationError} Si des valeurs requises sont manquantes
+     */
+    validate(): void {
+        const requiredFields: Record<ServiceType, string[]> = {
+            [ServiceType.MOVING]: ['volume', 'distance'],
+            [ServiceType.PACK]: ['basePrice', 'duration', 'workers'],
+            [ServiceType.SERVICE]: ['basePrice', 'duration', 'workers'],
+            [ServiceType.PACKING]: ['volume', 'workers', 'duration'],
+            [ServiceType.CLEANING]: ['area', 'workers'],
+            [ServiceType.DELIVERY]: ['volume', 'distance', 'workers']
+        };
+        
+        const fields = requiredFields[this.serviceType];
+        
+        if (!fields) {
+            throw new ValidationError(`Type de service non pris en charge: ${this.serviceType}`);
+        }
+        
+        for (const field of fields) {
+            if (!this.hasValue(field)) {
+                throw new ValidationError(`Le champ ${field} est requis pour un devis de type ${this.serviceType}`);
+            }
+        }
+    }
+
+    public getPickupAddress(): Address | undefined {
+        return this.values.pickupAddress as Address;
+    }
+
+    public getDeliveryAddress(): Address | undefined {
+        return this.values.deliveryAddress as Address;
+    }
+
+    public getContactInfo(): ContactInfo | undefined {
+        return this.values.contactInfo as ContactInfo;
+    }
+
+    public getMoveDate(): Date | undefined {
+        return this.values.moveDate as Date;
+    }
+
+    public getAllData(): QuoteContextData {
+        return { ...this.values };
     }
 } 
 

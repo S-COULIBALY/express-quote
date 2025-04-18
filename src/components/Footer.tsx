@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export function Footer() {
   return (
-    <footer className="bg-gray-50 border-t">
+    <footer className="bg-gray-50 border-t" role="contentinfo" aria-label="Pied de page">
       <div className="max-w-7xl mx-auto py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
           <div className="col-span-2 sm:col-span-1">
@@ -15,8 +15,8 @@ export function Footer() {
           </div>
           
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Services</h4>
-            <ul className="space-y-2">
+            <h4 className="text-sm font-medium text-gray-900 mb-3" id="footer-services">Services</h4>
+            <ul className="space-y-2" aria-labelledby="footer-services">
               <li>
                 <Link href="/moving/new" className="text-sm text-gray-600 hover:text-gray-900">
                   Déménagement
@@ -31,10 +31,10 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Entreprise</h4>
-            <ul className="space-y-2">
+            <h4 className="text-sm font-medium text-gray-900 mb-3" id="footer-company">Entreprise</h4>
+            <ul className="space-y-2" aria-labelledby="footer-company">
               <li>
-                <Link href="/about" className="text-sm text-gray-600 hover:text-gray-900">
+                <Link href="/a-propos" className="text-sm text-gray-600 hover:text-gray-900">
                   À propos
                 </Link>
               </li>
@@ -47,16 +47,26 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Légal</h4>
-            <ul className="space-y-2">
+            <h4 className="text-sm font-medium text-gray-900 mb-3" id="footer-legal">Légal</h4>
+            <ul className="space-y-2" aria-labelledby="footer-legal">
               <li>
-                <Link href="/privacy" className="text-sm text-gray-600 hover:text-gray-900">
+                <Link href="/legal" className="text-sm text-gray-600 hover:text-gray-900">
+                  Mentions légales
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/privacy" className="text-sm text-gray-600 hover:text-gray-900">
                   Confidentialité
                 </Link>
               </li>
               <li>
-                <Link href="/terms" className="text-sm text-gray-600 hover:text-gray-900">
-                  Conditions
+                <Link href="/legal/terms" className="text-sm text-gray-600 hover:text-gray-900">
+                  Conditions générales
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/cookies" className="text-sm text-gray-600 hover:text-gray-900">
+                  Politique des cookies
                 </Link>
               </li>
             </ul>

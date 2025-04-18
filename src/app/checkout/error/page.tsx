@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { getCurrentBooking } from '@/actions/bookingManager'
 import { 
   ExclamationCircleIcon, 
   ArrowPathIcon,
@@ -18,12 +19,12 @@ export default function CheckoutErrorPage() {
   const [errorReason, setErrorReason] = useState<string>('transaction_failed')
   
   useEffect(() => {
-    const loadBookingData = () => {
+    const loadBookingData = async () => {
       try {
-        // Récupérer les données de réservation du localStorage
-        const savedData = localStorage.getItem('bookingData')
-        if (savedData) {
-          setBookingData(JSON.parse(savedData))
+        // Récupérer les données de réservation via getCurrentBooking
+        const currentBooking = await getCurrentBooking();
+        if (currentBooking) {
+          setBookingData(currentBooking);
         }
         
         // Récupérer la raison de l'erreur depuis l'URL (simulé ici)
@@ -67,10 +68,7 @@ export default function CheckoutErrorPage() {
   }
   
   const handleSaveForLater = () => {
-    // Sauvegarder l'horodatage pour indiquer que la réservation a été mise en attente
-    localStorage.setItem('bookingSavedAt', Date.now().toString())
-    
-    // Envoyer par email (simulé)
+    // Informer l'utilisateur que sa réservation est sauvegardée (simulation)
     alert('Un lien pour reprendre votre réservation a été envoyé à votre adresse email (simulation).')
     
     // Rediriger vers l'accueil

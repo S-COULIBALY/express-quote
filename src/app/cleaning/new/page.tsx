@@ -198,7 +198,6 @@ export default function NewCleaningQuote() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const quoteData = { id: Date.now().toString(), ...formData, ...quoteDetails }
-    localStorage.setItem('cleaningQuote', JSON.stringify(quoteData))
     router.push(`/cleaning/summary?id=${quoteData.id}`)
   }
 

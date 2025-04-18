@@ -6,11 +6,12 @@ import { useSearchParams } from 'next/navigation'
 import { FormField, TextInput, Select } from '@/components/Form'
 import { PickupAddressAutocomplete, DeliveryAddressAutocomplete } from '@/components/AddressAutocomplete'
 import { QuoteSummary } from '@/components/QuoteSummary'
-import { apiConfig } from '@/config/api'
-import { calculateMovingQuote } from '@/actions/calculateMovingQuote'
+import { calculateDistance, calculateTripCosts } from '@/actions/distanceCalculator'
+import { saveMovingQuote, getCurrentMovingQuote } from '@/actions/movingQuoteManager'
 import type { MovingFormData } from '@/types/quote'
 import type { PlaceResult } from '@/types/google-maps'
 import { Button } from '@/components/Button'
+import { LegalConsent } from '@/components/LegalConsent'
 
 interface IconProps {
   className?: string
@@ -78,7 +79,8 @@ const initialFormData: MovingFormData = {
     unpacking: false,
     supplies: false,
     fragileItems: false
-  }
+  },
+  legalConsent: false
 }
 
 // Vérifier si le formulaire est complet et valide
@@ -103,46 +105,6 @@ const _getServiceLabel = (key: string): string => {
     fragileItems: 'Objets fragiles'
   }
   return labels[key] || key
-}
-
-const calculateDistance = async (origin: string, destination: string) => {
-  try {
-    const response = await fetch(
-      `${apiConfig.googleMaps.baseUrl}/distancematrix/json?origins=${encodeURIComponent(origin)}&destinations=${encodeURIComponent(destination)}&key=${apiConfig.googleMaps.apiKey}`
-    )
-    const data = await response.json()
-    return data.rows[0].elements[0].distance.value / 1000 // Convertir en km
-  } catch (error) {
-    console.error('Erreur lors du calcul de la distance:', error)
-    return 0
-  }
-}
-
-const _getTripCosts = async (origin: string, destination: string) => {
-  try {
-    const response = await fetch(
-      `${apiConfig.toolguru.baseUrl}/trip-costs?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiConfig.toolguru.apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    )
-    const data = await response.json()
-    return {
-      distance: data.distance,
-      tollCost: data.tollCost,
-      fuelCost: data.fuelCost
-    }
-  } catch (error) {
-    console.error('Erreur lors du calcul des coûts:', error)
-    return {
-      distance: 0,
-      tollCost: 0,
-      fuelCost: 0
-    }
-  }
 }
 
 // Ajouter une fonction auxiliaire pour convertir les valeurs d'ascenseur
@@ -216,7 +178,6 @@ export default function NewMovingQuote() {
   }, [formData, addressDetails])
 
   const updateQuote = async (newFormData: MovingFormData) => {
-    // Afficher l'état complet du devis pour inspection
     console.log('État du devis de déménagement:', {
       formData: newFormData,
       quoteDetails,
@@ -227,9 +188,38 @@ export default function NewMovingQuote() {
     
     setIsCalculating(true)
     try {
-      // Utiliser la fonction de calcul pour les devis de déménagement
-      const details = await calculateMovingQuote(newFormData)
-      setQuoteDetails(prev => ({ ...prev, ...details }))
+      // Appel direct à l'API pour calculer le devis
+      const response = await fetch('/api/bookings/calculate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'MOVING',
+          data: {
+            volume: parseFloat(newFormData.volume) || 0,
+            distance: quoteDetails.distance || 0,
+            workers: 2 // Valeur par défaut pour déménagement
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur lors du calcul du devis: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      // Mettre à jour l'état avec les résultats
+      setQuoteDetails(prev => ({
+        ...prev,
+        baseCost: result.quote.basePrice || 0,
+        totalCost: result.price || result.quote.totalPrice || 0,
+        distancePrice: prev.distancePrice || 0,
+        tollCost: prev.tollCost || 0,
+        fuelCost: prev.fuelCost || 0,
+        optionsCost: 0
+      }));
     } catch (error) {
       console.error('Erreur lors du calcul du devis:', error)
     } finally {
@@ -289,12 +279,29 @@ export default function NewMovingQuote() {
         pickup: undefined
       }));
       
-      // Si les deux adresses sont maintenant valides, mettre à jour le devis
-      if (addressDetails.delivery) {
-        updateQuote({
-          ...formData,
-          pickupAddress: place.formatted_address
-        })
+      // Si les deux adresses sont maintenant valides, calculer la distance avec la Server Action
+      if (addressDetails.delivery && addressDetails.delivery.formatted_address && place?.formatted_address) {
+        try {
+          // Utiliser la Server Action pour calculer la distance et les coûts de voyage
+          const tripCosts = await calculateTripCosts(
+            place.formatted_address,
+            addressDetails.delivery.formatted_address
+          )
+          
+          setQuoteDetails(prev => ({
+            ...prev,
+            distance: tripCosts.distance,
+            tollCost: tripCosts.tollCost,
+            fuelCost: tripCosts.fuelCost
+          }))
+          
+          updateQuote({
+            ...formData,
+            pickupAddress: place.formatted_address
+          })
+        } catch (error) {
+          console.error('Erreur lors du calcul des coûts de trajet:', error)
+        }
       }
     }
   }
@@ -330,12 +337,29 @@ export default function NewMovingQuote() {
         delivery: undefined
       }));
       
-      // Si les deux adresses sont maintenant valides, mettre à jour le devis
-      if (addressDetails.pickup) {
-        updateQuote({
-          ...formData,
-          deliveryAddress: place.formatted_address
-        })
+      // Si les deux adresses sont maintenant valides, calculer la distance avec la Server Action
+      if (addressDetails.pickup && addressDetails.pickup.formatted_address && place?.formatted_address) {
+        try {
+          // Utiliser la Server Action pour calculer la distance et les coûts de voyage
+          const tripCosts = await calculateTripCosts(
+            addressDetails.pickup.formatted_address,
+            place.formatted_address
+          )
+          
+          setQuoteDetails(prev => ({
+            ...prev,
+            distance: tripCosts.distance,
+            tollCost: tripCosts.tollCost,
+            fuelCost: tripCosts.fuelCost
+          }))
+          
+          updateQuote({
+            ...formData,
+            deliveryAddress: place.formatted_address
+          })
+        } catch (error) {
+          console.error('Erreur lors du calcul des coûts de trajet:', error)
+        }
       }
     }
   }
@@ -387,88 +411,27 @@ export default function NewMovingQuote() {
       const deliveryLat = addressDetails.delivery?.geometry?.location?.lat();
       const deliveryLng = addressDetails.delivery?.geometry?.location?.lng();
       
-      // Préparer l'objet de conversation pour l'API
-      const conversationData = messages.length > 0 ? {
-        messages: messages,
-        summary: extractConversationSummary(messages) // Fonction à implémenter pour extraire les points clés
-      } : undefined;
+      // Utiliser la Server Action pour sauvegarder le devis
+      const result = await saveMovingQuote(
+        formData,
+        quoteDetails,
+        pickupLat && pickupLng ? { lat: pickupLat, lng: pickupLng } : undefined,
+        deliveryLat && deliveryLng ? { lat: deliveryLat, lng: deliveryLng } : undefined,
+        messages
+      );
       
-      // Persister le devis dans la base de données avec les conversations
-      const response = await fetch('/api/moving', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pickupAddress: formData.pickupAddress,
-          deliveryAddress: formData.deliveryAddress,
-          volume: parseFloat(formData.volume) || 0,
-          options: formData.options,
-          preferredDate: formData.movingDate,
-          preferredTime: 'morning', // Valeur par défaut
-          distance: quoteDetails.distance,
-          items: [], // À remplir avec les items réels si disponibles
-          
-          // Inclure les détails du calcul
-          totalCost: quoteDetails.totalCost,
-          baseCost: quoteDetails.baseCost,
-          volumeCost: quoteDetails.volumeCost,
-          distancePrice: quoteDetails.distancePrice,
-          optionsCost: quoteDetails.optionsCost,
-          signature: quoteDetails.signature,
-          
-          // Ajouter les coordonnées géographiques
-          pickupCoordinates: pickupLat && pickupLng ? { lat: pickupLat, lng: pickupLng } : undefined,
-          deliveryCoordinates: deliveryLat && deliveryLng ? { lat: deliveryLat, lng: deliveryLng } : undefined,
-          
-          // Ajouter les données de conversation
-          conversation: conversationData
-        })
-      })
-
-      // Gérer les réponses non-OK (erreurs HTTP)
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Erreur HTTP lors de la création du devis:', response.status, errorData);
-        throw new Error(errorData.error || `Erreur ${response.status} lors de la création du devis`);
+      if (result.success && result.id) {
+        // Rediriger vers la page de récapitulatif
+        router.push(`/moving/summary?id=${result.id}`);
+      } else {
+        throw new Error('Erreur lors de la sauvegarde du devis');
       }
-      
-      // Analyser la réponse JSON
-      const result = await response.json();
-      
-      // Vérifier que la réponse contient des données valides
-      if (!result.success || !result.data || !result.data.id) {
-        console.error('Réponse invalide de l\'API:', result);
-        throw new Error('Réponse invalide de l\'API');
-      }
-      
-      // Sauvegarder l'ID du devis et les détails dans localStorage
-      const quoteData = { 
-        id: result.data.id, 
-        ...formData, 
-        ...quoteDetails,
-        persistedId: result.data.id,
-        conversation: conversationData // Inclure la conversation dans les données stockées
-      }
-      
-      console.log('Devis persisté avec succès, ID:', result.data.id);
-      localStorage.setItem('movingQuote', JSON.stringify(quoteData));
-      router.push(`/moving/summary?id=${result.data.id}`);
     } catch (error) {
       console.error('Erreur lors de la soumission du devis:', error);
-      
-      // Créer un ID temporaire basé sur la date actuelle
-      const tempId = Date.now().toString();
-      
-      // Fallback au comportement précédent en cas d'erreur
-      const quoteData = { 
-        id: tempId, 
-        ...formData, 
-        ...quoteDetails,
-        // Ne pas ajouter de persistedId car le devis n'est pas persisté
-      };
-      
-      console.log('Utilisation du mode fallback avec ID temporaire:', tempId);
-      localStorage.setItem('movingQuote', JSON.stringify(quoteData));
-      router.push(`/moving/summary?id=${tempId}`);
+      setFormErrors(prev => ({
+        ...prev,
+        general: "Une erreur est survenue lors de la sauvegarde de votre devis. Veuillez réessayer."
+      }));
     } finally {
       setIsCalculating(false);
     }
@@ -1021,6 +984,22 @@ export default function NewMovingQuote() {
                   </div>
                 </div>
               )}
+
+              {/* Consentement légal */}
+              <div className="mt-4">
+                <LegalConsent
+                  onAcceptChange={(accepted: boolean) => setFormData(prev => ({ 
+                    ...prev, 
+                    legalConsent: accepted 
+                  }))}
+                  initialValue={formData.legalConsent || false}
+                  required={true}
+                  color="blue"
+                  dataProtection={true}
+                  termsAndConditions={true}
+                  cookiesPolicy={true}
+                />
+              </div>
 
               <div className="flex justify-center">
                 <button

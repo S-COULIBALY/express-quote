@@ -1,65 +1,85 @@
 import { Entity } from '../../../shared/domain/Entity';
 import { Money } from '../valueObjects/Money';
-import { ServiceType } from '../enums/ServiceType';
 
 export class Service extends Entity {
-    private readonly bookingId?: string;
-    private readonly serviceType: ServiceType;
+    private readonly name: string;
     private readonly description: string;
-    private readonly duration: number; // en minutes
     private readonly price: Money;
-    private readonly date?: Date;
-    private readonly status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    private readonly duration: number; // en minutes
+    private readonly workers: number;
+    private readonly includes: string[];
+    private readonly bookingId?: string;
+    private readonly scheduledDate?: Date;
+    private readonly location?: string;
+    private readonly additionalInfo?: string;
     private readonly options: Record<string, any>;
 
     constructor(
         id: string,
-        serviceType: ServiceType,
+        name: string,
         description: string,
-        duration: number,
         price: Money,
-        date?: Date,
+        duration: number,
+        workers: number = 1,
+        includes: string[] = [],
         bookingId?: string,
-        status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' = 'SCHEDULED',
+        scheduledDate?: Date,
+        location?: string,
+        additionalInfo?: string,
         options: Record<string, any> = {}
     ) {
         super(id);
-        this.serviceType = serviceType;
+        this.name = name;
         this.description = description;
-        this.duration = duration;
         this.price = price;
-        this.date = date;
+        this.duration = duration;
+        this.workers = workers;
+        this.includes = includes;
         this.bookingId = bookingId;
-        this.status = status;
+        this.scheduledDate = scheduledDate;
+        this.location = location;
+        this.additionalInfo = additionalInfo;
         this.options = { ...options };
     }
 
-    public getServiceType(): ServiceType {
-        return this.serviceType;
+    public getName(): string {
+        return this.name;
     }
 
     public getDescription(): string {
         return this.description;
     }
 
-    public getDuration(): number {
-        return this.duration;
-    }
-
     public getPrice(): Money {
         return this.price;
     }
 
-    public getDate(): Date | undefined {
-        return this.date;
+    public getDuration(): number {
+        return this.duration;
+    }
+
+    public getWorkers(): number {
+        return this.workers;
+    }
+
+    public getIncludes(): string[] {
+        return [...this.includes];
     }
 
     public getBookingId(): string | undefined {
         return this.bookingId;
     }
 
-    public getStatus(): 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' {
-        return this.status;
+    public getScheduledDate(): Date | undefined {
+        return this.scheduledDate;
+    }
+
+    public getLocation(): string | undefined {
+        return this.location;
+    }
+
+    public getAdditionalInfo(): string | undefined {
+        return this.additionalInfo;
     }
 
     public getOptions(): Record<string, any> {

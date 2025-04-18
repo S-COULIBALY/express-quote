@@ -19,9 +19,19 @@ export interface IRule {
     id: number;
     name: string;
     description: string;
-    type: string;
+    serviceType: string;
     value: number;
     isActive: boolean;
+}
+
+/**
+ * Interface pour une règle business avec pourcentage ou montant
+ */
+export interface IBusinessRule {
+    name: string;
+    percentage?: number;
+    amount?: number;
+    condition?: string | ((context: any) => boolean);
 }
 
 /**
@@ -31,7 +41,7 @@ export interface IPersistedRule {
     id?: string;
     name: string;
     type: string;
-    value: string;
+    value: string | number;
     condition?: string;
     serviceType: ServiceType;
     priority: number;
@@ -42,6 +52,6 @@ export type IRuleAlias = IPersistedRule;
 
 // Interface pour la conversion entre les deux formats
 export interface IRuleMapper {
-    toPersistedRule(rule: IRule): IPersistedRule;
-    toBusinessRule(rule: IPersistedRule): IRule;
+    toPersistedRule(rule: IBusinessRule): IPersistedRule;
+    toBusinessRule(rule: IPersistedRule): IBusinessRule;
 } 

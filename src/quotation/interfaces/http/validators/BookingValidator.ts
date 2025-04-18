@@ -20,35 +20,32 @@ export function validate(data: any): ValidationError[] {
   // Vérifier les champs obligatoires communs
   if (!data.type) {
     errors.push({ field: 'type', message: 'Le type de réservation est requis' });
-  } else if (!Object.values(BookingType).includes(data.type)) {
-    errors.push({ field: 'type', message: `Type de réservation invalide: ${data.type}` });
+  } else {
+    // Vérifier si le type est valide en normalisant la casse
+    const normalizedType = data.type.toUpperCase();
+    if (!Object.values(BookingType).includes(normalizedType)) {
+      errors.push({ field: 'type', message: `Type de réservation invalide: ${data.type}` });
+    } else {
+      // Normaliser le type pour la suite du traitement
+      data.type = normalizedType;
+    }
   }
   
-  // Vérifier les informations client
-  if (!data.customer) {
-    errors.push({ field: 'customer', message: 'Les informations client sont requises' });
-  } else {
-    if (!data.customer.email) {
-      errors.push({ field: 'customer.email', message: 'L\'email du client est requis' });
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.customer.email)) {
+  // Vérifier les informations client (OPTIONNEL)
+  // Les informations client ne sont plus obligatoires
+  if (data.customer) {
+    // Mais si elles sont présentes, elles doivent être valides
+    if (data.customer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.customer.email)) {
       errors.push({ field: 'customer.email', message: 'Format d\'email invalide' });
-    }
-    
-    if (!data.customer.firstName) {
-      errors.push({ field: 'customer.firstName', message: 'Le prénom du client est requis' });
-    }
-    
-    if (!data.customer.lastName) {
-      errors.push({ field: 'customer.lastName', message: 'Le nom du client est requis' });
     }
   }
   
   // Validation spécifique selon le type de réservation
-  if (data.type === BookingType.MOVING_QUOTE) {
+  if (data.type === BookingType.MOVING_QUOTE || data.type === 'MOVING_QUOTE') {
     errors.push(...validateMoving(data));
-  } else if (data.type === BookingType.PACK) {
+  } else if (data.type === BookingType.PACK || data.type === 'PACK') {
     errors.push(...validatePack(data));
-  } else if (data.type === BookingType.SERVICE) {
+  } else if (data.type === BookingType.SERVICE || data.type === 'SERVICE' || data.type === 'service') {
     errors.push(...validateService(data));
   }
   
@@ -126,9 +123,37 @@ function validatePack(data: Partial<PackDTO>): ValidationError[] {
 /**
  * Valide une requête de service
  */
-function validateService(data: Partial<ServiceDTO>): ValidationError[] {
+function validateService(data: any): ValidationError[] {
   const errors: ValidationError[] = [];
   
+  // Si serviceId est présent, c'est une réservation pour un service existant via le site web
+  if (data.serviceId) {
+    // Dans ce cas, on ne vérifie que les champs obligatoires pour la réservation
+    
+    if (!data.scheduledDate) {
+      errors.push({ field: 'scheduledDate', message: 'La date planifiée est requise' });
+    }
+    
+    if (!data.location) {
+      errors.push({ field: 'location', message: 'L\'adresse du service est requise' });
+    }
+    
+    // Les champs durée et travailleurs sont optionnels mais doivent être valides
+    if (data.duration !== undefined && data.duration < 1) {
+      errors.push({ field: 'duration', message: 'La durée doit être d\'au moins 1 heure' });
+    }
+    
+    if (data.workers !== undefined && data.workers < 1) {
+      errors.push({ field: 'workers', message: 'Le nombre de professionnels doit être d\'au moins 1' });
+    }
+    
+    // Le prix calculé peut être absent, il sera recalculé côté serveur
+    // si besoin pour des raisons de sécurité
+    
+    return errors;
+  }
+  
+  // Validation pour la création d'un nouveau service
   if (!data.name) {
     errors.push({ field: 'name', message: 'Le nom du service est requis' });
   }

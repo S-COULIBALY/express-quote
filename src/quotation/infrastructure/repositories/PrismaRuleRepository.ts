@@ -1,194 +1,97 @@
 import { PrismaClient } from '@prisma/client';
-import { IRuleRepository } from '../../domain/interfaces/IRuleRepository';
-import { IRule } from '../../domain/interfaces/IRule';
-import { Database } from '../config/database';
+import { Rule } from '../../domain/valueObjects/Rule';
+import { ServiceType } from '../../domain/enums/ServiceType';
+import { logger } from '../../../lib/logger';
+import { prisma } from '../../../lib/prisma';
+import { createMovingRules } from '../../domain/rules/MovingRules';
+import { createPackRules } from '../../domain/rules/PackRules';
+import { createServiceRules } from '../../domain/rules/ServiceRules';
 
 /**
- * Repository pour l'accès aux règles via Prisma
+ * Repository pour accéder aux règles dans la base de données Prisma
  */
-export class PrismaRuleRepository implements IRuleRepository {
+export class PrismaRuleRepository {
   private prisma: PrismaClient;
 
-  constructor() {
-    this.prisma = Database.getClient();
+  constructor(prismaClient?: PrismaClient) {
+    this.prisma = prismaClient || prisma;
   }
 
   /**
-   * Récupère toutes les règles
+   * Mapper un enregistrement de la BD en objet du domaine
+   * Note: Dans la classe Rule, le constructeur attend le paramètre "serviceType" en 2e position,
+   * ce qui correspond au champ serviceType dans la base de données.
    */
-  async findAll(): Promise<IRule[]> {
+  private mapToDomain(record: any): Rule {
+    console.log(`Mapping rule from DB: ${record.name}, serviceType=${record.serviceType}`);
+    
+    return new Rule(
+      record.name,
+      record.serviceType,  // Le champ serviceType de la BD est passé au paramètre correspondant de la Rule
+      record.percentBased ? record.value / 100 : record.value,
+      record.condition,
+      record.isActive,
+      record.id
+    );
+  }
+
+  /**
+   * Récupère toutes les règles actives
+   */
+  async findAllActive(): Promise<Rule[]> {
     try {
       const rules = await this.prisma.rule.findMany({
-        orderBy: { createdAt: 'desc' },
+        where: {
+          isActive: true
+        }
       });
-
-      return rules.map(rule => ({
-        id: Number(rule.id),
-        name: rule.name,
-        description: rule.description || '',
-        type: rule.type,
-        value: rule.value,
-        isActive: rule.isActive,
-      }));
+      
+      return rules.map(rule => this.mapToDomain(rule));
     } catch (error) {
-      console.error('Error finding all rules:', error);
-      throw new Error(`Failed to find rules: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error('Error fetching active rules', error as Error);
+      return [];
     }
   }
 
   /**
-   * Récupère une règle par son ID
+   * Récupère une règle par ID
    */
-  async findById(id: number): Promise<IRule | null> {
+  async findById(id: string): Promise<Rule | null> {
     try {
       const rule = await this.prisma.rule.findUnique({
-        where: { id: id.toString() }
+        where: { id }
+      });
+      
+      return rule ? this.mapToDomain(rule) : null;
+    } catch (error) {
+      logger.error(`Error fetching rule with ID ${id}`, error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * Récupérer les règles pour un type de service donné
+   */
+  async findByServiceType(serviceType: ServiceType): Promise<Rule[]> {
+    console.log(`Finding rules for service type: ${serviceType}`);
+    try {
+      // Utiliser serviceType dans la requête et non type
+      const ruleRecords = await this.prisma.rule.findMany({
+        where: {
+          serviceType: serviceType,
+          isActive: true,
+        }
       });
 
-      if (!rule) {
-        return null;
+      console.log(`Found ${ruleRecords.length} rules for service type ${serviceType}`);
+      if (ruleRecords.length > 0) {
+        console.log(`First rule: ${ruleRecords[0].name}, serviceType=${ruleRecords[0].serviceType}`);
       }
 
-      return {
-        id: Number(rule.id),
-        name: rule.name,
-        description: rule.description || '',
-        type: rule.type,
-        value: rule.value,
-        isActive: rule.isActive,
-      };
+      return ruleRecords.map(record => this.mapToDomain(record));
     } catch (error) {
-      console.error('Error finding rule by id:', error);
-      throw new Error(`Failed to find rule: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Récupère les règles pour un type de service spécifique
-   */
-  async findByType(type: string): Promise<IRule[]> {
-    try {
-      const rules = await this.prisma.rule.findMany({
-        where: { type },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      return rules.map(rule => ({
-        id: Number(rule.id),
-        name: rule.name,
-        description: rule.description || '',
-        type: rule.type,
-        value: rule.value,
-        isActive: rule.isActive,
-      }));
-    } catch (error) {
-      console.error('Error finding rules by type:', error);
-      throw new Error(`Failed to find rules by type: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Sauvegarde une règle
-   */
-  async save(rule: IRule): Promise<void> {
-    try {
-      await this.prisma.rule.create({
-        data: {
-          name: rule.name,
-          description: rule.description,
-          type: rule.type,
-          value: rule.value,
-          isActive: rule.isActive,
-        }
-      });
-    } catch (error) {
-      console.error('Error saving rule:', error);
-      throw new Error(`Failed to save rule: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Sauvegarde un ensemble de règles pour un type de service
-   */
-  async saveRules(serviceType: string, rules: IRule[]): Promise<void> {
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        // Supprimer les règles existantes pour ce type de service
-        await tx.rule.deleteMany({
-          where: {
-            type: serviceType
-          }
-        });
-
-        // Créer les nouvelles règles
-        for (const rule of rules) {
-          await tx.rule.create({
-            data: {
-              name: rule.name,
-              description: rule.description,
-              type: rule.type,
-              value: rule.value,
-              isActive: rule.isActive,
-            }
-          });
-        }
-      });
-    } catch (error) {
-      console.error(`Error saving rules for ${serviceType}:`, error);
-      throw new Error(`Failed to save rules: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Supprime une règle
-   */
-  async delete(id: number): Promise<void> {
-    try {
-      await this.prisma.rule.delete({
-        where: { id: id.toString() }
-      });
-    } catch (error) {
-      console.error('Error deleting rule:', error);
-      throw new Error(`Failed to delete rule: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async findByActivityType(activityType: string): Promise<IRule[]> {
-    try {
-      const rules = await this.prisma.rule.findMany({
-        where: { type: activityType },
-        orderBy: { createdAt: 'desc' }
-      });
-
-      return rules.map(rule => ({
-        id: Number(rule.id),
-        name: rule.name,
-        description: rule.description || '',
-        type: rule.type,
-        value: rule.value,
-        isActive: rule.isActive,
-      }));
-    } catch (error) {
-      console.error('Error finding rules by activity type:', error);
-      throw new Error(`Failed to find rules by activity type: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async update(rule: IRule): Promise<void> {
-    try {
-      await this.prisma.rule.update({
-        where: { id: rule.id.toString() },
-        data: {
-          name: rule.name,
-          description: rule.description,
-          type: rule.type,
-          value: rule.value,
-          isActive: rule.isActive,
-        }
-      });
-    } catch (error) {
-      console.error('Error updating rule:', error);
-      throw new Error(`Failed to update rule: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`Error finding rules for service type ${serviceType}:`, error);
+      throw error;
     }
   }
 } 

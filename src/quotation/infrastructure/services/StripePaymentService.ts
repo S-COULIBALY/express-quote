@@ -11,9 +11,9 @@ export class StripePaymentService {
   /**
    * Constructeur avec injection des dépendances
    */
-  constructor(stripeSecretKey: string, frontendUrl: string) {
-    this.stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2025-02-24.acacia',
+  constructor(apiKey: string, frontendUrl: string) {
+    this.stripe = new Stripe(apiKey, {
+      apiVersion: '2025-03-31.basil',
     });
     this.frontendUrl = frontendUrl;
   }
@@ -115,6 +115,65 @@ export class StripePaymentService {
     } catch (error) {
       console.error('Erreur lors de la création de l\'événement webhook:', error);
       throw new Error(`Erreur webhook: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  /**
+   * Crée une intention de paiement pour Stripe Elements
+   */
+  async createPaymentIntent(
+    bookingId: string,
+    amount: Money,
+    description: string
+  ): Promise<{ id: string; clientSecret: string }> {
+    try {
+      const paymentIntent = await this.stripe.paymentIntents.create({
+        amount: Math.round(amount.getAmount() * 100), // Conversion en centimes
+        currency: amount.getCurrency().toLowerCase(),
+        description,
+        metadata: {
+          bookingId,
+        },
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+
+      return {
+        id: paymentIntent.id,
+        clientSecret: paymentIntent.client_secret as string,
+      };
+    } catch (error) {
+      console.error('Erreur lors de la création de l\'intention de paiement Stripe:', error);
+      throw new Error(
+        `Erreur lors de la création de l'intention de paiement Stripe: ${
+          error instanceof Error ? error.message : 'Erreur inconnue'
+        }`
+      );
+    }
+  }
+
+  /**
+   * Vérifie le statut d'une intention de paiement
+   */
+  async checkPaymentIntentStatus(paymentIntentId: string): Promise<{
+    status: 'succeeded' | 'processing' | 'requires_payment_method' | 'requires_confirmation' | 'canceled' | 'requires_action';
+    amount?: number;
+  }> {
+    try {
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+
+      return {
+        status: paymentIntent.status as any,
+        amount: paymentIntent.amount ? paymentIntent.amount / 100 : undefined,
+      };
+    } catch (error) {
+      console.error('Erreur lors de la vérification de l\'intention de paiement Stripe:', error);
+      throw new Error(
+        `Erreur lors de la vérification de l'intention de paiement Stripe: ${
+          error instanceof Error ? error.message : 'Erreur inconnue'
+        }`
+      );
     }
   }
 } 

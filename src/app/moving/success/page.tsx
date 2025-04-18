@@ -1,34 +1,141 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { BookingDetails } from '@/components/BookingDetails'
-import { BookingService, type BookingData } from '@/services/bookingService'
+import { getCurrentBooking } from '@/actions/bookingManager'
+
+interface MovingBookingData {
+  id: string;
+  type?: string;
+  status: string;
+  customer: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+  };
+  totalAmount?: number;
+  pickupAddress?: string;
+  deliveryAddress?: string;
+  moveDate?: string;
+  distance?: number;
+  volume?: number;
+  moving?: {
+    id: string;
+    pickupAddress: string;
+    deliveryAddress: string;
+    moveDate: string;
+    distance: number;
+    volume: number;
+    options?: any;
+  };
+  totalPrice?: number;
+}
 
 export default function MovingSuccessPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const bookingId = searchParams.get('id')
   
-  const [booking, setBooking] = useState<BookingData | null>(null)
+  const [booking, setBooking] = useState<MovingBookingData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!bookingId) {
-      setError('Aucun identifiant de réservation fourni')
-      setLoading(false)
-      return
-    }
-
     async function fetchBooking() {
       try {
-        const data = await BookingService.getBookingById(bookingId)
-        if (!data) {
+        // Utiliser getCurrentBooking au lieu de l'API
+        const currentBooking = await getCurrentBooking()
+        
+        console.log('Réservation déménagement récupérée:', {
+          hasBooking: !!currentBooking,
+          id: currentBooking?.id,
+          status: currentBooking?.status,
+          itemsCount: currentBooking?.items?.length || 0,
+          itemTypes: currentBooking?.items?.map(item => ({ 
+            type: item.type, 
+            typeLower: item.type?.toLowerCase?.() 
+          }))
+        });
+        
+        if (!currentBooking) {
           throw new Error('Réservation introuvable')
         }
-        setBooking(data)
+        
+        if (!currentBooking.items || currentBooking.items.length === 0) {
+          throw new Error('Type de réservation invalide - panier vide')
+        }
+        
+        // Accepter TOUS les types qui contiennent 'moving' ou 'demenagement' quelque part
+        const movingItem = currentBooking.items.find(item => {
+          console.log('Vérification type item déménagement:', item.type, typeof item.type);
+          if (typeof item.type !== 'string') return false;
+          
+          const type = item.type.toLowerCase();
+          return type.includes('moving') || type.includes('demenagement') || type.includes('déménagement');
+        });
+        
+        console.log('Item déménagement trouvé:', movingItem ? 'oui' : 'non', movingItem);
+        
+        if (!movingItem) {
+          // Prendre le premier élément si aucun déménagement n'est trouvé
+          console.log('Aucun déménagement trouvé, utilisation du premier élément');
+          if (currentBooking.items.length > 0) {
+            const firstItem = currentBooking.items[0];
+            const movingData = firstItem.data as any; // Utiliser 'any' pour éviter les erreurs de type
+            
+            // Formater les données pour l'affichage même si ce n'est pas un déménagement
+            const formattedBooking: MovingBookingData = {
+              id: currentBooking.id,
+              status: currentBooking.status,
+              moving: {
+                id: movingData.id || '',
+                pickupAddress: movingData.pickupAddress || '',
+                deliveryAddress: movingData.deliveryAddress || '',
+                moveDate: movingData.moveDate || movingData.scheduledDate || new Date().toISOString(),
+                distance: movingData.distance || 0,
+                volume: movingData.volume || 0,
+                options: movingData.options || {}
+              },
+              customer: {
+                firstName: currentBooking.customerData?.firstName || '',
+                lastName: currentBooking.customerData?.lastName || '',
+                email: currentBooking.customerData?.email || '',
+                phone: currentBooking.customerData?.phone || ''
+              },
+              totalPrice: currentBooking.totalTTC || 0,
+              totalAmount: currentBooking.totalTTC || 0
+            }
+            
+            setBooking(formattedBooking);
+            return;
+          } else {
+            throw new Error('Type de réservation invalide - aucun élément disponible')
+          }
+        }
+
+        // Formater les données pour l'affichage
+        const movingData = movingItem.data as any; // Utiliser 'any' pour éviter les erreurs de type
+
+        const formattedBooking: MovingBookingData = {
+          id: currentBooking.id,
+          type: 'MOVING_QUOTE',
+          status: currentBooking.status,
+          customer: {
+            firstName: currentBooking.customerData?.firstName || '',
+            lastName: currentBooking.customerData?.lastName || '',
+            email: currentBooking.customerData?.email || '',
+            phone: currentBooking.customerData?.phone || ''
+          },
+          totalAmount: currentBooking.totalTTC || 0,
+          pickupAddress: movingData.pickupAddress || '',
+          deliveryAddress: movingData.deliveryAddress || '',
+          moveDate: movingData.moveDate || movingData.scheduledDate || new Date().toISOString(),
+          distance: movingData.distance || 0,
+          volume: movingData.volume || 0
+        }
+        
+        setBooking(formattedBooking)
       } catch (error) {
         console.error('Error fetching booking:', error)
         setError(error instanceof Error ? error.message : 'Erreur lors de la récupération de la réservation')
@@ -38,7 +145,7 @@ export default function MovingSuccessPage() {
     }
 
     fetchBooking()
-  }, [bookingId])
+  }, [])
 
   if (loading) {
     return (
@@ -88,9 +195,85 @@ export default function MovingSuccessPage() {
           </p>
         </div>
         
-        <BookingDetails booking={booking} />
+        <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
+          <div className="px-6 py-4 bg-gray-50 border-b">
+            <h2 className="text-xl font-semibold">Récapitulatif de votre déménagement</h2>
+          </div>
+          
+          <div className="p-6">
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Numéro de réservation</dt>
+                <dd className="mt-1 text-sm text-gray-900">{booking.id.slice(0, 8)}</dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Type</dt>
+                <dd className="mt-1 text-sm text-gray-900">Déménagement</dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Date de déménagement</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {booking.moveDate ? new Date(booking.moveDate).toLocaleDateString('fr-FR') :
+                   booking.moving?.moveDate ? new Date(booking.moving.moveDate).toLocaleDateString('fr-FR') : 
+                   'Non spécifiée'}
+                </dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Volume</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {booking.volume || booking.moving?.volume || 0} m³
+                </dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Adresse de départ</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {booking.pickupAddress || booking.moving?.pickupAddress || ''}
+                </dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Adresse d'arrivée</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {booking.deliveryAddress || booking.moving?.deliveryAddress || ''}
+                </dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Distance</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {booking.distance || booking.moving?.distance || 0} km
+                </dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Client</dt>
+                <dd className="mt-1 text-sm text-gray-900">{booking.customer.firstName} {booking.customer.lastName}</dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Statut</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Confirmé
+                  </span>
+                </dd>
+              </div>
+              
+              <div>
+                <dt className="text-sm font-medium text-gray-500">Montant total</dt>
+                <dd className="mt-1 text-sm text-gray-900">
+                  {(booking.totalAmount || booking.totalPrice || 0).toFixed(2)} €
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
         
-        <div className="bg-blue-50 rounded-lg p-6 mt-8">
+        <div className="bg-blue-50 rounded-lg p-6 mb-8">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">

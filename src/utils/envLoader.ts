@@ -3,7 +3,16 @@
  * Cela permet d'avoir des valeurs par défaut et de centraliser l'accès aux variables d'environnement
  */
 export function loadEnv() {
-  return {
+  // Déboguer le chargement des variables d'environnement
+  console.log('Chargement des variables d\'environnement:', {
+    hasStripePublicKey: Boolean(process.env.STRIPE_PUBLIC_KEY),
+    stripePublicKeyLength: process.env.STRIPE_PUBLIC_KEY?.length || 0,
+    hasStripeSecretKey: Boolean(process.env.STRIPE_SECRET_KEY),
+    stripeSecretKeyLength: process.env.STRIPE_SECRET_KEY?.length || 0,
+    nextPublicBaseUrl: process.env.NEXT_PUBLIC_BASE_URL
+  });
+
+  const env = {
     // Variables d'environnement Next.js
     NODE_ENV: process.env.NODE_ENV || 'development',
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
@@ -20,4 +29,15 @@ export function loadEnv() {
     EMAIL_SERVER_USER: process.env.EMAIL_SERVER_USER || '',
     EMAIL_SERVER_PASSWORD: process.env.EMAIL_SERVER_PASSWORD || '',
   };
+
+  // Vérifier si les clés Stripe sont présentes
+  if (!env.STRIPE_PUBLIC_KEY) {
+    console.warn('⚠️ STRIPE_PUBLIC_KEY manquante. Le paiement ne fonctionnera pas correctement.');
+  }
+  
+  if (!env.STRIPE_SECRET_KEY) {
+    console.warn('⚠️ STRIPE_SECRET_KEY manquante. Le paiement ne fonctionnera pas correctement.');
+  }
+
+  return env;
 } 
