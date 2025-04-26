@@ -8,6 +8,8 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { CalendarIcon, MapPinIcon, ClockIcon, InformationCircleIcon, UsersIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import Image from 'next/image'
+import { FallbackCalculatorService } from '@/quotation/application/services/FallbackCalculatorService'
+import { ServiceType } from '@/quotation/domain/enums/ServiceType'
 
 export default function ServiceFormPage({ params }: { params: { id: string } }) {
   const [service, setService] = useState<Service | null>(null)
@@ -22,6 +24,7 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
   const [locationDetails, setLocationDetails] = useState<google.maps.places.PlaceResult | null>(null)
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null)
   const [isPriceLoading, setIsPriceLoading] = useState(false)
+  const [priceDetails, setPriceDetails] = useState<any>(null)
   const router = useRouter()
 
   // Charger le service
@@ -98,15 +101,36 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
         
         // Préparer les données pour l'API
         const apiData = {
-          basePrice: service.price,
-          duration: formData.duration,
-          workers: formData.workers,
-          defaultDuration: service.duration,
-          defaultWorkers: service.workers
+            type: 'SERVICE',
+          data: {
+            defaultPrice: service.price,
+            duration: formData.duration,
+            workers: formData.workers,
+            defaultDuration: service.duration,
+            defaultWorkers: service.workers,
+            // Inclure uniquement les données du formulaire
+            scheduledDate: formData.scheduledDate ? new Date(formData.scheduledDate) : undefined,
+            location: formData.location,
+            additionalInfo: formData.additionalInfo
+          }
         };
-        
+          
         // Journaliser les données avant de les envoyer
-        console.log('📊 Données pour calcul:', apiData);
+        console.log('📊 Données pour calcul:', {
+          type: apiData.type,
+          service: {
+            defaultPrice: apiData.data.defaultPrice,
+            duration: apiData.data.duration,
+            workers: apiData.data.workers,
+            defaultDuration: apiData.data.defaultDuration,
+            defaultWorkers: apiData.data.defaultWorkers
+          },
+          formulaire: {
+            scheduledDate: apiData.data.scheduledDate ? apiData.data.scheduledDate.toISOString() : 'non définie',
+            location: apiData.data.location || 'non définie',
+            additionalInfo: apiData.data.additionalInfo || 'aucune'
+          }
+        });
         
         console.log('🔄 Envoi de la requête à /api/bookings/calculate...');
         
@@ -133,30 +157,92 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
           
           // Récupérer les données de la réponse
           const data = await response.json();
-          console.log('✅ Résultat du calcul API:', data);
+          console.log('✅ Résultat du calcul API:', JSON.stringify(data, null, 2));
           
-          // Utiliser le prix calculé par l'API ou le prix du service comme fallback
+          // Vérifier les données de suppléments reçues
+          console.log('🧐 Détails API - extraHoursCost:', data.details?.extraHoursCost);
+          console.log('🧐 Détails API - extraWorkerCost:', data.details?.extraWorkerCost);
+          console.log('🧐 Détails API - discount:', data.details?.discount);
+          
+          // Calculer les suppléments si absents de la réponse API
+          let extraHoursCost = data.details?.extraHoursCost || 0;
+          let extraWorkerCost = data.details?.extraWorkerCost || 0;
+          let discount = data.details?.discount || 0;
+          
+          if (formData.duration > service.duration && !extraHoursCost) {
+            extraHoursCost = Math.round((formData.duration - service.duration) * 35 * service.workers);
+            console.log('🔄 Calcul manuel extraHoursCost:', extraHoursCost);
+          }
+          
+          if (formData.workers > service.workers && !extraWorkerCost) {
+            extraWorkerCost = Math.round((formData.workers - service.workers) * 35 * formData.duration);
+            console.log('🔄 Calcul manuel extraWorkerCost:', extraWorkerCost);
+          }
+          
+          // Stocker à la fois le prix et les détails de calcul
           setCalculatedPrice(data.price || service.price);
+          
+          const priceDetailsData = {
+            basePrice: data.quote?.basePrice || service.price,
+            extraHoursCost: extraHoursCost,
+            extraWorkerCost: extraWorkerCost,
+            totalPrice: data.price || service.price,
+            discount: discount,
+            vatAmount: data.vat || Math.round((data.price || service.price) * 0.2),
+            totalWithVat: data.totalWithVat || Math.round((data.price || service.price) * 1.2)
+          };
+          
+          console.log('💰 PriceDetails calculés:', priceDetailsData);
+          setPriceDetails(priceDetailsData);
         } catch (error) {
           console.error('❌ Erreur lors du calcul du prix:', error);
           
-          // En cas d'erreur API, calculer manuellement comme solution de repli
+          // Utiliser le FallbackCalculatorService en cas d'erreur API
           try {
-            const prixHeureSupp = service.price / service.duration;
-            const heuresSupp = Math.max(0, formData.duration - service.duration);
-            const prixHeuresSupp = heuresSupp * prixHeureSupp;
+            console.log('🔄 SERVICE - Utilisation du service de fallback comme solution de repli');
             
-            const travailleursSupp = Math.max(0, formData.workers - service.workers);
-            const prixTravailleursSupp = travailleursSupp * 50 * formData.duration;
+            // Initialiser le service
+            const fallbackService = FallbackCalculatorService.getInstance();
             
-            const totalManuel = service.price + prixHeuresSupp + prixTravailleursSupp;
+            // Calcul du prix via le service centralisé
+            const fallbackResult = fallbackService.calculateServiceFallback({
+              defaultPrice: service.price,
+              duration: formData.duration,
+              workers: formData.workers,
+              defaultDuration: service.duration,
+              defaultWorkers: service.workers
+            });
             
-            console.log('🔄 Utilisation du calcul manuel comme solution de repliiiiii:', totalManuel);
-            setCalculatedPrice(totalManuel);
+            console.log('🔄 SERVICE - Résultat du calcul via service de fallback:', fallbackResult.details);
+            
+            // Créer des détails manuels pour le fallback
+            const priceDetailsData = {
+              basePrice: fallbackResult.details.defaultPrice,
+              extraHoursCost: fallbackResult.details.extraHoursCost,
+              extraWorkerCost: fallbackResult.details.extraWorkerCost,
+              totalPrice: fallbackResult.details.finalPrice,
+              discount: 0,
+              vatAmount: fallbackResult.details.vatAmount,
+              totalWithVat: fallbackResult.details.totalWithVat
+            };
+            
+            // Stocker le prix et les détails calculés
+            setCalculatedPrice(fallbackResult.details.finalPrice);
+            console.log('💰 PriceDetails calculés (fallback centralisé):', priceDetailsData);
+            setPriceDetails(priceDetailsData);
           } catch (e) {
-            console.error('❌ Erreur également dans le calcul manuel, utilisation du prix de base:', e);
+            console.error('❌ Erreur également dans le service de fallback:', e);
             setCalculatedPrice(service.price);
-          }
+            setPriceDetails({
+              basePrice: service.price,
+              extraHoursCost: 0,
+              extraWorkerCost: 0,
+              totalPrice: service.price,
+              discount: 0,
+              vatAmount: Math.round(service.price * 0.2),
+              totalWithVat: Math.round(service.price * 1.2)
+            });
+        }
         } finally {
           setIsPriceLoading(false)
         }
@@ -172,7 +258,7 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
     const timeoutId = setTimeout(() => {
       if (isMounted) {
         console.log('⏳ Appel de updatePrice après délai');
-        updatePrice();
+    updatePrice();
       }
     }, 300);
     
@@ -187,10 +273,7 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
   const callPriceAPI = async (data: any) => {
     console.log('🌐 DÉBUT APPEL FETCH API');
     
-    const requestBody = JSON.stringify({
-      type: 'SERVICE',
-      data: data
-    });
+    const requestBody = JSON.stringify(data);
     
     console.log('🌐 CORPS DE LA REQUÊTE:', requestBody);
     
@@ -223,27 +306,23 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     
-    // Validation des champs requis
     if (!formData.scheduledDate || !formData.location) {
-      alert('Veuillez remplir tous les champs obligatoires.')
-      return
+      alert('Please fill in all required fields');
+      return;
     }
     
     if (!service) {
-      alert('Service non disponible.')
-      return
+      alert('Service non disponible.');
+      return;
     }
     
+    setIsLoading(true);
+    
     try {
-      // Ajouter un état de chargement pour éviter les soumissions multiples
-      setIsLoading(true)
-      
-      // Créer l'objet de réservation avec les données du formulaire
       const bookingData = {
-        type: 'service',
         serviceId: service.id,
         scheduledDate: formData.scheduledDate,
         location: formData.location,
@@ -251,42 +330,66 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
         workers: formData.workers,
         additionalInfo: formData.additionalInfo,
         calculatedPrice: calculatedPrice
-      }
+      };
       
-      // Ajout de logs pour déboguer
-      console.log('📤 FRONT - Données envoyées pour la réservation:', JSON.stringify(bookingData, null, 2));
+      console.log('📤 FRONT - Données envoyées pour la réservation:', bookingData);
       
-      // Utiliser l'API pour ajouter le service à la réservation
-      const response = await fetch('/api/bookings', {
+      const response = await fetch('/api/quotes/request', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(bookingData)
-      })
+        body: JSON.stringify({
+          type: 'SERVICE',
+          service: bookingData
+        }),
+      });
       
-      // Ajout de log pour la réponse
       console.log('📥 FRONT - Statut de la réponse:', response.status);
       
-      if (!response.ok) {
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('📥 FRONT - Réponse complète:', responseData);
+        
+        // Vérifier explicitement que l'ID existe
+        if (responseData && responseData.id) {
+          // Sauvegarder l'ID dans sessionStorage plutôt que localStorage
+          // pour éviter les problèmes de persistence entre onglets/navigateurs
+          if (typeof window !== 'undefined') {
+            console.log('💾 Sauvegarde de l\'ID dans sessionStorage:', responseData.id);
+            window.sessionStorage.setItem('pendingQuoteRequestId', responseData.id);
+            
+            // Délai court avant redirection pour laisser le temps à sessionStorage de se mettre à jour
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Créer URL avec paramètre de requête explicite
+            const summaryUrl = `/services/summary?quoteRequestId=${encodeURIComponent(responseData.id)}`;
+            console.log('🔄 Redirection vers:', summaryUrl);
+            
+            // Utiliser window.location.href pour une navigation complète plutôt que router.push
+            // qui peut être interrompu par le hot-reload
+            window.location.href = summaryUrl;
+          } else {
+            // Fallback si window n'est pas disponible (côté serveur)
+            console.log('⚠️ window non disponible, utilisation de router.push');
+            router.push(`/services/summary?quoteRequestId=${responseData.id}`);
+          }
+        } else {
+          console.error('❌ Erreur: ID manquant dans la réponse API', responseData);
+          alert('Une erreur est survenue: ID de devis manquant dans la réponse');
+        }
+      } else {
         const errorData = await response.json();
-        console.error('📥 FRONT - Erreur de réponse:', errorData);
-        throw new Error(`Erreur HTTP: ${response.status} - ${JSON.stringify(errorData)}`);
+        console.error('Error creating quote request:', errorData);
+        alert('Failed to create quote request. Please try again.');
       }
-      
-      const result = await response.json()
-      
-      console.log('📥 FRONT - Réponse complète:', result);
-      console.log('Détails de l\'adresse:', locationDetails)
-      
-      // Rediriger vers la page de récapitulatif
-      router.push('/services/summary')
     } catch (error) {
-      console.error('❌ FRONT - Erreur complète lors de la sauvegarde:', error);
-      alert('Une erreur est survenue lors de la sauvegarde de votre réservation. Veuillez réessayer.')
-      setIsLoading(false)
+      console.error('Error submitting form:', error);
+      alert('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleInputChange = (field: keyof typeof formData, value: any) => {
     setFormData(prev => ({
@@ -497,50 +600,106 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
               
               {/* Résumé du prix */}
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Récapitulatif de la commande</h3>
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Service {service.name}</span>
-                    <span className="font-medium text-gray-700">{service.price}€</span>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Récapitulatif de la commande</h3>
+                <div className="space-y-2">
+                  {/* Prix de base */}
+                  <div className="flex justify-between text-sm font-medium pb-2 border-b border-gray-200">
+                    <span className="text-gray-700">Service {service.name}</span>
+                    <span className="text-gray-700">{service.price}€</span>
                   </div>
-                  {formData.duration > service.duration && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        Heures supplémentaires ({formData.duration - service.duration} heure{formData.duration - service.duration > 1 ? 's' : ''})
+                  
+                  {isPriceLoading ? (
+                    <div className="py-3">
+                      <div className="flex justify-center">
+                        <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Section Suppléments */}
+                      {formData.duration > service.duration || formData.workers > service.workers || priceDetails?.extraHoursCost > 0 || priceDetails?.extraWorkerCost > 0 ? (
+                        <div className="py-1">
+                          <div className="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-1.5">Suppléments</div>
+                          
+                          {/* Heures supplémentaires */}
+                          {(formData.duration > service.duration || priceDetails?.extraHoursCost > 0) && (
+                            <div className="flex justify-between text-sm py-0.5">
+                              <span className="text-gray-600 flex items-center">
+                                <ClockIcon className="h-3.5 w-3.5 text-orange-500 mr-1.5" />
+                                <span>
+                                  {formData.duration - service.duration} heure{formData.duration - service.duration > 1 ? 's' : ''} supp.
+                                  <span className="text-xs text-gray-500 ml-1">
+                                    ({service.workers} travailleur{service.workers > 1 ? 's' : ''})
+                                  </span>
+                                </span>
                       </span>
-                      <span className="font-medium text-red-600">
-                        +{Math.round((service.price / service.duration) * (formData.duration - service.duration))}€
+                              <span className="font-medium text-orange-600">
+                                +{priceDetails?.extraHoursCost || Math.round((formData.duration - service.duration) * 35 * service.workers)}€
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Travailleurs supplémentaires */}
+                          {(formData.workers > service.workers || priceDetails?.extraWorkerCost > 0) && (
+                            <div className="flex justify-between text-sm py-0.5">
+                              <span className="text-gray-600 flex items-center">
+                                <UsersIcon className="h-3.5 w-3.5 text-orange-500 mr-1.5" />
+                                <span>
+                                  {formData.workers - service.workers} travailleur{formData.workers - service.workers > 1 ? 's' : ''} supp.
+                                  <span className="text-xs text-gray-500 ml-1">
+                                    ({formData.duration}h)
+                                  </span>
+                                </span>
+                              </span>
+                              <span className="font-medium text-orange-600">
+                                +{priceDetails?.extraWorkerCost || Math.round((formData.workers - service.workers) * 35 * formData.duration)}€
                       </span>
                     </div>
                   )}
-                  {formData.workers > service.workers && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        Professionnels supplémentaires ({formData.workers - service.workers})
+                        </div>
+                      ) : null}
+                      
+                      {/* Section Réductions */}
+                      {(priceDetails?.discount && priceDetails?.discount > 0) ? (
+                        <div className="py-1">
+                          <div className="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-1.5">Réductions</div>
+                          <div className="flex justify-between text-sm py-0.5">
+                            <span className="text-gray-600 flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-green-500 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clipRule="evenodd" />
+                              </svg>
+                              <span>Réduction appliquée</span>
                       </span>
-                      <span className="font-medium text-red-600">
-                        +{Math.round((formData.workers - service.workers) * 50 * formData.duration)}€
+                            <span className="font-medium text-green-600">
+                              -{priceDetails.discount}€
                       </span>
-                    </div>
+                            </div>
+                        </div>
+                      ) : null}
+                    </>
                   )}
-                  <div className="border-t border-gray-200 pt-2 mt-2">
+                  
+                  {/* Sous-total, TVA et Total */}
+                  <div className="border-t border-gray-200 pt-2 mt-2 space-y-1.5">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Sous-total HT</span>
                       {isPriceLoading ? (
                         <span className="font-medium text-gray-700">Calcul...</span>
                       ) : (
-                        <span className="font-medium text-gray-700">{calculatedPrice || 0}€</span>
+                      <span className="font-medium text-gray-700">{calculatedPrice || 0}€</span>
                       )}
                     </div>
-                    <div className="flex justify-between text-sm mt-1">
+                    <div className="flex justify-between text-sm">
                       <span className="text-gray-600">TVA (20%)</span>
                       {isPriceLoading ? (
                         <span className="font-medium text-gray-700">Calcul...</span>
                       ) : (
-                        <span className="font-medium text-gray-700">{((calculatedPrice || 0) * 0.2).toFixed(2)}€</span>
+                        <span className="font-medium text-gray-700">
+                          {priceDetails?.vatAmount || Math.round((calculatedPrice || 0) * 0.2)}€
+                        </span>
                       )}
                     </div>
-                    <div className="flex justify-between mt-2">
+                    <div className="flex justify-between mt-2 pt-2 border-t border-gray-200">
                       <span className="text-gray-700 font-semibold">Total TTC</span>
                       {isPriceLoading ? (
                         <div className="flex items-center">
@@ -548,7 +707,9 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
                           <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                         </div>
                       ) : (
-                        <span className="font-bold text-emerald-600">{((calculatedPrice || 0) * 1.2).toFixed(2)}€</span>
+                        <span className="font-bold text-emerald-600">
+                          {priceDetails?.totalWithVat || Math.round((calculatedPrice || 0) * 1.2)}€
+                        </span>
                       )}
                     </div>
                   </div>

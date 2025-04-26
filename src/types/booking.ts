@@ -93,3 +93,49 @@ export interface BookingItemData {
   type: 'pack' | 'service'
   data: Pack | Service
 } 
+
+export interface BookingData {
+  id: string;
+  type: string;
+  status: string;
+  customer: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+  };
+  totalAmount: number;
+  totalHT?: number;
+  totalTTC?: number;
+  baseCost?: number;
+  volumeCost?: number;
+  distancePrice?: number;
+  optionsCost?: number;
+  tollCost?: number;
+  fuelCost?: number;
+  createdAt: string | Date;
+  moveDate?: string | Date;
+  scheduledDate?: string | Date;
+  scheduledTime?: string;
+  pickupAddress?: string;
+  deliveryAddress?: string;
+  pickupFloor?: number;
+  pickupElevator?: boolean;
+  deliveryFloor?: number;
+  deliveryElevator?: boolean;
+  volume?: number;
+  distance?: number;
+  propertyType?: string;
+  packName?: string;
+  serviceName?: string;
+  description?: string;
+  location?: string;
+  packagingOption?: boolean;
+  furnitureOption?: boolean;
+  fragileOption?: boolean;
+  storageOption?: boolean;
+  disassemblyOption?: boolean;
+  unpackingOption?: boolean;
+  suppliesOption?: boolean;
+  fragileItemsOption?: boolean;
+} 

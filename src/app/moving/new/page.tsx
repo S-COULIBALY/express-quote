@@ -12,6 +12,15 @@ import type { MovingFormData } from '@/types/quote'
 import type { PlaceResult } from '@/types/google-maps'
 import { Button } from '@/components/Button'
 import { LegalConsent } from '@/components/LegalConsent'
+import { useHasMounted } from '@/hooks/useHasMounted'
+import GoogleMapsScript from '@/components/GoogleMapsScript'
+import AddressPicker from '@/components/AddressPicker'
+import { CalculateClientAction } from '@/app/actions/trip'
+import ChatButton from '@/components/ChatButton'
+import useTripStore from '@/store/trip'
+import { FallbackCalculatorService } from '@/quotation/application/services/FallbackCalculatorService'
+import { ServiceType } from '@/quotation/domain/enums/ServiceType'
+import { Icon } from '@iconify/react'
 
 interface IconProps {
   className?: string
@@ -188,6 +197,12 @@ export default function NewMovingQuote() {
     
     setIsCalculating(true)
     try {
+      console.log('📊 MOVING - Calcul du devis avec les paramètres:', {
+        volume: parseFloat(newFormData.volume) || 0,
+        distance: quoteDetails.distance || 0,
+        workers: 2
+      });
+      
       // Appel direct à l'API pour calculer le devis
       const response = await fetch('/api/bookings/calculate', {
         method: 'POST',
@@ -199,16 +214,25 @@ export default function NewMovingQuote() {
           data: {
             volume: parseFloat(newFormData.volume) || 0,
             distance: quoteDetails.distance || 0,
-            workers: 2 // Valeur par défaut pour déménagement
+            workers: 2, // Valeur par défaut pour déménagement
+            defaultPrice: 400, // Prix par défaut pour le calcul de secours
+            pickupFloor: parseInt(newFormData.pickupFloor) || 0,
+            deliveryFloor: parseInt(newFormData.deliveryFloor) || 0,
+            pickupElevator: elevatorValueToBoolean(newFormData.pickupElevator),
+            deliveryElevator: elevatorValueToBoolean(newFormData.deliveryElevator),
+            options: newFormData.options
           }
         })
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Erreur HTTP lors du calcul du devis:', errorText);
         throw new Error(`Erreur lors du calcul du devis: ${response.status}`);
       }
       
       const result = await response.json();
+      console.log('✅ Résultat du calcul API:', result);
       
       // Mettre à jour l'état avec les résultats
       setQuoteDetails(prev => ({
@@ -221,7 +245,51 @@ export default function NewMovingQuote() {
         optionsCost: 0
       }));
     } catch (error) {
-      console.error('Erreur lors du calcul du devis:', error)
+      console.error('❌ Erreur lors du calcul du devis:', error);
+      
+      // Calcul de secours en cas d'erreur API en utilisant le FallbackCalculatorService
+      try {
+        console.log('🔄 MOVING - Utilisation du service de fallback comme solution de repli');
+        
+        // Initialiser le service
+        const fallbackService = FallbackCalculatorService.getInstance();
+        
+        // Calcul du prix via le service centralisé
+        const fallbackResult = fallbackService.calculateMovingFallback({
+          volume: parseFloat(newFormData.volume) || 0,
+          distance: quoteDetails.distance || 0,
+          workers: 2,
+          defaultPrice: 400, // Prix par défaut pour les déménagements
+          options: newFormData.options,
+          pickupNeedsLift: elevatorValueToBoolean(newFormData.pickupElevator) === false && parseInt(newFormData.pickupFloor) > 0,
+          deliveryNeedsLift: elevatorValueToBoolean(newFormData.deliveryElevator) === false && parseInt(newFormData.deliveryFloor) > 0
+        });
+        
+        console.log('🔄 MOVING - Résultat du calcul via service de fallback:', fallbackResult.details);
+        
+        // Créer une réponse formatée pour l'UI
+        const uiResponse = fallbackService.createUiResponse(ServiceType.MOVING, fallbackResult.details);
+        
+        // Mettre à jour l'état avec les résultats du calcul via le service
+        setQuoteDetails(prev => ({
+          ...prev,
+          ...uiResponse
+        }));
+      } catch (e) {
+        console.error('❌ Erreur également dans le service de fallback:', e);
+        // En cas d'échec du service de fallback, définir un prix par défaut
+        const defaultPrice = 400;
+        setQuoteDetails(prev => ({
+          ...prev,
+          baseCost: defaultPrice,
+          totalCost: defaultPrice,
+          distancePrice: 0,
+          volumeCost: defaultPrice,
+          tollCost: 0,
+          fuelCost: 0,
+          optionsCost: 0
+        }));
+      }
     } finally {
       setIsCalculating(false)
     }

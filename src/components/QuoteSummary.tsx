@@ -179,29 +179,50 @@ export function QuoteSummary(props: Props) {
                     <span className="text-emerald-800">Coût de base</span>
                     <span className="font-medium text-emerald-900">{formatPrice(props.quoteDetails.baseCost)}</span>
                   </div>
-                  {props.quoteDetails.fuelCost !== undefined && (
+                  {props.quoteDetails.fuelCost !== undefined && props.quoteDetails.fuelCost > 0 && (
                     <div className="flex justify-between items-center">
-                      <span className="text-emerald-800">Frais de carburant</span>
-                      <span className="font-medium text-emerald-900">{formatPrice(props.quoteDetails.fuelCost)}</span>
+                      <span className="text-emerald-800 flex items-center">
+                        <svg className="w-3 h-3 text-orange-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Frais de carburant
+                      </span>
+                      <span className="font-medium text-orange-600">+{formatPrice(props.quoteDetails.fuelCost)}</span>
                     </div>
                   )}
-                  {props.quoteDetails.tollCost !== undefined && (
+                  {props.quoteDetails.tollCost !== undefined && props.quoteDetails.tollCost > 0 && (
                     <div className="flex justify-between items-center">
-                      <span className="text-emerald-800">Frais de péage</span>
-                      <span className="font-medium text-emerald-900">{formatPrice(props.quoteDetails.tollCost)}</span>
+                      <span className="text-emerald-800 flex items-center">
+                        <svg className="w-3 h-3 text-orange-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                        </svg>
+                        Frais de péage
+                      </span>
+                      <span className="font-medium text-orange-600">+{formatPrice(props.quoteDetails.tollCost)}</span>
                     </div>
                   )}
                   {props.quoteDetails.optionsCost > 0 && (
                     <div className="flex justify-between items-center">
-                      <span className="text-emerald-800">Services additionnels</span>
-                      <span className="font-medium text-emerald-900">{formatPrice(props.quoteDetails.optionsCost)}</span>
+                      <span className="text-emerald-800 flex items-center">
+                        <SparklesIcon className="w-3 h-3 text-orange-500 mr-1" />
+                        Services additionnels
+                      </span>
+                      <span className="font-medium text-orange-600">+{formatPrice(props.quoteDetails.optionsCost)}</span>
                     </div>
                   )}
                 </div>
-                <div className="p-2 bg-emerald-600 rounded-b-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-white">Total TTC</span>
-                    <span className="font-bold text-white text-lg">{formatPrice(props.quoteDetails.totalCost)}</span>
+                <div className="bg-emerald-100 p-2 rounded-b-lg">
+                  <div className="flex justify-between items-center font-medium">
+                    <span className="text-emerald-800">Total HT</span>
+                    <span className="text-emerald-900">{formatPrice(props.quoteDetails.totalCost)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs mt-1">
+                    <span className="text-emerald-800">TVA (20%)</span>
+                    <span className="text-emerald-900">{formatPrice(props.quoteDetails.totalCost * 0.2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-1 pt-1 border-t border-emerald-200">
+                    <span className="text-emerald-800 font-bold">Total TTC</span>
+                    <span className="text-emerald-900 font-bold">{formatPrice(props.quoteDetails.totalCost * 1.2)}</span>
                   </div>
                 </div>
               </>

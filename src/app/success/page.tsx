@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BookingDetails } from '@/components/BookingDetails'
-import { BookingService, type BookingData } from '@/services/bookingService'
+import { BookingData } from '@/types/booking'
+import { getCurrentBooking } from '@/actions/bookingManager'
 import { 
   CheckCircleIcon, 
   CalendarDaysIcon, 
@@ -36,13 +37,35 @@ export default function SuccessPage() {
 
     async function fetchBooking() {
       try {
-        // Use a defined non-null bookingId
-        const safeBookingId = bookingId as string;
-        const data = await BookingService.getBookingById(safeBookingId)
-        if (!data) {
+        // Use getCurrentBooking instead of BookingService
+        const currentBooking = await getCurrentBooking()
+        
+        if (!currentBooking || currentBooking.id !== bookingId) {
           throw new Error('Réservation introuvable')
         }
-        setBooking(data as ExtendedBookingData)
+        
+        // Extraire les informations du client depuis customerData
+        const customerData = currentBooking.customerData || {}
+        
+        // Adapter les données au format BookingData
+        const bookingData: ExtendedBookingData = {
+          id: currentBooking.id,
+          type: currentBooking.items && currentBooking.items.length > 0 ? currentBooking.items[0].type : 'UNKNOWN',
+          status: currentBooking.status || 'draft',
+          customer: {
+            firstName: customerData.firstName || '',
+            lastName: customerData.lastName || '',
+            email: customerData.email || '',
+            phone: customerData.phone || ''
+          },
+          totalAmount: currentBooking.totalHT || 0,
+          totalHT: currentBooking.totalHT || 0,
+          totalTTC: currentBooking.totalTTC || 0,
+          createdAt: new Date(),
+          reference: currentBooking.id
+        }
+        
+        setBooking(bookingData)
       } catch (error) {
         console.error('Error fetching booking:', error)
         setError(error instanceof Error ? error.message : 'Erreur lors de la récupération de la réservation')

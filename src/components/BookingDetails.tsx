@@ -1,4 +1,4 @@
-import { BookingData } from '@/services/bookingService'
+import { BookingData } from '@/types/booking'
 import { formatDate, formatPrice } from '@/utils/formatters'
 
 interface BookingDetailsProps {

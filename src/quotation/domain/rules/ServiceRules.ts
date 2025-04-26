@@ -1,6 +1,7 @@
 import { Rule } from '../valueObjects/Rule';
 import { ServiceType } from '../enums/ServiceType';
 import { QuoteContext } from '../valueObjects/QuoteContext';
+import { Money } from '../valueObjects/Money';
 
 /**
  * Crée les règles métier pour les devis de services
@@ -97,11 +98,22 @@ export function createServiceRules(): Rule[] {
     new Rule(
       'Tarif minimum',
       ServiceType.SERVICE.toString(),
-      100, // 100€ minimum
+      0, // Valeur à 0, sera calculée dynamiquement dans la fonction condition
       (context: QuoteContext) => {
-        return true; // La logique d'application est gérée dans RuleEngine
+        // Cette règle est toujours vérifiée mais son effet est géré dynamiquement
+        // Nous l'utilisons uniquement comme plancher, pas comme réduction
+        return true;
       },
-      true
+      true,
+      undefined, // Ajouter explicitement undefined pour le paramètre id
+      // Ajouter une fonction spéciale pour calculer le montant minimum
+      // Cette fonction sera appelée par le RuleEngine
+      (basePrice: Money, context: QuoteContext) => {
+        // Le tarif minimum est de 90% du prix de base
+        const minimumPrice = basePrice.getAmount() * 0.9;
+        // Retourne 0 pour indiquer qu'aucune réduction n'est appliquée par cette règle
+        return { isApplied: true, newPrice: basePrice, impact: 0, minimumPrice };
+      }
     ),
     
     // Supplément pour réservation urgente (moins de 3 jours)

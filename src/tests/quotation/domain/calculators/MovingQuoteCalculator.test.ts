@@ -23,7 +23,7 @@ class MockConfigurationService extends ConfigurationService {
 describe('QuoteCalculator', () => {
   // Test pour le calcul d'un devis de déménagement
   describe('Moving Quote Calculation', () => {
-    it('calculates base price correctly for moving service', () => {
+    it('calculates base price correctly for moving service', async () => {
       // Arrange
       const mockConfigService = new MockConfigurationService({
         [PricingConfigKey.MOVING_BASE_PRICE_PER_M3]: 10,
@@ -43,7 +43,7 @@ describe('QuoteCalculator', () => {
       context.setValue('workers', 2);     // 2 workers
       
       // Act
-      const quote = calculator.calculate(context);
+      const quote = await calculator.calculate(context);
       
       // Assert
       // Attendu : 20m³ * 10€/m³ + 100km * 2€/km + coûts carburant + péages
@@ -54,20 +54,20 @@ describe('QuoteCalculator', () => {
       expect(quote.getBasePrice().getAmount()).toBe(expectedBasePrice);
     });
     
-    it('throws error for invalid context', () => {
+    it('throws error for invalid context', async () => {
       // Arrange
       const mockConfigService = new MockConfigurationService();
       const calculator = new QuoteCalculator(mockConfigService);
       const context = new QuoteContext(ServiceType.MOVING);
       
       // Act & Assert
-      expect(() => calculator.calculate(context)).toThrow();
+      await expect(calculator.calculate(context)).rejects.toThrow();
     });
   });
   
   // Test pour le calcul d'un devis de pack
   describe('Pack Quote Calculation', () => {
-    it('calculates base price correctly for pack service', () => {
+    it('calculates base price correctly for pack service', async () => {
       // Arrange
       const mockConfigService = new MockConfigurationService({
         [PricingConfigKey.PACK_WORKER_PRICE]: 120,
@@ -82,7 +82,7 @@ describe('QuoteCalculator', () => {
       const context = new QuoteContext(ServiceType.PACK);
       
       // Set values for pack quote
-      context.setValue('basePrice', 500);    // Base price: 500€
+      context.setValue('defaultPrice', 500);    // Prix unitaire: 500€
       context.setValue('duration', 1);       // 1 day
       context.setValue('workers', 3);        // 3 workers
       context.setValue('baseWorkers', 2);    // Base workers: 2
@@ -90,10 +90,10 @@ describe('QuoteCalculator', () => {
       context.setValue('distance', 50);      // 50 km
       
       // Act
-      const quote = calculator.calculate(context);
+      const quote = await calculator.calculate(context);
       
       // Assert
-      // basePrice + extra worker cost + extra distance cost
+      // defaultPrice + extra worker cost + extra distance cost
       // 500 + (1 worker * 120€ * 0.95) + (30km * 1.5€)
       const expectedBasePrice = 500 + (1 * 120 * (1 - 0.05)) + (30 * 1.5);
       // 500 + 114 + 45 = 659€
@@ -103,35 +103,38 @@ describe('QuoteCalculator', () => {
   
   // Test pour le calcul d'un devis de service
   describe('Service Quote Calculation', () => {
-    it('calculates base price correctly for service', () => {
+    it('calculates base price correctly for service', async () => {
       // Arrange
       const mockConfigService = new MockConfigurationService({
         [PricingConfigKey.SERVICE_WORKER_PRICE_PER_HOUR]: 35,
         [PricingConfigKey.SERVICE_WORKER_DISCOUNT_RATE_SHORT]: 0.1,
-        [PricingConfigKey.SERVICE_WORKER_DISCOUNT_RATE_LONG]: 0.15
+        [PricingConfigKey.SERVICE_WORKER_DISCOUNT_RATE_LONG]: 0.15,
+        [PricingConfigKey.SERVICE_EXTRA_HOUR_RATE]: 0.9
       });
       
       const calculator = new QuoteCalculator(mockConfigService);
       const context = new QuoteContext(ServiceType.SERVICE);
       
       // Set values for service quote
-      context.setValue('basePrice', 200);       // Base price: 200€
+      context.setValue('defaultPrice', 200);       // Prix unitaire: 200€
       context.setValue('duration', 4);          // 4 hours
       context.setValue('workers', 2);           // 2 workers
       context.setValue('defaultDuration', 2);   // Default duration: 2h
       context.setValue('defaultWorkers', 1);    // Default workers: 1
       
       // Act
-      const quote = calculator.calculate(context);
+      const quote = await calculator.calculate(context);
       
       // Assert
-      // basePrice + extra worker cost + extra hours cost
-      // 200 + (1 worker * 35€ * 4h * 0.85) + (1 worker * 35€ * 2h)
+      // defaultPrice + extra worker cost + extra hours cost
+      // Avec les nouveaux calculs:
+      // - 1 travailleur supplémentaire: 1 * 35€ * 4h * (1-0.15) = 119€
+      // - Heures supplémentaires: (200€/2h) * 2h * 0.9 = 180€
       const extraWorkerCost = 1 * 35 * 4 * (1 - 0.15);
-      const extraHoursCost = 1 * 35 * 2;
+      const extraHoursCost = (200 / 2) * 2 * 0.9;
       const expectedBasePrice = 200 + extraWorkerCost + extraHoursCost;
-      // 200 + 119 + 70 = 389€
-      expect(quote.getBasePrice().getAmount()).toBe(389);
+      // 200 + 119 + 180 = 499€
+      expect(quote.getBasePrice().getAmount()).toBe(499);
     });
   });
 }); 

@@ -1,37 +1,91 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Service } from '@/types/booking'
-import { CheckBadgeIcon, ArrowLeftIcon, MapPinIcon, UserGroupIcon, ClockIcon, CalendarIcon } from '@heroicons/react/24/outline'
+import { CheckBadgeIcon, ArrowLeftIcon, MapPinIcon, UserGroupIcon, ClockIcon, CalendarIcon, UserIcon, EnvelopeIcon, PhoneIcon } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { getCurrentBooking } from '@/actions/bookingManager'
 
 export default function ServiceSummaryPage() {
   const router = useRouter()
-  const [bookingDetails, setBookingDetails] = useState<any>(null)
-  const [itemDetails, setItemDetails] = useState<Service | null>(null)
+  const searchParams = useSearchParams()
+  const quoteRequestId = searchParams.get('quoteRequestId')
+  
+  const [quoteDetails, setQuoteDetails] = useState<any>(null)
+  const [serviceDetails, setServiceDetails] = useState<Service | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | 'error' | null>(null)
   const [totalPriceHT, setTotalPriceHT] = useState(0)
   const [totalPriceTTC, setTotalPriceTTC] = useState(0)
-  const [extraCosts, setExtraCosts] = useState({
-    workersCost: 0,
-    durationCost: 0
-  })
   const [hasInsurance, setHasInsurance] = useState(false)
   
-  // Récupérer les données de la réservation au chargement
+  // Informations client
+  const [customerInfo, setCustomerInfo] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: ''
+  })
+  
+  // Validation des champs client
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  
+  // Récupérer les détails de la demande de devis
   useEffect(() => {
-    const loadBookingData = async () => {
+    const loadQuoteRequestData = async () => {
       try {
         setIsLoading(true)
         
-        // Récupérer la réservation en cours via l'API
-        const timestamp = new Date().getTime()
-        const response = await fetch(`/api/bookings/current?t=${timestamp}`, {
+        // Récupérer l'ID depuis les paramètres d'URL ou sessionStorage si manquant
+        let requestId = quoteRequestId;
+        
+        if (!requestId) {
+          console.warn('ID de demande de devis manquant dans l\'URL, vérification dans sessionStorage...');
+          
+          // S'assurer que le code s'exécute côté client
+          if (typeof window !== 'undefined') {
+            try {
+              const storedId = window.sessionStorage.getItem('pendingQuoteRequestId');
+              
+              if (storedId) {
+                console.log('ID récupéré depuis sessionStorage:', storedId);
+                requestId = storedId;
+                
+                // Mettre à jour l'URL pour inclure l'ID
+                const url = new URL(window.location.href);
+                url.searchParams.set('quoteRequestId', storedId);
+                
+                // Mettre à jour l'URL sans recharger la page
+                window.history.replaceState({}, '', url.toString());
+                
+                // Nettoyer sessionStorage après utilisation
+                window.sessionStorage.removeItem('pendingQuoteRequestId');
+                console.log('✅ ID ajouté à l\'URL et supprimé de sessionStorage');
+              } else {
+                console.warn('❌ Aucun ID trouvé dans sessionStorage');
+              }
+            } catch (storageError) {
+              console.error('❌ Erreur lors de l\'accès à sessionStorage:', storageError);
+            }
+          } else {
+            console.warn('⚠️ window non disponible (exécution côté serveur)');
+          }
+        }
+        
+        if (!requestId) {
+          console.error('❌ ID de demande de devis manquant dans l\'URL et sessionStorage');
+          setLoadError('ID de demande de devis manquant dans l\'URL');
+          setIsLoading(false);
+          return;
+        }
+        
+        console.log('🔍 Chargement des données pour la demande:', requestId);
+        
+        // Récupérer les détails de la demande de devis
+        const response = await fetch(`/api/quotes/${requestId}`, {
           method: 'GET',
           cache: 'no-store',
           headers: { 
@@ -40,53 +94,55 @@ export default function ServiceSummaryPage() {
         })
         
         if (!response.ok) {
-          console.error('Erreur lors de la récupération de la réservation:', response.status)
-          router.push('/services')
-          return
+          console.error('Erreur lors de la récupération de la demande de devis:', response.status)
+          setLoadError(`Erreur lors de la récupération de la demande de devis (${response.status})`);
+          setIsLoading(false);
+          return;
         }
         
-        const bookingData = await response.json()
+        const quoteData = await response.json()
         
-        if (!bookingData || !bookingData.details) {
-          console.error('Réservation invalide ou sans détails')
-          router.push('/services')
-          return
+        if (!quoteData) {
+          console.error('Demande de devis invalide ou sans détails')
+          setLoadError('Demande de devis invalide ou sans détails');
+          setIsLoading(false);
+          return;
         }
         
-        console.log('Données de réservation récupérées:', bookingData)
+        console.log('Données de demande de devis récupérées:', quoteData)
         
-        // Déterminer si c'est un service ou un pack et extraire les détails
-        const serviceDetails = bookingData.details
+        setQuoteDetails(quoteData)
         
-        if (!serviceDetails) {
-          console.error('Aucun détail de service trouvé dans la réservation')
-          router.push('/services')
-          return
+        // Récupérer les détails du service associé
+        if (quoteData.serviceId) {
+          const serviceResponse = await fetch(`/api/services/${quoteData.serviceId}`)
+          if (serviceResponse.ok) {
+            const serviceData = await serviceResponse.json()
+            setServiceDetails(serviceData)
+          } else {
+            console.warn('⚠️ Impossible de récupérer les détails du service');
+          }
         }
         
-        setBookingDetails(serviceDetails)
-        setItemDetails(serviceDetails)
-        
-        // Mise à jour avec les totaux de la réservation
-        setTotalPriceHT(bookingData.totalAmount || 0)
-        setTotalPriceTTC((bookingData.totalAmount || 0) * 1.2) // Estimation TTC (20% TVA)
-        setHasInsurance(bookingData.hasInsurance || false)
+        // Mise à jour avec les totaux de la demande de devis
+        setTotalPriceHT(quoteData.calculatedPrice || 0)
+        setTotalPriceTTC((quoteData.calculatedPrice || 0) * 1.2) // Estimation TTC (20% TVA)
         
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error)
-        router.push('/services')
+        setLoadError(error instanceof Error ? error.message : 'Erreur inconnue lors du chargement des données');
       } finally {
         setIsLoading(false)
       }
     }
     
-    loadBookingData()
-  }, [router])
+    loadQuoteRequestData()
+  }, [quoteRequestId, router])
   
-  const handleEditBooking = () => {
+  const handleEditQuote = () => {
     // Retourner à la page du service pour modifications
-    if (itemDetails) {
-      router.push(`/services/${itemDetails.id}`)
+    if (serviceDetails) {
+      router.push(`/services/${serviceDetails.id}`)
     }
   }
   
@@ -98,37 +154,12 @@ export default function ServiceSummaryPage() {
     setSaveStatus('saving')
     
     try {
-      // Récupérer l'ID de la réservation actuelle
-      const currentResponse = await fetch('/api/bookings/current')
-      if (!currentResponse.ok) {
-        throw new Error('Impossible de récupérer la réservation en cours')
-      }
+      // Mise à jour locale du prix pour l'instant (sera intégré lors de la formalisation)
+      const insurancePrice = 30 // Prix de l'assurance en euros
+      const newTotalHT = isChecked ? totalPriceHT + insurancePrice : totalPriceHT - insurancePrice
       
-      const currentBookingData = await currentResponse.json()
-      const bookingId = currentBookingData.id
-      
-      if (!bookingId) {
-        throw new Error('ID de réservation non trouvé')
-      }
-      
-      // Mise à jour de l'option d'assurance via l'API
-      const updateResponse = await fetch(`/api/bookings/${bookingId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hasInsurance: isChecked
-        })
-      })
-      
-      if (!updateResponse.ok) {
-        throw new Error('Échec de la mise à jour de l\'assurance')
-      }
-      
-      const updatedBooking = await updateResponse.json()
-      
-      // Mettre à jour les prix avec les nouvelles valeurs
-      setTotalPriceHT(updatedBooking.totalAmount || 0)
-      setTotalPriceTTC((updatedBooking.totalAmount || 0) * 1.2) // Estimation TTC (20% TVA)
+      setTotalPriceHT(newTotalHT)
+      setTotalPriceTTC(newTotalHT * 1.2)
       
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
@@ -140,46 +171,89 @@ export default function ServiceSummaryPage() {
     }
   }
   
+  const handleCustomerInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target
+    setCustomerInfo(prev => ({
+      ...prev,
+      [id]: value
+    }))
+    
+    // Effacer les erreurs de validation lorsque l'utilisateur modifie le champ
+    if (validationErrors[id]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[id]
+        return newErrors
+      })
+    }
+  }
+  
+  const validateCustomerInfo = (): boolean => {
+    const errors: Record<string, string> = {}
+    
+    if (!customerInfo.firstName.trim()) {
+      errors.firstName = 'Le prénom est requis'
+    }
+    
+    if (!customerInfo.lastName.trim()) {
+      errors.lastName = 'Le nom est requis'
+    }
+    
+    if (!customerInfo.email.trim()) {
+      errors.email = 'L\'email est requis'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerInfo.email)) {
+      errors.email = 'Format d\'email invalide'
+    }
+    
+    if (!customerInfo.phone.trim()) {
+      errors.phone = 'Le téléphone est requis'
+    }
+    
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+  
   const handleContinue = async () => {
-    // Rediriger vers la page de paiement
+    // Formaliser le devis avec les informations client
+    if (!validateCustomerInfo()) {
+      return
+    }
+    
     try {
       // Ajouter un état de chargement
       setSaveStatus('saving')
       
-      // Récupérer l'ID de la réservation actuelle
-      const currentResponse = await fetch('/api/bookings/current')
-      if (!currentResponse.ok) {
-        throw new Error('Impossible de récupérer la réservation en cours')
+      if (!quoteRequestId) {
+        throw new Error('ID de demande de devis manquant')
       }
       
-      const currentBookingData = await currentResponse.json()
-      const bookingId = currentBookingData.id
-      
-      if (!bookingId) {
-        throw new Error('ID de réservation non trouvé')
+      const formalizeData = {
+        quoteRequestId: quoteRequestId,
+        customerDetails: customerInfo,
+        hasInsurance: hasInsurance
       }
       
-      // Mettre à jour le statut de la réservation pour la finaliser
-      const finalizeResponse = await fetch(`/api/bookings/${bookingId}`, {
-        method: 'PATCH',
+      // Formaliser le devis via l'API
+      const formalizeResponse = await fetch('/api/quotes/formalize', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'AWAITING_PAYMENT'
-        })
+        body: JSON.stringify(formalizeData)
       })
       
-      if (!finalizeResponse.ok) {
-        throw new Error('Échec de la finalisation de la réservation')
+      if (!formalizeResponse.ok) {
+        const errorData = await formalizeResponse.json()
+        throw new Error(`Échec de la formalisation du devis: ${errorData.error || 'Erreur inconnue'}`)
       }
       
-      // Laisser un court délai pour s'assurer que les mises à jour sont propagées
-      await new Promise(resolve => setTimeout(resolve, 300))
+      const formalizedQuote = await formalizeResponse.json()
       
-      // Rediriger vers la page de paiement
-      window.location.href = '/services/payment'
+      console.log('Devis formalisé avec succès:', formalizedQuote)
+      
+      // Rediriger vers la page de paiement avec l'ID du devis
+      router.push(`/services/payment?quoteId=${formalizedQuote.id}`)
       
     } catch (error) {
-      console.error('Erreur lors de la finalisation de la réservation:', error)
+      console.error('Erreur lors de la formalisation du devis:', error)
       setSaveStatus('error')
       setTimeout(() => setSaveStatus(null), 2000)
     }
@@ -193,13 +267,32 @@ export default function ServiceSummaryPage() {
     )
   }
   
-  if (!bookingDetails || !itemDetails) {
+  if (loadError) {
     return (
       <div className="min-h-screen bg-gray-50 py-10">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Aucune réservation en cours</h1>
-            <p className="text-gray-600 mb-6">Vous n'avez pas de service sélectionné ou vos données ont expiré.</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Erreur</h1>
+            <p className="text-gray-600 mb-6">{loadError}</p>
+            <Link
+              href="/services"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700"
+            >
+              Retourner aux services
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  
+  if (!quoteDetails || !serviceDetails) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-10">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Devis introuvable</h1>
+            <p className="text-gray-600 mb-6">Nous n'avons pas trouvé la demande de devis correspondante.</p>
             <Link
               href="/services"
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700"
@@ -212,15 +305,11 @@ export default function ServiceSummaryPage() {
     )
   }
   
-  const isPack = false
-  const firstItem = { itemId: itemDetails.id }
-  const insuranceConstants = { INSURANCE_PRICE_HT: 30, INSURANCE_PRICE_TTC: 36 }
-  
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <Link href={`/services/${itemDetails.id}`} className="inline-flex items-center text-emerald-600 hover:text-emerald-700 transition-colors">
+          <Link href={`/services/${serviceDetails.id}`} className="inline-flex items-center text-emerald-600 hover:text-emerald-700 transition-colors">
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             <span>Retour</span>
           </Link>
@@ -250,232 +339,206 @@ export default function ServiceSummaryPage() {
           )}
         </div>
         
-        <div className="space-y-6">
-          {/* Votre service */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50">
-              <div className="flex items-center">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-sm font-medium text-emerald-700 mr-3">1</div>
-                <h2 className="text-base font-medium text-gray-900">Votre service</h2>
-                <button
-                  onClick={handleEditBooking}
-                  className="ml-auto text-xs text-emerald-600 hover:text-emerald-700 flex items-center"
-                >
-                  <span>Modifier</span>
-                </button>
+        {/* Carte récapitulative du service */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{serviceDetails.name}</h2>
+              <p className="text-gray-600 mt-1">{serviceDetails.description}</p>
+            </div>
+            <button 
+              onClick={handleEditQuote}
+              className="text-emerald-600 text-sm font-medium hover:text-emerald-800"
+            >
+              Modifier
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="flex items-center">
+              <CalendarIcon className="h-5 w-5 text-gray-400 mr-2" />
+              <div>
+                <p className="text-sm text-gray-500">Date</p>
+                <p className="font-medium">
+                  {quoteDetails.scheduledDate ? format(new Date(quoteDetails.scheduledDate), 'dd MMMM yyyy', { locale: fr }) : 'Non spécifiée'}
+                </p>
               </div>
             </div>
-            <div className="p-5">
-              <div className="flex flex-col sm:flex-row mb-4">
-                <div className="sm:ml-6 flex-1">
-                  <h3 className="text-lg font-medium text-gray-900 mb-1">{itemDetails.name}</h3>
-                  <p className="text-sm text-gray-600 mb-3">{itemDetails.description}</p>
-                  
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="flex items-center">
-                      <UserGroupIcon className="h-5 w-5 text-gray-400 mr-1.5" />
-                      <span>
-                        {bookingDetails.workers} professionnel{bookingDetails.workers > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <ClockIcon className="h-5 w-5 text-gray-400 mr-1.5" />
-                      <span>
-                        {bookingDetails.duration} heure{bookingDetails.duration > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    {bookingDetails.scheduledDate && (
-                      <div className="flex items-center">
-                        <CalendarIcon className="h-5 w-5 text-gray-400 mr-1.5" />
-                        <span>
-                          {format(new Date(bookingDetails.scheduledDate), 'd MMMM yyyy', { locale: fr })}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+            
+            <div className="flex items-center">
+              <ClockIcon className="h-5 w-5 text-gray-400 mr-2" />
+              <div>
+                <p className="text-sm text-gray-500">Durée</p>
+                <p className="font-medium">{quoteDetails.duration || serviceDetails.duration} heure(s)</p>
               </div>
-              
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Lieu d'intervention :</h4>
-                <div className="space-y-3">
-                  <div className="flex items-start">
-                    <MapPinIcon className="h-5 w-5 text-gray-400 mr-1.5 mt-0.5" />
-                    <div>
-                      <div className="text-sm text-gray-600">{bookingDetails.location}</div>
-                    </div>
-                  </div>
-                </div>
+            </div>
+            
+            <div className="flex items-center">
+              <UserGroupIcon className="h-5 w-5 text-gray-400 mr-2" />
+              <div>
+                <p className="text-sm text-gray-500">Professionnels</p>
+                <p className="font-medium">{quoteDetails.workers || serviceDetails.workers} personne(s)</p>
               </div>
-              
-              {bookingDetails.additionalInfo && (
-                <div className="border-t border-gray-200 pt-4 mt-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Informations supplémentaires :</h4>
-                  <p className="text-sm text-gray-600 whitespace-pre-line">{bookingDetails.additionalInfo}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-start mb-6">
+            <MapPinIcon className="h-5 w-5 text-gray-400 mr-2 mt-0.5" />
+            <div>
+              <p className="text-sm text-gray-500">Adresse</p>
+              <p className="font-medium">{quoteDetails.location || 'Non spécifiée'}</p>
+            </div>
+          </div>
+          
+          {quoteDetails.additionalInfo && (
+            <div className="border-t border-gray-200 pt-4 mt-4">
+              <h3 className="text-sm font-medium text-gray-900 mb-2">Informations supplémentaires</h3>
+              <p className="text-gray-700">{quoteDetails.additionalInfo}</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Formulaire d'informations client */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Vos informations</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <UserIcon className="h-4 w-4 text-emerald-500 mr-1.5" />
+                  Prénom
                 </div>
+              </label>
+              <input
+                type="text"
+                id="firstName"
+                value={customerInfo.firstName}
+                onChange={handleCustomerInfoChange}
+                className={`block w-full rounded-xl border-2 ${validationErrors.firstName ? 'border-red-300' : 'border-gray-200'} bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:bg-white transition-all duration-200 px-3 py-2 text-gray-700 placeholder-gray-400`}
+                placeholder="Votre prénom"
+              />
+              {validationErrors.firstName && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.firstName}</p>
+              )}
+            </div>
+            
+            <div>
+              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <UserIcon className="h-4 w-4 text-emerald-500 mr-1.5" />
+                  Nom
+                </div>
+              </label>
+              <input
+                type="text"
+                id="lastName"
+                value={customerInfo.lastName}
+                onChange={handleCustomerInfoChange}
+                className={`block w-full rounded-xl border-2 ${validationErrors.lastName ? 'border-red-300' : 'border-gray-200'} bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:bg-white transition-all duration-200 px-3 py-2 text-gray-700 placeholder-gray-400`}
+                placeholder="Votre nom"
+              />
+              {validationErrors.lastName && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.lastName}</p>
+              )}
+            </div>
+            
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <EnvelopeIcon className="h-4 w-4 text-emerald-500 mr-1.5" />
+                  Email
+                </div>
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={customerInfo.email}
+                onChange={handleCustomerInfoChange}
+                className={`block w-full rounded-xl border-2 ${validationErrors.email ? 'border-red-300' : 'border-gray-200'} bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:bg-white transition-all duration-200 px-3 py-2 text-gray-700 placeholder-gray-400`}
+                placeholder="votre.email@exemple.com"
+              />
+              {validationErrors.email && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
+              )}
+            </div>
+            
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <PhoneIcon className="h-4 w-4 text-emerald-500 mr-1.5" />
+                  Téléphone
+                </div>
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                value={customerInfo.phone}
+                onChange={handleCustomerInfoChange}
+                className={`block w-full rounded-xl border-2 ${validationErrors.phone ? 'border-red-300' : 'border-gray-200'} bg-white shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 focus:bg-white transition-all duration-200 px-3 py-2 text-gray-700 placeholder-gray-400`}
+                placeholder="06 12 34 56 78"
+              />
+              {validationErrors.phone && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.phone}</p>
               )}
             </div>
           </div>
+        </div>
+        
+        {/* Section prix et assurance */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Options et prix</h2>
           
-          {/* Options supplémentaires */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-5 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-teal-50">
+          <div className="mb-4">
+            <label className="flex items-center justify-between p-4 border-2 border-gray-100 rounded-lg">
               <div className="flex items-center">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-sm font-medium text-emerald-700 mr-3">2</div>
-                <h2 className="text-base font-medium text-gray-900">Options supplémentaires</h2>
-              </div>
-            </div>
-            <div className="p-5">
-              <div className="space-y-4">
-                <div className="flex items-start">
-                  <input
-                    id="insurance"
-                    name="insurance"
-                    type="checkbox"
-                    checked={hasInsurance}
-                    onChange={handleInsuranceChange}
-                    className="h-4 w-4 mt-1 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                  />
-                  <div className="ml-3">
-                    <label htmlFor="insurance" className="text-sm font-medium text-gray-900">
-                      Assurance complémentaire
-                    </label>
-                    <p className="text-sm text-gray-500">
-                      Protection étendue pour vos biens durant la prestation.
-                      <span className="block text-emerald-600 font-medium mt-0.5">
-                        +{insuranceConstants.INSURANCE_PRICE_HT}€ HT ({insuranceConstants.INSURANCE_PRICE_TTC}€ TTC)
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex pt-3 pb-2">
-                  <svg className="h-5 w-5 text-emerald-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="text-sm text-gray-600">
-                    <p>Notre assurance de base couvre les prestations standard. L'assurance complémentaire offre une couverture étendue pour vos biens de valeur.</p>
-                  </div>
+                <input
+                  type="checkbox"
+                  id="insurance"
+                  checked={hasInsurance}
+                  onChange={handleInsuranceChange}
+                  className="w-4 h-4 text-emerald-600 border-2 border-gray-300 rounded focus:ring-emerald-500"
+                />
+                <div className="ml-3">
+                  <span className="font-medium text-gray-900">Assurance intervention</span>
+                  <p className="text-sm text-gray-600">Protection contre les dommages imprévus</p>
                 </div>
               </div>
-            </div>
+              <span className="font-medium">+30€</span>
+            </label>
           </div>
           
-          {/* Récapitulatif des coûts */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-5 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-sky-50">
-              <div className="flex items-center">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-sm font-medium text-emerald-700 mr-3">3</div>
-                <h2 className="text-base font-medium text-gray-900">Récapitulatif des coûts</h2>
-              </div>
+          <div className="border-t border-gray-200 pt-4 my-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">Sous-total HT</span>
+              <span className="font-medium">{totalPriceHT}€</span>
             </div>
-            <div className="p-5">
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
-                <div className="flex items-baseline justify-between">
-                  <div>
-                    <span className="text-base font-medium text-gray-900">Prix total</span>
-                    <span className="block text-sm text-gray-500">TVA incluse</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="block text-2xl font-bold text-emerald-700">{totalPriceTTC.toFixed(2)}€ TTC</span>
-                    <span className="block text-sm text-gray-600">soit {totalPriceHT}€ HT</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">{itemDetails.name}</span>
-                  <span className="text-sm font-medium">{itemDetails.price}€</span>
-                </div>
-                
-                {extraCosts.workersCost > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Professionnels supplémentaires</span>
-                    <span className="font-medium">+{extraCosts.workersCost}€</span>
-                  </div>
-                )}
-                
-                {extraCosts.durationCost > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Heures supplémentaires</span>
-                    <span className="font-medium">+{extraCosts.durationCost}€</span>
-                  </div>
-                )}
-                
-                {hasInsurance && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Assurance complémentaire</span>
-                    <span className="font-medium">+{insuranceConstants.INSURANCE_PRICE_HT}€</span>
-                  </div>
-                )}
-                
-                <div className="pt-3 mt-3 border-t border-gray-200 flex justify-between">
-                  <span className="font-medium text-gray-900">Sous-total HT</span>
-                  <span className="font-medium">{totalPriceHT}€</span>
-                </div>
-                
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">TVA (20%)</span>
-                  <span className="text-gray-600">{(totalPriceHT * 0.2).toFixed(2)}€</span>
-                </div>
-                
-                <div className="pt-2 mt-2 border-t border-gray-200 flex justify-between">
-                  <span className="font-medium text-gray-900">Total TTC</span>
-                  <span className="font-bold text-emerald-600">{totalPriceTTC.toFixed(2)}€</span>
-                </div>
-              </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg mt-6">
-                <h3 className="text-sm font-medium text-blue-800 mb-2">Ce qui est inclus :</h3>
-                <ul className="space-y-1.5">
-                  <li className="flex items-start text-sm">
-                    <CheckBadgeIcon className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                    <span className="text-blue-700">
-                      {itemDetails.name} avec {bookingDetails.workers} professionnel{bookingDetails.workers > 1 ? 's' : ''}
-                    </span>
-                  </li>
-                  <li className="flex items-start text-sm">
-                    <CheckBadgeIcon className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                    <span className="text-blue-700">
-                      {bookingDetails.duration} heure{bookingDetails.duration > 1 ? 's' : ''} de prestation
-                    </span>
-                  </li>
-                  <li className="flex items-start text-sm">
-                    <CheckBadgeIcon className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                    <span className="text-blue-700">Professionnels qualifiés et assurés</span>
-                  </li>
-                  <li className="flex items-start text-sm">
-                    <CheckBadgeIcon className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                    <span className="text-blue-700">Service client 7j/7</span>
-                  </li>
-                  {hasInsurance && (
-                    <li className="flex items-start text-sm">
-                      <CheckBadgeIcon className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                      <span className="text-blue-700">Assurance complémentaire</span>
-                    </li>
-                  )}
-                </ul>
-              </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">TVA (20%)</span>
+              <span className="font-medium">{Math.round((totalPriceHT * 0.2) * 100) / 100}€</span>
+            </div>
+            <div className="flex justify-between items-center text-lg font-bold pt-3 border-t border-gray-100">
+              <span>Total TTC</span>
+              <span className="text-emerald-600">{Math.round(totalPriceTTC * 100) / 100}€</span>
             </div>
           </div>
-          
-          {/* Boutons de navigation */}
-          <div className="flex items-center justify-between mt-6">
-            <Link
-              href={`/services/${firstItem.itemId}`}
-              className="px-5 py-2 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-lg"
-            >
-              Retour
-            </Link>
-            
-            <button
-              onClick={handleContinue}
-              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
-            >
-              Continuer vers le paiement
-            </button>
-          </div>
+        </div>
+        
+        {/* Boutons d'action */}
+        <div className="flex justify-end space-x-4">
+          <button
+            onClick={handleEditQuote}
+            className="px-4 py-2 border-2 border-gray-200 rounded-xl shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          >
+            Modifier
+          </button>
+          <button
+            onClick={handleContinue}
+            disabled={saveStatus === 'saving'}
+            className="px-6 py-2 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saveStatus === 'saving' ? 'Traitement...' : 'Procéder au paiement'}
+          </button>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { Money } from '../valueObjects/Money';
-import { Rule } from '../valueObjects/Rule';
+import { Rule, RuleApplyResult } from '../valueObjects/Rule';
 import { QuoteContext } from '../valueObjects/QuoteContext';
 import { Discount, DiscountType } from '../valueObjects/Discount';
 import { logger } from '../../../lib/logger';
@@ -54,9 +54,10 @@ export class RuleEngine {
       }
       
       // Préparer les variables de résultat
-      const discounts: Discount[] = [];
-      let finalPrice = basePrice;
-      const appliedRules: string[] = [];
+    const discounts: Discount[] = [];
+      let finalPrice = basePrice.getAmount(); // Utiliser directement le montant pour plus de clarté
+    const appliedRules: string[] = [];
+      let minimumPrice: number | null = null; // Stocker le prix minimum
       
       console.log("🔄 TRAITEMENT DE CHAQUE RÈGLE...");
       
@@ -74,39 +75,60 @@ export class RuleEngine {
               console.log("✅ RÈGLE APPLICABLE - Application en cours...");
               
               try {
-                // Appliquer la règle
-                const ruleResult = rule.apply(basePrice, context);
+                // Stocker le prix avant application de la règle
+                const priceBeforeRule = finalPrice;
                 
-                if (ruleResult.isApplied) {
-                  // Créer un Discount à partir du résultat
-                  let discountType = rule.isPercentage() ? DiscountType.PERCENTAGE : DiscountType.FIXED;
-                  let impactValue = Math.abs(ruleResult.impact);
+                // Appliquer la règle
+                const ruleResult: RuleApplyResult = rule.apply(new Money(finalPrice), context);
+                
+                // Vérifier si la règle définit un prix minimum
+                if (ruleResult.minimumPrice !== undefined) {
+                  console.log("⚠️ RÈGLE DÉFINIT UN PRIX MINIMUM:", ruleResult.minimumPrice);
+                  minimumPrice = ruleResult.minimumPrice;
+                  // Ne pas ajouter de réduction pour les règles de prix minimum
+                  continue;
+                }
+                
+                // Pour les règles normales avec un impact
+                if (ruleResult.isApplied && ruleResult.impact !== 0) {
+                  // Calculer le nouveau prix final
+                  finalPrice = ruleResult.newPrice.getAmount();
                   
-                  // S'assurer que le pourcentage ne dépasse pas 100%
-                  if (discountType === DiscountType.PERCENTAGE && impactValue > 100) {
-                    console.log("⚠️ POURCENTAGE > 100%, CONVERSION EN MONTANT FIXE");
-                    discountType = DiscountType.FIXED;
-                  }
+                  const absoluteImpact = Math.abs(ruleResult.impact);
+                  console.log(`💰 RÈGLE "${rule.name}" APPLIQUÉE:`, {
+                    prixAvant: priceBeforeRule,
+                    prixAprès: finalPrice,
+                    impact: ruleResult.impact,
+                    réduction: absoluteImpact
+        });
+        
+                  // Déterminer le type de réduction
+                  const discountType = rule.isPercentage() ? 
+                    DiscountType.PERCENTAGE : 
+                    DiscountType.FIXED;
                   
-                  const discount = new Discount(
-                    rule.name,
-                    discountType,
-                    impactValue
-                  );
-                  
-                  console.log("💰 RÉDUCTION APPLIQUÉE:", discount.getAmount().getAmount());
-                  
-                  // Ajouter la réduction
-                  discounts.push(discount);
-                  appliedRules.push(rule.name);
-                  
-                  // Si c'est une règle de pourcentage, l'appliquer immédiatement
-                  if (discount.getType() === DiscountType.PERCENTAGE) {
-                    console.log("📊 RÈGLE DE POURCENTAGE - Application immédiate");
-                    finalPrice = new Money(
-                      finalPrice.getAmount() - discount.getAmount().getAmount()
+                  // Créer un objet Discount avec l'impact absolu
+                  try {
+                    const discount = new Discount(
+            rule.name,
+                      discountType,
+                      // Si c'est un pourcentage, utiliser directement un pourcentage sûr (valeur absolue du pourcentage)
+                      // plutôt que l'impact calculé qui peut être trop grand comme valeur
+                      discountType === DiscountType.PERCENTAGE ? Math.min(Math.abs(ruleResult.impact / priceBeforeRule * 100), 100) : absoluteImpact
                     );
+    
+                    // Ajouter la réduction
+                    discounts.push(discount);
+                    appliedRules.push(rule.name);
+                  } catch (discountError) {
+                    console.log("❌ ERREUR LORS DE LA CRÉATION DU DISCOUNT:", discountError);
+                    throw discountError;
                   }
+                } else {
+                  console.log(`ℹ️ RÈGLE "${rule.name}" SANS IMPACT:`, {
+                    isApplied: ruleResult.isApplied,
+                    impact: ruleResult.impact
+                  });
                 }
               } catch (applyError) {
                 console.log("❌ ERREUR LORS DE L'APPLICATION DE LA RÈGLE:", applyError);
@@ -133,36 +155,32 @@ export class RuleEngine {
           }
         }
         
-        // Appliquer les réductions fixes après les pourcentages
-        console.log("🔄 APPLICATION DES RÉDUCTIONS FIXES...");
-        try {
-          for (const discount of discounts) {
-            if (discount.getType() !== DiscountType.PERCENTAGE) {
-              console.log("💰 APPLICATION D'UNE RÉDUCTION FIXE:", discount.getAmount().getAmount());
-              finalPrice = new Money(
-                finalPrice.getAmount() - discount.getAmount().getAmount()
-              );
-            }
-          }
-        } catch (fixedError) {
-          console.log("❌ ERREUR LORS DE L'APPLICATION DES RÉDUCTIONS FIXES:", fixedError);
-          throw fixedError;
-        }
-        
-        // Vérifier que le prix final n'est pas négatif
+        // Vérifier que le prix final n'est pas inférieur au prix minimum
         console.log("🔍 VÉRIFICATION DU PRIX FINAL...");
-        if (finalPrice.getAmount() < 0) {
-          console.log("⚠️ PRIX NÉGATIF DÉTECTÉ - Ajustement à 0");
-          finalPrice = new Money(0);
+        if (minimumPrice !== null && finalPrice < minimumPrice) {
+          console.log(`⚠️ PRIX FINAL (${finalPrice}) INFÉRIEUR AU MINIMUM (${minimumPrice}) - AJUSTEMENT`);
+          finalPrice = minimumPrice;
         }
-        
+        // Vérifier que le prix final n'est pas négatif
+        else if (finalPrice < 0) {
+          console.log("⚠️ PRIX NÉGATIF DÉTECTÉ - Ajustement à 0");
+          finalPrice = 0;
+      }
+      
         console.log("✅ EXECUTION TERMINÉE - Résultat:");
-        console.log("💰 PRIX FINAL:", finalPrice.getAmount());
+        console.log("💰 PRIX FINAL:", finalPrice);
         console.log("📋 RÉDUCTIONS APPLIQUÉES:", discounts.length);
+        if (discounts.length > 0) {
+          console.log("📋 DÉTAIL DES RÉDUCTIONS:", discounts.map(d => ({
+            nom: d.getName(),
+            type: d.getType() === DiscountType.PERCENTAGE ? 'pourcentage' : 'montant fixe',
+            valeur: d.getAmount().getAmount()
+          })));
+        }
         console.log("==== FIN RULEENGINE.EXECUTE (SUCCÈS) ====\n");
         
         return {
-          finalPrice,
+          finalPrice: new Money(finalPrice),
           discounts,
           appliedRules
         };
@@ -172,14 +190,14 @@ export class RuleEngine {
           console.log("📋 TYPE D'ERREUR:", rulesError.constructor.name);
           console.log("📋 MESSAGE:", rulesError.message);
           console.log("📋 STACK:", rulesError.stack);
-          
+        
           // Si c'est l'erreur "Opération non supportée", la propager
           if (rulesError.message.includes('Opération non supportée')) {
             console.log("🚨 PROPAGATION DE L'ERREUR 'Opération non supportée'");
           }
         }
         throw rulesError;
-      }
+        }
     } catch (error) {
       console.log("❌ ERREUR GÉNÉRALE DANS RULEENGINE.EXECUTE:", error);
       if (error instanceof Error) {

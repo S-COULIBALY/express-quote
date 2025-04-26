@@ -68,13 +68,21 @@ export function createMovingRules(): Rule[] {
     new Rule(
       'Tarif minimum',
       ServiceType.MOVING.toString(),
-      300, // 300€ minimum
+      0, // Valeur à 0, sera calculée dynamiquement
       (context: QuoteContext) => {
-        // Cette règle s'applique si le prix calculé est inférieur à 300€
-        // Le RuleEngine se chargera de cette logique spécifique
+        // Cette règle est toujours vérifiée mais son effet est géré dynamiquement
+        // Nous l'utilisons uniquement comme plancher, pas comme réduction
         return true;
       },
-      true
+      true,
+      undefined, // Paramètre id explicite
+      // Fonction d'application personnalisée pour calculer le montant minimum
+      (basePrice: Money, context: QuoteContext) => {
+        // Le tarif minimum est de 90% du prix de base
+        const minimumPrice = basePrice.getAmount() * 0.9;
+        // Retourne 0 pour indiquer qu'aucune réduction n'est appliquée par cette règle
+        return { isApplied: true, newPrice: basePrice, impact: 0, minimumPrice };
+      }
     ),
     
     // Supplément pour étages sans ascenseur

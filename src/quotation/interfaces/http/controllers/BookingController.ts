@@ -21,6 +21,8 @@ export class BookingController {
 
   /**
    * Crée une demande de devis temporaire
+   * @description Première étape du flux de réservation recommandé. Cette méthode crée une demande de devis
+   * sans informations client qui pourra être finalisée ultérieurement avec finalizeBooking.
    */
   async createQuoteRequest(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
     try {
@@ -50,6 +52,8 @@ export class BookingController {
 
   /**
    * Finalise une réservation avec les informations client
+   * @description Deuxième étape du flux de réservation recommandé. Cette méthode finalise une demande
+   * de devis existante en y ajoutant les informations client pour créer une réservation complète.
    */
   async finalizeBooking(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
     try {
@@ -72,6 +76,8 @@ export class BookingController {
 
   /**
    * Traite le paiement d'une réservation
+   * @description Troisième étape du flux de réservation recommandé. Cette méthode traite
+   * le paiement d'une réservation finalisée et génère les documents associés.
    */
   async processPayment(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
     try {
@@ -96,7 +102,10 @@ export class BookingController {
   }
 
   /**
-   * Créer une nouvelle réservation
+   * Crée une réservation complète en utilisant le flux recommandé
+   * @description Cette méthode utilise le flux recommandé en deux étapes (createQuoteRequest puis finalizeBooking)
+   * via la méthode createReservation du BookingService. Si des informations client sont fournies, la réservation
+   * est complétée immédiatement. Sinon, une demande de devis temporaire est créée, à finaliser ultérieurement.
    */
   async createBooking(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
     try {
@@ -160,40 +169,86 @@ export class BookingController {
         }
       }
       
-      let customer;
-      // Si des informations client sont fournies, les utiliser
+      let result;
+      
+      // Si des informations client sont fournies, utiliser le flux createReservation (deux étapes en une)
       if (bookingData.customer) {
-        console.log('ℹ️ CTRL - Données client reçues:', JSON.stringify(bookingData.customer, null, 2));
-        try {
-          // Récupérer ou créer le client
-          customer = await this.customerService.findOrCreateCustomer({
-            email: bookingData.customer.email,
-            firstName: bookingData.customer.firstName,
-            lastName: bookingData.customer.lastName,
-            phone: bookingData.customer.phone
+        console.log('ℹ️ CTRL - Données client reçues - Utilisation du flux recommandé createReservation');
+        
+        // Extraire les données client et du devis
+        const { customer, ...quoteData } = bookingData;
+        
+        // Utiliser la méthode recommandée qui crée une demande puis la finalise
+        result = await this.bookingService.createReservation(quoteData, customer);
+        
+        if (result.booking) {
+          console.log('✅ CTRL - Réservation créée avec le flux recommandé, ID:', result.booking.getId());
+          
+          // Construire la réponse pour une réservation complète
+          const response = this.buildBookingResponse(result.booking);
+          return res.status(201).json(response);
+        } else {
+          console.log('✅ CTRL - Processus de réservation initié, ID de demande:', result.quoteRequestId);
+          
+          // Retourner les informations de processus de réservation
+          return res.status(201).json({
+            message: "Processus de réservation initié avec succès",
+            quoteRequestId: result.quoteRequestId,
+            paymentSession: result.paymentSession,
+            paymentCompleted: result.paymentCompleted
           });
-          console.log('✅ CTRL - Client trouvé/créé:', customer.getId());
-        } catch (error) {
-          console.error('❌ CTRL - Erreur lors de la création ou récupération du client:', error);
-          throw error;
         }
       } else {
-        console.log('ℹ️ CTRL - Aucune donnée client fournie - création d\'une réservation sans client');
+        console.log('ℹ️ CTRL - Aucune donnée client fournie - création d\'une demande de devis temporaire');
+        
+        // Créer une demande de devis temporaire en utilisant createQuoteRequest
+        const quoteRequest = await this.bookingService.createQuoteRequest(bookingData);
+        
+        console.log('✅ CTRL - Demande de devis temporaire créée, ID:', quoteRequest.getId());
+        
+        // Préparer une réponse spéciale pour une demande de devis
+        return res.status(201).json({
+          message: "Demande de devis créée avec succès. Utilisez finalizeBooking pour compléter la réservation avec les données client.",
+          quoteRequestId: quoteRequest.getId(),
+          expiresAt: quoteRequest.getExpiresAt(),
+          status: quoteRequest.getStatus()
+        });
+      }
+    } catch (error) {
+      console.error('❌ CTRL - Erreur complète lors de la création de la réservation:', error);
+      return res.status(500).json({ 
+        message: `Erreur lors de la création de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+      });
+    }
+  }
+
+  /**
+   * Crée une réservation en une seule étape (méthode de commodité)
+   * @description Cette méthode crée une réservation complète en une seule étape en combinant
+   * la création d'une demande de devis et sa finalisation. Elle applique le flux recommandé
+   * en utilisant la méthode createReservation en interne.
+   */
+  async createOneStepBooking(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
+    try {
+      const { quoteData, customerData } = req.body;
+      
+      if (!quoteData || !customerData) {
+        return res.status(400).json({
+          message: "Les données du devis (quoteData) et du client (customerData) sont requises"
+        });
       }
       
-      // Créer la réservation en typant customer comme optionnel (pour contourner l'erreur)
-      const booking = await this.bookingService.createBooking(bookingData, customer as any);
-      
-      console.log('✅ CTRL - Réservation créée avec ID:', booking.getId());
+      // Utiliser la méthode createReservation qui implémente le flux recommandé
+      const booking = await this.bookingService.createReservation(quoteData, customerData);
       
       // Construire la réponse
       const response = this.buildBookingResponse(booking);
       
       return res.status(201).json(response);
     } catch (error) {
-      console.error('❌ CTRL - Erreur complète lors de la création de la réservation:', error);
+      console.error('Erreur lors de la création de la réservation en une étape:', error);
       return res.status(500).json({ 
-        message: `Erreur lors de la création de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+        message: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
       });
     }
   }

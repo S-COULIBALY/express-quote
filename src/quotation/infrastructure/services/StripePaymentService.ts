@@ -176,4 +176,24 @@ export class StripePaymentService {
       );
     }
   }
+
+  /**
+   * Récupère les informations complètes d'une session de paiement Stripe
+   * @param sessionId ID de la session Stripe à récupérer
+   * @returns La session complète avec toutes ses informations (métadonnées, statut, etc.)
+   */
+  async retrieveCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session> {
+    try {
+      return await this.stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['payment_intent', 'line_items', 'customer']
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération de la session Stripe:', error);
+      throw new Error(
+        `Erreur lors de la récupération de la session Stripe: ${
+          error instanceof Error ? error.message : 'Erreur inconnue'
+        }`
+      );
+    }
+  }
 } 

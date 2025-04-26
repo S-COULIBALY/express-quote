@@ -12,135 +12,72 @@ import { PrismaCustomerRepository } from '@/quotation/infrastructure/repositorie
 import { BookingStatus } from '@/quotation/domain/enums/BookingStatus';
 import { logger } from '@/lib/logger';
 import { ConfigurationService } from '@/quotation/domain/services/ConfigurationService';
+import { cookies } from 'next/headers';
+import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/bookings/current - Récupération de la réservation en cours
  */
 export async function GET(request: NextRequest) {
   try {
-    // Initialiser les repositories
-    const bookingRepository = new PrismaBookingRepository();
-    const movingRepository = new PrismaMovingRepository();
-    const packRepository = new PrismaPackRepository();
-    const serviceRepository = new PrismaServiceRepository();
-    const quoteRequestRepository = new PrismaQuoteRequestRepository();
-    const customerRepository = new PrismaCustomerRepository();
-
-    // Initialiser le service de configuration
-    const configService = new ConfigurationService();
+    // Lire le cookie de session
+    const cookieStore = cookies();
+    const bookingId = cookieStore.get('current_booking_id')?.value;
     
-    // Initialiser les calculateurs
-    const quoteCalculator = new QuoteCalculator(configService, [], [], []);
+    // Si aucun cookie, retourner un panier vide
+    if (!bookingId) {
+      console.log('Aucune réservation en cours trouvée (pas de cookie)');
+      return NextResponse.json({ cart: { items: [] } });
+    }
     
-    // Initialiser les services
-    const customerService = new CustomerService(customerRepository);
-    const transactionService = {} as any;
-    const documentService = {} as any;
-    const emailService = {} as any;
-    
-    // Initialiser le service principal
-    const bookingService = new BookingService(
-      bookingRepository,
-      movingRepository,
-      packRepository,
-      serviceRepository,
-      quoteCalculator,
-      quoteRequestRepository,
-      customerService,
-      transactionService,
-      documentService,
-      emailService
-    );
-    
-    // Initialiser le contrôleur
-    const bookingController = new BookingController(
-      bookingService, 
-      customerService
-    );
-    
-    // Créer un adaptateur pour les requêtes/réponses HTTP
-    const httpRequest = {
-      body: {},
-      params: {},
-      query: {}
-    };
-    
-    const httpResponse = {
-      status: function(code: number) {
-        return {
-          json: function(data: any) {
-            return { statusCode: code, data };
-          }
-        };
-      }
-    };
-    
-    // Rechercher les réservations en cours (DRAFT)
-    const bookings = await bookingService.findBookingsByStatus(BookingStatus.DRAFT);
-    
-    // S'il y a une réservation en cours, la retourner
-    if (bookings && bookings.length > 0) {
-      const currentBooking = bookings[0];
-      const { booking, details } = await bookingService.getBookingById(currentBooking.getId());
+    try {
+      // Rechercher la réservation dans la base de données
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          customer: true,
+          quote: true
+        }
+      });
       
-      // Ajouter les propriétés workers et duration selon le type de réservation
-      const responseData = {
-        id: booking.getId(),
-        type: booking.getType(),
-        status: booking.getStatus(),
-        totalAmount: booking.getTotalAmount().getAmount(),
+      // Si la réservation n'existe pas, retourner un panier vide
+      if (!booking) {
+        console.log(`Réservation ${bookingId} non trouvée dans la base de données`);
+        return NextResponse.json({ cart: { items: [] } });
+      }
+      
+      // Formatter les données pour le panier
+      const cartData = {
+        id: booking.id,
+        status: booking.status,
+        customer: booking.customer ? {
+          firstName: booking.customer.firstName,
+          lastName: booking.customer.lastName,
+          email: booking.customer.email
+        } : null,
         details: {
-          ...details,
-          // Valeurs par défaut pour éviter l'erreur "Cannot read properties of undefined"
-          workers: 2,  // Valeur par défaut
-          duration: 1, // Valeur par défaut
-          items: [{
-            id: details ? (details as any).getId?.() || booking.getId() : booking.getId(),
-            type: booking.getType(),
-            itemId: details ? (details as any).getId?.() || booking.getId() : booking.getId(),
-            data: {
-              ...details,
-              // Aussi ajouter ces propriétés dans l'objet data
-              workers: (details as any)?.workers || 2,
-              duration: (details as any)?.duration || 1
+          items: [
+            {
+              id: booking.id,
+              type: booking.type,
+              price: booking.totalAmount,
+              name: booking.type === 'PACK' ? 'Pack de déménagement' : 
+                    booking.type === 'SERVICE' ? 'Service à domicile' : 'Déménagement'
             }
-          }]
+          ]
         }
       };
       
-      // Ajouter les informations du client si disponibles
-      try {
-        const customer = booking.getCustomer?.();
-        if (customer) {
-          responseData.details.customer = {
-            id: customer.getId(),
-            firstName: customer.getContactInfo().getFirstName(),
-            lastName: customer.getContactInfo().getLastName(),
-            email: customer.getContactInfo().getEmail(),
-            phone: customer.getContactInfo().getPhone()
-          };
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération des informations client:", error);
-      }
-      
-      return NextResponse.json(responseData, { status: 200 });
+      return NextResponse.json(cartData);
+    } catch (error) {
+      console.error('Erreur lors de la récupération de la réservation:', error);
+      // En cas d'erreur, retourner un panier vide
+      return NextResponse.json({ cart: { items: [] } });
     }
-    
-    // Pas de réservation en cours
-    return NextResponse.json(
-      { error: 'Aucune réservation en cours' },
-      { status: 404 }
-    );
   } catch (error) {
-    const errorObj = error instanceof Error ? error : new Error('Erreur inconnue');
-    logger.error('Erreur dans GET /api/bookings/current', errorObj);
-    
+    console.error('Erreur lors de la récupération de la réservation en cours:', error);
     return NextResponse.json(
-      { 
-        error: 'Une erreur est survenue lors de la récupération de la réservation en cours',
-        details: errorObj.message
-      },
+      { error: 'Erreur lors de la récupération de la réservation en cours' },
       { status: 500 }
     );
   }

@@ -10,7 +10,12 @@ export const prisma = global.prisma || new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
 });
 
-// Conserver l'instance en développement pour éviter de multiples instances pendant le hot-reloading
-if (process.env.NODE_ENV !== 'production') {
+// S'assurer que la connexion est établie
+prisma.$connect()
+  .then(() => console.log('✅ Prisma: Connexion à la base de données établie'))
+  .catch(e => console.error('❌ Prisma: Échec de la connexion à la base de données:', e));
+
+// En développement, sauvegarder l'instance dans le global pour éviter les connexions multiples
+if (process.env.NODE_ENV === 'development') {
   global.prisma = prisma;
 } 

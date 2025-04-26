@@ -128,6 +128,22 @@ export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
     }
 
     /**
+     * Trouve toutes les demandes de devis
+     */
+    async findAll(): Promise<QuoteRequest[]> {
+        try {
+            const quoteRequests = await this.prisma.quoteRequest.findMany({
+                orderBy: { createdAt: 'desc' }
+            });
+
+            return quoteRequests.map(this.mapDbToQuoteRequest);
+        } catch (error) {
+            console.error('Erreur lors de la recherche de toutes les demandes de devis:', error);
+            throw new Error(`Erreur lors de la recherche des demandes: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+        }
+    }
+
+    /**
      * Convertit un enregistrement de la base de données en entité QuoteRequest
      */
     private mapDbToQuoteRequest(dbQuoteRequest: any): QuoteRequest {

@@ -21,7 +21,7 @@ export default function TestApi() {
         body: JSON.stringify({
           type: 'SERVICE',
           data: {
-            basePrice: 200,
+            defaultPrice: 200,
             duration: 8,
             workers: 4,
             defaultDuration: 4,

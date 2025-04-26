@@ -8,6 +8,8 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { CalendarIcon, MapPinIcon, InformationCircleIcon, ClockIcon, TruckIcon, UsersIcon } from '@heroicons/react/24/outline'
 import { calculateDistance } from '@/actions/distanceCalculator'
+import { FallbackCalculatorService } from '@/quotation/application/services/FallbackCalculatorService'
+import { ServiceType } from '@/quotation/domain/enums/ServiceType'
 
 export default function PackFormPage({ params }: { params: { id: string } }) {
   const [pack, setPack] = useState<Pack | null>(null)
@@ -94,46 +96,100 @@ export default function PackFormPage({ params }: { params: { id: string } }) {
     calculateDistanceBetweenAddresses()
   }, [formData.pickupAddress, formData.deliveryAddress])
 
-  // Recalculer le prix quand la durée, le nombre de travailleurs, la distance ou les options de monte-meuble changent
-  useEffect(() => {
-    const updatePrice = async () => {
-      if (pack) {
-        const duration = parseInt(formData.duration, 10)
-        const workers = parseInt(formData.workers, 10)
-        try {
-          // Utiliser l'API pour calculer le prix
-          const response = await fetch('/api/bookings/calculate', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              type: 'PACK',
-              data: {
-                basePrice: pack.price,
-                duration: duration,
-                workers: workers,
-                baseWorkers: pack.workers,
-                baseDuration: pack.duration,
-                distance: distance
-              }
-            })
-          })
-          
-          if (!response.ok) {
-            throw new Error(`Erreur HTTP: ${response.status}`)
-          }
-          
-          const data = await response.json()
-          setCalculatedPrice(data.price || pack.price)
-        } catch (error) {
-          console.error('Erreur lors du calcul du prix:', error)
-        }
-      }
+  // Vérifier si le formulaire est complet pour le calcul du prix
+  const isComplete = () => {
+    return !!(
+      formData.duration && 
+      formData.workers && 
+      formData.pickupAddress && 
+      formData.deliveryAddress && 
+      pack
+    );
+  };
+
+  // Mise à jour du prix en fonction des paramètres
+  const updatePrice = async () => {
+    console.log('📊 PACK - Paramètres de calcul:', {
+      workers: parseInt(formData.workers),
+      duration: parseInt(formData.duration),
+      distance: distance,
+      packData: pack,
+      defaultPrice: pack?.price || 0
+    });
+    
+    if (!isComplete()) {
+      console.log('Le formulaire est incomplet, impossible de calculer le prix');
+      return;
     }
     
-    updatePrice()
-  }, [formData.duration, formData.workers, formData.pickupNeedsLift, formData.deliveryNeedsLift, pack, distance])
+    setIsLoading(true);
+    
+    try {
+      // Requête à l'API pour obtenir le prix
+      const response = await fetch('/api/bookings/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'PACK',
+          data: {
+            defaultPrice: pack?.price || 0,
+            workers: parseInt(formData.workers),
+            duration: parseInt(formData.duration),
+            baseWorkers: pack?.workers || 2,
+            baseDuration: pack?.duration || 1,
+            distance: distance,
+            pickupNeedsLift: formData.pickupNeedsLift,
+            deliveryNeedsLift: formData.deliveryNeedsLift
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('✅ Résultat API:', result);
+      
+      // Mettre à jour le prix
+      setCalculatedPrice(result.price || result.quote.totalPrice || 0);
+    } catch (error) {
+      console.error('❌ Erreur lors du calcul du prix:', error);
+      
+      // Utiliser le service de fallback
+      try {
+        console.log('🔄 PACK - Utilisation du service de fallback comme solution de repli');
+        
+        // Initialiser le service
+        const fallbackService = FallbackCalculatorService.getInstance();
+        
+        // Calcul du prix via le service centralisé
+        const fallbackResult = fallbackService.calculatePackFallback({
+          defaultPrice: pack?.price || 0,
+          workers: parseInt(formData.workers),
+          duration: parseInt(formData.duration),
+          baseWorkers: pack?.workers || 2,
+          baseDuration: pack?.duration || 1,
+          distance: distance,
+          pickupNeedsLift: formData.pickupNeedsLift,
+          deliveryNeedsLift: formData.deliveryNeedsLift
+        });
+        
+        console.log('🔄 PACK - Résultat du calcul via service de fallback:', fallbackResult.details);
+        
+        // Mettre à jour le prix avec les résultats du service de fallback
+        setCalculatedPrice(fallbackResult.details.finalPrice || 0);
+      } catch (e) {
+        console.error('❌ Erreur également dans le service de fallback:', e);
+        
+        // En cas d'échec complet, utiliser le prix par défaut
+        const defaultPrice = pack?.price || 300;
+        setCalculatedPrice(defaultPrice);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Gérer la validation des champs d'étage et ascenseur
   useEffect(() => {
@@ -591,64 +647,104 @@ export default function PackFormPage({ params }: { params: { id: string } }) {
               
               {/* Résumé du prix */}
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Récapitulatif de la commande</h3>
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Pack {pack.name}</span>
-                    <span className="font-medium text-gray-700">{pack.price}€</span>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Récapitulatif de la commande</h3>
+                <div className="space-y-2">
+                  {/* Prix de base */}
+                  <div className="flex justify-between text-sm font-medium pb-2 border-b border-gray-200">
+                    <span className="text-gray-700">Pack {pack.name}</span>
+                    <span className="text-gray-700">{pack.price}€</span>
                   </div>
-                  {parseInt(formData.duration) > pack.duration && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        Jours supplémentaires ({parseInt(formData.duration) - pack.duration} jour{parseInt(formData.duration) - pack.duration > 1 ? 's' : ''}) <span className="text-red-500 font-medium">(-10%)</span>
-                      </span>
-                      <span className="font-medium text-red-600">
-                        +{Math.round((pack.price / pack.duration) * (parseInt(formData.duration) - pack.duration) * 0.9)}€
-                      </span>
+                  
+                  {/* Section Suppléments */}
+                  {(parseInt(formData.duration) > pack.duration || 
+                    parseInt(formData.workers) > pack.workers || 
+                    distance > (pack.includedDistance || 20) || 
+                    formData.pickupNeedsLift || 
+                    formData.deliveryNeedsLift) && (
+                    <div className="py-1">
+                      <div className="text-xs uppercase tracking-wide font-semibold text-gray-500 mb-1.5">Suppléments</div>
+                      
+                      {/* Jours supplémentaires */}
+                      {parseInt(formData.duration) > pack.duration && (
+                        <div className="flex justify-between text-sm py-0.5">
+                          <span className="text-gray-600 flex items-center">
+                            <ClockIcon className="h-3.5 w-3.5 text-orange-500 mr-1.5" />
+                            <span>
+                              {parseInt(formData.duration) - pack.duration} jour{parseInt(formData.duration) - pack.duration > 1 ? 's' : ''} supp.
+                              <span className="text-xs text-gray-500 ml-1">(-10%)</span>
+                            </span>
+                          </span>
+                          <span className="font-medium text-orange-600">
+                            +{Math.round((pack.price / pack.duration) * (parseInt(formData.duration) - pack.duration) * 0.9)}€
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Travailleurs supplémentaires */}
+                      {parseInt(formData.workers) > pack.workers && (
+                        <div className="flex justify-between text-sm py-0.5">
+                          <span className="text-gray-600 flex items-center">
+                            <UsersIcon className="h-3.5 w-3.5 text-orange-500 mr-1.5" />
+                            <span>
+                              {parseInt(formData.workers) - pack.workers} travailleur{parseInt(formData.workers) - pack.workers > 1 ? 's' : ''} supp.
+                              <span className="text-xs text-gray-500 ml-1">
+                                (-{parseInt(formData.duration) === 1 ? '5' : '10'}%)
+                              </span>
+                            </span>
+                          </span>
+                          <span className="font-medium text-orange-600">
+                            +{Math.round((parseInt(formData.workers) - pack.workers) * 120 * parseInt(formData.duration) * (1 - (parseInt(formData.duration) === 1 ? 0.05 : 0.10)))}€
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Distance supplémentaire */}
+                      {distance > (pack.includedDistance || 20) && (
+                        <div className="flex justify-between text-sm py-0.5">
+                          <span className="text-gray-600 flex items-center">
+                            <TruckIcon className="h-3.5 w-3.5 text-orange-500 mr-1.5" />
+                            <span>
+                              Distance supp. ({Math.round((distance - (pack.includedDistance || 20)) * 10) / 10} km)
+                            </span>
+                          </span>
+                          <span className="font-medium text-orange-600">
+                            +{Math.round((distance - (pack.includedDistance || 20)) * 1.5 * 10) / 10}€
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Monte-meuble */}
+                      {(formData.pickupNeedsLift || formData.deliveryNeedsLift) && (
+                        <div className="flex justify-between text-sm py-0.5">
+                          <span className="text-gray-600 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-orange-500 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                            <span>
+                              Monte-meuble
+                              {formData.pickupNeedsLift && formData.deliveryNeedsLift ? ' (départ et arrivée)' : 
+                               formData.pickupNeedsLift ? ' (départ)' : ' (arrivée)'}
+                            </span>
+                          </span>
+                          <span className="font-medium text-orange-600">
+                            +{(formData.pickupNeedsLift && formData.deliveryNeedsLift) ? '400' : '200'}€
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
-                  {parseInt(formData.workers) > pack.workers && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        Ajustement personnel ({parseInt(formData.workers) - pack.workers} travailleur{parseInt(formData.workers) - pack.workers > 1 ? 's' : ''} supplémentaire{parseInt(formData.workers) - pack.workers > 1 ? 's' : ''}) <span className="text-red-500 font-medium">(-{parseInt(formData.duration) === 1 ? '5' : '10'}%)</span>
-                      </span>
-                      <span className="font-medium text-red-600">
-                        +{Math.round((parseInt(formData.workers) - pack.workers) * 120 * parseInt(formData.duration) * (1 - (parseInt(formData.duration) === 1 ? 0.05 : 0.10)))}€
-                      </span>
-                    </div>
-                  )}
-                  {distance > (pack.includedDistance || 20) && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        Distance supplémentaire ({Math.round((distance - (pack.includedDistance || 20)) * 10) / 10} km × 1,50€)
-                      </span>
-                      <span className="font-medium text-red-600">
-                        +{Math.round((distance - (pack.includedDistance || 20)) * 1.5 * 10) / 10}€
-                      </span>
-                    </div>
-                  )}
-                  {(formData.pickupNeedsLift || formData.deliveryNeedsLift) && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        Monte-meuble 
-                        {formData.pickupNeedsLift && formData.deliveryNeedsLift ? ' (départ et arrivée)' : 
-                         formData.pickupNeedsLift ? ' (départ)' : ' (arrivée)'}
-                      </span>
-                      <span className="font-medium text-red-600">
-                        +{(formData.pickupNeedsLift && formData.deliveryNeedsLift) ? '400' : '200'}€
-                      </span>
-                    </div>
-                  )}
-                  <div className="border-t border-gray-200 pt-2 mt-2">
+                  
+                  {/* Sous-total, TVA et Total */}
+                  <div className="border-t border-gray-200 pt-2 mt-2 space-y-1.5">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Sous-total HT</span>
                       <span className="font-medium text-gray-700">{calculatedPrice || 0}€</span>
                     </div>
-                    <div className="flex justify-between text-sm mt-1">
+                    <div className="flex justify-between text-sm">
                       <span className="text-gray-600">TVA (20%)</span>
                       <span className="font-medium text-gray-700">{((calculatedPrice || 0) * 0.2).toFixed(2)}€</span>
                     </div>
-                    <div className="flex justify-between mt-2">
+                    <div className="flex justify-between mt-2 pt-2 border-t border-gray-200">
                       <span className="text-gray-700 font-semibold">Total TTC</span>
                       <span className="font-bold text-emerald-600">{((calculatedPrice || 0) * 1.2).toFixed(2)}€</span>
                     </div>

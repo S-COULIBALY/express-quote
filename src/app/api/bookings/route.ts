@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // LOG DE CHARGEMENT DU MODULE
 console.log("\n========== MODULE API/BOOKINGS/ROUTE.TS CHARGÉ ==========\n");
 
-import { BookingStatus, BookingType } from '@/quotation/domain/entities/Booking';
+import { BookingStatus } from '@/quotation/domain/entities/Booking';
 import { Booking } from '@/quotation/domain/entities/Booking';
 import { BookingController } from '@/quotation/interfaces/http/controllers/BookingController';
 import { PrismaBookingRepository } from '@/quotation/infrastructure/repositories/PrismaBookingRepository';
@@ -17,24 +17,15 @@ import { BookingService } from '@/quotation/application/services/BookingService'
 import { CustomerService } from '@/quotation/application/services/CustomerService';
 import { QuoteCalculator } from '@/quotation/domain/calculators/MovingQuoteCalculator';
 import { HttpRequest, HttpResponse } from '@/quotation/interfaces/http/types';
-import { createMovingRules } from '@/quotation/domain/rules/MovingRules';
-import { createPackRules } from '@/quotation/domain/rules/PackRules';
-import { createServiceRules } from '@/quotation/domain/rules/ServiceRules';
 import { Rule } from '@/quotation/domain/valueObjects/Rule';
-import { Money } from '@/quotation/domain/valueObjects/Money';
-import { QuoteCalculatorFactory } from '@/quotation/application/factories/QuoteCalculatorFactory';
-import { QuoteContext } from '@/quotation/domain/valueObjects/QuoteContext';
-import { ServiceType } from '@/quotation/domain/enums/ServiceType';
 import { logger } from '@/lib/logger';
-import { ValidationError } from '@/quotation/domain/errors/ValidationError';
 import { ConfigurationService } from '@/quotation/domain/services/ConfigurationService';
+import { QuoteCalculatorFactory } from '@/quotation/application/factories/QuoteCalculatorFactory';
+import { QuoteCalculatorService } from '@/quotation/application/services/QuoteCalculatorService';
+import { FallbackCalculatorService } from '@/quotation/application/services/FallbackCalculatorService';
 
 // LOG D'IMPORTATION TERMINÉE
 console.log("\n========== IMPORTS API/BOOKINGS/ROUTE.TS TERMINÉS ==========\n");
-
-// Initialiser la factory au démarrage
-QuoteCalculatorFactory.initialize()
-  .catch(err => logger.error('Failed to initialize QuoteCalculatorFactory', err));
 
 // Initialisation des dépendances
 const bookingRepository = new PrismaBookingRepository();
@@ -42,48 +33,157 @@ const movingRepository = new PrismaMovingRepository();
 const packRepository = new PrismaPackRepository();
 const serviceRepository = new PrismaServiceRepository();
 const customerRepository = new PrismaCustomerRepository();
-const quoteRequestRepository = new PrismaQuoteRequestRepository();
+const quoteRequestRepo = new PrismaQuoteRequestRepository();
 const serviceTypeRepository = new PrismaServiceTypeRepository();
 
-// Convertir les règles de déménagement depuis le format historique
-const movingRulesList: Rule[] = createMovingRules().rules.map(ruleData => 
-  new Rule(ruleData.name, ruleData.percentage, ruleData.amount, 
-    // Convertir la fonction condition pour qu'elle corresponde au type attendu
-    (context: any) => typeof ruleData.condition === 'function' && 
-                    ruleData.condition.length > 1 ? 
-      // Si la fonction a besoin de deux arguments, on retourne une fonction compatible
-      ruleData.condition(context, new Money(0)) : 
-      // Sinon on utilise la fonction telle quelle
-      ruleData.condition
-  )
-);
+// Initialiser le service de configuration
+const configService = new ConfigurationService();
 
-// Initialiser le calculateur de devis unifié avec les différents types de règles
-const quoteCalculator = new QuoteCalculator(movingRulesList, createPackRules(), createServiceRules());
+// Variable pour stocker le calculateur de devis
+let quoteCalculator: QuoteCalculator | null = null;
 
-const customerService = new CustomerService(customerRepository);
+// Variable pour stocker le service de réservation
+let bookingServiceInstance: BookingService | null = null;
+
+// Variable pour stocker le contrôleur
+let bookingController: BookingController | null = null;
+
+// Charger le service de calculateur
+const calculatorService = QuoteCalculatorService.getInstance();
+// Initialiser le service de fallback
+const fallbackService = FallbackCalculatorService.getInstance();
+
+calculatorService.initialize()
+  .then(() => {
+    logger.info('✅ Service de calculateur initialisé avec succès pour la route bookings');
+    console.log("✅ Service de calculateur initialisé avec succès pour la route bookings");
+  })
+  .catch(error => {
+    logger.error('⚠️ Erreur lors de l\'initialisation du service de calculateur:', error);
+    console.error('⚠️ Erreur lors de l\'initialisation du service de calculateur:', error);
+  });
 
 // Services supplémentaires requis
+const customerService = new CustomerService(customerRepository);
 const transactionService = {} as any;
 const documentService = {} as any;
 const emailService = {} as any;
 
-// Utiliser directement les repositories
-const bookingService = new BookingService(
-  bookingRepository,
-  movingRepository,
-  packRepository,
-  serviceRepository,
-  quoteCalculator,
-  quoteRequestRepository,
-  customerService,
-  transactionService,
-  documentService,
-  emailService
-);
+// Fonction utilitaire pour s'assurer que le calculateur est disponible
+async function ensureCalculatorAvailable(): Promise<QuoteCalculator> {
+  if (!quoteCalculator) {
+    console.log("⚠️ Calculateur non initialisé, tentative d'initialisation à la demande...");
+    
+    try {
+      // Utiliser le service centralisé au lieu d'appeler directement la factory
+      quoteCalculator = await calculatorService.getCalculator();
+      console.log("✅ Calculateur récupéré avec succès via QuoteCalculatorService");
+    } catch (error) {
+      console.error("❌ Échec de la récupération du calculateur via service:", error);
+      
+      // Utiliser le service FallbackCalculatorService pour obtenir un calculateur de secours
+      console.log("🔄 Utilisation du service FallbackCalculatorService comme fallback");
+      quoteCalculator = fallbackService.createFallbackCalculator(configService);
+      
+      console.log("✅ Calculateur initialisé à la demande avec le service fallback");
+    }
+  }
+  
+  // Garantir qu'on ne retourne jamais null
+  if (!quoteCalculator) {
+    throw new Error("Impossible d'initialiser le calculateur, même avec le fallback");
+  }
+  
+  return quoteCalculator;
+}
 
-// Initialiser le contrôleur
-const bookingController = new BookingController(bookingService, customerService);
+// Fonction utilitaire pour s'assurer que le service de réservation est disponible
+async function ensureBookingServiceAvailable(): Promise<BookingService> {
+  if (!bookingServiceInstance) {
+    console.log("⚠️ BookingService non initialisé, tentative d'initialisation à la demande...");
+    
+    // S'assurer que le calculateur est disponible
+    const calculator = await ensureCalculatorAvailable();
+    
+    // Créer le service de réservation
+    bookingServiceInstance = new BookingService(
+      bookingRepository,
+      movingRepository,
+      packRepository,
+      serviceRepository,
+      calculator,
+      quoteRequestRepo,
+      customerService,
+      transactionService,
+      documentService,
+      emailService
+    );
+    
+    console.log("✅ BookingService initialisé avec succès");
+  }
+  
+  return bookingServiceInstance;
+}
+
+// Fonction utilitaire pour s'assurer que le contrôleur est disponible
+async function ensureBookingControllerAvailable(): Promise<BookingController> {
+  if (!bookingController) {
+    console.log("⚠️ BookingController non initialisé, tentative d'initialisation à la demande...");
+    
+    // S'assurer que le service de réservation est disponible
+    const service = await ensureBookingServiceAvailable();
+    
+    // Créer le contrôleur
+    bookingController = new BookingController(service, customerService);
+    
+    console.log("✅ BookingController initialisé avec succès");
+  }
+  
+  return bookingController;
+}
+
+// Initialiser le calculateur de devis via le service centralisé
+calculatorService.getCalculator()
+  .then(calculator => {
+    quoteCalculator = calculator;
+    logger.info('✅ Calculateur récupéré avec succès via QuoteCalculatorService');
+    console.log("✅ Calculateur récupéré avec succès via QuoteCalculatorService");
+    
+    // Initialiser également le service et le contrôleur une fois le calculateur disponible
+    ensureBookingServiceAvailable()
+      .then(service => {
+        return ensureBookingControllerAvailable();
+      })
+      .then(() => {
+        console.log("✅ Initialisation complète du système");
+      })
+      .catch(error => {
+        console.error("❌ Erreur lors de l'initialisation du système:", error);
+      });
+  })
+  .catch(error => {
+    logger.error('❌ Erreur lors de la récupération du calculateur via service, utilisation du fallback:', error);
+    console.error('❌ Erreur lors de la récupération du calculateur via service, utilisation du fallback:', error);
+    
+    // Utiliser le service FallbackCalculatorService pour obtenir un calculateur de secours
+    console.log("🔄 Utilisation du service FallbackCalculatorService comme fallback lors de l'initialisation principale");
+    quoteCalculator = fallbackService.createFallbackCalculator(configService);
+    
+    logger.info('✅ Calculateur initialisé avec le service fallback');
+    console.log("✅ Calculateur initialisé avec le service fallback");
+    
+    // Initialiser également le service et le contrôleur une fois le calculateur disponible
+    ensureBookingServiceAvailable()
+      .then(service => {
+        return ensureBookingControllerAvailable();
+      })
+      .then(() => {
+        console.log("✅ Initialisation complète du système (avec fallback)");
+      })
+      .catch(error => {
+        console.error("❌ Erreur lors de l'initialisation du système (avec fallback):", error);
+      });
+  });
 
 // Adaptateur pour convertir une requête NextJS en HttpRequest
 function createHttpRequest(request: NextRequest, pathParams?: Record<string, string>, body?: any): HttpRequest {
@@ -139,6 +239,18 @@ export async function GET(request: NextRequest) {
   console.log("\n========== ENTRÉE DANS LA FONCTION GET /api/bookings ==========\n");
   console.log("URL complète:", request.url);
   try {
+    // S'assurer que le contrôleur est initialisé
+    let controller;
+    try {
+      controller = await ensureBookingControllerAvailable();
+    } catch (initError) {
+      console.error("Erreur lors de l'initialisation du contrôleur:", initError);
+      return NextResponse.json(
+        { error: 'Le service est en cours d\'initialisation, veuillez réessayer dans quelques instants' },
+        { status: 503 }
+      );
+    }
+    
     // Vérifier s'il s'agit de la réservation en cours
     const url = new URL(request.url);
     if (url.pathname.includes('/api/bookings/current')) {
@@ -152,7 +264,7 @@ export async function GET(request: NextRequest) {
     const httpResponse = createHttpResponse();
     
     // Obtenir la liste des réservations
-    await bookingController.getBookings(httpRequest, httpResponse);
+    await controller.getBookings(httpRequest, httpResponse);
     
     // Extraire les données et le code de statut du HttpResponse
     const responseData = httpResponse.getData();
@@ -177,6 +289,18 @@ export async function GET(request: NextRequest) {
  */
 async function getCurrentBooking(request: NextRequest) {
   try {
+    // S'assurer que le service est initialisé
+    let service;
+    try {
+      service = await ensureBookingServiceAvailable();
+    } catch (initError) {
+      console.error("Erreur lors de l'initialisation du service:", initError);
+      return NextResponse.json(
+        { error: 'Le service est en cours d\'initialisation, veuillez réessayer dans quelques instants' },
+        { status: 503 }
+      );
+    }
+    
     // Créer une requête HTTP
     const httpRequest = createHttpRequest(request, {});
     
@@ -185,23 +309,25 @@ async function getCurrentBooking(request: NextRequest) {
     
     // Obtenir la réservation en cours depuis un cookie ou la session
     // Pour l'instant, on récupère juste la dernière réservation DRAFT ou on en crée une nouvelle
-    const bookings = await bookingService.findBookingsByStatus(BookingStatus.DRAFT);
+    const bookings = await service.findBookingsByStatus(BookingStatus.DRAFT);
     
     let currentBooking = null;
     if (bookings && bookings.length > 0) {
       currentBooking = bookings[0];
       try {
         // Récupérer les détails complets de la réservation
-        const { booking, details } = await bookingService.getBookingById(currentBooking.getId());
+        const { booking, details } = await service.getBookingById(currentBooking.getId());
         
         // Construire une réponse avec les données essentielles
-        const response = {
+        const response: any = {
           id: booking.getId(),
           type: booking.getType(),
           status: booking.getStatus(),
           totalAmount: booking.getTotalAmount().getAmount(),
           details: {
-            items: []
+            items: [] as any[],
+            workers: 2, // Valeur par défaut
+            duration: 1  // Valeur par défaut
           }
         };
         
@@ -281,21 +407,28 @@ async function getCurrentBooking(request: NextRequest) {
 }
 
 /**
- * POST /api/bookings - Création d'une réservation ou calcul de prix
+ * POST /api/bookings - Création d'une réservation en utilisant le flux recommandé
+ * Utilise désormais le processus recommandé en 2 étapes (createQuoteRequest puis finalizeBooking)
+ * via la méthode createReservation du BookingService
  */
 export async function POST(request: NextRequest) {
   console.log("\n========== ENTRÉE DANS LA FONCTION POST /api/bookings ==========\n");
   console.log("URL complète:", request.url);
   
-  const url = new URL(request.url);
-  
   try {
-    // Si le chemin contient "calculate", traiter comme une demande de calcul de prix
-    if (url.pathname.includes('/api/bookings/calculate')) {
-      console.log("URL DÉTECTÉE: /api/bookings/calculate - APPEL calculatePrice()");
-      return calculatePrice(request);
+    // S'assurer que le contrôleur est initialisé
+    let controller;
+    try {
+      controller = await ensureBookingControllerAvailable();
+    } catch (initError) {
+      console.error("Erreur lors de l'initialisation du contrôleur:", initError);
+      return NextResponse.json(
+        { error: 'Le service est en cours d\'initialisation, veuillez réessayer dans quelques instants' },
+        { status: 503 }
+      );
     }
     
+    // Lecture du corps de la requête
     const body = await request.json();
     
     // Créer un HttpRequest à partir de NextRequest
@@ -304,8 +437,8 @@ export async function POST(request: NextRequest) {
     // Créer un HttpResponse
     const httpResponse = createHttpResponse();
     
-    // Création standard d'une réservation
-    await bookingController.createBooking(httpRequest, httpResponse);
+    // Création de réservation utilisant le flux recommandé
+    await controller.createBooking(httpRequest, httpResponse);
     
     // Extraire les données et le code de statut du HttpResponse
     const responseData = httpResponse.getData();
@@ -319,51 +452,5 @@ export async function POST(request: NextRequest) {
       { error: `Une erreur est survenue: ${error instanceof Error ? error.message : 'Erreur inconnue'}` },
       { status: 500 }
     );
-  }
-}
-
-/**
- * Fonction pour calculer le prix d'un service
- */
-async function calculatePrice(request: NextRequest) {
-  console.log("\n############ DÉBUT calculatePrice ############\n");
-  
-  try {
-    // Log de la requête entrante
-    console.log("URL:", request.url);
-    console.log("METHOD:", request.method);
-    console.log("HEADERS:", Object.fromEntries(request.headers.entries()));
-    
-    // Lire le corps de la requête
-    const bodyText = await request.text();
-    console.log("BODY TEXT:", bodyText);
-    
-    try {
-      // Parser le corps en JSON
-      const requestData = JSON.parse(bodyText);
-      console.log("PARSED JSON:", JSON.stringify(requestData, null, 2));
-      
-      // Version de test - pour vérifier si notre correction a résolu l'erreur "Opération non supportée"
-      return NextResponse.json({
-        success: true,
-        message: "Notre correction pour l'erreur 'Opération non supportée' a été implémentée",
-        received: requestData
-      });
-      
-    } catch (parseError) {
-      console.log("ERREUR DE PARSING JSON:", parseError);
-      return NextResponse.json(
-        { error: 'Format JSON invalide', details: String(parseError) },
-        { status: 400 }
-      );
-    }
-  } catch (error) {
-    console.log("ERREUR GLOBALE:", error);
-    return NextResponse.json(
-      { error: 'Erreur interne', details: String(error) },
-      { status: 500 }
-    );
-  } finally {
-    console.log("\n############ FIN calculatePrice ############\n");
   }
 } 

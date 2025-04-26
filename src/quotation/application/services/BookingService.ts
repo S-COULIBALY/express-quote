@@ -23,9 +23,6 @@ import { CustomerService } from './CustomerService';
 import { ServiceType } from '../../domain/enums/ServiceType';
 import { Address } from '../../domain/valueObjects/Address';
 import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
-import { packRules } from '../../domain/valueObjects/packRules';
-import { serviceRules } from '../../domain/valueObjects/serviceRules';
-import { movingRules } from '../../domain/services/rules/movingRules';
 import { StripePaymentService } from '../../infrastructure/services/StripePaymentService';
 
 export class BookingService {
@@ -44,8 +41,13 @@ export class BookingService {
 
   /**
    * Crée une demande de devis temporaire (sans client)
+   * @description Première étape du flux de réservation recommandé. Crée une demande de devis
+   * sans informations client qui pourra être finalisée ultérieurement avec finalizeBooking.
+   * @param dto Données de la demande de devis (type, adresses, volume, etc.)
+   * @returns La demande de devis créée
    */
   async createQuoteRequest(dto: any): Promise<QuoteRequest> {
+    console.log('🔄 [BookingService] Début createQuoteRequest avec type:', dto.type);
     const { type } = dto;
     
     // Valider le type
@@ -58,23 +60,29 @@ export class BookingService {
         type as QuoteRequestType,
         dto // Stocker toutes les données originales
     );
+    console.log('📝 [BookingService] QuoteRequest créé:', quoteRequest.getId());
     
     // Sauvegarder la demande
     const savedQuoteRequest = await this.quoteRequestRepository.save(quoteRequest);
+    console.log('💾 [BookingService] QuoteRequest sauvegardé avec ID:', savedQuoteRequest.getId());
     
     // Créer l'entité spécifique selon le type (Moving, Pack, Service)
     switch (type) {
         case QuoteRequestType.MOVING:
             await this.createMovingQuote(dto, savedQuoteRequest.getId());
+            console.log('🚚 [BookingService] Entité Moving créée pour QuoteRequest:', savedQuoteRequest.getId());
             break;
         case QuoteRequestType.PACK:
             await this.createPackQuote(dto, savedQuoteRequest.getId());
+            console.log('📦 [BookingService] Entité Pack créée pour QuoteRequest:', savedQuoteRequest.getId());
             break;
         case QuoteRequestType.SERVICE:
             await this.createServiceQuote(dto, savedQuoteRequest.getId());
+            console.log('🛠️ [BookingService] Entité Service créée pour QuoteRequest:', savedQuoteRequest.getId());
             break;
     }
     
+    console.log('✅ [BookingService] Fin createQuoteRequest - QuoteRequest créé avec succès:', savedQuoteRequest.getId());
     return savedQuoteRequest;
   }
 
@@ -82,6 +90,8 @@ export class BookingService {
    * Crée un devis de déménagement temporaire
    */
   private async createMovingQuote(dto: any, quoteRequestId: string): Promise<Moving> {
+    console.log('🔄 [BookingService] Début createMovingQuote pour QuoteRequestId:', quoteRequestId);
+    
     const moving = new Moving(
       new Date(dto.moveDate),
       dto.pickupAddress,
@@ -91,72 +101,413 @@ export class BookingService {
       quoteRequestId
     );
     
-    return this.movingRepository.save(moving);
+    const result = await this.movingRepository.save(moving);
+    console.log('✅ [BookingService] Fin createMovingQuote - Moving créé avec succès:', result.getId());
+    return result;
   }
 
   /**
    * Crée un devis de pack temporaire
    */
   private async createPackQuote(dto: any, quoteRequestId: string): Promise<Pack> {
+    console.log('🔄 [BookingService] Début createPackQuote pour QuoteRequestId:', quoteRequestId);
+    
     const pack = new Pack(
       quoteRequestId,
-      dto.name,
-      dto.type ? dto.type as PackType : PackType.STANDARD,
-      dto.description,
+      dto.name || "Pack standard", // Nom du pack
+      dto.description || "",
       new Money(dto.price || 0),
+      dto.duration || 120, // Durée en minutes
+      dto.workers || 2, // Nombre de travailleurs par défaut
       dto.includes || [],
-      quoteRequestId,
-      dto.customOptions || {}
+      dto.features || [],
+      dto.categoryId,
+      dto.content,
+      dto.imagePath,
+      dto.includedDistance || 0,
+      dto.distanceUnit || 'km',
+      dto.workersNeeded || 2,
+      dto.isAvailable !== false,
+      dto.popular === true,
+      quoteRequestId, // bookingId
+      dto.scheduledDate ? new Date(dto.scheduledDate) : undefined,
+      dto.pickupAddress,
+      dto.deliveryAddress,
+      dto.distance,
+      dto.additionalInfo
     );
     
-    return this.packRepository.save(pack);
+    const result = await this.packRepository.save(pack);
+    console.log('✅ [BookingService] Fin createPackQuote - Pack créé avec succès:', result.getId());
+    return result;
   }
 
   /**
    * Crée un devis de service temporaire
    */
   private async createServiceQuote(dto: any, quoteRequestId: string): Promise<Service> {
+    console.log('🔄 [BookingService] Début createServiceQuote pour QuoteRequestId:', quoteRequestId);
+    
     const service = new Service(
       quoteRequestId,
-      ServiceType.MOVING,
+      dto.name || "Service standard",
       dto.description || "",
-      dto.duration || 60, // durée par défaut de 60 minutes
       new Money(dto.price || 0),
+      dto.duration || 60, // durée par défaut de 60 minutes
+      dto.workers || 1, // nombre de travailleurs par défaut
+      dto.includes || [],
+      quoteRequestId, // bookingId
       dto.scheduledDate ? new Date(dto.scheduledDate) : undefined,
-      quoteRequestId
+      dto.location,
+      dto.additionalInfo,
+      dto.options || {}
     );
     
-    return this.serviceRepository.save(service);
+    const result = await this.serviceRepository.save(service);
+    console.log('✅ [BookingService] Fin createServiceQuote - Service créé avec succès:', result.getId());
+    return result;
   }
 
   /**
-   * Convertit une demande de devis en réservation avec les informations client
+   * Convertit une demande de devis en devis formel avec les informations client
+   * @description Deuxième étape du flux de réservation recommandé. Crée un devis formel 
+   * avec les informations client à partir d'une demande de devis anonyme.
+   * @param quoteRequestId ID de la demande de devis à convertir
+   * @param customerData Données du client (nom, prénom, email, téléphone)
+   * @returns Le devis formel créé
    */
-  async finalizeBooking(quoteRequestId: string, customerData: any): Promise<Booking> {
+  async createFormalQuote(quoteRequestId: string, customerData: any): Promise<Quote> {
+    console.log('🔄 [BookingService] Début createFormalQuote pour QuoteRequestId:', quoteRequestId);
+    
     // Récupérer la demande de devis
     const quoteRequest = await this.quoteRequestRepository.findById(quoteRequestId);
     if (!quoteRequest) {
-        throw new Error(`Demande de devis non trouvée: ${quoteRequestId}`);
+      console.error('❌ [BookingService] Demande de devis non trouvée:', quoteRequestId);
+      throw new Error(`Demande de devis non trouvée: ${quoteRequestId}`);
     }
     
     // Vérifier que la demande n'a pas expiré
     if (quoteRequest.isExpired()) {
-        throw new Error('Cette demande de devis a expiré');
+      console.error('⏰ [BookingService] Demande de devis expirée:', quoteRequestId);
+      throw new Error('Cette demande de devis a expiré');
     }
     
     // Créer ou récupérer le client
+    console.log('👤 [BookingService] Création/récupération du client:', customerData.email);
     const customer = await this.customerService.findOrCreateCustomer({
       email: customerData.email,
       firstName: customerData.firstName,
       lastName: customerData.lastName,
       phone: customerData.phone
     });
+    console.log('👤 [BookingService] Client trouvé/créé:', customer.getId());
+    
+    // Récupérer les données de devis déjà calculées
+    const quoteData = quoteRequest.getQuoteData();
+    
+    // Créer le devis final
+    const quoteType = this.mapQuoteRequestTypeToQuoteType(quoteRequest.getType());
+    console.log('📊 [BookingService] Type de devis mappé:', quoteType);
+    
+    const contactInfo = customer.getContactInfo();
+    const quote = new Quote({
+      type: quoteType,
+      status: QuoteStatus.CONFIRMED,  // Le devis est créé et confirmé
+      customer: {
+        id: customer.getId(),
+        firstName: contactInfo.getFirstName(),
+        lastName: contactInfo.getLastName(),
+        email: contactInfo.getEmail(),
+        phone: contactInfo.getPhone() || ''
+      },
+      totalAmount: new Money(quoteData.totalAmount || 0),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      // Copier les détails spécifiques au type de service
+      ...(quoteType === QuoteType.MOVING_QUOTE && {
+        moveDate: quoteData.moveDate ? new Date(quoteData.moveDate) : undefined,
+        pickupAddress: quoteData.pickupAddress,
+        deliveryAddress: quoteData.deliveryAddress,
+        distance: quoteData.distance,
+        volume: quoteData.volume,
+        pickupFloor: quoteData.pickupFloor,
+        deliveryFloor: quoteData.deliveryFloor,
+        pickupElevator: quoteData.pickupElevator,
+        deliveryElevator: quoteData.deliveryElevator,
+        packagingOption: quoteData.packagingOption,
+        furnitureOption: quoteData.furnitureOption,
+        fragileOption: quoteData.fragileOption
+      }),
+      ...(quoteType === QuoteType.PACK && {
+        packId: quoteData.packId,
+        packName: quoteData.packName,
+        scheduledDate: quoteData.scheduledDate ? new Date(quoteData.scheduledDate) : undefined
+      }),
+      ...(quoteType === QuoteType.SERVICE && {
+        serviceId: quoteData.serviceId,
+        serviceName: quoteData.serviceName,
+        description: quoteData.description,
+        scheduledDate: quoteData.scheduledDate ? new Date(quoteData.scheduledDate) : undefined,
+        scheduledTime: quoteData.scheduledTime,
+        location: quoteData.location
+      })
+    });
+    
+    console.log('💰 [BookingService] Quote formel créé avec montant:', quoteData.totalAmount);
+    
+    // Mettre à jour le statut de la demande
+    await this.quoteRequestRepository.updateStatus(
+      quoteRequestId, 
+      QuoteRequestStatus.CONFIRMED
+    );
+    console.log('🔄 [BookingService] Statut du QuoteRequest mis à jour: CONFIRMED');
+    
+    // Optionnel: Envoyer le devis par email
+    if (this.emailService && typeof this.emailService.sendQuote === 'function') {
+      try {
+        await this.emailService.sendQuote(quote, customer.getContactInfo().getEmail());
+        console.log('📧 [BookingService] Email de devis envoyé à:', customer.getContactInfo().getEmail());
+      } catch (error) {
+        console.error('❌ [BookingService] Erreur lors de l\'envoi du devis par email:', error);
+        // Ne pas échouer si l'envoi d'email échoue
+      }
+    }
+    
+    console.log('✅ [BookingService] Fin createFormalQuote - Quote créé avec succès');
+    return quote;
+  }
+
+  /**
+   * Accepte un devis et prépare le paiement
+   * @description Troisième étape du flux de réservation recommandé. Marque le devis comme 
+   * accepté et prépare la session de paiement.
+   * @param quoteId ID du devis à accepter
+   * @param paymentMethod Méthode de paiement choisie
+   * @returns Informations de la session de paiement
+   */
+  async acceptQuoteAndInitiatePayment(quoteId: string, paymentMethod: string): Promise<any> {
+    console.log('🔄 [BookingService] Début acceptQuoteAndInitiatePayment pour QuoteId:', quoteId);
+    
+    // Dans une implémentation complète, nous aurions un repository pour Quote
+    // Pour le moment, nous allons utiliser le quoteRequestId comme quoteId
+    // et récupérer les données à partir de la demande de devis
+    const quoteRequestId = quoteId; // Simplification
+    
+    // Récupérer la demande de devis
+    const quoteRequest = await this.quoteRequestRepository.findById(quoteRequestId);
+    if (!quoteRequest) {
+      console.error('❌ [BookingService] Demande de devis/Quote non trouvé:', quoteRequestId);
+      throw new Error(`Devis non trouvé: ${quoteId}`);
+    }
+    
+    // Vérifier que la demande n'a pas expiré
+    if (quoteRequest.isExpired()) {
+      console.error('⏰ [BookingService] Devis expiré:', quoteRequestId);
+      throw new Error('Ce devis a expiré');
+    }
+    
+    // Récupérer les données du devis
+    const quoteData = quoteRequest.getQuoteData();
+    
+    // Créer une session de paiement via Stripe
+    try {
+      // Initialiser le service de paiement
+      const stripePaymentService = new StripePaymentService(
+        process.env.STRIPE_SECRET_KEY || '',
+        process.env.FRONTEND_URL || ''
+      );
+      
+      // Créer la session de paiement
+      const paymentSession = await stripePaymentService.createCheckoutSession(
+        quoteRequestId,
+        quoteData.email || '',
+        new Money(quoteData.totalAmount || 0),
+        `Paiement pour devis #${quoteId}`
+      );
+      
+      console.log('💳 [BookingService] Session de paiement créée:', paymentSession.sessionId);
+      
+      // Mettre à jour le statut de la demande
+      await this.quoteRequestRepository.updateStatus(
+        quoteRequestId, 
+        QuoteRequestStatus.CONVERTED
+      );
+      console.log('🔄 [BookingService] Statut du QuoteRequest mis à jour: CONVERTED');
+      
+      console.log('✅ [BookingService] Fin acceptQuoteAndInitiatePayment');
+      
+      return {
+        sessionId: paymentSession.sessionId,
+        url: paymentSession.url
+      };
+    } catch (error) {
+      console.error('❌ [BookingService] Erreur lors de la création de la session de paiement:', error);
+      throw new Error(`Erreur lors de l'initialisation du paiement: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  /**
+   * Crée une réservation après confirmation du paiement
+   * @description Quatrième étape du flux de réservation recommandé. Crée la réservation 
+   * finale uniquement après confirmation du paiement.
+   * @param sessionId ID de la session de paiement
+   * @returns La réservation créée
+   */
+  async createBookingAfterPayment(sessionId: string): Promise<Booking> {
+    console.log('🔄 [BookingService] Début createBookingAfterPayment pour sessionId:', sessionId);
+    
+    try {
+      // Vérifier le statut du paiement
+      const stripePaymentService = new StripePaymentService(
+        process.env.STRIPE_SECRET_KEY || '',
+        process.env.FRONTEND_URL || ''
+      );
+      
+      const sessionStatus = await stripePaymentService.checkSessionStatus(sessionId);
+      
+      if (sessionStatus.status !== 'paid') {
+        console.error('❌ [BookingService] Paiement non complété:', sessionId);
+        throw new Error(`Paiement non complété: ${sessionId}`);
+      }
+      
+      // Récupérer les informations de session complètes pour obtenir les métadonnées
+      const session = await stripePaymentService.retrieveCheckoutSession(sessionId);
+      const quoteRequestId = session.metadata?.quoteRequestId;
+      
+      if (!quoteRequestId) {
+        console.error('❌ [BookingService] Métadonnées incomplètes dans la session de paiement');
+        throw new Error('Impossible de récupérer l\'ID de la demande de devis');
+      }
+      
+      // Récupérer la demande de devis
+      const quoteRequest = await this.quoteRequestRepository.findById(quoteRequestId);
+      if (!quoteRequest) {
+        console.error('❌ [BookingService] Demande de devis non trouvée:', quoteRequestId);
+        throw new Error(`Demande de devis non trouvée: ${quoteRequestId}`);
+      }
+      
+      // Récupérer les données du devis
+      const quoteData = quoteRequest.getQuoteData();
+      
+      // Récupérer ou créer le client
+      const customerData = {
+        email: quoteData.email,
+        firstName: quoteData.firstName,
+        lastName: quoteData.lastName,
+        phone: quoteData.phone
+      };
+      
+      console.log('👤 [BookingService] Récupération du client:', customerData.email);
+      const customer = await this.customerService.findOrCreateCustomer(customerData);
+      console.log('👤 [BookingService] Client récupéré:', customer.getId());
+      
+      // Créer le devis final avec statut COMPLETED
+      const quoteType = this.mapQuoteRequestTypeToQuoteType(quoteRequest.getType());
+      const contactInfo = customer.getContactInfo();
+      const quote = new Quote({
+        type: quoteType,
+        status: QuoteStatus.COMPLETED,
+        customer: {
+          id: customer.getId(),
+          firstName: contactInfo.getFirstName(),
+          lastName: contactInfo.getLastName(),
+          email: contactInfo.getEmail(),
+          phone: contactInfo.getPhone() || ''
+        },
+        totalAmount: new Money(quoteData.totalAmount || 0)
+      });
+      
+      // Récupérer la méthode de paiement depuis les détails de la session
+      const paymentMethod = session.payment_method_types?.[0] || 'card';
+      
+      // Créer la réservation avec statut PAYMENT_COMPLETED
+      const booking = Booking.fromQuoteRequest(
+        quoteRequest,
+        customer,
+        quote,
+        new Money(quoteData.totalAmount || 0),
+        paymentMethod
+      );
+      
+      // Mettre à jour le statut de la réservation directement à PAYMENT_COMPLETED
+      booking.updateStatus(BookingStatus.PAYMENT_COMPLETED);
+      
+      // Sauvegarder la réservation
+      const savedBooking = await this.bookingRepository.save(booking);
+      console.log('💾 [BookingService] Booking sauvegardé avec ID:', savedBooking.getId());
+      
+      // Créer l'entité spécifique selon le type
+      switch (quoteRequest.getType()) {
+        case QuoteRequestType.MOVING:
+          await this.createMoving(quoteData, savedBooking.getId());
+          console.log('🚚 [BookingService] Entité Moving créée');
+          break;
+        case QuoteRequestType.PACK:
+          await this.createPack(quoteData, savedBooking.getId());
+          console.log('📦 [BookingService] Entité Pack créée');
+          break;
+        case QuoteRequestType.SERVICE:
+          await this.createService(quoteData, savedBooking.getId());
+          console.log('🛠️ [BookingService] Entité Service créée');
+          break;
+      }
+      
+      console.log('✅ [BookingService] Fin createBookingAfterPayment - Booking créé avec succès');
+      return savedBooking;
+    } catch (error) {
+      console.error('❌ [BookingService] Erreur lors de la création de la réservation après paiement:', error);
+      throw new Error(`Erreur lors de la création de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  /**
+   * Convertit une demande de devis en réservation avec les informations client
+   * @description Deuxième étape du flux de réservation recommandé. Finalise la demande de devis
+   * en y ajoutant les informations client et crée une réservation complète.
+   * @param quoteRequestId ID de la demande de devis à finaliser
+   * @param customerData Données du client (nom, prénom, email, téléphone)
+   * @returns La réservation créée
+   */
+  async finalizeBooking(quoteRequestId: string, customerData: any): Promise<Booking> {
+    console.log('🔄 [BookingService] Début finalizeBooking pour QuoteRequestId:', quoteRequestId);
+    
+    // Récupérer la demande de devis
+    const quoteRequest = await this.quoteRequestRepository.findById(quoteRequestId);
+    if (!quoteRequest) {
+        console.error('❌ [BookingService] Demande de devis non trouvée:', quoteRequestId);
+        throw new Error(`Demande de devis non trouvée: ${quoteRequestId}`);
+    }
+    console.log('📋 [BookingService] QuoteRequest récupéré:', quoteRequestId);
+    
+    // Vérifier que la demande n'a pas expiré
+    if (quoteRequest.isExpired()) {
+        console.error('⏰ [BookingService] Demande de devis expirée:', quoteRequestId);
+        throw new Error('Cette demande de devis a expiré');
+    }
+    
+    // Créer ou récupérer le client
+    console.log('👤 [BookingService] Recherche ou création du client:', customerData.email);
+    const customer = await this.customerService.findOrCreateCustomer({
+      email: customerData.email,
+      firstName: customerData.firstName,
+      lastName: customerData.lastName,
+      phone: customerData.phone
+    });
+    console.log('👤 [BookingService] Client trouvé/créé:', customer.getId());
     
     // Récupérer les données de devis
     const quoteData = quoteRequest.getQuoteData();
     
     // Créer le devis final
     const quoteType = this.mapQuoteRequestTypeToQuoteType(quoteRequest.getType());
+    console.log('📊 [BookingService] Type de devis mappé:', quoteType);
+    
+    // Vérification défensive du client
+    if (!customer) {
+      console.error('❌ [BookingService] Impossible de créer/récupérer le client');
+      throw new Error('Impossible de créer ou récupérer le client. Données client insuffisantes ou invalides.');
+    }
+    
     const contactInfo = customer.getContactInfo();
     const quote = new Quote({
       type: quoteType,
@@ -170,6 +521,7 @@ export class BookingService {
       },
       totalAmount: new Money(quoteData.totalAmount || 0)
     });
+    console.log('💰 [BookingService] Quote créé avec montant:', quoteData.totalAmount);
     
     // Créer la réservation
     const booking = Booking.fromQuoteRequest(
@@ -179,15 +531,20 @@ export class BookingService {
       new Money(quoteData.totalAmount || 0),
       quoteData.paymentMethod
     );
+    console.log('📝 [BookingService] Booking créé à partir du QuoteRequest');
     
     // Mettre à jour le statut de la demande
     await this.quoteRequestRepository.updateStatus(
       quoteRequestId, 
       QuoteRequestStatus.CONVERTED
     );
+    console.log('🔄 [BookingService] Statut du QuoteRequest mis à jour: CONVERTED');
     
     // Sauvegarder la réservation
-    return this.bookingRepository.save(booking);
+    const savedBooking = await this.bookingRepository.save(booking);
+    console.log('✅ [BookingService] Fin finalizeBooking - Booking sauvegardé avec ID:', savedBooking.getId());
+    
+    return savedBooking;
   }
 
   /**
@@ -237,183 +594,6 @@ export class BookingService {
       default:
         throw new Error(`Type de demande de devis non supporté: ${type}`);
     }
-  }
-
-  /**
-   * Création unifiée d'une réservation basée sur son type (CREATION DIRECTE)
-   */
-  async createBooking(dto: any, customer: Customer, professional?: Professional): Promise<Booking> {
-    const { type } = dto;
-    
-    // Validation du type de réservation
-    if (!Object.values(BookingType).includes(type)) {
-      throw new Error(`Type de réservation invalide: ${type}`);
-    }
-    
-    // Calculer le devis et le montant total selon le type de réservation
-    let totalAmount = new Money(0);
-    const contactInfo = customer.getContactInfo();
-    let quoteProps: any = {
-      type: type === BookingType.MOVING_QUOTE ? QuoteType.MOVING_QUOTE : 
-            type === BookingType.PACK ? QuoteType.PACK : QuoteType.SERVICE,
-      status: QuoteStatus.DRAFT,
-      customer: {
-        id: customer.getId(),
-        firstName: contactInfo.getFirstName(),
-        lastName: contactInfo.getLastName(),
-        email: contactInfo.getEmail(),
-        phone: contactInfo.getPhone() || ''
-      }
-    };
-    
-    // Création du contexte selon le type de réservation
-    let context: QuoteContext;
-    
-    switch (type) {
-      case BookingType.MOVING_QUOTE:
-        // Contexte pour déménagement
-        context = new QuoteContext({
-          serviceType: ServiceType.MOVING,
-        volume: dto.volume || 0,
-        distance: dto.distance || 0,
-          pickupAddress: new Address(
-            dto.pickupAddress,
-            dto.pickupCity,
-            dto.pickupPostalCode,
-            dto.pickupCountry,
-            dto.pickupFloor || 0,
-            dto.pickupElevator || false,
-            dto.pickupCarryDistance || 0,
-            dto.pickupCoordinates
-          ),
-          deliveryAddress: new Address(
-            dto.deliveryAddress,
-            dto.deliveryCity,
-            dto.deliveryPostalCode,
-            dto.deliveryCountry,
-            dto.deliveryFloor || 0,
-            dto.deliveryElevator || false,
-            dto.deliveryCarryDistance || 0,
-            dto.deliveryCoordinates
-          ),
-          contactInfo: new ContactInfo(
-            dto.firstName,
-            dto.lastName,
-            dto.email,
-            dto.phone
-          ),
-          preferredDate: new Date(dto.moveDate),
-          options: {
-            packaging: dto.packaging || false,
-            furniture: dto.furniture || false,
-            fragile: dto.fragile || false,
-            storage: dto.storage || false,
-            disassembly: dto.disassembly || false,
-            unpacking: dto.unpacking || false,
-            supplies: dto.supplies || false,
-            fragileItems: dto.fragileItems || false
-          }
-        });
-        break;
-      
-      case BookingType.PACK:
-        // Contexte pour pack
-        context = new QuoteContext({
-          serviceType: ServiceType.PACK,
-          basePrice: dto.price || 0,
-          duration: dto.duration || 1,
-          workers: dto.workers || 2,
-          distance: dto.distance || 0,
-          bookingDate: new Date(),
-          serviceDate: dto.scheduledDate ? new Date(dto.scheduledDate) : null,
-          address: new Address(
-            dto.address,
-            dto.city,
-            dto.postalCode,
-            dto.country,
-            dto.floor || 0,
-            dto.elevator || false,
-            dto.carryDistance || 0,
-            dto.coordinates
-          ),
-          contactInfo: new ContactInfo(
-            dto.firstName,
-            dto.lastName,
-            dto.email,
-            dto.phone
-          ),
-          options: dto.options || {}
-        });
-        break;
-        
-      case BookingType.SERVICE:
-        // Contexte pour service
-        context = new QuoteContext({
-          serviceType: ServiceType.SERVICE,
-          basePrice: dto.price || 0,
-          duration: dto.duration || 1,
-          defaultDuration: dto.defaultDuration || 1,
-          workers: dto.workers || 1,
-          defaultWorkers: dto.defaultWorkers || 1,
-          bookingDate: new Date(),
-          serviceDate: dto.scheduledDate ? new Date(dto.scheduledDate) : null,
-          address: new Address(
-            dto.address,
-            dto.city,
-            dto.postalCode,
-            dto.country,
-            dto.floor || 0,
-            dto.elevator || false,
-            dto.carryDistance || 0,
-            dto.coordinates
-          ),
-          contactInfo: new ContactInfo(
-            dto.firstName,
-            dto.lastName,
-            dto.email,
-            dto.phone
-          ),
-          options: dto.options || {}
-        });
-        break;
-        
-      default:
-        throw new Error(`Type de réservation non supporté: ${type}`);
-    }
-    
-    // Utiliser le calculateur unifié avec le contexte adapté au type
-    const calculatedQuote = await this.quoteCalculator.calculate(context);
-    totalAmount = calculatedQuote.getTotalPrice();
-    quoteProps = { ...quoteProps, totalAmount: calculatedQuote.getTotalPrice() };
-    
-    // Créer la réservation principale
-    const quote = new Quote(quoteProps);
-    const booking = new Booking(
-      type,
-      customer,
-      quote,
-      totalAmount,
-      dto.paymentMethod,
-      professional
-    );
-    
-    // Sauvegarder la réservation
-    const savedBooking = await this.bookingRepository.save(booking);
-    
-    // Créer et sauvegarder l'entité spécifique selon le type
-    switch (type) {
-      case BookingType.MOVING_QUOTE:
-        await this.createMoving(dto, savedBooking.getId());
-        break;
-      case BookingType.PACK:
-        await this.createPack(dto, savedBooking.getId());
-        break;
-      case BookingType.SERVICE:
-        await this.createService(dto, savedBooking.getId());
-        break;
-    }
-    
-    return savedBooking;
   }
 
   /**
@@ -527,6 +707,8 @@ export class BookingService {
    * Création d'un déménagement
    */
   private async createMoving(dto: any, bookingId: string): Promise<Moving> {
+    console.log('🔄 [BookingService] Début createMoving pour BookingId:', bookingId);
+    
     const moving = new Moving(
       new Date(dto.moveDate),
       dto.pickupAddress,
@@ -536,46 +718,71 @@ export class BookingService {
       bookingId
     );
     
-    return this.movingRepository.save(moving);
+    const result = await this.movingRepository.save(moving);
+    console.log('✅ [BookingService] Fin createMoving - Moving créé avec ID:', result.getId());
+    return result;
   }
 
   /**
    * Création d'un pack
    */
   private async createPack(dto: any, bookingId: string): Promise<Pack> {
+    console.log('🔄 [BookingService] Début createPack pour BookingId:', bookingId);
+    
     const pack = new Pack(
       bookingId,
-      dto.name,
-      dto.type ? dto.type as PackType : PackType.STANDARD,
-      dto.description,
+      dto.name || "Pack standard", // Nom du pack
+      dto.description || "",
       new Money(dto.price || 0),
+      dto.duration || 120, // Durée en minutes
+      dto.workers || 2, // Nombre de travailleurs par défaut
       dto.includes || [],
-      bookingId,
+      dto.features || [],
+      dto.categoryId,
+      dto.content,
+      dto.imagePath,
+      dto.includedDistance || 0,
+      dto.distanceUnit || 'km',
+      dto.workersNeeded || 2,
+      dto.isAvailable !== false,
+      dto.popular === true,
+      bookingId, // bookingId
+      dto.scheduledDate ? new Date(dto.scheduledDate) : undefined,
       dto.pickupAddress || "",
       dto.deliveryAddress || "",
       dto.distance || 0,
-      dto.includedDistance || 20,
-      dto.customOptions || {}
+      dto.additionalInfo
     );
     
-    return this.packRepository.save(pack);
+    const result = await this.packRepository.save(pack);
+    console.log('✅ [BookingService] Fin createPack - Pack créé avec ID:', result.getId());
+    return result;
   }
 
   /**
    * Création d'un service
    */
   private async createService(dto: any, bookingId: string): Promise<Service> {
+    console.log('🔄 [BookingService] Début createService pour BookingId:', bookingId);
+    
     const service = new Service(
       bookingId,
-      dto.serviceType || ServiceType.SERVICE,
+      dto.name || "Service standard",
       dto.description || "",
-      dto.duration || 60, // durée par défaut de 60 minutes
       new Money(dto.price || 0),
+      dto.duration || 60, // durée par défaut de 60 minutes
+      dto.workers || 1, // nombre de travailleurs par défaut
+      dto.includes || [],
+      bookingId, // bookingId
       dto.scheduledDate ? new Date(dto.scheduledDate) : undefined,
-      bookingId
+      dto.location || "",
+      dto.additionalInfo,
+      dto.options || {}
     );
     
-    return this.serviceRepository.save(service);
+    const result = await this.serviceRepository.save(service);
+    console.log('✅ [BookingService] Fin createService - Service créé avec ID:', result.getId());
+    return result;
   }
 
   /**
@@ -676,6 +883,124 @@ export class BookingService {
     } catch (error) {
       console.error('Erreur lors du traitement du callback de paiement:', error);
       throw new Error(`Erreur lors du traitement du callback de paiement: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  /**
+   * Crée une réservation en suivant le flux recommandé de manière fluide
+   * @description Méthode de commodité optimisée qui enchaîne les étapes du flux de réservation
+   * @param quoteData Données du devis (type, adresses, volume, etc.)
+   * @param customerData Données du client (nom, prénom, email, téléphone)
+   * @param paymentData Données de paiement (optionnel, pour flux express)
+   * @returns Les informations appropriées selon l'étape atteinte
+   */
+  async createReservation(quoteData: any, customerData: any, paymentData?: any): Promise<any> {
+    console.log('🔄 [BookingService] Début createReservation (flux combiné) avec type:', quoteData.type);
+    
+    try {
+      // Étape 1: Créer une demande de devis
+      const quoteRequest = await this.createQuoteRequest(quoteData);
+      console.log('📝 [BookingService] QuoteRequest créé dans createReservation, ID:', quoteRequest.getId());
+      
+      // Si aucune donnée client n'est fournie, retourner juste la demande de devis
+      if (!customerData) {
+        return { quoteRequestId: quoteRequest.getId() };
+      }
+      
+      // Étape 2: Créer un devis formel
+      const quote = await this.createFormalQuote(quoteRequest.getId(), customerData);
+      
+      // Si aucune donnée de paiement n'est fournie, retourner le devis
+      if (!paymentData) {
+        return { quote, quoteRequestId: quoteRequest.getId() };
+      }
+      
+      // Étape 3: Accepter le devis et initialiser le paiement
+      const paymentSession = await this.acceptQuoteAndInitiatePayment(
+        quoteRequest.getId(), // Nous utilisons l'ID de la demande comme ID du devis pour simplifier
+        paymentData.paymentMethod || 'card'
+      );
+      
+      // Si demandé, simuler un paiement réussi (utile pour les tests ou les flux express)
+      if (paymentData.simulatePayment) {
+        // Étape 4: Créer la réservation après paiement
+        const booking = await this.createBookingAfterPayment(paymentSession.sessionId);
+        return { booking, paymentCompleted: true };
+      }
+      
+      // Sinon, retourner les informations de paiement pour redirection
+      return { 
+        quoteRequestId: quoteRequest.getId(),
+        paymentSession,
+        paymentCompleted: false
+      };
+    } catch (error) {
+      console.error('❌ [BookingService] Erreur dans createReservation:', error);
+      throw new Error(`Erreur lors de la création de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
+  }
+
+  /**
+   * Gère l'échec d'un paiement
+   * @param sessionId ID de la session de paiement ayant échoué
+   * @returns La réservation mise à jour avec le statut PAYMENT_FAILED
+   */
+  async handlePaymentFailure(sessionId: string): Promise<Booking | null> {
+    console.log('🔄 [BookingService] Traitement d\'un échec de paiement pour la session:', sessionId);
+    
+    try {
+      // Récupérer les détails de la session
+      const stripePaymentService = new StripePaymentService(
+        process.env.STRIPE_SECRET_KEY || '',
+        process.env.FRONTEND_URL || ''
+      );
+      
+      const session = await stripePaymentService.retrieveCheckoutSession(sessionId);
+      const bookingId = session.metadata?.bookingId;
+      
+      if (!bookingId) {
+        console.error('❌ [BookingService] Impossible de trouver l\'ID de réservation dans les métadonnées');
+        return null;
+      }
+      
+      // Trouver la réservation correspondante
+      const booking = await this.bookingRepository.findById(bookingId);
+      if (!booking) {
+        console.error('❌ [BookingService] Réservation non trouvée:', bookingId);
+        return null;
+      }
+      
+      // Mettre à jour le statut de la réservation
+      booking.updateStatus(BookingStatus.PAYMENT_FAILED);
+      await this.bookingRepository.updateStatus(bookingId, BookingStatus.PAYMENT_FAILED);
+      
+      // Enregistrer les détails de l'échec si disponibles
+      if (session.payment_intent) {
+        // TODO: Sauvegarder les détails de l'échec dans un log ou dans la réservation
+        console.log(`❌ [BookingService] Échec de paiement pour l'intention: ${session.payment_intent}`);
+      }
+      
+      // Envoyer une notification au client si nécessaire
+      if (this.emailService && typeof this.emailService.sendPaymentFailedNotification === 'function') {
+        try {
+          const customer = booking.getCustomer();
+          if (customer) {
+            await this.emailService.sendPaymentFailedNotification(
+              customer.getContactInfo().getEmail(), 
+              { bookingId, sessionId }
+            );
+            console.log('📧 [BookingService] Notification d\'échec de paiement envoyée');
+          }
+        } catch (emailError) {
+          console.error('❌ [BookingService] Erreur lors de l\'envoi de la notification:', emailError);
+        }
+      }
+      
+      console.log('✅ [BookingService] Fin du traitement d\'échec de paiement - Booking mis à jour');
+      return booking;
+    } catch (error) {
+      console.error('❌ [BookingService] Erreur lors du traitement de l\'échec de paiement:', error);
+      return null;
     }
   }
 } 

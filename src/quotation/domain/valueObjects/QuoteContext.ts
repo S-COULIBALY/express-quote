@@ -65,7 +65,7 @@ export class QuoteContext {
     setValue<T>(key: string, value: any): void {
         // Validation spécifique en fonction du type de valeur attendu
         if (key === 'volume' || key === 'distance' || key === 'workers' || 
-            key === 'basePrice' || key === 'duration') {
+            key === 'defaultPrice' || key === 'basePrice' || key === 'duration') {
             // Conversion en nombre
             const numValue = Number(value);
             
@@ -137,8 +137,8 @@ export class QuoteContext {
     validate(): void {
         const requiredFields: Record<ServiceType, string[]> = {
             [ServiceType.MOVING]: ['volume', 'distance'],
-            [ServiceType.PACK]: ['basePrice', 'duration', 'workers'],
-            [ServiceType.SERVICE]: ['basePrice', 'duration', 'workers'],
+            [ServiceType.PACK]: ['defaultPrice', 'duration', 'workers'],
+            [ServiceType.SERVICE]: ['defaultPrice', 'duration', 'workers'],
             [ServiceType.PACKING]: ['volume', 'workers', 'duration'],
             [ServiceType.CLEANING]: ['area', 'workers'],
             [ServiceType.DELIVERY]: ['volume', 'distance', 'workers']
@@ -150,7 +150,15 @@ export class QuoteContext {
             throw new ValidationError(`Type de service non pris en charge: ${this.serviceType}`);
         }
         
+        // Vérifier les champs requis (avec compatibilité entre basePrice et defaultPrice)
         for (const field of fields) {
+            // Si on recherche defaultPrice, vérifier aussi basePrice pour compatibilité
+            if (field === 'defaultPrice' && this.hasValue('basePrice') && !this.hasValue('defaultPrice')) {
+                // Copier basePrice vers defaultPrice pour la compatibilité
+                this.setValue('defaultPrice', this.getValue('basePrice'));
+                continue;
+            }
+            
             if (!this.hasValue(field)) {
                 throw new ValidationError(`Le champ ${field} est requis pour un devis de type ${this.serviceType}`);
             }
