@@ -35,6 +35,9 @@ export class Booking extends Entity {
     private updatedAt: Date;
     private conversation: { messages: ChatMessage[], summary?: string } = { messages: [] };
     private quoteRequestId?: string;
+    private scheduledDate?: Date;
+    private location?: string;
+    private depositAmount?: Money;
 
     constructor(
         private type: BookingType,
@@ -149,6 +152,21 @@ export class Booking extends Entity {
         this.updatedAt = new Date();
     }
 
+    public setScheduledDate(date: Date): void {
+        this.scheduledDate = date;
+        this.updatedAt = new Date();
+    }
+
+    public setLocation(location: string): void {
+        this.location = location;
+        this.updatedAt = new Date();
+    }
+
+    public setDepositAmount(amount: Money): void {
+        this.depositAmount = amount;
+        this.updatedAt = new Date();
+    }
+
     // Getters
     public getType(): BookingType {
         return this.type;
@@ -188,5 +206,17 @@ export class Booking extends Entity {
 
     public getQuoteRequestId(): string | undefined {
         return this.quoteRequestId;
+    }
+
+    public getScheduledDate(): Date | undefined {
+        return this.scheduledDate ? new Date(this.scheduledDate) : undefined;
+    }
+
+    public getLocation(): string | undefined {
+        return this.location;
+    }
+
+    public getDepositAmount(): Money | undefined {
+        return this.depositAmount;
     }
 } 

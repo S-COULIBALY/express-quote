@@ -116,10 +116,10 @@ export class Rule {
         newPrice: new Money(price.getAmount())
       };
     }
-    
+
     const priceAmount = price.getAmount();
     let newPrice = priceAmount;
-    
+
     if (this.isPercentage()) {
       // Si la valeur est un pourcentage
       newPrice = Math.round(priceAmount * (1 + this.value));
@@ -153,7 +153,7 @@ export class Rule {
   isDiscount(): boolean {
     return this.value < 0;
   }
-  
+
   /**
    * Compare deux règles pour vérifier si elles sont identiques
    * @param other Autre règle à comparer

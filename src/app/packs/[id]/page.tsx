@@ -193,7 +193,7 @@ export default function PackFormPage({ params }: { params: { id: string } }) {
 
   // Gérer la validation des champs d'étage et ascenseur
   useEffect(() => {
-    let updatedFormData = { ...formData };
+    const updatedFormData = { ...formData };
     let hasChanges = false;
 
     // Adresse de départ

@@ -5,8 +5,35 @@ export class Money {
     private readonly amount: number;
     private readonly currency: string;
 
-    constructor(amount: number, currency: string = 'EUR') {
-        this.amount = Math.round(amount * 100) / 100; // Arrondi à 2 décimales
+    constructor(amount: number | string | null | undefined, currency: string = 'EUR') {
+        // Convertir et valider le montant
+        let numericAmount = 0;
+        
+        if (amount === null || amount === undefined) {
+            console.warn('Money: construction avec un montant null ou undefined, utilisation de 0');
+            numericAmount = 0;
+        } else if (typeof amount === 'string') {
+            const parsed = parseFloat(amount);
+            if (isNaN(parsed)) {
+                console.warn(`Money: construction avec une chaîne invalide '${amount}', utilisation de 0`);
+                numericAmount = 0;
+            } else {
+                numericAmount = parsed;
+            }
+        } else if (typeof amount === 'number') {
+            if (isNaN(amount)) {
+                console.warn('Money: construction avec un nombre NaN, utilisation de 0');
+                numericAmount = 0;
+            } else {
+                numericAmount = amount;
+            }
+        } else {
+            console.warn(`Money: construction avec un type non géré ${typeof amount}, utilisation de 0`);
+            numericAmount = 0;
+        }
+        
+        // Arrondir à 2 décimales
+        this.amount = Math.round(numericAmount * 100) / 100;
         this.currency = currency;
     }
 

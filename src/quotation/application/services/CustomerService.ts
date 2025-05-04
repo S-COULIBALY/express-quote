@@ -1,5 +1,7 @@
 import { Customer } from '../../domain/entities/Customer';
 import { ICustomerRepository } from '../../domain/repositories/ICustomerRepository';
+import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
+import crypto from 'crypto';
 
 interface CustomerData {
   email: string;
@@ -23,12 +25,18 @@ export class CustomerService {
         return existingCustomer;
       }
       
-      // Création d'un nouveau client
-      const newCustomer = new Customer(
-        data.email,
+      // Création du ContactInfo pour le nouveau client
+      const contactInfo = new ContactInfo(
         data.firstName,
         data.lastName,
-        data.phone
+        data.email,
+        data.phone || ''
+      );
+      
+      // Création d'un nouveau client avec le bon constructeur
+      const newCustomer = new Customer(
+        crypto.randomUUID(), // Génération d'un nouvel ID
+        contactInfo
       );
       
       return this.customerRepository.save(newCustomer);
@@ -73,13 +81,21 @@ export class CustomerService {
         throw new Error(`Client non trouvé: ${id}`);
       }
       
+      // Récupérer les informations de contact actuelles
+      const currentContactInfo = customer.getContactInfo();
+      
+      // Créer un nouvel objet ContactInfo avec les données mises à jour
+      const updatedContactInfo = new ContactInfo(
+        data.firstName || currentContactInfo.getFirstName(),
+        data.lastName || currentContactInfo.getLastName(),
+        data.email || currentContactInfo.getEmail(),
+        data.phone || currentContactInfo.getPhone() || ''
+      );
+      
       // Créer une nouvelle instance avec les données mises à jour
       const updatedCustomer = new Customer(
-        data.email || customer.getEmail(),
-        data.firstName || customer.getFirstName(),
-        data.lastName || customer.getLastName(),
-        data.phone || customer.getPhone(),
-        customer.getId()
+        customer.getId(),
+        updatedContactInfo
       );
       
       return this.customerRepository.update(id, updatedCustomer);

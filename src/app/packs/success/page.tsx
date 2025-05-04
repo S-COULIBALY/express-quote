@@ -1,9 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Pack, Service } from '@/types/booking'
+import { logger } from '@/lib/logger'
+
+// Créer un logger sécurisé qui fonctionne même si withContext n'est pas disponible
+const successLogger = logger.withContext ? 
+  logger.withContext('PackSuccess') : 
+  {
+    debug: (msg: string, ...args: any[]) => console.debug('[PackSuccess]', msg, ...args),
+    info: (msg: string, ...args: any[]) => console.info('[PackSuccess]', msg, ...args),
+    warn: (msg: string, ...args: any[]) => console.warn('[PackSuccess]', msg, ...args),
+    error: (msg: string | Error, ...args: any[]) => console.error('[PackSuccess]', msg, ...args)
+  };
 
 interface PackBooking {
   id: string
@@ -32,12 +43,62 @@ interface PackBooking {
 
 export default function PackSuccessPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const paymentIntentId = searchParams.get('payment_intent')
   
   const [booking, setBooking] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null)
 
   useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true)
+        
+        // Vérifier le paiement si un ID d'intention de paiement est fourni
+        if (paymentIntentId) {
+          successLogger.info(`Vérification du paiement avec ID: ${paymentIntentId}`);
+          
+          try {
+            const statusResponse = await fetch(`/api/payment/verify/${paymentIntentId}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (!statusResponse.ok) {
+              successLogger.warn('Vérification du paiement échouée');
+            } else {
+              const paymentData = await statusResponse.json();
+              setPaymentStatus(paymentData.status);
+              successLogger.info(`Statut du paiement: ${paymentData.status}`);
+              
+              // Si des informations de réservation sont disponibles dans les données de paiement
+              if (paymentData.bookingId) {
+                successLogger.info(`ID de réservation trouvé dans les données de paiement: ${paymentData.bookingId}`);
+              }
+            }
+          } catch (error) {
+            successLogger.error('Erreur lors de la vérification du paiement', error as Error);
+          }
+        }
+        
+        // Continuer à récupérer les informations sur la réservation actuelle
+        await fetchBooking();
+      } catch (error) {
+        successLogger.error('Erreur lors de la récupération des données', error as Error);
+        setError(error instanceof Error ? error.message : 'Une erreur est survenue');
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, [paymentIntentId]);
+
+  // Extraire la fonction fetchBooking pour la réutiliser
     async function fetchBooking() {
       try {
         // Utiliser l'API pour récupérer la réservation
@@ -99,7 +160,9 @@ export default function PackSuccessPage() {
               duration: packData.duration || 0,
               workers: packData.workers || 1,
               distance: 'distance' in packData ? packData.distance : 0,
-              totalPrice: currentBooking.totalAmount * 1.2 || 0 // Conversion approximative en TTC
+            totalPrice: currentBooking.totalAmount * 1.2 || 0, // Conversion approximative en TTC
+            paymentIntentId: paymentIntentId || undefined,
+            paymentStatus: paymentStatus || undefined
             }
             
             setBooking(formattedBooking);
@@ -133,20 +196,17 @@ export default function PackSuccessPage() {
           duration: packData.duration || 0,
           workers: packData.workers || 1,
           distance: 'distance' in packData ? packData.distance : 0,
-          totalPrice: currentBooking.totalAmount * 1.2 || 0 // Conversion approximative en TTC
+        totalPrice: currentBooking.totalAmount * 1.2 || 0, // Conversion approximative en TTC
+        paymentIntentId: paymentIntentId || undefined,
+        paymentStatus: paymentStatus || undefined
         }
         
         setBooking(formattedBooking)
       } catch (error) {
         console.error('Error fetching booking:', error)
         setError(error instanceof Error ? error.message : 'Erreur lors de la récupération de la réservation')
-      } finally {
-        setLoading(false)
       }
     }
-
-    fetchBooking()
-  }, [])
 
   if (loading) {
     return (
@@ -190,18 +250,29 @@ export default function PackSuccessPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Réservation confirmée !</h1>
+          <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">Réservation confirmée !</h1>
           <p className="text-gray-600">
             Votre réservation a été enregistrée avec succès et un e-mail de confirmation vous a été envoyé.
           </p>
+          
+          {paymentStatus && (
+            <div className={`mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm ${
+              paymentStatus === 'succeeded' ? 'bg-green-100 text-green-800' : 
+              paymentStatus === 'processing' ? 'bg-blue-100 text-blue-800' : 
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+              <span className="mr-1">{
+                paymentStatus === 'succeeded' ? '✓ Paiement confirmé' : 
+                paymentStatus === 'processing' ? '⋯ Paiement en cours' : 
+                'Paiement en attente'
+              }</span>
+            </div>
+          )}
         </div>
         
-        <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
-          <div className="px-6 py-4 bg-gray-50 border-b">
-            <h2 className="text-xl font-semibold">Récapitulatif de votre réservation</h2>
-          </div>
+        <div className="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Récapitulatif de votre réservation</h2>
           
-          <div className="p-6">
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
               <div>
                 <dt className="text-sm font-medium text-gray-500">Numéro de réservation</dt>
@@ -248,25 +319,49 @@ export default function PackSuccessPage() {
                 <dd className="mt-1 text-sm text-gray-900">{booking.distance} km</dd>
               </div>
               
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Total TTC</dt>
-                <dd className="mt-1 text-sm text-gray-900 font-semibold">{booking.totalPrice.toFixed(2)} €</dd>
+            {booking.paymentIntentId && (
+              <div className="col-span-2">
+                <dt className="text-sm font-medium text-gray-500">Référence de paiement</dt>
+                <dd className="mt-1 text-sm text-gray-900">{booking.paymentIntentId.substring(0, 8)}...</dd>
+              </div>
+            )}
+            
+            <div className="col-span-2 pt-4 border-t border-gray-200">
+              <dt className="text-base font-medium text-gray-900">Prix total</dt>
+              <dd className="mt-1 text-xl font-semibold text-gray-900">{booking.totalPrice.toFixed(2)} €</dd>
+              {booking.paymentStatus && (
+                <dd className="mt-1 text-sm text-gray-500">
+                  Statut du paiement: {
+                    booking.paymentStatus === 'succeeded' ? 'Payé' : 
+                    booking.paymentStatus === 'processing' ? 'En cours de traitement' : 
+                    'En attente'
+                  }
+                </dd>
+              )}
               </div>
             </dl>
-          </div>
         </div>
         
-        <div className="text-center">
+        <div className="text-center space-y-4">
           <p className="text-sm text-gray-600 mb-4">
-            Un de nos conseillers vous contactera prochainement pour confirmer tous les détails de votre réservation.
+            Si vous avez des questions concernant votre réservation, n'hésitez pas à nous contacter.
           </p>
           
+          <div className="flex flex-wrap justify-center gap-4">
           <Link
             href="/packs"
-            className="inline-block px-6 py-3 bg-emerald-600 text-white font-medium text-sm leading-tight rounded shadow-md hover:bg-emerald-700 hover:shadow-lg focus:bg-emerald-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-emerald-800 active:shadow-lg transition duration-150 ease-in-out"
+              className="px-4 py-2 bg-white border border-gray-300 rounded shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Voir tous les packs
+            </Link>
+            
+            <Link
+              href="/"
+              className="px-4 py-2 bg-emerald-600 rounded shadow-sm text-sm font-medium text-white hover:bg-emerald-700"
           >
             Retour à l'accueil
           </Link>
+          </div>
         </div>
       </div>
     </main>

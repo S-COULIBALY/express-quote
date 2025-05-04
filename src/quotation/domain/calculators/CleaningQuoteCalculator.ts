@@ -89,7 +89,7 @@ export class CleaningQuoteCalculator extends AbstractQuoteCalculator {
     }
 
     // 2. Calculer le prix de base
-    let currentPrice = this.getBasePrice(context);
+    const currentPrice = this.getBasePrice(context);
     
     // 3. Identifier les réductions applicables
     const discounts = this.getApplicableDiscounts(context);

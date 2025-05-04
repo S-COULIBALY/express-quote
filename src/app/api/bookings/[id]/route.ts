@@ -19,6 +19,9 @@ import { createServiceRules } from '@/quotation/domain/rules/ServiceRules';
 import { Rule } from '@/quotation/domain/valueObjects/Rule';
 import { Money } from '@/quotation/domain/valueObjects/Money';
 import { ConfigurationService } from '@/quotation/domain/services/ConfigurationService';
+import { EmailService } from '@/quotation/application/services/EmailService';
+import { logger } from '@/lib/logger';
+import { emailService } from '@/config/services';
 
 // Initialisation des dépendances
 const bookingRepository = new PrismaBookingRepository();
@@ -45,7 +48,6 @@ const customerService = new CustomerService(customerRepository);
 // Services supplémentaires requis
 const transactionService = {} as any;
 const documentService = {} as any;
-const emailService = {} as any;
 
 // Utiliser directement les repositories
 const bookingService = new BookingService(
@@ -110,6 +112,16 @@ function createHttpResponse(): HttpResponse & { getStatus: () => number, getData
   
   return response;
 }
+
+// Ajouter un logger
+const bookingLogger = logger.withContext ? 
+  logger.withContext('BookingAPI') : 
+  {
+    debug: (msg: string, ...args: any[]) => console.debug('[BookingAPI]', msg, ...args),
+    info: (msg: string, ...args: any[]) => console.info('[BookingAPI]', msg, ...args),
+    warn: (msg: string, ...args: any[]) => console.warn('[BookingAPI]', msg, ...args),
+    error: (msg: string | Error, ...args: any[]) => console.error('[BookingAPI]', msg, ...args)
+  };
 
 /**
  * GET /api/bookings/[id] - Récupération d'une réservation spécifique par ID
@@ -262,47 +274,45 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = params.id;
+    // Récupérer l'ID de la réservation
+    const bookingId = params.id;
     
-    if (!id) {
-      return NextResponse.json(
-        { error: 'ID de réservation manquant' },
-        { status: 400 }
-      );
-    }
-    
+    // Récupérer le corps de la requête
     const body = await request.json();
     
-    // Créer un HttpRequest à partir de NextRequest
-    const httpRequest = createHttpRequest(request, { id }, body);
+    bookingLogger.info(`Mise à jour de la réservation ${bookingId}`, { 
+      status: body.status,
+      hasCancellationReason: !!body.cancellationReason
+    });
     
-    // Créer un HttpResponse
-    const httpResponse = createHttpResponse();
+    // Initialiser les services nécessaires
+    const bookingService = new BookingService();
     
-    // Traiter les cas spéciaux
-    const url = new URL(request.url);
-    const path = url.pathname;
+    // Mettre à jour la réservation
+    const booking = await bookingService.updateBooking(bookingId, body);
     
-    // Si la route contient /services, traiter comme un ajout de service
-    if (path.includes(`/api/bookings/${id}/services`)) {
-      return addServiceToBooking(request, id);
+    // Si la mise à jour concerne une annulation, envoyer un email
+    if (body.status === BookingStatus.CANCELED) {
+      try {
+        bookingLogger.info(`Envoi de notification d'annulation pour la réservation ${bookingId}`);
+        await emailService.sendCancellationNotification(
+          booking,
+          body.cancellationReason || "Annulation demandée par le client ou l'administrateur."
+        );
+        bookingLogger.info(`Notification d'annulation envoyée pour la réservation ${bookingId}`);
+      } catch (emailError) {
+        bookingLogger.error(`Erreur lors de l'envoi de l'email d'annulation:`, emailError);
+        // Ne pas bloquer la réponse même si l'envoi d'email échoue
+      }
     }
     
-    // Sinon, traiter comme une mise à jour régulière
-    await bookingController.updateBookingStatus(httpRequest, httpResponse);
-    
-    // Extraire les données et le code de statut du HttpResponse
-    const responseData = httpResponse.getData();
-    const statusCode = httpResponse.getStatus();
-    
-    // Retourner une réponse NextResponse
-    return NextResponse.json(responseData, { status: statusCode });
+    return NextResponse.json(booking);
   } catch (error) {
-    console.error('Error in PATCH /api/bookings/[id]:', error);
+    bookingLogger.error('Erreur lors de la mise à jour de la réservation:', error);
     return NextResponse.json(
       { 
-        error: 'Une erreur est survenue lors de la mise à jour partielle de la réservation',
-        details: error instanceof Error ? error.message : 'Erreur inconnue'
+        error: "Une erreur est survenue lors de la mise à jour de la réservation",
+        details: error instanceof Error ? error.message : String(error)
       },
       { status: 500 }
     );

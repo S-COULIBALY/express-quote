@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { ICustomerRepository } from '../../domain/repositories/ICustomerRepository';
 import { Customer } from '../../domain/entities/Customer';
 import { Database } from '../config/database';
+import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
 
 export class PrismaCustomerRepository implements ICustomerRepository {
   private prisma: PrismaClient;
@@ -15,15 +16,16 @@ export class PrismaCustomerRepository implements ICustomerRepository {
    */
   async save(customer: Customer): Promise<Customer> {
     try {
+      const contactInfo = customer.getContactInfo();
       const existingCustomer = customer.getId() 
         ? await this.prisma.customer.findUnique({ where: { id: customer.getId() } })
         : null;
 
       const customerData = {
-        email: customer.getEmail(),
-        firstName: customer.getFirstName(),
-        lastName: customer.getLastName(),
-        phone: customer.getPhone() || null,
+        email: contactInfo.getEmail(),
+        firstName: contactInfo.getFirstName(),
+        lastName: contactInfo.getLastName(),
+        phone: contactInfo.getPhone() || null,
       };
 
       if (existingCustomer) {
@@ -44,12 +46,16 @@ export class PrismaCustomerRepository implements ICustomerRepository {
         });
 
         // Retourne le client avec l'ID généré
-        return new Customer(
-          createdCustomer.email,
+        const newContactInfo = new ContactInfo(
           createdCustomer.firstName,
           createdCustomer.lastName,
-          createdCustomer.phone || undefined,
-          createdCustomer.id
+          createdCustomer.email,
+          createdCustomer.phone || ''
+        );
+        
+        return new Customer(
+          createdCustomer.id,
+          newContactInfo
         );
       }
     } catch (error) {
@@ -71,12 +77,16 @@ export class PrismaCustomerRepository implements ICustomerRepository {
         return null;
       }
 
-      return new Customer(
-        customer.email,
+      const contactInfo = new ContactInfo(
         customer.firstName,
         customer.lastName,
-        customer.phone || undefined,
-        customer.id
+        customer.email,
+        customer.phone || ''
+      );
+      
+      return new Customer(
+        customer.id,
+        contactInfo
       );
     } catch (error) {
       console.error(`Erreur lors de la recherche du client par ID ${id}:`, error);
@@ -97,12 +107,16 @@ export class PrismaCustomerRepository implements ICustomerRepository {
         return null;
       }
 
-      return new Customer(
-        customer.email,
+      const contactInfo = new ContactInfo(
         customer.firstName,
         customer.lastName,
-        customer.phone || undefined,
-        customer.id
+        customer.email,
+        customer.phone || ''
+      );
+      
+      return new Customer(
+        customer.id,
+        contactInfo
       );
     } catch (error) {
       console.error(`Erreur lors de la recherche du client par email ${email}:`, error);
@@ -119,13 +133,19 @@ export class PrismaCustomerRepository implements ICustomerRepository {
         orderBy: { createdAt: 'desc' }
       });
 
-      return customers.map(customer => new Customer(
-        customer.email,
-        customer.firstName,
-        customer.lastName,
-        customer.phone || undefined,
-        customer.id
-      ));
+      return customers.map(customer => {
+        const contactInfo = new ContactInfo(
+          customer.firstName,
+          customer.lastName,
+          customer.email,
+          customer.phone || ''
+        );
+        
+        return new Customer(
+          customer.id,
+          contactInfo
+        );
+      });
     } catch (error) {
       console.error('Erreur lors de la récupération de tous les clients:', error);
       throw new Error(`Erreur lors de la récupération des clients: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
@@ -146,14 +166,16 @@ export class PrismaCustomerRepository implements ICustomerRepository {
         throw new Error(`Client avec l'ID ${id} non trouvé`);
       }
 
+      const contactInfo = customer.getContactInfo();
+      
       // Mettre à jour le client
       await this.prisma.customer.update({
         where: { id },
         data: {
-          email: customer.getEmail(),
-          firstName: customer.getFirstName(),
-          lastName: customer.getLastName(),
-          phone: customer.getPhone() || null,
+          email: contactInfo.getEmail(),
+          firstName: contactInfo.getFirstName(),
+          lastName: contactInfo.getLastName(),
+          phone: contactInfo.getPhone() || null,
         }
       });
 

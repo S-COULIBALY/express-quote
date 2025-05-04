@@ -1,191 +1,135 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { StripePaymentService } from '@/quotation/infrastructure/services/StripePaymentService';
-import { BookingService } from '@/quotation/application/services/BookingService';
-import { PrismaBookingRepository } from '@/quotation/infrastructure/repositories/PrismaBookingRepository';
-import { PrismaMovingRepository } from '@/quotation/infrastructure/repositories/PrismaMovingRepository';
-import { PrismaPackRepository } from '@/quotation/infrastructure/repositories/PrismaPackRepository';
-import { PrismaServiceRepository } from '@/quotation/infrastructure/repositories/PrismaServiceRepository';
-import { PrismaQuoteRequestRepository } from '@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository';
-import { PrismaCustomerRepository } from '@/quotation/infrastructure/repositories/PrismaCustomerRepository';
-import { CustomerService } from '@/quotation/application/services/CustomerService';
-import { QuoteCalculatorService } from '@/quotation/application/services/QuoteCalculatorService';
-import { HttpRequest, HttpResponse } from '@/quotation/interfaces/http/types';
+import { stripeConfig } from '@/config/stripe';
 import { logger } from '@/lib/logger';
 
-// Initialiser les dépendances
-const bookingRepository = new PrismaBookingRepository();
-const movingRepository = new PrismaMovingRepository();
-const packRepository = new PrismaPackRepository();
-const serviceRepository = new PrismaServiceRepository();
-const quoteRequestRepository = new PrismaQuoteRequestRepository();
-const customerRepository = new PrismaCustomerRepository();
-const customerService = new CustomerService(customerRepository);
+const webhookLogger = logger.withContext('StripeWebhook');
 
-// Services supplémentaires
-const transactionService = {} as any;
-const documentService = {} as any;
-const emailService = {} as any;
-
-// Obtenir le calculateur depuis le service centralisé
-const calculatorService = QuoteCalculatorService.getInstance();
-
-// Variable pour stocker le service de réservation
-let bookingServiceInstance: BookingService | null = null;
-
-// Fonction utilitaire pour s'assurer que le service est disponible
-async function ensureBookingServiceAvailable(): Promise<BookingService> {
-  if (!bookingServiceInstance) {
-    logger.info("⚠️ BookingService non initialisé pour le webhook, initialisation...");
-    
-    // Récupérer le calculateur depuis le service
-    const calculator = await calculatorService.getCalculator();
-    
-    // Créer le service de réservation
-    bookingServiceInstance = new BookingService(
-      bookingRepository,
-      movingRepository,
-      packRepository,
-      serviceRepository,
-      calculator,
-      quoteRequestRepository,
-      customerService,
-      transactionService,
-      documentService,
-      emailService
-    );
-    
-    logger.info("✅ BookingService initialisé avec succès pour le webhook");
-  }
-  
-  return bookingServiceInstance;
-}
-
-// Initialiser le service de paiement Stripe
-const stripePaymentService = new StripePaymentService(
-  process.env.STRIPE_SECRET_KEY || '',
-  process.env.FRONTEND_URL || ''
-);
-
-// Adaptateur pour convertir une requête NextJS en HttpRequest
-function createHttpRequest(request: NextRequest, body?: any): HttpRequest {
-  return {
-    body: body,
-    params: {},
-    query: {},
-    headers: Object.fromEntries(request.headers.entries())
-  };
-}
-
-// Adaptateur pour convertir NextResponse en HttpResponse
-function createHttpResponse(): HttpResponse & { getStatus: () => number, getData: () => any } {
-  let statusCode = 200;
-  let responseData: any = null;
-  
-  const response = {
-    status: function(code: number) {
-      statusCode = code;
-      return response;
-    },
-    json: function(data: any) {
-      responseData = data;
-      return response;
-    },
-    send: function() {
-      return response;
-    },
-    getStatus: function() {
-      return statusCode;
-    },
-    getData: function() {
-      return responseData;
-    }
-  };
-  
-  return response;
-}
-
+/**
+ * Route webhook pour Stripe
+ * Reçoit et traite les événements envoyés par Stripe
+ */
 export async function POST(request: NextRequest) {
   try {
-    // Récupérer la signature de la requête dans les en-têtes
-    const signature = request.headers.get('stripe-signature');
+    if (!stripeConfig.webhookSecret) {
+      webhookLogger.error('Secret webhook non configuré');
+      return NextResponse.json({ error: 'Webhook non configuré' }, { status: 500 });
+    }
+
+    // Récupérer le corps brut de la requête
+    const text = await request.text();
     
-    // Vérifier que la signature est présente
+    // Récupérer la signature Stripe depuis les headers
+    const headersList = headers();
+    const signature = headersList.get('stripe-signature');
+    
     if (!signature) {
-      return NextResponse.json(
-        { error: 'Missing stripe-signature header' },
-        { status: 400 }
-      );
+      webhookLogger.warn('Requête sans signature Stripe');
+      return NextResponse.json({ error: 'Signature Stripe manquante' }, { status: 400 });
     }
 
-    // Récupérer le corps de la requête brut
-    const rawBody = await request.text();
+    // Initialiser le service Stripe
+    const frontendUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+    const stripeService = new StripePaymentService(frontendUrl);
     
-    // Vérifier le webhook avec la clé secrète
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
-    const event = stripePaymentService.createWebhookEvent(rawBody, signature, webhookSecret);
-
-    // S'assurer que le service de réservation est disponible
-    const bookingService = await ensureBookingServiceAvailable();
-
-    // Traiter l'événement selon son type
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        if (!session.metadata?.bookingId) {
-          return NextResponse.json(
-            { error: 'Missing bookingId in session metadata' },
-            { status: 400 }
-          );
-        }
-
-        logger.info(`Webhook - Session de paiement complétée: ${session.id}`);
-        
-        // Mettre à jour le statut de la réservation en 'PAYMENT_COMPLETED'
-        await bookingService.handlePaymentCallback(session.id as string);
-        return NextResponse.json({ received: true });
-      }
-      
-      case 'payment_intent.succeeded': {
-        logger.info(`Webhook - Intention de paiement réussie`);
-        // Traiter le succès du paiement
-        return NextResponse.json({ received: true });
-      }
-      
-      case 'payment_intent.payment_failed': {
-        const paymentIntent = event.data.object;
-        const sessionId = paymentIntent.metadata?.checkout_session as string;
-        
-        logger.info(`Webhook - Échec d'intention de paiement pour la session: ${sessionId}`);
-        
-        // Si l'ID de session est disponible, mettre à jour le statut de la réservation
-        if (sessionId) {
-          try {
-            // Utiliser la nouvelle méthode pour gérer l'échec du paiement
-            const updatedBooking = await bookingService.handlePaymentFailure(sessionId);
-            if (updatedBooking) {
-              logger.info(`Webhook - Statut de réservation mis à jour après échec de paiement: ${updatedBooking.getId()}`);
-            } else {
-              logger.warn(`Webhook - Impossible de mettre à jour la réservation pour la session: ${sessionId}`);
-            }
-          } catch (paymentError) {
-            logger.error('Webhook - Erreur lors du traitement de l\'échec de paiement:', 
-              paymentError instanceof Error ? paymentError : new Error('Erreur inconnue'));
-          }
-        }
-        
-        return NextResponse.json({ received: true });
-      }
-      
-      default:
-        logger.info(`Webhook - Événement non traité: ${event.type}`);
-        // Événement non traité
-        return NextResponse.json({ received: true });
+    // Vérifier et construire l'événement
+    let event;
+    try {
+      event = stripeService.createWebhookEvent(text, signature, stripeConfig.webhookSecret);
+    } catch (err) {
+      webhookLogger.error('Erreur lors de la validation de la signature webhook', err as Error);
+      return NextResponse.json({ error: 'Signature invalide' }, { status: 400 });
     }
-  } catch (error: any) {
-    logger.error('Error processing webhook:', error instanceof Error ? error : new Error('Unknown error'));
+
+    webhookLogger.info(`Événement Stripe reçu: ${event.type}`);
+    
+    // Traiter différents types d'événements
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        await handlePaymentIntentSucceeded(event.data.object);
+        break;
+        
+      case 'payment_intent.payment_failed':
+        await handlePaymentIntentFailed(event.data.object);
+        break;
+        
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
+        
+      // Ajouter d'autres types d'événements au besoin
+      default:
+        webhookLogger.info(`Événement Stripe non traité: ${event.type}`);
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    webhookLogger.error('Erreur lors du traitement du webhook', error as Error);
     return NextResponse.json(
-      { error: `Webhook Error: ${error instanceof Error ? error.message : 'Unknown error'}` },
-      { status: 400 }
+      { 
+        error: 'Erreur lors du traitement du webhook',
+        message: error instanceof Error ? error.message : 'Erreur inconnue'
+      },
+      { status: 500 }
     );
+  }
+}
+
+/**
+ * Gère les paiements réussis
+ */
+async function handlePaymentIntentSucceeded(paymentIntent: any) {
+  webhookLogger.info(`Paiement réussi: ${paymentIntent.id}`);
+  const bookingId = paymentIntent.metadata?.bookingId;
+  
+  if (bookingId) {
+    // Ici, vous pourriez mettre à jour le statut de la réservation dans votre base de données
+    // ou déclencher d'autres actions comme l'envoi d'emails de confirmation
+    webhookLogger.info(`Mise à jour de la réservation ${bookingId} avec le paiement ${paymentIntent.id}`);
+    
+    // Exemple: Vous pourriez appeler une API interne pour mettre à jour le statut
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/bookings/${bookingId}/payment-success`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentIntentId: paymentIntent.id,
+          amount: paymentIntent.amount / 100,
+          status: 'succeeded'
+        })
+      });
+    } catch (error) {
+      webhookLogger.error(`Erreur lors de la mise à jour de la réservation ${bookingId}`, error as Error);
+    }
+  }
+}
+
+/**
+ * Gère les paiements échoués
+ */
+async function handlePaymentIntentFailed(paymentIntent: any) {
+  webhookLogger.info(`Paiement échoué: ${paymentIntent.id}`);
+  const bookingId = paymentIntent.metadata?.bookingId;
+  
+  if (bookingId) {
+    // Mettre à jour le statut de la réservation ou notifier l'utilisateur
+    webhookLogger.info(`Notification d'échec pour la réservation ${bookingId}`);
+    
+    // Vous pourriez implémenter une logique similaire à celle du succès
+  }
+}
+
+/**
+ * Gère les sessions de paiement complétées
+ */
+async function handleCheckoutSessionCompleted(session: any) {
+  webhookLogger.info(`Session de paiement complétée: ${session.id}`);
+  const bookingId = session.metadata?.bookingId;
+  
+  if (bookingId && session.payment_status === 'paid') {
+    webhookLogger.info(`Paiement confirmé pour la réservation ${bookingId} via la session ${session.id}`);
+    
+    // Vous pourriez implémenter une logique similaire à celle du succès de payment_intent
   }
 } 

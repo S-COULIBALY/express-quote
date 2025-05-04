@@ -2,16 +2,19 @@
 
 import { useState, Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createPaymentIntent } from '@/actions/paymentManager'
-import { StripeElementsProvider, PaymentForm } from '@/components/StripeElements'
 import { getCurrentBooking } from '@/actions/bookingManager'
+import { PaymentProcessor } from '@/components/PaymentProcessor'
+import { logger } from '@/lib/logger'
 
-interface PaymentFormData {
-  fullName: string
-  email: string
-  phone: string
-  terms: boolean
-}
+// Créer un logger sécurisé qui fonctionne même si withContext n'est pas disponible
+const paymentLogger = logger.withContext ? 
+  logger.withContext('MovingPayment') : 
+  {
+    debug: (msg: string, ...args: any[]) => console.debug('[MovingPayment]', msg, ...args),
+    info: (msg: string, ...args: any[]) => console.info('[MovingPayment]', msg, ...args),
+    warn: (msg: string, ...args: any[]) => console.warn('[MovingPayment]', msg, ...args),
+    error: (msg: string | Error, ...args: any[]) => console.error('[MovingPayment]', msg, ...args)
+  };
 
 interface QuoteData {
   id: string
@@ -53,28 +56,20 @@ function MovingPaymentContent() {
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('id')
   const [quoteData, setQuoteData] = useState<QuoteData | null>(null)
-  const [processing, setProcessing] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [totalAmount, setTotalAmount] = useState<number>(0)
-  const [bookingId, setBookingId] = useState<string | null>(null)
-  
-  const [formData, setFormData] = useState<PaymentFormData>({
-    fullName: '',
-    email: '',
-    phone: '',
-    terms: false
-  })
 
   useEffect(() => {
     const fetchQuoteData = async () => {
       try {
+        setLoading(true);
         // Récupérer les données via getCurrentBooking
-        console.log('Récupération des données via getCurrentBooking');
+        paymentLogger.info('Récupération des données de déménagement');
         const currentBooking = await getCurrentBooking();
         
         if (currentBooking && currentBooking.items && currentBooking.items.length > 0) {
-          console.log('Booking trouvé:', currentBooking);
+          paymentLogger.debug('Booking trouvé', { id: currentBooking.id });
           
           // Chercher un item de type déménagement
           const movingItem = currentBooking.items.find(item => 
@@ -86,12 +81,12 @@ function MovingPaymentContent() {
           );
           
           if (movingItem) {
-            console.log('Item déménagement trouvé:', movingItem);
+            paymentLogger.debug('Item déménagement trouvé', { itemId: movingItem.id });
             const movingData = movingItem.data as any;
             
             // Convertir les données du booking en format QuoteData
             const formattedQuote: QuoteData = {
-              id: quoteId || '',
+              id: quoteId || currentBooking.id || '',
               status: 'pending',
               pickupAddress: movingData.pickupAddress || '',
               deliveryAddress: movingData.deliveryAddress || '',
@@ -111,262 +106,208 @@ function MovingPaymentContent() {
               baseCost: movingData.baseCost || currentBooking.totalTTC || 0
             };
             
-            console.log('Données formatées:', formattedQuote);
+            paymentLogger.debug('Données formatées pour le paiement', { 
+              pickupAddress: formattedQuote.pickupAddress,
+              deliveryAddress: formattedQuote.deliveryAddress,
+              totalCost: formattedQuote.totalCost
+            });
+            
             setQuoteData(formattedQuote);
             setTotalAmount(formattedQuote.totalCost);
+            setLoading(false);
             return;
           }
         }
         
-        console.warn('Impossible de récupérer les données du devis');
+        paymentLogger.warn('Impossible de récupérer les données du devis de déménagement');
+        setError('Impossible de récupérer les données du devis. Veuillez réessayer.');
       } catch (error) {
-        console.error('Erreur lors de la récupération des données:', error);
+        paymentLogger.error('Erreur lors de la récupération des données de déménagement', error as Error);
+        setError('Une erreur est survenue lors de la récupération des données. Veuillez réessayer.');
+      } finally {
+        setLoading(false);
       }
     };
     
     fetchQuoteData();
   }, [quoteId]);
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, checked, type } = e.target
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value
-    })
-  }
-
-  const validateForm = (): boolean => {
-    if (!formData.fullName || !formData.email || !formData.phone || !formData.terms) {
-      setError('Veuillez remplir tous les champs et accepter les conditions générales')
-      return false
-    }
-    return true
-  }
-
-  const initializePayment = async () => {
-    if (!quoteData) {
-      setError('Données du devis non trouvées')
-      return
-    }
-
-    if (!validateForm()) {
-      return
-    }
-
+  // Handler de succès pour le paiement
+  const handlePaymentSuccess = async (paymentIntentId: string) => {
     try {
-      setProcessing(true)
-      setError(null)
+      paymentLogger.info('Paiement réussi pour le déménagement', { paymentIntentId });
       
-      console.log('Préparation du paiement avec les données:', {
-        quoteData,
-        customerData: formData
-      })
-
-      // Créer directement l'intention de paiement
-      const paymentDescription = `Déménagement: ${quoteData.pickupAddress.substring(0, 20)}... → ${quoteData.deliveryAddress.substring(0, 20)}...`
+      // Enregistrer le paiement dans l'API
+      const response = await fetch('/api/moving/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quoteId: quoteId || 'MOVING-' + Date.now(),
+          paymentIntentId
+        })
+      });
       
-      // Créer l'intention de paiement
-      const { clientSecret } = await createPaymentIntent(
-        quoteId || 'MOVING-' + Date.now(), 
-        quoteData.totalCost, 
-        paymentDescription
-      )
-      
-      if (!clientSecret) {
-        throw new Error("Erreur lors de la création de l'intention de paiement")
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'enregistrement du paiement');
       }
       
-      // Utiliser quoteId comme bookingId
-      setBookingId(quoteId || 'MOVING-' + Date.now())
-      setClientSecret(clientSecret)
-      
+      // Rediriger vers la page de succès
+      router.push(`/moving/success?id=${quoteId || 'MOVING-' + Date.now()}`);
     } catch (error) {
-      console.error('Erreur lors du processus de préparation du paiement:', error)
-      setError('Une erreur est survenue lors de la préparation de votre paiement. Veuillez réessayer.')
-      setProcessing(false)
+      paymentLogger.error('Erreur lors de la finalisation du paiement', error as Error);
+      setError('Une erreur est survenue lors de la finalisation du paiement. Le paiement a été traité, mais nous n\'avons pas pu mettre à jour votre réservation.');
+      throw error;
     }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+      </div>
+    );
   }
-  
-  const handlePaymentSuccess = () => {
-    router.push(`/moving/success?id=${bookingId}`)
-  }
-  
-  const handlePaymentError = (errorMessage: string) => {
-    setError(errorMessage)
-    setProcessing(false)
+
+  if (error) {
+    return (
+      <div className="p-8 max-w-2xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h2 className="text-red-800 font-medium text-lg mb-2">Une erreur est survenue</h2>
+          <p className="text-red-700">{error}</p>
+          <button 
+            onClick={() => router.push('/moving')}
+            className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+          >
+            Retour au déménagement
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!quoteData) {
     return (
-      <main className="p-8">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="mb-6 text-red-500">
-            <h1 className="text-2xl font-bold mb-2">Devis non trouvé</h1>
-            <p>Impossible de trouver les informations du devis</p>
-          </div>
-          <button
-            onClick={() => router.push('/moving/new')}
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+      <div className="p-8 max-w-2xl mx-auto">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h2 className="text-yellow-800 font-medium text-lg mb-2">Données indisponibles</h2>
+          <p className="text-yellow-700">Nous n'avons pas pu récupérer les données de votre déménagement.</p>
+          <button 
+            onClick={() => router.push('/moving')}
+            className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
           >
-            Créer un nouveau devis
+            Retour au déménagement
           </button>
         </div>
-      </main>
-    )
+      </div>
+    );
   }
 
-  return (
-    <main className="p-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Finalisation de votre réservation</h1>
+  // Information récapitulative pour le paiement
+  const OrderSummary = () => (
+    <div>
+      <h3 className="font-medium text-gray-900 mb-2">Déménagement</h3>
+      
+      <div className="mb-4">
+        <p className="text-sm text-gray-500">De</p>
+        <p className="text-gray-700">{quoteData.pickupAddress}</p>
+      </div>
+      
+      <div className="mb-4">
+        <p className="text-sm text-gray-500">À</p>
+        <p className="text-gray-700">{quoteData.deliveryAddress}</p>
+      </div>
+      
+      <div className="mb-4">
+        <p className="text-sm text-gray-500">Date souhaitée</p>
+        <p className="text-gray-700">
+          {new Date(quoteData.preferredDate).toLocaleDateString('fr-FR', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+          })}
+        </p>
+      </div>
+      
+      <div className="mb-4">
+        <p className="text-sm text-gray-500">Volume</p>
+        <p className="text-gray-700">{quoteData.volume} m³</p>
+      </div>
+      
+      {quoteData.distance && (
+        <div className="mb-4">
+          <p className="text-sm text-gray-500">Distance</p>
+          <p className="text-gray-700">{quoteData.distance} km</p>
+        </div>
+      )}
+      
+      {Object.entries(quoteData.options).filter(([_, value]) => value).length > 0 && (
+        <div className="mb-4">
+          <p className="text-sm text-gray-500">Options</p>
+          <ul className="text-gray-700 list-disc list-inside">
+            {quoteData.options.packing && <li>Emballage</li>}
+            {quoteData.options.assembly && <li>Montage</li>}
+            {quoteData.options.disassembly && <li>Démontage</li>}
+            {quoteData.options.insurance && <li>Assurance</li>}
+            {quoteData.options.storage && <li>Stockage</li>}
+            {quoteData.options.cleaning && <li>Nettoyage</li>}
+          </ul>
+        </div>
+      )}
+      
+      <div className="pt-4 border-t border-gray-200">
+        <div className="flex justify-between">
+          <span className="text-gray-600">Prix total</span>
+          <span className="font-medium">{quoteData.totalCost.toFixed(2)} €</span>
+        </div>
         
-        <div className="bg-white shadow rounded-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Récapitulatif</h2>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div>
-              <p className="text-gray-600">Date du déménagement</p>
-              <p className="font-medium">{new Date(quoteData.preferredDate).toLocaleDateString('fr-FR')}</p>
-            </div>
-            <div>
-              <p className="text-gray-600">Volume estimé</p>
-              <p className="font-medium">{quoteData.volume} m³</p>
-            </div>
-            <div>
-              <p className="text-gray-600">Adresse de départ</p>
-              <p className="font-medium">{quoteData.pickupAddress}</p>
-            </div>
-            <div>
-              <p className="text-gray-600">Adresse d'arrivée</p>
-              <p className="font-medium">{quoteData.deliveryAddress}</p>
-            </div>
-          </div>
-          
-          <div className="space-y-1 border-t pt-4">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Prix de base</span>
-              <span>{quoteData.baseCost?.toFixed(2)} €</span>
-            </div>
-            {quoteData.volumeCost && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Supplément volume</span>
-                <span>{quoteData.volumeCost.toFixed(2)} €</span>
-              </div>
-            )}
-            {quoteData.distancePrice && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Supplément distance</span>
-                <span>{quoteData.distancePrice.toFixed(2)} €</span>
-              </div>
-            )}
-            {quoteData.optionsCost && quoteData.optionsCost > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Options</span>
-                <span>{quoteData.optionsCost.toFixed(2)} €</span>
-              </div>
-            )}
-            <div className="flex justify-between font-bold pt-2 border-t mt-2">
-              <span>Total</span>
-              <span>{quoteData.totalCost.toFixed(2)} €</span>
+        <div className="flex justify-between text-sm mt-2">
+          <span className="text-gray-600">Acompte (30%)</span>
+          <span>{(quoteData.totalCost * 0.3).toFixed(2)} €</span>
+        </div>
+        
+        <div className="flex justify-between text-sm mt-1">
+          <span className="text-gray-600">Solde restant</span>
+          <span>{(quoteData.totalCost * 0.7).toFixed(2)} €</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-8">Paiement de votre déménagement</h1>
+      
+      <div className="flex flex-col md:flex-row gap-8">
+        <div className="md:w-1/2 order-2 md:order-1">
+          <PaymentProcessor 
+            paymentData={{
+              id: quoteId || 'MOVING-' + Date.now(),
+              amount: Math.ceil(quoteData.totalCost * 0.3),
+              description: `Acompte pour déménagement de ${quoteData.pickupAddress.substring(0, 15)}... à ${quoteData.deliveryAddress.substring(0, 15)}...`,
+              onSuccess: handlePaymentSuccess
+            }}
+            serviceName="Déménagement"
+            orderSummary={<OrderSummary />}
+            backUrl="/moving"
+          />
+        </div>
+        
+        <div className="md:w-1/2 bg-gray-50 p-6 rounded-lg md:order-2">
+          <h2 className="text-xl font-semibold mb-4">Informations importantes</h2>
+          <div className="prose prose-sm">
+            <p>Vous allez effectuer le paiement d'un acompte de 30% du montant total de votre déménagement. Le solde sera réglé le jour du déménagement.</p>
+            <p className="mt-2">Une confirmation par email vous sera envoyée dès réception de votre paiement.</p>
+            <p className="mt-2">Pour toute question concernant votre réservation, n'hésitez pas à nous contacter.</p>
+            
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <h3 className="font-medium text-blue-800">Pour tester en mode développement</h3>
+              <p className="text-blue-600">Utilisez la carte de test suivante :</p>
+              <p className="font-mono text-sm mt-1">4242 4242 4242 4242</p>
+              <p className="text-xs text-blue-500 mt-1">Date future quelconque, CVC: 3 chiffres quelconques</p>
             </div>
           </div>
         </div>
-        
-        {!clientSecret ? (
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Vos informations</h2>
-            
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
-            
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nom complet
-                </label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleFormChange}
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleFormChange}
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Téléphone
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleFormChange}
-                  className="w-full p-2 border border-gray-300 rounded"
-                  required
-                />
-              </div>
-              <div className="flex items-start">
-                <input
-                  type="checkbox"
-                  name="terms"
-                  id="terms"
-                  checked={formData.terms}
-                  onChange={handleFormChange}
-                  className="mt-1 mr-2"
-                  required
-                />
-                <label htmlFor="terms" className="text-sm text-gray-700">
-                  J'accepte les <a href="/conditions" className="text-blue-600 hover:underline">conditions générales</a> et la <a href="/privacy" className="text-blue-600 hover:underline">politique de confidentialité</a>.
-                </label>
-              </div>
-            </div>
-            
-            <button
-              onClick={initializePayment}
-              disabled={processing}
-              className="w-full bg-blue-600 text-white p-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {processing ? 'Préparation...' : 'Procéder au paiement'}
-            </button>
-          </div>
-        ) : (
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Paiement sécurisé</h2>
-            
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
-            
-            <StripeElementsProvider clientSecret={clientSecret}>
-              <PaymentForm 
-                clientSecret={clientSecret}
-                onSuccess={handlePaymentSuccess}
-                onError={handlePaymentError}
-                amount={totalAmount}
-                returnUrl={`${window.location.origin}/moving/success?id=${bookingId}`}
-              />
-            </StripeElementsProvider>
-          </div>
-        )}
       </div>
-    </main>
-  )
+    </div>
+  );
 } 

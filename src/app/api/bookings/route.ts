@@ -23,6 +23,8 @@ import { ConfigurationService } from '@/quotation/domain/services/ConfigurationS
 import { QuoteCalculatorFactory } from '@/quotation/application/factories/QuoteCalculatorFactory';
 import { QuoteCalculatorService } from '@/quotation/application/services/QuoteCalculatorService';
 import { FallbackCalculatorService } from '@/quotation/application/services/FallbackCalculatorService';
+import { PdfService } from '@/quotation/application/services/PdfService';
+import { EmailService } from '@/quotation/application/services/EmailService';
 
 // LOG D'IMPORTATION TERMINÉE
 console.log("\n========== IMPORTS API/BOOKINGS/ROUTE.TS TERMINÉS ==========\n");
@@ -67,7 +69,13 @@ calculatorService.initialize()
 const customerService = new CustomerService(customerRepository);
 const transactionService = {} as any;
 const documentService = {} as any;
-const emailService = {} as any;
+const emailService = new EmailService();
+
+// Variable pour stocker le service de génération de PDF
+let pdfService: PdfService | null = null;
+
+// Charger le service de génération de PDF
+const pdfServiceInstance = PdfService.getInstance();
 
 // Fonction utilitaire pour s'assurer que le calculateur est disponible
 async function ensureCalculatorAvailable(): Promise<QuoteCalculator> {
@@ -444,10 +452,105 @@ export async function POST(request: NextRequest) {
     const responseData = httpResponse.getData();
     const statusCode = httpResponse.getStatus();
     
+    // Après avoir créé la réservation, ajouter ceci avant de renvoyer la réponse:
+    if (action === 'create' || action === 'finalize') {
+      try {
+        // Générer le PDF de confirmation
+        const pdfPath = await pdfServiceInstance.generateBookingPDF(booking);
+        
+        // Récupérer l'email du client
+        const customer = booking.getCustomer();
+        const contactInfo = customer?.getContactInfo();
+        const email = contactInfo?.getEmail();
+        
+        if (email) {
+          // Envoyer l'email avec le PDF
+          await emailService.sendBookingConfirmation(booking, pdfPath);
+          logger.info(`Email de confirmation de réservation envoyé à ${email}`);
+        } else {
+          logger.warn(`Impossible d'envoyer l'email de confirmation: email client non disponible`);
+        }
+      } catch (emailError) {
+        logger.error('Erreur lors de l\'envoi de l\'email de confirmation:', emailError);
+        // Ne pas bloquer le flux en cas d'erreur d'email
+      }
+    }
+    
     // Retourner une réponse NextResponse
     return NextResponse.json(responseData, { status: statusCode });
   } catch (error) {
     console.error('Error in POST /api/bookings:', error);
+    return NextResponse.json(
+      { error: `Une erreur est survenue: ${error instanceof Error ? error.message : 'Erreur inconnue'}` },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/bookings - Mise à jour d'une réservation
+ */
+export async function PATCH(request: NextRequest) {
+  console.log("\n========== ENTRÉE DANS LA FONCTION PATCH /api/bookings ==========\n");
+  console.log("URL complète:", request.url);
+  
+  try {
+    // S'assurer que le contrôleur est initialisé
+    let controller;
+    try {
+      controller = await ensureBookingControllerAvailable();
+    } catch (initError) {
+      console.error("Erreur lors de l'initialisation du contrôleur:", initError);
+      return NextResponse.json(
+        { error: 'Le service est en cours d\'initialisation, veuillez réessayer dans quelques instants' },
+        { status: 503 }
+      );
+    }
+    
+    // Lecture du corps de la requête
+    const body = await request.json();
+    
+    // Créer un HttpRequest à partir de NextRequest
+    const httpRequest = createHttpRequest(request, {}, body);
+    
+    // Créer un HttpResponse
+    const httpResponse = createHttpResponse();
+    
+    // Mise à jour de la réservation
+    await controller.updateBooking(httpRequest, httpResponse);
+    
+    // Extraire les données et le code de statut du HttpResponse
+    const responseData = httpResponse.getData();
+    const statusCode = httpResponse.getStatus();
+    
+    // Dans la section qui gère la mise à jour (PATCH) avec annulation, ajouter:
+    if (method === 'PATCH' && dto.status === BookingStatus.CANCELED) {
+      try {
+        // Récupérer l'email du client
+        const customer = booking.getCustomer();
+        const contactInfo = customer?.getContactInfo();
+        const email = contactInfo?.getEmail();
+        
+        if (email) {
+          // Envoyer l'email de notification d'annulation
+          await emailService.sendCancellationNotification(
+            booking,
+            dto.cancellationReason || 'Annulation demandée par le client ou l\'administrateur.'
+          );
+          logger.info(`Email de notification d'annulation envoyé à ${email}`);
+        } else {
+          logger.warn(`Impossible d'envoyer l'email d'annulation: email client non disponible`);
+        }
+      } catch (emailError) {
+        logger.error('Erreur lors de l\'envoi de l\'email d\'annulation:', emailError);
+        // Ne pas bloquer le flux en cas d'erreur d'email
+      }
+    }
+    
+    // Retourner une réponse NextResponse
+    return NextResponse.json(responseData, { status: statusCode });
+  } catch (error) {
+    console.error('Error in PATCH /api/bookings:', error);
     return NextResponse.json(
       { error: `Une erreur est survenue: ${error instanceof Error ? error.message : 'Erreur inconnue'}` },
       { status: 500 }

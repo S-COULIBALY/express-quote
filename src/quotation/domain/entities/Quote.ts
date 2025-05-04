@@ -25,6 +25,9 @@ export interface QuoteProps {
   createdAt?: Date;
   updatedAt?: Date;
   
+  // Assurance
+  hasInsurance?: boolean;
+  
   // Moving specific
   moveDate?: Date;
   pickupAddress?: string;
@@ -82,6 +85,9 @@ export class Quote {
   private readonly _createdAt: Date;
   private readonly _updatedAt: Date;
   
+  // Assurance
+  private readonly _hasInsurance?: boolean;
+  
   // Moving specific
   private readonly _moveDate?: Date;
   private readonly _pickupAddress?: string;
@@ -137,6 +143,9 @@ export class Quote {
     this._totalAmount = props.totalAmount;
     this._createdAt = props.createdAt || new Date();
     this._updatedAt = props.updatedAt || new Date();
+    
+    // Assurance
+    this._hasInsurance = props.hasInsurance;
     
     // Moving specific
     this._moveDate = props.moveDate;
@@ -194,6 +203,9 @@ export class Quote {
   get totalAmount(): Money { return this._totalAmount; }
   get createdAt(): Date { return this._createdAt; }
   get updatedAt(): Date { return this._updatedAt; }
+  
+  // Assurance getter
+  get hasInsurance(): boolean | undefined { return this._hasInsurance; }
   
   // Moving specific getters
   get moveDate(): Date | undefined { return this._moveDate; }

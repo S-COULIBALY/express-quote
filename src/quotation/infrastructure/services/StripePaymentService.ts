@@ -1,21 +1,33 @@
 import Stripe from 'stripe';
-import { Money } from '../../domain/valueObjects/Money';
+import { Injectable } from '@/core/dependency-injection/Injectable';
+import { IPaymentService } from '@/quotation/domain/services/IPaymentService';
+import { Money } from '@/quotation/domain/valueObjects/Money';
+import { stripeConfig } from '@/config/stripe';
+import { logger } from '@/lib/logger';
 
 /**
  * Service d'infrastructure pour gérer les paiements via Stripe
  */
-export class StripePaymentService {
+@Injectable()
+export class StripePaymentService implements IPaymentService {
   private stripe: Stripe;
   private frontendUrl: string;
+  private paymentLogger = logger.withContext('StripePayment');
 
   /**
    * Constructeur avec injection des dépendances
    */
-  constructor(apiKey: string, frontendUrl: string) {
-    this.stripe = new Stripe(apiKey, {
-      apiVersion: '2025-03-31.basil',
+  constructor(frontendUrl: string) {
+    if (!stripeConfig.isConfigured()) {
+      this.paymentLogger.warn('Stripe non configuré correctement. Les paiements ne fonctionneront pas.');
+    }
+    
+    this.stripe = new Stripe(stripeConfig.secretKey, {
+      apiVersion: '2022-11-15'
     });
+    
     this.frontendUrl = frontendUrl;
+    this.paymentLogger.info('Service de paiement Stripe initialisé');
   }
 
   /**
@@ -124,32 +136,40 @@ export class StripePaymentService {
   async createPaymentIntent(
     bookingId: string,
     amount: Money,
-    description: string
-  ): Promise<{ id: string; clientSecret: string }> {
+    description?: string
+  ): Promise<{ clientSecret: string; id: string }> {
     try {
+      this.paymentLogger.debug(`Création d'une intention de paiement pour la réservation ${bookingId}`);
+      
+      // Vérifier que le montant est valide
+      if (amount.getAmount() <= 0) {
+        throw new Error(`Montant invalide: ${amount.getAmount()} ${amount.getCurrency()}`);
+      }
+      
+      // Créer l'intention de paiement
       const paymentIntent = await this.stripe.paymentIntents.create({
-        amount: Math.round(amount.getAmount() * 100), // Conversion en centimes
+        amount: Math.round(amount.getAmount() * 100), // Convertir en centimes
         currency: amount.getCurrency().toLowerCase(),
-        description,
+        description: description || `Réservation #${bookingId}`,
         metadata: {
           bookingId,
+          amountOriginal: String(amount.getAmount()),
+          source: 'express-quote'
         },
         automatic_payment_methods: {
           enabled: true,
         },
       });
+      
+      this.paymentLogger.info(`Intention de paiement créée: ${paymentIntent.id}`);
 
       return {
+        clientSecret: paymentIntent.client_secret || '',
         id: paymentIntent.id,
-        clientSecret: paymentIntent.client_secret as string,
       };
     } catch (error) {
-      console.error('Erreur lors de la création de l\'intention de paiement Stripe:', error);
-      throw new Error(
-        `Erreur lors de la création de l'intention de paiement Stripe: ${
-          error instanceof Error ? error.message : 'Erreur inconnue'
-        }`
-      );
+      this.paymentLogger.error('Erreur lors de la création de l\'intention de paiement', error as Error);
+      throw error;
     }
   }
 
@@ -159,13 +179,21 @@ export class StripePaymentService {
   async checkPaymentIntentStatus(paymentIntentId: string): Promise<{
     status: 'succeeded' | 'processing' | 'requires_payment_method' | 'requires_confirmation' | 'canceled' | 'requires_action';
     amount?: number;
+    bookingId?: string;
+    customerEmail?: string;
+    metadata?: Record<string, string>;
   }> {
     try {
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId, {
+        expand: ['customer']
+      });
 
       return {
         status: paymentIntent.status as any,
         amount: paymentIntent.amount ? paymentIntent.amount / 100 : undefined,
+        bookingId: paymentIntent.metadata?.bookingId,
+        customerEmail: typeof paymentIntent.customer === 'object' && paymentIntent.customer && 'email' in paymentIntent.customer && typeof paymentIntent.customer.email === 'string' ? paymentIntent.customer.email : undefined,
+        metadata: paymentIntent.metadata as Record<string, string> || {}
       };
     } catch (error) {
       console.error('Erreur lors de la vérification de l\'intention de paiement Stripe:', error);
@@ -195,5 +223,60 @@ export class StripePaymentService {
         }`
       );
     }
+  }
+
+  async retrievePaymentIntent(paymentIntentId: string): Promise<any> {
+    try {
+      this.paymentLogger.debug(`Récupération de l'intention de paiement ${paymentIntentId}`);
+      
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      
+      this.paymentLogger.debug(`Statut de l'intention de paiement: ${paymentIntent.status}`);
+      
+      return paymentIntent;
+    } catch (error) {
+      this.paymentLogger.error(`Erreur lors de la récupération de l'intention de paiement ${paymentIntentId}`, error as Error);
+      throw error;
+    }
+  }
+
+  async verifyPaymentIntent(paymentIntentId: string): Promise<boolean> {
+    try {
+      const paymentIntent = await this.retrievePaymentIntent(paymentIntentId);
+      
+      // Vérifier si le paiement est complet
+      const isSuccessful = paymentIntent.status === 'succeeded';
+      
+      if (isSuccessful) {
+        this.paymentLogger.info(`Paiement vérifié avec succès: ${paymentIntentId}`);
+      } else {
+        this.paymentLogger.warn(`Vérification du paiement échouée: ${paymentIntentId}, statut: ${paymentIntent.status}`);
+      }
+      
+      return isSuccessful;
+    } catch (error) {
+      this.paymentLogger.error(`Erreur lors de la vérification du paiement ${paymentIntentId}`, error as Error);
+      return false;
+    }
+  }
+  
+  async cancelPaymentIntent(paymentIntentId: string): Promise<boolean> {
+    try {
+      this.paymentLogger.debug(`Annulation de l'intention de paiement ${paymentIntentId}`);
+      
+      await this.stripe.paymentIntents.cancel(paymentIntentId);
+      
+      this.paymentLogger.info(`Intention de paiement annulée: ${paymentIntentId}`);
+      
+      return true;
+    } catch (error) {
+      this.paymentLogger.error(`Erreur lors de l'annulation de l'intention de paiement ${paymentIntentId}`, error as Error);
+      return false;
+    }
+  }
+  
+  // Méthode utilitaire pour récupérer les données de test
+  getTestCards() {
+    return stripeConfig.isDevelopment ? stripeConfig.getTestData().testCards : null;
   }
 } 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Service } from '@/types/booking'
 import { PickupAddressAutocomplete } from '@/components/AddressAutocomplete'
 import { format } from 'date-fns'
@@ -14,6 +14,7 @@ import { ServiceType } from '@/quotation/domain/enums/ServiceType'
 export default function ServiceFormPage({ params }: { params: { id: string } }) {
   const [service, setService] = useState<Service | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     scheduledDate: '',
     location: '',
@@ -26,8 +27,10 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
   const [isPriceLoading, setIsPriceLoading] = useState(false)
   const [priceDetails, setPriceDetails] = useState<any>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isEditMode = searchParams.get('edit') === 'true'
 
-  // Charger le service
+  // Charger le service et les données d'édition si en mode édition
   useEffect(() => {
     const fetchService = async () => {
       try {
@@ -45,12 +48,36 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
         if (foundService) {
           // Initialiser le prix calculé avec le prix de base du service
           setCalculatedPrice(foundService.price)
-          // Initialiser la durée et le nombre de travailleurs avec les valeurs du service
+          
+          // Vérifier si nous sommes en mode édition et charger les données stockées
+          if (isEditMode && typeof window !== 'undefined') {
+            const storedData = window.sessionStorage.getItem('editQuoteData')
+            if (storedData) {
+              try {
+                const parsedData = JSON.parse(storedData)
+                // Pré-remplir le formulaire avec les données stockées
+                setFormData({
+                  scheduledDate: parsedData.scheduledDate || '',
+                  location: parsedData.location || '',
+                  duration: parsedData.duration || foundService.duration,
+                  workers: parsedData.workers || foundService.workers,
+                  additionalInfo: parsedData.additionalInfo || ''
+                })
+                
+                // Nettoyer le sessionStorage après utilisation
+                window.sessionStorage.removeItem('editQuoteData')
+              } catch (error) {
+                console.error('Erreur lors du parsing des données stockées:', error)
+              }
+            }
+          } else {
+            // Initialiser avec les valeurs par défaut du service
           setFormData(prev => ({
             ...prev,
             duration: foundService.duration,
             workers: foundService.workers
           }))
+          }
         }
       } catch (error) {
         console.error('Erreur lors de la récupération du service:', error)
@@ -60,7 +87,7 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
     }
 
     fetchService()
-  }, [params.id])
+  }, [params.id, isEditMode])
 
   // Recalculer le prix via l'API quand la durée ou le nombre de travailleurs changent
   useEffect(() => {
@@ -167,7 +194,7 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
           // Calculer les suppléments si absents de la réponse API
           let extraHoursCost = data.details?.extraHoursCost || 0;
           let extraWorkerCost = data.details?.extraWorkerCost || 0;
-          let discount = data.details?.discount || 0;
+          const discount = data.details?.discount || 0;
           
           if (formData.duration > service.duration && !extraHoursCost) {
             extraHoursCost = Math.round((formData.duration - service.duration) * 35 * service.workers);
@@ -319,7 +346,11 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
       return;
     }
     
-    setIsLoading(true);
+    // Activer l'overlay de chargement complet
+    setIsSubmitting(true);
+    
+    // Enregistrer le temps de début pour garantir une durée minimale d'affichage
+    const startTime = Date.now();
     
     try {
       const bookingData = {
@@ -354,25 +385,31 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
         // Vérifier explicitement que l'ID existe
         if (responseData && responseData.id) {
           // Sauvegarder l'ID dans sessionStorage plutôt que localStorage
-          // pour éviter les problèmes de persistence entre onglets/navigateurs
           if (typeof window !== 'undefined') {
             console.log('💾 Sauvegarde de l\'ID dans sessionStorage:', responseData.id);
             window.sessionStorage.setItem('pendingQuoteRequestId', responseData.id);
-            
-            // Délai court avant redirection pour laisser le temps à sessionStorage de se mettre à jour
-            await new Promise(resolve => setTimeout(resolve, 100));
             
             // Créer URL avec paramètre de requête explicite
             const summaryUrl = `/services/summary?quoteRequestId=${encodeURIComponent(responseData.id)}`;
             console.log('🔄 Redirection vers:', summaryUrl);
             
-            // Utiliser window.location.href pour une navigation complète plutôt que router.push
-            // qui peut être interrompu par le hot-reload
-            window.location.href = summaryUrl;
+            // Calculer le temps écoulé et attendre si nécessaire pour garantir une durée minimale d'affichage
+            const elapsedTime = Date.now() - startTime;
+            const minDisplayTime = 1500; // 1,5 secondes minimum
+            
+            if (elapsedTime < minDisplayTime) {
+              console.log(`⏱️ Attente de ${minDisplayTime - elapsedTime}ms pour assurer une transition fluide`);
+              await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsedTime));
+            }
+            
+            // La navigation se fera avec l'indicateur de chargement visible
+            router.push(summaryUrl);
+            return; // Sortir de la fonction sans désactiver isSubmitting
           } else {
             // Fallback si window n'est pas disponible (côté serveur)
             console.log('⚠️ window non disponible, utilisation de router.push');
             router.push(`/services/summary?quoteRequestId=${responseData.id}`);
+            return; // Sortir de la fonction sans désactiver isSubmitting
           }
         } else {
           console.error('❌ Erreur: ID manquant dans la réponse API', responseData);
@@ -387,7 +424,17 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
       console.error('Error submitting form:', error);
       alert('An error occurred. Please try again.');
     } finally {
-      setIsLoading(false);
+      // Calculer le temps écoulé et attendre si nécessaire avant de désactiver l'overlay
+      const elapsedTime = Date.now() - startTime;
+      const minDisplayTime = 1500; // 1,5 secondes minimum
+      
+      if (elapsedTime < minDisplayTime) {
+        await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsedTime));
+      }
+      
+      // Ne désactiver l'état de chargement que si la redirection n'a pas été initiée
+      // (cas d'erreur ou données manquantes)
+      setIsSubmitting(false);
     }
   };
 
@@ -417,6 +464,24 @@ export default function ServiceFormPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="bg-gray-50 py-8">
+      {/* Overlay de chargement lors de la soumission */}
+      {isSubmitting && (
+        <div className="fixed inset-0 bg-gray-900/70 z-50 flex flex-col items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl max-w-md w-full flex flex-col items-center">
+            <div className="animate-spin rounded-full h-14 w-14 border-4 border-emerald-500 border-t-transparent mb-4"></div>
+            <h3 className="text-lg font-semibold text-gray-800">Traitement de votre demande</h3>
+            <p className="text-gray-600 text-center mt-2">Votre devis est en cours de préparation, veuillez patienter...</p>
+            
+            {/* Barre de progression pulsante */}
+            <div className="w-full mt-5 bg-gray-200 h-2 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full animate-pulse" style={{width: '75%'}}></div>
+            </div>
+            
+            <p className="text-gray-500 text-xs mt-3">Calcul du prix en cours...</p>
+          </div>
+        </div>
+      )}
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Réserver votre service</h1>
         <h2 className="text-xl text-gray-600 mt-2">Personnalisez votre réservation selon vos besoins</h2>

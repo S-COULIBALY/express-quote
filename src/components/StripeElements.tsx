@@ -110,7 +110,7 @@ async function getSuccessPageUrl() {
 
 interface PaymentFormProps {
   clientSecret: string;
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId: string) => void;
   onError: (error: string) => void;
   returnUrl?: string;
   amount: number;
@@ -204,7 +204,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
           
           if (paymentIntent?.status === 'succeeded') {
             console.log('Paiement réussi');
-            onSuccess();
+            onSuccess(paymentIntent.id);
           } else if (paymentIntent?.status === 'processing') {
             // Le paiement est en cours de traitement
             console.log('Paiement en cours de traitement');
@@ -259,44 +259,36 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     setErrorMessage(null);
 
     try {
-      console.log('Confirmation du paiement...');
+      setIsLoading(true);
       
-      // Vérifier que l'élément Payment est bien monté
-      const paymentElement = elements.getElement('payment');
-      if (!paymentElement) {
-        throw new Error('Le formulaire de paiement n\'est pas correctement chargé');
-      }
-      
-      // Obtenir l'URL de redirection appropriée
-      const successUrl = returnUrl || await getSuccessPageUrl();
-      console.log('URL de redirection déterminée:', successUrl);
-      console.log('returnUrl passé en prop:', returnUrl);
-      
-      // Forcer l'URL à être complète
-      const finalSuccessUrl = successUrl.startsWith('http') 
-        ? successUrl 
-        : `${window.location.origin}${successUrl.startsWith('/') ? '' : '/'}${successUrl}`;
-      
-      console.log('URL finale de redirection:', finalSuccessUrl);
-      
-      const { error } = await stripe.confirmPayment({
+      // Démarrer le processus de paiement
+      const result = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: finalSuccessUrl,
+          return_url: returnUrl || await getSuccessPageUrl()
         },
+        redirect: 'if_required'
       });
 
-      if (error) {
-        console.error('Erreur lors de la confirmation du paiement:', error);
-        if (error.type === 'card_error' || error.type === 'validation_error') {
-          setErrorMessage(error.message || 'Une erreur est survenue lors du paiement.');
+      if (result.error) {
+        console.error('Erreur lors de la confirmation du paiement:', result.error);
+        const errorMessage = result.error.message || 'Une erreur est survenue lors du paiement';
+        setErrorMessage(errorMessage);
+        onError(errorMessage);
+      } else if (result.paymentIntent) {
+        // Paiement réussi sans redirection
+        if (result.paymentIntent.status === 'succeeded') {
+          console.log('Paiement réussi sans redirection');
+          onSuccess(result.paymentIntent.id);
         } else {
-          setErrorMessage('Une erreur inattendue est survenue.');
+          const statusMessage = `Statut du paiement: ${result.paymentIntent.status}`;
+          console.warn(statusMessage);
+          setErrorMessage(statusMessage);
+          onError(statusMessage);
         }
-        onError(error.message || 'Erreur de paiement');
       }
-    } catch (err) {
-      console.error('Exception lors de la confirmation du paiement:', err);
+    } catch (error) {
+      console.error('Exception lors de la confirmation du paiement:', error);
       setErrorMessage('Erreur lors de la connexion au service de paiement.');
       onError('Erreur technique');
     } finally {

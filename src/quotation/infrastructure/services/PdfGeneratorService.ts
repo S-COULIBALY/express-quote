@@ -171,7 +171,7 @@ export class PdfGeneratorService {
         : serviceDate.toLocaleDateString('fr-FR')
       : 'À définir';
     
-    let content = `
+    const content = `
       CONFIRMATION DE RÉSERVATION
       
       Cher/Chère ${customerName},
@@ -218,7 +218,7 @@ export class PdfGeneratorService {
         : serviceDate.toLocaleDateString('fr-FR')
       : 'À définir';
     
-    let content = `
+    const content = `
       CONTRAT DE SERVICE
       
       Entre:

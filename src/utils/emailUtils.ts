@@ -53,7 +53,7 @@ export const emailUtils = {
   ): Promise<void> {
     await this.sendEmail({
       to,
-      subject: 'Booking Confirmation - Cleaning Service',
+      subject: 'Confirmation de votre réservation',
       template: 'bookingConfirmation',
       templateData,
       attachments
@@ -67,13 +67,54 @@ export const emailUtils = {
   ): Promise<void> {
     await this.sendEmail({
       to,
-      subject: 'Payment Receipt - Cleaning Service',
+      subject: 'Reçu de paiement pour votre service',
       template: 'paymentReceipt',
       templateData,
       attachments: [{
-        filename: 'payment-receipt.pdf',
+        filename: 'paiement-recu.pdf',
         content: pdfBuffer
       }]
+    })
+  },
+
+  async sendQuoteConfirmation(
+    to: string,
+    templateData: EmailTemplateData,
+    pdfBuffer: Buffer
+  ): Promise<void> {
+    await this.sendEmail({
+      to,
+      subject: 'Votre devis est prêt',
+      template: 'quoteConfirmation',
+      templateData,
+      attachments: [{
+        filename: 'devis.pdf',
+        content: pdfBuffer
+      }]
+    })
+  },
+
+  async sendServiceConfirmation(
+    to: string,
+    templateData: EmailTemplateData
+  ): Promise<void> {
+    await this.sendEmail({
+      to,
+      subject: 'Confirmation de votre service',
+      template: 'serviceConfirmation',
+      templateData
+    })
+  },
+
+  async sendCancellationNotification(
+    to: string,
+    templateData: EmailTemplateData
+  ): Promise<void> {
+    await this.sendEmail({
+      to,
+      subject: 'Annulation de votre réservation',
+      template: 'cancellationNotification',
+      templateData
     })
   }
 } 

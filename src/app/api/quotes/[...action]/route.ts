@@ -10,6 +10,8 @@ import { CustomerService } from '@/quotation/application/services/CustomerServic
 import { QuoteCalculatorService } from '@/quotation/application/services/QuoteCalculatorService';
 import { logger } from '@/lib/logger';
 import { QuoteRequestStatus } from '@/quotation/domain/enums/QuoteRequestStatus';
+import { PDFService } from '@/quotation/infrastructure/adapters/PDFService';
+import { EmailService } from '@/quotation/infrastructure/adapters/EmailService';
 
 // Initialisation des dépendances
 const bookingRepository = new PrismaBookingRepository();
@@ -25,6 +27,20 @@ const calculatorService = QuoteCalculatorService.getInstance();
 
 // Variable pour stocker le service de réservation
 let bookingServiceInstance: BookingService | null = null;
+
+// Initialisation des services
+const pdfService = new PDFService();
+const emailService = new EmailService();
+
+// Logger sécurisé
+const quoteLogger = logger.withContext ? 
+  logger.withContext('QuoteAPI') : 
+  {
+    debug: (msg: string, ...args: any[]) => console.debug('[QuoteAPI]', msg, ...args),
+    info: (msg: string, ...args: any[]) => console.info('[QuoteAPI]', msg, ...args),
+    warn: (msg: string, ...args: any[]) => console.warn('[QuoteAPI]', msg, ...args),
+    error: (msg: string | Error, ...args: any[]) => console.error('[QuoteAPI]', msg, ...args)
+  };
 
 // Fonction utilitaire pour s'assurer que le service est disponible
 async function ensureBookingServiceAvailable(): Promise<BookingService> {
@@ -100,6 +116,19 @@ export async function GET(
       const quoteData = quoteRequest.getQuoteData();
       const quoteType = quoteRequest.getType();
       
+      // S'assurer que le montant total est défini
+      let totalAmount = 0;
+      
+      if (quoteData.totalAmount) {
+        totalAmount = typeof quoteData.totalAmount === 'string' ? parseFloat(quoteData.totalAmount) : quoteData.totalAmount;
+      } else if (quoteData.calculatedPrice) {
+        totalAmount = typeof quoteData.calculatedPrice === 'string' ? parseFloat(quoteData.calculatedPrice) : quoteData.calculatedPrice;
+      } else if (quoteData.price) {
+        totalAmount = typeof quoteData.price === 'string' ? parseFloat(quoteData.price) : quoteData.price;
+      }
+      
+      console.log(`API - Montant total du devis: ${totalAmount}€ (type: ${typeof totalAmount})`);
+      
       // Construire une réponse avec les informations pertinentes
       const response = {
         id: quoteRequestId,
@@ -110,7 +139,8 @@ export async function GET(
         ...quoteData,
         serviceId: quoteData.serviceId || quoteData.service?.id,
         scheduledDate: quoteData.scheduledDate || quoteData.date,
-        calculatedPrice: quoteData.calculatedPrice || quoteData.price
+        calculatedPrice: quoteData.calculatedPrice || quoteData.price,
+        totalAmount: totalAmount // Ajout explicite du montant total
       };
       
       console.log(`✅ API - Détails de la demande de devis récupérés avec succès - ID: ${quoteRequestId}`);
@@ -145,21 +175,24 @@ export async function POST(
     const service = await ensureBookingServiceAvailable();
     
     // L'action est le premier segment du chemin
-    const action = params.action[0];
+    const action = params.action;
     
-    console.log(`🔄 API - Traitement d'une action POST "${action}" pour les devis`);
+    console.log(`🔄 API - Traitement d'une action POST "${action.join('/')}" pour les devis`);
     
     // Lecture du corps de la requête
     const body = await request.json();
     
     // Traiter l'action en fonction du paramètre
-    switch (action) {
+    switch (action[0]) {
       case 'request':
         return handleCreateQuoteRequest(service, body);
       case 'formalize':
         return handleFormalizeQuote(service, body);
       case 'accept':
         return handleAcceptQuote(service, body);
+      case 'create':
+      case 'submit':
+        return handleCreateQuoteRequest(service, body);
       default:
         return NextResponse.json(
           { error: 'Action non reconnue. Utilisez /request, /formalize ou /accept' },
@@ -222,6 +255,62 @@ async function handleCreateQuoteRequest(service: BookingService, body: any) {
     
     console.log(`✅ API - Demande de devis créée avec succès - ID: ${quoteRequestId}`);
     
+    // Après la création réussie, générer et envoyer le PDF
+    try {
+      // Générer le PDF du devis
+      const pdfPath = await pdfService.generateQuotePDF(quoteRequest);
+      
+      // Récupérer les données du client
+      const quoteData = quoteRequest.getQuoteData();
+      const clientEmail = quoteData?.email;
+      
+      if (clientEmail) {
+        quoteLogger.info(`Envoi du devis par email à ${clientEmail}`);
+        
+        // Envoyer l'email avec le PDF joint
+        await emailService.sendQuoteConfirmation(quoteRequest, pdfPath);
+        
+        quoteLogger.info(`Email de devis envoyé avec succès à ${clientEmail}`);
+      } else {
+        quoteLogger.warn(`Impossible d'envoyer l'email de confirmation: email client non disponible`);
+      }
+    } catch (emailError) {
+      // Ne pas bloquer le flux principal en cas d'erreur d'email
+      quoteLogger.error(`Erreur lors de l'envoi de l'email de devis:`, emailError);
+    }
+    
+    // Dans la section POST où le devis est créé avec succès
+    if (action[0] === 'create' || action[0] === 'submit') {
+      // Après la création réussie du devis et avant de renvoyer la réponse
+      try {
+        // Envoyer le devis par email et générer le PDF si les services sont disponibles
+        if (quoteRequest && quoteRequest.getQuoteData()?.email) {
+          const pdfService = new PDFService();
+          const emailService = new EmailService();
+          
+          // Générer le PDF du devis
+          try {
+            const pdfPath = await pdfService.generateQuotePDF(quoteRequest);
+            
+            // Envoyer l'email avec le PDF
+            await emailService.sendQuoteConfirmation(quoteRequest, pdfPath);
+            
+            console.log(`Email de devis envoyé à ${quoteRequest.getQuoteData().email}`);
+            
+            // Ajouter l'info dans la réponse
+            response.emailSent = true;
+          } catch (pdfError) {
+            console.error('Erreur lors de la génération ou de l\'envoi du PDF:', pdfError);
+            // Ne pas bloquer le flux principal
+            response.emailSent = false;
+          }
+        }
+      } catch (emailError) {
+        console.error('Erreur lors de l\'envoi de l\'email de confirmation de devis:', emailError);
+        // Ne pas bloquer le flux principal
+      }
+    }
+    
     return NextResponse.json(response, { status: 201 });
   } catch (error: any) {
     console.error('❌ API - Erreur lors de la création de la demande de devis:', error);
@@ -237,13 +326,19 @@ async function handleCreateQuoteRequest(service: BookingService, body: any) {
  * Gère la formalisation d'un devis à partir d'une demande
  */
 async function handleFormalizeQuote(service: BookingService, body: any) {
+  console.log('🔄 API - Début handleFormalizeQuote avec body:', JSON.stringify(body));
+  
   // Valider les données
   if (!body.quoteRequestId || !body.customerDetails) {
+    console.error('❌ API - Données manquantes:', { quoteRequestId: !!body.quoteRequestId, customerDetails: !!body.customerDetails });
     return NextResponse.json(
       { error: 'L\'ID de la demande de devis et les détails du client sont obligatoires' },
       { status: 400 }
     );
   }
+  
+  // Vérifier si customerDetails contient email
+  console.log('📧 API - customerDetails:', JSON.stringify(body.customerDetails));
   
   try {
     // Récupérer la demande de devis via le repository du service
@@ -267,10 +362,42 @@ async function handleFormalizeQuote(service: BookingService, body: any) {
       );
     }
     
-    // Créer un devis formel
+    // Extraire les détails du client directement
+    const customerDetails = body.customerDetails;
+    
+    // S'assurer que l'email est défini
+    if (!customerDetails.email || typeof customerDetails.email !== 'string' || !customerDetails.email.trim()) {
+      console.error('❌ [API] Email manquant ou invalide:', customerDetails);
+      return NextResponse.json(
+        { error: 'L\'email du client est obligatoire' },
+        { status: 400 }
+      );
+    }
+    
+    // Récupérer l'option d'assurance
+    const hasInsurance = body.hasInsurance === true;
+    
+    // Récupérer les données du devis
+    const quoteData = quoteRequest.getQuoteData();
+    
+    // Si l'option d'assurance est activée, mettre à jour le prix
+    if (hasInsurance) {
+      // Généralement l'assurance coûte 30€ en plus, mais cela devrait être défini dans une constante
+      const INSURANCE_PRICE = 30;
+      // Mettre à jour le montant total avec l'assurance incluse
+      quoteData.totalAmount = (quoteData.totalAmount || 0) + INSURANCE_PRICE;
+      
+      console.log(`💰 Prix mis à jour avec assurance: ${quoteData.totalAmount}€ (+ ${INSURANCE_PRICE}€ d'assurance)`);
+    }
+    
+    console.log('Données client pour formalisation:', customerDetails);
+    console.log('Option assurance:', hasInsurance);
+    
+    // Créer un devis formel avec l'option d'assurance
     const quote = await service.createFormalQuote(
       body.quoteRequestId,
-      body.customerDetails
+      customerDetails,
+      { hasInsurance }
     );
     
     // Construire une réponse avec les informations pertinentes
@@ -279,10 +406,11 @@ async function handleFormalizeQuote(service: BookingService, body: any) {
       quoteRequestId: body.quoteRequestId,
       totalAmount: quote.totalAmount ? quote.totalAmount.getAmount() : 0,
       customer: {
-        firstName: body.customerDetails.firstName,
-        lastName: body.customerDetails.lastName,
-        email: body.customerDetails.email
+        firstName: customerDetails.firstName,
+        lastName: customerDetails.lastName,
+        email: customerDetails.email
       },
+      hasInsurance: hasInsurance,
       status: quote.status || 'CONFIRMED'
     };
     

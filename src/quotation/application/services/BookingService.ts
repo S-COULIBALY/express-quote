@@ -24,6 +24,7 @@ import { ServiceType } from '../../domain/enums/ServiceType';
 import { Address } from '../../domain/valueObjects/Address';
 import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
 import { StripePaymentService } from '../../infrastructure/services/StripePaymentService';
+import { PdfService } from '../../infrastructure/services/PdfService';
 
 export class BookingService {
   constructor(
@@ -36,7 +37,8 @@ export class BookingService {
     private readonly customerService: CustomerService,
     private readonly transactionService: any,
     private readonly documentService: any,
-    private readonly emailService: any
+    private readonly emailService: any,
+    private readonly pdfService: PdfService
   ) {}
 
   /**
@@ -174,10 +176,18 @@ export class BookingService {
    * avec les informations client à partir d'une demande de devis anonyme.
    * @param quoteRequestId ID de la demande de devis à convertir
    * @param customerData Données du client (nom, prénom, email, téléphone)
+   * @param options Options supplémentaires (option d'assurance)
    * @returns Le devis formel créé
    */
-  async createFormalQuote(quoteRequestId: string, customerData: any): Promise<Quote> {
+  async createFormalQuote(quoteRequestId: string, customerData: any, options: { hasInsurance?: boolean } = {}): Promise<Quote> {
     console.log('🔄 [BookingService] Début createFormalQuote pour QuoteRequestId:', quoteRequestId);
+    console.log('📧 [BookingService] Données client reçues:', JSON.stringify(customerData));
+    
+    // Vérifier la présence de l'email
+    if (!customerData || !customerData.email) {
+      console.error('❌ [BookingService] Email client manquant dans:', customerData);
+      throw new Error('L\'email du client est obligatoire');
+    }
     
     // Récupérer la demande de devis
     const quoteRequest = await this.quoteRequestRepository.findById(quoteRequestId);
@@ -223,6 +233,8 @@ export class BookingService {
       totalAmount: new Money(quoteData.totalAmount || 0),
       createdAt: new Date(),
       updatedAt: new Date(),
+      // Option d'assurance
+      hasInsurance: options.hasInsurance,
       // Copier les détails spécifiques au type de service
       ...(quoteType === QuoteType.MOVING_QUOTE && {
         moveDate: quoteData.moveDate ? new Date(quoteData.moveDate) : undefined,
@@ -573,13 +585,59 @@ export class BookingService {
    * Génère et envoie le devis en PDF
    */
   async generateAndSendQuote(bookingId: string): Promise<void> {
-    const { booking, details } = await this.getBookingById(bookingId);
-    
-    // TODO: Logique de génération du PDF
-    
-    // TODO: Logique d'envoi par email
-    
-    console.log(`PDF généré et envoyé pour la réservation ${bookingId}`);
+    try {
+      const { booking, details } = await this.getBookingById(bookingId);
+      
+      if (!booking) {
+        throw new Error(`Réservation non trouvée avec l'ID: ${bookingId}`);
+      }
+      
+      // Récupérer les informations du client
+      const customer = booking.getCustomer();
+      if (!customer) {
+        throw new Error(`Aucun client associé à la réservation ${bookingId}`);
+      }
+      
+      const contactInfo = customer.getContactInfo();
+      const email = contactInfo.getEmail();
+      
+      if (!email) {
+        throw new Error(`Aucune adresse email trouvée pour le client de la réservation ${bookingId}`);
+      }
+      
+      // Générer le PDF du devis
+      let pdfPath: string;
+      if (booking.getQuoteRequestId()) {
+        // Si nous avons une demande de devis associée, générer le PDF à partir de celle-ci
+        const quoteRequest = await this.quoteRequestRepository.findById(booking.getQuoteRequestId());
+        if (quoteRequest) {
+          pdfPath = await this.pdfService.generateQuotePDF(quoteRequest);
+        } else {
+          // Fallback: générer le PDF de réservation
+          pdfPath = await this.pdfService.generateBookingPDF(booking);
+        }
+      } else {
+        // Aucune demande de devis associée, générer le PDF de réservation
+        pdfPath = await this.pdfService.generateBookingPDF(booking);
+      }
+      
+      // Envoyer le PDF par email
+      await this.emailService.sendQuoteConfirmation(
+        booking.getQuoteRequestId() 
+          ? await this.quoteRequestRepository.findById(booking.getQuoteRequestId())
+          : null,
+        pdfPath
+      );
+      
+      console.log(`PDF généré et envoyé pour la réservation ${bookingId} à ${email}`);
+      
+      return;
+    } catch (error) {
+      console.error(`Erreur lors de la génération et de l'envoi du devis:`, error);
+      throw new Error(
+        `Échec de la génération et de l'envoi du devis: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   // Helper pour mapper les types

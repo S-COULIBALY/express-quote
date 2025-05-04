@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BookingDetails } from '@/components/BookingDetails'
 import { getCurrentBooking } from '@/actions/bookingManager'
+import { logger } from '@/lib/logger'
 
 interface MovingBookingData {
   id: string;
@@ -32,120 +33,172 @@ interface MovingBookingData {
     options?: any;
   };
   totalPrice?: number;
+  paymentIntentId?: string;
+  paymentStatus?: string;
 }
+
+const successLogger = logger.withContext('MovingSuccess');
 
 export default function MovingSuccessPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const paymentIntentId = searchParams.get('payment_intent')
   
   const [booking, setBooking] = useState<MovingBookingData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchBooking() {
+    async function fetchData() {
       try {
-        // Utiliser getCurrentBooking au lieu de l'API
-        const currentBooking = await getCurrentBooking()
+        setLoading(true)
         
-        console.log('Réservation déménagement récupérée:', {
-          hasBooking: !!currentBooking,
-          id: currentBooking?.id,
-          status: currentBooking?.status,
-          itemsCount: currentBooking?.items?.length || 0,
-          itemTypes: currentBooking?.items?.map(item => ({ 
-            type: item.type, 
-            typeLower: item.type?.toLowerCase?.() 
-          }))
-        });
-        
-        if (!currentBooking) {
-          throw new Error('Réservation introuvable')
-        }
-        
-        if (!currentBooking.items || currentBooking.items.length === 0) {
-          throw new Error('Type de réservation invalide - panier vide')
-        }
-        
-        // Accepter TOUS les types qui contiennent 'moving' ou 'demenagement' quelque part
-        const movingItem = currentBooking.items.find(item => {
-          console.log('Vérification type item déménagement:', item.type, typeof item.type);
-          if (typeof item.type !== 'string') return false;
+        // Vérifier le paiement si un ID d'intention de paiement est fourni
+        if (paymentIntentId) {
+          successLogger.info(`Vérification du paiement avec ID: ${paymentIntentId}`);
           
-          const type = item.type.toLowerCase();
-          return type.includes('moving') || type.includes('demenagement') || type.includes('déménagement');
-        });
-        
-        console.log('Item déménagement trouvé:', movingItem ? 'oui' : 'non', movingItem);
-        
-        if (!movingItem) {
-          // Prendre le premier élément si aucun déménagement n'est trouvé
-          console.log('Aucun déménagement trouvé, utilisation du premier élément');
-          if (currentBooking.items.length > 0) {
-            const firstItem = currentBooking.items[0];
-            const movingData = firstItem.data as any; // Utiliser 'any' pour éviter les erreurs de type
+          try {
+            const statusResponse = await fetch(`/api/payment/verify/${paymentIntentId}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
             
-            // Formater les données pour l'affichage même si ce n'est pas un déménagement
-            const formattedBooking: MovingBookingData = {
-              id: currentBooking.id,
-              status: currentBooking.status,
-              moving: {
-                id: movingData.id || '',
-                pickupAddress: movingData.pickupAddress || '',
-                deliveryAddress: movingData.deliveryAddress || '',
-                moveDate: movingData.moveDate || movingData.scheduledDate || new Date().toISOString(),
-                distance: movingData.distance || 0,
-                volume: movingData.volume || 0,
-                options: movingData.options || {}
-              },
-              customer: {
-                firstName: currentBooking.customerData?.firstName || '',
-                lastName: currentBooking.customerData?.lastName || '',
-                email: currentBooking.customerData?.email || '',
-                phone: currentBooking.customerData?.phone || ''
-              },
-              totalPrice: currentBooking.totalTTC || 0,
-              totalAmount: currentBooking.totalTTC || 0
+            if (!statusResponse.ok) {
+              successLogger.warn('Vérification du paiement échouée');
+            } else {
+              const paymentData = await statusResponse.json();
+              setPaymentStatus(paymentData.status);
+              successLogger.info(`Statut du paiement: ${paymentData.status}`);
+              
+              // Si des informations de réservation sont disponibles dans les données de paiement
+              if (paymentData.bookingId) {
+                successLogger.info(`ID de réservation trouvé dans les données de paiement: ${paymentData.bookingId}`);
+              }
             }
-            
-            setBooking(formattedBooking);
-            return;
-          } else {
-            throw new Error('Type de réservation invalide - aucun élément disponible')
+          } catch (error) {
+            successLogger.error('Erreur lors de la vérification du paiement', error as Error);
           }
         }
-
-        // Formater les données pour l'affichage
-        const movingData = movingItem.data as any; // Utiliser 'any' pour éviter les erreurs de type
-
-        const formattedBooking: MovingBookingData = {
-          id: currentBooking.id,
-          type: 'MOVING_QUOTE',
-          status: currentBooking.status,
-          customer: {
-            firstName: currentBooking.customerData?.firstName || '',
-            lastName: currentBooking.customerData?.lastName || '',
-            email: currentBooking.customerData?.email || '',
-            phone: currentBooking.customerData?.phone || ''
-          },
-          totalAmount: currentBooking.totalTTC || 0,
-          pickupAddress: movingData.pickupAddress || '',
-          deliveryAddress: movingData.deliveryAddress || '',
-          moveDate: movingData.moveDate || movingData.scheduledDate || new Date().toISOString(),
-          distance: movingData.distance || 0,
-          volume: movingData.volume || 0
-        }
         
-        setBooking(formattedBooking)
+        // Continuer à récupérer les informations sur la réservation actuelle
+        await fetchBooking();
       } catch (error) {
-        console.error('Error fetching booking:', error)
-        setError(error instanceof Error ? error.message : 'Erreur lors de la récupération de la réservation')
+        successLogger.error('Erreur lors de la récupération des données', error as Error);
+        setError(error instanceof Error ? error.message : 'Une erreur est survenue');
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
+    
+    fetchData();
+  }, [paymentIntentId]);
 
-    fetchBooking()
-  }, [])
+  async function fetchBooking() {
+    try {
+      // Utiliser getCurrentBooking au lieu de l'API
+      const currentBooking = await getCurrentBooking()
+      
+      console.log('Réservation déménagement récupérée:', {
+        hasBooking: !!currentBooking,
+        id: currentBooking?.id,
+        status: currentBooking?.status,
+        itemsCount: currentBooking?.items?.length || 0,
+        itemTypes: currentBooking?.items?.map(item => ({ 
+          type: item.type, 
+          typeLower: item.type?.toLowerCase?.() 
+        }))
+      });
+      
+      if (!currentBooking) {
+        throw new Error('Réservation introuvable')
+      }
+      
+      if (!currentBooking.items || currentBooking.items.length === 0) {
+        throw new Error('Type de réservation invalide - panier vide')
+      }
+      
+      // Accepter TOUS les types qui contiennent 'moving' ou 'demenagement' quelque part
+      const movingItem = currentBooking.items.find(item => {
+        console.log('Vérification type item déménagement:', item.type, typeof item.type);
+        if (typeof item.type !== 'string') return false;
+        
+        const type = item.type.toLowerCase();
+        return type.includes('moving') || type.includes('demenagement') || type.includes('déménagement');
+      });
+      
+      console.log('Item déménagement trouvé:', movingItem ? 'oui' : 'non', movingItem);
+      
+      if (!movingItem) {
+        // Prendre le premier élément si aucun déménagement n'est trouvé
+        console.log('Aucun déménagement trouvé, utilisation du premier élément');
+        if (currentBooking.items.length > 0) {
+          const firstItem = currentBooking.items[0];
+          const movingData = firstItem.data as any; // Utiliser 'any' pour éviter les erreurs de type
+          
+          // Formater les données pour l'affichage même si ce n'est pas un déménagement
+          const formattedBooking: MovingBookingData = {
+            id: currentBooking.id,
+            status: currentBooking.status,
+            moving: {
+              id: movingData.id || '',
+              pickupAddress: movingData.pickupAddress || '',
+              deliveryAddress: movingData.deliveryAddress || '',
+              moveDate: movingData.moveDate || movingData.scheduledDate || new Date().toISOString(),
+              distance: movingData.distance || 0,
+              volume: movingData.volume || 0,
+              options: movingData.options || {}
+            },
+            customer: {
+              firstName: currentBooking.customerData?.firstName || '',
+              lastName: currentBooking.customerData?.lastName || '',
+              email: currentBooking.customerData?.email || '',
+              phone: currentBooking.customerData?.phone || ''
+            },
+            totalPrice: currentBooking.totalTTC || 0,
+            totalAmount: currentBooking.totalTTC || 0,
+            paymentIntentId: paymentIntentId || undefined,
+            paymentStatus: paymentStatus || undefined
+          }
+          
+          setBooking(formattedBooking);
+          return;
+        } else {
+          throw new Error('Type de réservation invalide - aucun élément disponible')
+        }
+      }
+
+      // Formater les données pour l'affichage
+      const movingData = movingItem.data as any; // Utiliser 'any' pour éviter les erreurs de type
+
+      const formattedBooking: MovingBookingData = {
+        id: currentBooking.id,
+        type: 'MOVING_QUOTE',
+        status: currentBooking.status,
+        customer: {
+          firstName: currentBooking.customerData?.firstName || '',
+          lastName: currentBooking.customerData?.lastName || '',
+          email: currentBooking.customerData?.email || '',
+          phone: currentBooking.customerData?.phone || ''
+        },
+        totalAmount: currentBooking.totalTTC || 0,
+        pickupAddress: movingData.pickupAddress || '',
+        deliveryAddress: movingData.deliveryAddress || '',
+        moveDate: movingData.moveDate || movingData.scheduledDate || new Date().toISOString(),
+        distance: movingData.distance || 0,
+        volume: movingData.volume || 0,
+        paymentIntentId: paymentIntentId || undefined,
+        paymentStatus: paymentStatus || undefined
+      }
+      
+      setBooking(formattedBooking)
+    } catch (error) {
+      console.error('Error fetching booking:', error)
+      setError(error instanceof Error ? error.message : 'Erreur lors de la récupération de la réservation')
+    }
+  }
 
   if (loading) {
     return (
@@ -193,6 +246,20 @@ export default function MovingSuccessPage() {
           <p className="text-gray-600">
             Votre réservation a été confirmée et un e-mail de confirmation vous a été envoyé.
           </p>
+          
+          {paymentStatus && (
+            <div className={`mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm ${
+              paymentStatus === 'succeeded' ? 'bg-green-100 text-green-800' : 
+              paymentStatus === 'processing' ? 'bg-blue-100 text-blue-800' : 
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+              <span className="mr-1">{
+                paymentStatus === 'succeeded' ? '✓ Paiement confirmé' : 
+                paymentStatus === 'processing' ? '⋯ Paiement en cours' : 
+                'Paiement en attente'
+              }</span>
+            </div>
+          )}
         </div>
         
         <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
@@ -249,59 +316,38 @@ export default function MovingSuccessPage() {
                 </dd>
               </div>
               
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Client</dt>
-                <dd className="mt-1 text-sm text-gray-900">{booking.customer.firstName} {booking.customer.lastName}</dd>
-              </div>
+              {booking.paymentIntentId && (
+                <div className="col-span-2">
+                  <dt className="text-sm font-medium text-gray-500">Référence de paiement</dt>
+                  <dd className="mt-1 text-sm text-gray-900">{booking.paymentIntentId.substring(0, 8)}...</dd>
+                </div>
+              )}
               
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Statut</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Confirmé
-                  </span>
+              <div className="col-span-2 pt-4 border-t border-gray-200">
+                <dt className="text-base font-medium text-gray-900">Prix total</dt>
+                <dd className="mt-1 text-xl font-semibold text-gray-900">
+                  {booking.totalPrice || booking.totalAmount || 0} €
                 </dd>
-              </div>
-              
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Montant total</dt>
-                <dd className="mt-1 text-sm text-gray-900">
-                  {(booking.totalAmount || booking.totalPrice || 0).toFixed(2)} €
-                </dd>
+                {booking.paymentStatus && (
+                  <dd className="mt-1 text-sm text-gray-500">
+                    Statut du paiement: {
+                      booking.paymentStatus === 'succeeded' ? 'Payé' : 
+                      booking.paymentStatus === 'processing' ? 'En cours de traitement' : 
+                      'En attente'
+                    }
+                  </dd>
+                )}
               </div>
             </dl>
           </div>
         </div>
         
-        <div className="bg-blue-50 rounded-lg p-6 mb-8">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">Information</h3>
-              <div className="mt-2 text-sm text-blue-700">
-                <p>Un e-mail de confirmation a été envoyé à {booking.customer.email} avec tous les détails de votre réservation.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex justify-between mt-8">
+        <div className="text-center">
           <Link
             href="/moving"
-            className="px-6 py-2 bg-white border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+            className="inline-block px-6 py-3 bg-emerald-600 text-white font-medium text-sm leading-tight rounded shadow-md hover:bg-emerald-700 hover:shadow-lg focus:bg-emerald-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-emerald-800 active:shadow-lg transition duration-150 ease-in-out"
           >
-            Nouveau devis
-          </Link>
-          
-          <Link
-            href="/"
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Retour à l'accueil
+            Créer un nouveau devis
           </Link>
         </div>
       </div>

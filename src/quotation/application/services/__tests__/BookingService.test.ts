@@ -118,7 +118,7 @@ describe('BookingService', () => {
         
         // Utiliser des mocks pour tous les repositories, car il semble y avoir des incompatibilités
         // entre les interfaces et les implémentations réelles
-        let _bookingRepository: IBookingRepository = {
+        const _bookingRepository: IBookingRepository = {
             findAll: jest.fn(),
             findById: jest.fn(),
             findByCustomerId: jest.fn(),
@@ -130,7 +130,7 @@ describe('BookingService', () => {
         };
         bookingRepository = _bookingRepository as unknown as IBookingRepository;
         
-        let _movingRepository: IMovingRepository = {
+        const _movingRepository: IMovingRepository = {
             findAll: jest.fn(),
             findById: jest.fn(),
             findByBookingId: jest.fn(),
@@ -140,7 +140,7 @@ describe('BookingService', () => {
         };
         movingRepository = _movingRepository as unknown as IMovingRepository;
         
-        let _packRepository: IPackRepository = {
+        const _packRepository: IPackRepository = {
             findAll: jest.fn(),
             findById: jest.fn(),
             findByBookingId: jest.fn(),
@@ -150,7 +150,7 @@ describe('BookingService', () => {
         };
         packRepository = _packRepository as unknown as IPackRepository;
         
-        let _serviceRepository = {
+        const _serviceRepository = {
             findAll: jest.fn(),
             findById: jest.fn(),
             findByBookingId: jest.fn(),
@@ -160,7 +160,7 @@ describe('BookingService', () => {
         };
         serviceRepository = _serviceRepository as unknown as IServiceRepository;
         
-        let _customerRepository: ICustomerRepository = {
+        const _customerRepository: ICustomerRepository = {
             findAll: jest.fn(),
             findById: jest.fn(),
             findByEmail: jest.fn(),
@@ -170,7 +170,7 @@ describe('BookingService', () => {
         };
         customerRepository = _customerRepository as unknown as ICustomerRepository;
         
-        let _quoteRequestRepository = {
+        const _quoteRequestRepository = {
             findAll: jest.fn(),
             findById: jest.fn(),
             findByTemporaryId: jest.fn(),

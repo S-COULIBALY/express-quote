@@ -9,6 +9,9 @@ export interface EmailTemplateData {
     transactionId: string
     depositAmount: number
   }
+  cancellationReason?: string
+  serviceDate?: string
+  serviceAddress?: string
 }
 
 export const emailTemplates = {
@@ -94,6 +97,129 @@ export const emailTemplates = {
 
         <div style="text-align: center; margin-top: 30px; color: #64748b;">
           <p>Thank you for your payment!</p>
+        </div>
+      </div>
+    `
+  },
+
+  quoteConfirmation(data: EmailTemplateData): string {
+    const { clientName } = data
+    const { tax, total } = priceUtils.calculateTotal(data.quote.estimatedPrice)
+
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #16a34a; text-align: center;">Votre devis est prêt</h1>
+        
+        <p>Bonjour ${clientName},</p>
+        
+        <p>Nous vous remercions de votre intérêt pour nos services. Votre devis est maintenant disponible.</p>
+        
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h2 style="color: #334155; margin-top: 0;">Détails du service</h2>
+          <ul style="list-style: none; padding: 0;">
+            <li><strong>Type de service :</strong> ${data.quote.cleaningType}</li>
+            <li><strong>Type de propriété :</strong> ${data.quote.propertyType}</li>
+            <li><strong>Date souhaitée :</strong> ${dateUtils.format(data.quote.preferredDate, 'long')}</li>
+            <li><strong>Heure souhaitée :</strong> ${data.quote.preferredTime}</li>
+          </ul>
+          
+          <h3 style="color: #334155;">Résumé des coûts</h3>
+          <ul style="list-style: none; padding: 0;">
+            <li><strong>Sous-total :</strong> ${priceUtils.format(data.quote.estimatedPrice)}</li>
+            <li><strong>TVA (7.7%) :</strong> ${priceUtils.format(tax)}</li>
+            <li><strong>Total :</strong> ${priceUtils.format(total)}</li>
+          </ul>
+        </div>
+
+        <p>
+          Un PDF de votre devis est joint à cet email. Pour confirmer cette réservation, veuillez cliquer sur le bouton "Accepter et payer" dans le devis ou vous connecter à votre compte client.
+        </p>
+
+        <p>
+          Ce devis est valable pour une durée de 30 jours à compter de la date d'émission.
+        </p>
+
+        <div style="text-align: center; margin-top: 30px; color: #64748b;">
+          <p>Merci de votre confiance !</p>
+          <p>
+            <small>Ceci est un email automatique, merci de ne pas y répondre directement.</small>
+          </p>
+        </div>
+      </div>
+    `
+  },
+
+  serviceConfirmation(data: EmailTemplateData): string {
+    const { clientName, serviceDate, serviceAddress } = data
+
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #16a34a; text-align: center;">Confirmation de votre service</h1>
+        
+        <p>Bonjour ${clientName},</p>
+        
+        <p>Nous vous confirmons que votre service aura lieu comme prévu :</p>
+        
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #334155; margin-top: 0;">Détails du rendez-vous</h3>
+          <ul style="list-style: none; padding: 0;">
+            <li><strong>Date :</strong> ${serviceDate || 'Date à confirmer'}</li>
+            <li><strong>Adresse :</strong> ${serviceAddress || 'Adresse indiquée lors de la réservation'}</li>
+          </ul>
+        </div>
+
+        <h3 style="color: #334155;">Préparation</h3>
+        <ol style="color: #475569;">
+          <li>Notre équipe arrivera à l'heure prévue</li>
+          <li>Veuillez assurer l'accès à tous les espaces concernés</li>
+          <li>Le solde restant sera à régler après la réalisation du service</li>
+        </ol>
+
+        <p style="margin-top: 20px;">
+          Pour toute modification ou question, n'hésitez pas à nous contacter au moins 24h avant le service.
+        </p>
+
+        <div style="text-align: center; margin-top: 30px; color: #64748b;">
+          <p>Merci pour votre confiance !</p>
+          <p>
+            <small>Ceci est un email automatique, merci de ne pas y répondre directement.</small>
+          </p>
+        </div>
+      </div>
+    `
+  },
+
+  cancellationNotification(data: EmailTemplateData): string {
+    const { clientName, cancellationReason } = data
+
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #ef4444; text-align: center;">Annulation de votre réservation</h1>
+        
+        <p>Bonjour ${clientName},</p>
+        
+        <p>Nous vous informons que votre réservation a été annulée.</p>
+        
+        ${cancellationReason ? `
+        <div style="background: #fee2e2; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #b91c1c; margin-top: 0;">Motif de l'annulation</h3>
+          <p style="color: #ef4444;">${cancellationReason}</p>
+        </div>
+        ` : ''}
+
+        <p>
+          Si vous avez effectué un paiement d'acompte, celui-ci vous sera remboursé dans un délai de 5 à 10 jours ouvrables.
+        </p>
+
+        <p>
+          Si vous souhaitez reprogrammer un service ou avez des questions concernant cette annulation, n'hésitez pas à nous contacter.
+        </p>
+
+        <div style="text-align: center; margin-top: 30px; color: #64748b;">
+          <p>Merci de votre compréhension.</p>
+          <p>
+            <small>Ceci est un email automatique, merci de ne pas y répondre directement.</small>
+          </p>
         </div>
       </div>
     `
