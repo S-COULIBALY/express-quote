@@ -68,8 +68,15 @@ export class RuleEngine {
           
           try {
             // Vérifier si la règle est applicable
-            const isApplicable = rule.isApplicable(context);
-            console.log("🔍 RÈGLE APPLICABLE?", isApplicable);
+            // CORRECTIF : Passer les données brutes du contexte à rule.isApplicable()
+            const contextData = context.getAllData();
+            const isApplicable = rule.isApplicable(contextData);
+            console.log("🔍 RÈGLE APPLICABLE?", isApplicable, "avec données:", {
+              volume: contextData.volume,
+              distance: contextData.distance,
+              pickupLogisticsConstraints: contextData.pickupLogisticsConstraints?.length || 0,
+              deliveryLogisticsConstraints: contextData.deliveryLogisticsConstraints?.length || 0
+            });
             
             if (isApplicable) {
               console.log("✅ RÈGLE APPLICABLE - Application en cours...");
@@ -79,7 +86,7 @@ export class RuleEngine {
                 const priceBeforeRule = finalPrice;
                 
                 // Appliquer la règle
-                const ruleResult: RuleApplyResult = rule.apply(new Money(finalPrice), context);
+                const ruleResult: RuleApplyResult = rule.apply(new Money(finalPrice), contextData);
                 
                 // Vérifier si la règle définit un prix minimum
                 if (ruleResult.minimumPrice !== undefined) {
