@@ -115,13 +115,10 @@ export default function Navbar() {
             </div>
             <div className="hidden sm:flex sm:ml-6 sm:space-x-8 items-center">
               
-              <NavLink href="/packs" isActive={isActive('/packs')} onClick={closeMobileMenu}>
-                Nos Forfaits
+              <NavLink href="/catalogue" isActive={isActive('/catalogue')} onClick={closeMobileMenu}>
+                Catalogue
               </NavLink>
               
-              <NavLink href="/services" isActive={isActive('/services')} onClick={closeMobileMenu}>
-                Nos Services
-              </NavLink>
 
               <NavLink href="/bookings" isActive={isActive('/bookings')} onClick={closeMobileMenu}>
                 Réservations
@@ -139,7 +136,7 @@ export default function Navbar() {
                 Contact
               </NavLink>
               
-              <ActionButton href="/moving/new">
+              <ActionButton href="/catalogue">
                 Demander un devis
               </ActionButton>
             </div>
@@ -215,14 +212,8 @@ export default function Navbar() {
         className={`sm:hidden ${isMobileMenuOpen ? 'block' : 'hidden'} absolute w-full bg-white shadow-lg z-50`}
       >
         <div className="pt-2 pb-3 space-y-1">
-          <NavLink href="/services" isActive={isActive('/services')} onClick={closeMobileMenu}>
-            Services
-          </NavLink>
-          <NavLink href="/packs" isActive={isActive('/packs')} onClick={closeMobileMenu}>
-            Packs
-          </NavLink>
-          <NavLink href="/moving/new" isActive={isActive('/moving/new')} onClick={closeMobileMenu}>
-            Demander un devis
+          <NavLink href="/catalogue" isActive={isActive('/catalogue')} onClick={closeMobileMenu}>
+            Catalogue
           </NavLink>
           <NavLink href="/bookings" isActive={isActive('/bookings')} onClick={closeMobileMenu}>
             Réservations

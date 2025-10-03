@@ -1,7 +1,10 @@
+import 'reflect-metadata'
 import { Inter } from 'next/font/google'
 import RootLayoutClient from '@/components/RootLayoutClient'
 import './globals.css'
 import { Metadata } from 'next'
+import { FormStylesSimplified } from '@/components/form-generator/styles/FormStylesSimplified'
+import { globalFormPreset } from '@/components/form-generator/presets/_shared/globalPreset'
 
 // Optimiser le chargement de la police
 const inter = Inter({
@@ -55,9 +58,11 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://images.unsplash.com" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
-        {/* L'import de ./globals.css ci-dessus est suffisant, le preload n'est pas nécessaire */}
       </head>
-      <body>
+      <body className="form-generator">
+        {/* 🎨 Styles iOS 18 simplifiés */}
+        <FormStylesSimplified globalConfig={globalFormPreset} />
+        
         <RootLayoutClient>
           {children}
         </RootLayoutClient>

@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 🎨 IMPORT DES DESIGN TOKENS ET UTILITAIRES */
+@import '../styles/design-tokens.css';
+@import '../styles/utilities.css';
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -88,6 +92,20 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 }
 

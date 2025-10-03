@@ -9,89 +9,186 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model Professional {
-  id              String           @id @default(uuid())
-  companyName     String
-  businessType    ProfessionalType
-  email           String           @unique
-  phone           String
-  address         String?
-  city            String?
-  postalCode      String?
-  country         String           @default("France")
-  website         String?
-  logoUrl         String?
-  description     String?
-  taxIdNumber     String?
-  insuranceNumber String?
-  verified        Boolean          @default(false)
-  verifiedAt      DateTime?
-  rating          Float?
-  servicedAreas   Json?
-  specialties     Json?
-  availabilities  Json?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  bookings        Booking[]
-
-  @@index([businessType])
-  @@index([city])
-  @@index([verified])
-}
-
-model Customer {
-  id             String     @id @default(uuid())
-  email          String     @unique
-  firstName      String
-  lastName       String
-  phone          String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  bookings       Booking[]
-  emailsReceived EmailLog[]
-}
-
 model Booking {
-  id              String        @id @default(uuid())
-  type            BookingType
-  status          BookingStatus @default(DRAFT)
-  customerId      String
-  professionalId  String?
-  totalAmount     Float
-  paymentMethod   String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  quoteRequestId  String?
-  packId          String?
-  serviceId       String?
-  scheduledDate   DateTime?
-  locationAddress String?
-  pickupAddress   String?
-  deliveryAddress String?
-  distance        Float?
-  additionalInfo  Json?
-  customer        Customer      @relation(fields: [customerId], references: [id])
-  Pack            Pack?         @relation(fields: [packId], references: [id])
-  professional    Professional? @relation(fields: [professionalId], references: [id])
-  quoteRequest    QuoteRequest? @relation(fields: [quoteRequestId], references: [id])
-  Service         Service?      @relation(fields: [serviceId], references: [id])
-  documents       Document[]
-  emails          EmailLog[]
-  moving          Moving?
-  transactions    Transaction[]
+  id                   String                 @id
+  type                 BookingType
+  status               BookingStatus          @default(DRAFT)
+  customerId           String
+  professionalId       String?
+  totalAmount          Float
+  paymentMethod        String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  quoteRequestId       String?
+  additionalInfo       Json?
+  deliveryAddress      String?
+  distance             Float?
+  locationAddress      String?
+  pickupAddress        String?
+  scheduledDate        DateTime?
+  Customer             Customer               @relation(fields: [customerId], references: [id])
+  Professional         Professional?          @relation(fields: [professionalId], references: [id])
+  QuoteRequest         QuoteRequest?          @relation(fields: [quoteRequestId], references: [id])
+  Document             Document[]
+  EmailLog             EmailLog[]
+  Moving               Moving?
+  Transaction          Transaction[]
+  booking_attributions booking_attributions[]
+  items                items[]
+  payments             payments[]
+  scheduled_reminders  scheduled_reminders[]
 
   @@index([customerId])
   @@index([professionalId])
-  @@index([type])
-  @@index([status])
   @@index([quoteRequestId])
-  @@index([packId])
   @@index([scheduledDate])
-  @@index([serviceId])
+  @@index([status])
+  @@index([type])
+}
+
+model CatalogSelection {
+  id                   String          @id
+  category             CatalogCategory
+  subcategory          String?
+  displayOrder         Int
+  isActive             Boolean         @default(true)
+  isFeatured           Boolean         @default(false)
+  isNewOffer           Boolean         @default(false)
+  marketingTitle       String?
+  marketingSubtitle    String?
+  marketingDescription String?
+  marketingPrice       Float?
+  originalPrice        Float?
+  badgeText            String?
+  badgeColor           String?
+  promotionText        String?
+  isVisible            Boolean         @default(true)
+  startDate            DateTime?
+  endDate              DateTime?
+  targetAudience       String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime
+  itemId               String?
+  isPromotionActive    Boolean         @default(false)
+  promotionCode        String?
+  promotionType        String?
+  promotionValue       Float?
+  items                items?          @relation(fields: [itemId], references: [id])
+  QuoteRequest         QuoteRequest[]
+
+  @@index([category])
+  @@index([displayOrder])
+  @@index([isActive])
+  @@index([isFeatured])
+  @@index([isVisible, startDate, endDate])
+}
+
+model Category {
+  id          String   @id
+  name        String
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Configuration {
+  id                String    @id
+  category          String
+  key               String
+  value             Json
+  description       String?
+  isActive          Boolean   @default(true)
+  validFrom         DateTime  @default(now())
+  validTo           DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+  change_reason     String?
+  created_by        String    @default("system")
+  environment       String    @default("production")
+  priority          Int       @default(100)
+  tags              String[]  @default([])
+  validation_schema Json?
+  businessType      String?
+
+  @@unique([category, key])
+  @@index([category])
+  @@index([created_by])
+  @@index([isActive])
+  @@index([priority])
+  @@index([validFrom, validTo])
+  @@index([businessType], map: "idx_config_business_type")
+  @@index([category, businessType], map: "idx_config_category_business_type")
+  @@index([created_by], map: "idx_config_created_by")
+  @@index([environment, isActive], map: "idx_config_env_active")
+  @@index([priority], map: "idx_config_priority")
+  @@index([tags], map: "idx_config_tags", type: Gin)
+}
+
+model Customer {
+  id        String     @id
+  email     String     @unique
+  firstName String
+  lastName  String
+  phone     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime
+  Booking   Booking[]
+  EmailLog  EmailLog[]
+  items     items[]
+}
+
+model Document {
+  id              String            @id
+  bookingId       String
+  type            DocumentType
+  filename        String
+  content         Bytes
+  createdAt       DateTime          @default(now())
+  Booking         Booking           @relation(fields: [bookingId], references: [id])
+  EmailAttachment EmailAttachment[]
+
+  @@index([bookingId])
+  @@index([type])
+}
+
+model EmailAttachment {
+  id          String    @id
+  emailId     String
+  documentId  String?
+  filename    String
+  contentType String
+  content     Bytes?
+  Document    Document? @relation(fields: [documentId], references: [id])
+  EmailLog    EmailLog  @relation(fields: [emailId], references: [id])
+
+  @@index([documentId])
+  @@index([emailId])
+}
+
+model EmailLog {
+  id              String            @id
+  bookingId       String
+  customerId      String
+  subject         String
+  text            String
+  html            String?
+  status          EmailStatus       @default(QUEUED)
+  errorMessage    String?
+  sentAt          DateTime?
+  createdAt       DateTime          @default(now())
+  EmailAttachment EmailAttachment[]
+  Booking         Booking           @relation(fields: [bookingId], references: [id])
+  Customer        Customer          @relation(fields: [customerId], references: [id])
+
+  @@index([bookingId])
+  @@index([customerId])
+  @@index([status])
 }
 
 model Moving {
-  id                    String   @id @default(uuid())
+  id                    String   @id
   bookingId             String   @unique
   moveDate              DateTime
   pickupAddress         String
@@ -125,53 +222,83 @@ model Moving {
   tollCost              Float?
   fuelCost              Float?
   items                 Json?
-  booking               Booking  @relation(fields: [bookingId], references: [id])
+  Booking               Booking  @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
   @@index([moveDate])
 }
 
-model Pack {
-  id               String    @id @default(uuid())
-  name             String
-  description      String
-  price            Float
-  includes         String[]
-  includedDistance Float     @default(0)
-  duration         Int       @default(1)
-  workers          Int       @default(1)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  categoryId       String?
-  content          String?
-  distanceUnit     String    @default("km")
-  features         String[]
-  imagePath        String?
-  isAvailable      Boolean   @default(true)
-  popular          Boolean   @default(false)
-  workersNeeded    Int       @default(1)
-  Booking          Booking[]
+model Professional {
+  id                         String                       @id
+  companyName                String
+  businessType               ProfessionalType
+  email                      String                       @unique
+  phone                      String
+  address                    String?
+  city                       String?
+  postalCode                 String?
+  country                    String                       @default("France")
+  website                    String?
+  logoUrl                    String?
+  description                String?
+  taxIdNumber                String?
+  insuranceNumber            String?
+  verified                   Boolean                      @default(false)
+  verifiedAt                 DateTime?
+  rating                     Float?
+  servicedAreas              Json?
+  specialties                Json?
+  availabilities             Json?
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime
+  accepted_attributions      Int                          @default(0)
+  cancelled_attributions     Int                          @default(0)
+  is_available               Boolean                      @default(true)
+  last_login_at              DateTime?
+  latitude                   Float?
+  longitude                  Float?
+  max_distance_km            Float                        @default(150)
+  password                   String?
+  service_types              Json                         @default("[]")
+  total_attributions         Int                          @default(0)
+  Booking                    Booking[]
+  attribution_eligibilities  attribution_eligibilities[]
+  attribution_responses      attribution_responses[]
+  booking_attributions       booking_attributions[]
+  professional_blacklists    professional_blacklists[]
+  professional_notifications professional_notifications[]
+  professional_sessions      professional_sessions[]
+  scheduled_reminders        scheduled_reminders[]
+
+  @@index([businessType])
+  @@index([city])
+  @@index([is_available])
+  @@index([latitude, longitude])
+  @@index([service_types])
+  @@index([verified])
 }
 
-model Service {
-  id          String    @id @default(uuid())
-  name        String
-  description String
-  price       Float
-  duration    Int
-  includes    String[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  categoryId  String?
-  features    String[]
-  imagePath   String?
-  isActive    Boolean   @default(true)
-  workers     Int       @default(1)
-  Booking     Booking[]
+model QuoteRequest {
+  id                 String            @id
+  type               String
+  status             String
+  quoteData          Json
+  temporaryId        String            @unique
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime
+  expiresAt          DateTime
+  catalogSelectionId String?
+  Booking            Booking[]
+  CatalogSelection   CatalogSelection? @relation(fields: [catalogSelectionId], references: [id])
+
+  @@index([catalogSelectionId])
+  @@index([status])
+  @@index([temporaryId])
+  @@index([type])
 }
 
 model Transaction {
-  id              String            @id @default(uuid())
+  id              String            @id
   bookingId       String
   amount          Float
   currency        String            @default("EUR")
@@ -181,144 +308,521 @@ model Transaction {
   stripeSessionId String?
   errorMessage    String?
   createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  booking         Booking           @relation(fields: [bookingId], references: [id])
+  updatedAt       DateTime
+  Booking         Booking           @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
-  @@index([status])
   @@index([paymentIntentId])
+  @@index([status])
   @@index([stripeSessionId])
 }
 
-model Document {
-  id          String            @id @default(uuid())
-  bookingId   String
-  type        DocumentType
-  filename    String
-  content     Bytes
-  createdAt   DateTime          @default(now())
-  booking     Booking           @relation(fields: [bookingId], references: [id])
-  attachments EmailAttachment[]
+model attribution_eligibilities {
+  id                   String               @id
+  professional_id      String
+  attribution_id       String
+  notified             Boolean              @default(false)
+  notified_at          DateTime?
+  responded            Boolean              @default(false)
+  responded_at         DateTime?
+  distance_km          Float?
+  match_score          Float?
+  is_eligible          Boolean              @default(true)
+  exclude_reason       String?
+  notification_data    Json?
+  device_info          Json?
+  created_at           DateTime             @default(now())
+  updated_at           DateTime
+  booking_attributions booking_attributions @relation(fields: [attribution_id], references: [id])
+  Professional         Professional         @relation(fields: [professional_id], references: [id])
 
-  @@index([bookingId])
+  @@unique([professional_id, attribution_id])
+  @@index([attribution_id])
+  @@index([is_eligible])
+  @@index([notified])
+  @@index([professional_id])
+  @@index([responded])
+}
+
+model attribution_responses {
+  id                   String               @id
+  attribution_id       String
+  professional_id      String
+  response_type        ResponseType
+  response_time        DateTime             @default(now())
+  distance_km          Float?
+  response_message     String?
+  created_at           DateTime             @default(now())
+  booking_attributions booking_attributions @relation(fields: [attribution_id], references: [id])
+  Professional         Professional         @relation(fields: [professional_id], references: [id])
+
+  @@unique([attribution_id, professional_id])
+  @@index([attribution_id])
+  @@index([professional_id])
+  @@index([response_time])
+  @@index([response_type])
+}
+
+model attribution_updates {
+  id                      String               @id
+  attribution_id          String
+  update_type             String
+  update_data             Json
+  target_professional_ids String[]
+  target_audience         String
+  acknowledged            Boolean              @default(false)
+  acknowledged_at         DateTime?
+  expires_at              DateTime
+  target_count            Int                  @default(0)
+  delivered_count         Int                  @default(0)
+  failed_count            Int                  @default(0)
+  priority                NotificationPriority @default(NORMAL)
+  metadata                Json                 @default("{}")
+  timestamp               DateTime             @default(now())
+  created_at              DateTime             @default(now())
+  updated_at              DateTime
+  booking_attributions    booking_attributions @relation(fields: [attribution_id], references: [id])
+
+  @@index([acknowledged])
+  @@index([attribution_id])
+  @@index([expires_at])
+  @@index([timestamp])
+  @@index([update_type])
+}
+
+model booking_attributions {
+  id                        String                      @id
+  booking_id                String
+  status                    AttributionStatus           @default(BROADCASTING)
+  accepted_professional_id  String?
+  broadcast_count           Int                         @default(1)
+  last_broadcast_at         DateTime                    @default(now())
+  excluded_professionals    Json                        @default("[]")
+  service_type              ServiceType
+  max_distance_km           Float                       @default(150)
+  service_latitude          Float?
+  service_longitude         Float?
+  created_at                DateTime                    @default(now())
+  updated_at                DateTime
+  attribution_eligibilities attribution_eligibilities[]
+  attribution_responses     attribution_responses[]
+  attribution_updates       attribution_updates[]
+  Professional              Professional?               @relation(fields: [accepted_professional_id], references: [id])
+  Booking                   Booking                     @relation(fields: [booking_id], references: [id])
+  scheduled_reminders       scheduled_reminders[]
+
+  @@index([accepted_professional_id])
+  @@index([booking_id])
+  @@index([service_type])
+  @@index([status])
+  @@index([status, service_type])
+}
+
+model internal_staff {
+  id               String       @id
+  email            String       @unique
+  first_name       String
+  last_name        String
+  role             InternalRole
+  department       String?
+  service_types    Json
+  is_active        Boolean      @default(true)
+  receive_email    Boolean      @default(true)
+  receive_sms      Boolean      @default(false)
+  receive_whatsapp Boolean      @default(false)
+  phone            String?
+  working_hours    Json?
+  created_at       DateTime     @default(now())
+  updated_at       DateTime
+  last_login_at    DateTime?
+  password         String?
+
+  @@index([email])
+  @@index([is_active])
+  @@index([role])
+  @@index([role, is_active])
+}
+
+model items {
+  id                String             @id
+  type              ItemType
+  template_id       String?
+  customer_id       String?
+  booking_id        String?
+  parent_item_id    String?
+  name              String
+  description       String?
+  price             Float
+  workers           Int
+  duration          Int
+  features          String[]           @default([])
+  included_distance Int?
+  distance_unit     String?            @default("km")
+  includes          String[]           @default([])
+  category_id       String?
+  popular           Boolean            @default(false)
+  image_path        String?
+  is_active         Boolean            @default(true)
+  status            String             @default("ACTIVE")
+  created_at        DateTime           @default(now())
+  updated_at        DateTime
+  CatalogSelection  CatalogSelection[]
+  Booking           Booking?           @relation(fields: [booking_id], references: [id])
+  Customer          Customer?          @relation(fields: [customer_id], references: [id])
+  items             items?             @relation("itemsToitems", fields: [parent_item_id], references: [id])
+  other_items       items[]            @relation("itemsToitems")
+  templates         templates?         @relation(fields: [template_id], references: [id])
+
+  @@index([customer_id])
+  @@index([is_active])
+  @@index([parent_item_id])
+  @@index([template_id])
+  @@index([type])
+  @@index([type, is_active])
+}
+
+model notification_audits {
+  id              String         @id
+  notification_id String?
+  user_id         String?
+  action          String
+  ip_address      String?
+  user_agent      String?
+  referer         String?
+  before_data     Json?
+  after_data      Json?
+  metadata        Json           @default("{}")
+  country         String?
+  city            String?
+  created_at      DateTime       @default(now())
+  notifications   notifications? @relation(fields: [notification_id], references: [id])
+
+  @@index([action, created_at])
+  @@index([action])
+  @@index([created_at])
+  @@index([notification_id])
+  @@index([user_id])
+}
+
+model notification_metrics {
+  id                String              @id
+  date              DateTime            @db.Date
+  hour              Int?
+  channel           NotificationChannel
+  template_type     TemplateType?
+  total_sent        Int                 @default(0)
+  total_delivered   Int                 @default(0)
+  total_failed      Int                 @default(0)
+  total_bounced     Int                 @default(0)
+  total_opened      Int                 @default(0)
+  total_clicked     Int                 @default(0)
+  avg_processing_ms Int?
+  max_processing_ms Int?
+  min_processing_ms Int?
+  total_cost        Float?
+  avg_cost_per_msg  Float?
+  success_rate      Float?
+  delivery_rate     Float?
+  open_rate         Float?
+  click_rate        Float?
+  metadata          Json                @default("{}")
+  created_at        DateTime            @default(now())
+  updated_at        DateTime
+
+  @@unique([date, hour, channel, template_type])
+  @@index([channel])
+  @@index([date, channel])
+  @@index([date])
+  @@index([template_type])
+}
+
+model notification_providers {
+  id                String              @id
+  channel           NotificationChannel
+  name              String
+  is_active         Boolean             @default(true)
+  is_primary        Boolean             @default(false)
+  priority          Int                 @default(100)
+  daily_limit       Int?
+  monthly_limit     Int?
+  cost_per_message  Float?
+  config            Json
+  credentials       Json
+  last_used_at      DateTime?
+  total_messages    Int                 @default(0)
+  total_cost        Float               @default(0)
+  is_healthy        Boolean             @default(true)
+  last_health_check DateTime?
+  health_status     String?
+  current_day_usage Int                 @default(0)
+  last_reset_date   DateTime?
+  created_at        DateTime            @default(now())
+  updated_at        DateTime
+
+  @@unique([channel, name])
+  @@index([channel])
+  @@index([is_active, priority])
+  @@index([is_healthy])
+}
+
+model notification_templates {
+  id             String              @id
+  name           String              @unique
+  type           TemplateType
+  channel        NotificationChannel
+  subject        String?
+  html_content   String?
+  text_content   String?
+  sms_content    String?
+  required_vars  String[]
+  optional_vars  String[]
+  version        String              @default("1.0")
+  is_active      Boolean             @default(true)
+  is_default     Boolean             @default(false)
+  description    String?
+  tags           String[]            @default([])
+  author_id      String?
+  business_rules Json?
+  trigger_events String[]            @default([])
+  created_at     DateTime            @default(now())
+  updated_at     DateTime
+
+  @@index([channel])
+  @@index([is_active])
+  @@index([is_default])
+  @@index([type, channel])
   @@index([type])
 }
 
-model EmailLog {
-  id           String            @id @default(uuid())
-  bookingId    String
-  customerId   String
-  subject      String
-  text         String
-  html         String?
-  status       EmailStatus       @default(QUEUED)
-  errorMessage String?
-  sentAt       DateTime?
-  createdAt    DateTime          @default(now())
-  attachments  EmailAttachment[]
-  booking      Booking           @relation(fields: [bookingId], references: [id])
-  customer     Customer          @relation(fields: [customerId], references: [id])
+model notifications {
+  id                  String                @id
+  recipient_id        String
+  channel             NotificationChannel
+  status              NotificationStatus    @default(PENDING)
+  template_id         String?
+  template_data       Json?
+  subject             String?
+  content             String?
+  priority            NotificationPriority  @default(NORMAL)
+  scheduled_at        DateTime?
+  sent_at             DateTime?
+  delivered_at        DateTime?
+  read_at             DateTime?
+  failed_at           DateTime?
+  expires_at          DateTime?
+  attempts            Int                   @default(0)
+  max_attempts        Int                   @default(3)
+  external_id         String?
+  provider_response   Json?
+  cost                Float?
+  metadata            Json                  @default("{}")
+  tags                String[]              @default([])
+  created_at          DateTime              @default(now())
+  updated_at          DateTime
+  last_error          String?
+  notification_audits notification_audits[]
 
-  @@index([customerId])
-  @@index([bookingId])
+  @@index([channel])
+  @@index([channel, status])
+  @@index([created_at])
+  @@index([external_id])
+  @@index([recipient_id, channel])
+  @@index([recipient_id])
+  @@index([scheduled_at])
+  @@index([status])
+  @@index([template_id])
+}
+
+model payments {
+  id                String   @id
+  booking_id        String
+  payment_intent_id String
+  amount            Float
+  currency          String   @default("EUR")
+  status            String   @default("pending")
+  type              String
+  method            String?
+  metadata          Json?
+  created_at        DateTime @default(now())
+  updated_at        DateTime
+  Booking           Booking  @relation(fields: [booking_id], references: [id])
+
+  @@index([booking_id])
+  @@index([payment_intent_id])
   @@index([status])
 }
 
-model EmailAttachment {
-  id          String    @id @default(uuid())
-  emailId     String
-  documentId  String?
-  filename    String
-  contentType String
-  content     Bytes?
-  document    Document? @relation(fields: [documentId], references: [id])
-  email       EmailLog  @relation(fields: [emailId], references: [id])
+model professional_blacklists {
+  id                   String       @id
+  professional_id      String
+  service_type         ServiceType
+  consecutive_refusals Int          @default(0)
+  total_refusals       Int          @default(0)
+  is_blacklisted       Boolean      @default(false)
+  blacklisted_at       DateTime?
+  blacklist_expires_at DateTime?
+  last_refusal_at      DateTime?
+  last_attribution_id  String?
+  created_at           DateTime     @default(now())
+  updated_at           DateTime
+  Professional         Professional @relation(fields: [professional_id], references: [id])
 
-  @@index([emailId])
-  @@index([documentId])
+  @@unique([professional_id, service_type])
+  @@index([blacklist_expires_at])
+  @@index([is_blacklisted])
+  @@index([professional_id])
+  @@index([service_type])
 }
 
-model Rule {
-  id           String       @id @default(cuid())
+model professional_notifications {
+  id              String               @id
+  professional_id String
+  type            String
+  title           String
+  message         String
+  data            Json?
+  action_required Boolean              @default(false)
+  action_url      String?
+  action_label    String?
+  read            Boolean              @default(false)
+  read_at         DateTime?
+  priority        NotificationPriority @default(NORMAL)
+  expires_at      DateTime?
+  category        String?
+  tags            String[]             @default([])
+  metadata        Json                 @default("{}")
+  created_at      DateTime             @default(now())
+  updated_at      DateTime
+  Professional    Professional         @relation(fields: [professional_id], references: [id])
+
+  @@index([created_at])
+  @@index([expires_at])
+  @@index([priority])
+  @@index([professional_id])
+  @@index([read])
+  @@index([type])
+}
+
+model professional_sessions {
+  id                     String       @id
+  professional_id        String
+  session_id             String       @unique
+  last_activity          DateTime     @default(now())
+  last_poll              DateTime?
+  is_online              Boolean      @default(true)
+  unread_updates_count   Int          @default(0)
+  total_updates_received Int          @default(0)
+  ip_address             String?
+  user_agent             String?
+  device_info            Json?
+  created_at             DateTime     @default(now())
+  updated_at             DateTime
+  Professional           Professional @relation(fields: [professional_id], references: [id])
+
+  @@index([is_online])
+  @@index([last_activity])
+  @@index([last_poll])
+  @@index([professional_id])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rules {
+  id           String       @id
   name         String
   description  String?
   value        Float
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  updatedAt    DateTime
   category     RuleCategory
-  condition    String?
+  condition    Json?
   percentBased Boolean      @default(true)
   serviceType  ServiceType  @default(SERVICE)
+  ruleType     RuleType?    @default(CONSTRAINT)
+  priority     Int?         @default(100)
+  validFrom    DateTime?    @default(now())
+  validTo      DateTime?
+  tags         String[]     @default([])
+  configKey    String?
+  metadata     Json?
 
-  @@map("rules")
+  @@unique([ruleType, category, name])
+  @@index([isActive, validFrom, validTo])
+  @@index([priority])
+  @@index([ruleType])
+  @@index([ruleType, serviceType])
+  @@index([tags], type: Gin)
 }
 
-model QuoteRequest {
-  id          String    @id @default(uuid())
-  type        String
-  status      String
-  quoteData   Json
-  temporaryId String    @unique
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  expiresAt   DateTime
-  bookings    Booking[]
+model scheduled_reminders {
+  id                   String                @id
+  booking_id           String
+  professional_id      String?
+  attribution_id       String?
+  reminder_type        ReminderType
+  scheduled_date       DateTime
+  service_date         DateTime
+  recipient_email      String
+  recipient_phone      String?
+  full_client_data     Json
+  status               ReminderStatus        @default(SCHEDULED)
+  sent_at              DateTime?
+  cancel_reason        String?
+  attempts             Int                   @default(0)
+  max_attempts         Int                   @default(3)
+  last_error           String?
+  next_retry_at        DateTime?
+  metadata             Json                  @default("{}")
+  priority             NotificationPriority  @default(NORMAL)
+  created_at           DateTime              @default(now())
+  updated_at           DateTime
+  booking_attributions booking_attributions? @relation(fields: [attribution_id], references: [id])
+  Booking              Booking               @relation(fields: [booking_id], references: [id])
+  Professional         Professional?         @relation(fields: [professional_id], references: [id])
 
-  @@index([temporaryId])
+  @@index([attribution_id])
+  @@index([booking_id])
+  @@index([professional_id])
+  @@index([recipient_email])
+  @@index([reminder_type])
+  @@index([scheduled_date])
   @@index([status])
+  @@index([status, scheduled_date])
+}
+
+model templates {
+  id                String   @id
+  type              ItemType
+  name              String
+  description       String?
+  price             Float
+  workers           Int
+  duration          Int
+  features          String[] @default([])
+  included_distance Int?
+  distance_unit     String?  @default("km")
+  includes          String[] @default([])
+  category_id       String?
+  popular           Boolean  @default(false)
+  image_path        String?
+  is_active         Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime
+  items             items[]
+
+  @@index([is_active])
+  @@index([popular])
   @@index([type])
+  @@index([type, is_active])
 }
 
-model Configuration {
-  id          String    @id @default(uuid())
-  category    String
-  key         String
-  value       Json
-  description String?
-  isActive    Boolean   @default(true)
-  validFrom   DateTime  @default(now())
-  validTo     DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@unique([category, key])
-  @@index([category])
-  @@index([isActive])
-  @@index([validFrom, validTo])
-}
-
-model Category {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  icon        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-enum ServiceType {
-  MOVING
-  PACKING
-  CLEANING
-  DELIVERY
-  PACK
-  SERVICE
-}
-
-enum RuleCategory {
-  REDUCTION
-  SURCHARGE
-  MINIMUM
-  MAXIMUM
-  FIXED
-  PERCENTAGE
-}
-
-enum BookingType {
-  MOVING_QUOTE
-  PACK
-  SERVICE
+enum AttributionStatus {
+  BROADCASTING
+  ACCEPTED
+  CANCELLED
+  RE_BROADCASTING
+  EXPIRED
+  COMPLETED
 }
 
 enum BookingStatus {
@@ -332,11 +836,17 @@ enum BookingStatus {
   COMPLETED
 }
 
-enum TransactionStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
+enum BookingType {
+  MOVING_QUOTE
+  PACKING
+  SERVICE
+}
+
+enum CatalogCategory {
+  DEMENAGEMENT
+  MENAGE
+  TRANSPORT
+  LIVRAISON
 }
 
 enum DocumentType {
@@ -352,10 +862,124 @@ enum EmailStatus {
   FAILED
 }
 
-enum ProfessionalType {
-  MOVER
-  PACKER
-  SERVICE_PROVIDER
+enum InternalRole {
+  MOVING_MANAGER
+  CLEANING_MANAGER
+  DELIVERY_MANAGER
+  OPERATIONS_MANAGER
+  CUSTOMER_SERVICE
+  ACCOUNTING
   ADMIN
+}
+
+enum ItemType {
+  DEMENAGEMENT
+  MENAGE
+  TRANSPORT
+  LIVRAISON
+}
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum NotificationPriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum NotificationStatus {
+  PENDING
+  SCHEDULED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  CANCELLED
+  EXPIRED
+  RETRYING
+}
+
+enum ProfessionalType {
+  MOVING_COMPANY
+  CLEANING_SERVICE
+  HANDYMAN
+  STORAGE_COMPANY
   OTHER
+}
+
+enum ReminderStatus {
+  SCHEDULED
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum ReminderType {
+  CLIENT_7_DAYS
+  CLIENT_24_HOURS
+  CLIENT_1_HOUR
+  PROFESSIONAL_DAY_J
+  PROFESSIONAL_ATTRIBUTION_FOLLOW_UP
+}
+
+enum ResponseType {
+  ACCEPTED
+  REFUSED
+  TIMEOUT
+}
+
+enum RuleCategory {
+  REDUCTION
+  SURCHARGE
+  MINIMUM
+  MAXIMUM
+  FIXED
+  PERCENTAGE
+}
+
+enum RuleType {
+  CONSTRAINT
+  BUSINESS
+  PRICING
+  TEMPORAL
+  GEOGRAPHIC
+  VOLUME
+  CUSTOM
+}
+
+enum ServiceType {
+  MOVING
+  PACKING
+  CLEANING
+  DELIVERY
+  SERVICE
+}
+
+enum TemplateType {
+  QUOTE_CONFIRMATION
+  BOOKING_CONFIRMATION
+  PAYMENT_CONFIRMATION
+  SERVICE_REMINDER
+  PROFESSIONAL_ATTRIBUTION
+  MISSION_ACCEPTED
+  ACCOUNTING_DOCUMENT
+  CLIENT_REMINDER_7D
+  CLIENT_REMINDER_24H
+  CLIENT_REMINDER_1H
+  PROFESSIONAL_DAY_J
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
 }

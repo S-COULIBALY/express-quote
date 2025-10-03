@@ -1,6 +1,5 @@
 import { FormConfig } from '../../types';
-import { MovingPreset } from './movingPresets';
-import { detectFurnitureLiftForBothAddresses } from '@/quotation/domain/configuration/constants';
+import { AutoDetectionService, AddressData } from '@/quotation/domain/services/AutoDetectionService';
 
 // 🏷️ Mapping centralisé des contraintes et services pour l'affichage
 const getConstraintLabel = (constraintId: string): string => {
@@ -105,31 +104,29 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
       if (storedData) {
         try {
           const parsedData = JSON.parse(storedData);
-          window.sessionStorage.removeItem(sessionStorageKey);
           return parsedData;
         } catch (error) {
-          console.error('Erreur lors du parsing des données stockées:', error);
+          console.error('Erreur lors de la lecture du sessionStorage:', error);
         }
       }
     }
-    // Utiliser les valeurs par défaut du MovingPreset
-    return MovingPreset.defaultValues;
+    return {};
   };
 
   // Configuration de base utilisant MovingPreset
   const baseConfig: FormConfig = {
-    title: "Votre Déménagement Sur Mesure",
-    description: "Simple • Rapide • Efficace",
+    title: "Devis Déménagement",
+    description: "Obtenez votre devis personnalisé en quelques minutes",
     serviceType: "moving",
     preset: "moving",
     customDefaults: getDefaultValues(),
     
     layout: {
       type: "sidebar",
-      // Nouvelles fonctionnalités du SidebarLayout amélioré pour déménagement
       showPriceCalculation: true,
       showConstraintsByAddress: true,
       showModificationsSummary: false, // Pas de modifications prédéfinies pour déménagement
+      onPriceCalculated: onPriceCalculated ? (price: number) => onPriceCalculated(price, {}) : undefined,
       initialPrice: 0, // Pas de prix de base prédéfini, calculé selon les caractéristiques
       // Pas de serviceInfo car le client définit ses propres caractéristiques
       summaryConfig: {
@@ -177,7 +174,7 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
                     'house': 'Maison',
                     'office': 'Bureau'
                   };
-                  let result = types[value] || value;
+                  const result = types[value] || value;
                   
                   const details = [];
                   if (formData.surface) details.push(`${formData.surface} m²`);
@@ -199,7 +196,7 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
                 key: "pickupAddress",
                 label: "Adresse de départ",
                 format: (value: any, formData: any) => {
-                  let result = value;
+                  const result = value;
                   const details = [];
                   
                   if (formData.pickupFloor && formData.pickupFloor !== '0') {
@@ -236,7 +233,7 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
                 key: "deliveryAddress",
                 label: "Adresse d'arrivée",
                 format: (value: any, formData: any) => {
-                  let result = value;
+                  const result = value;
                   const details = [];
                   
                   if (formData.deliveryFloor && formData.deliveryFloor !== '0') {
@@ -268,36 +265,6 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
                   return details.length > 0 ? `${result}\n${details.join(' • ')}` : result;
                 },
                 condition: (value: any) => !!value
-              }
-            ]
-          },
-          // Section Services Supplémentaires
-          {
-            title: "Services",
-            icon: "⭐",
-            fields: [
-              {
-                key: "options",
-                label: "Options sélectionnées",
-                format: (value: any, formData: any) => {
-                  const services = [];
-                  if (formData.packaging) services.push("Emballage professionnel");
-                  if (formData.furniture) services.push("Montage meubles");
-                  if (formData.fragile) services.push("Assurance premium");
-                  if (formData.storage) services.push("Stockage");
-                  if (formData.disassembly) services.push("Démontage de meubles");
-                  if (formData.unpacking) services.push("Déballages");
-                  if (formData.supplies) services.push("Fournitures");
-                  if (formData.fragileItems) services.push("Objets fragiles");
-                  
-                  return services.length > 0 ? services.join(", ") : "Aucun service supplémentaire";
-                },
-                condition: (value: any, formData: any) => {
-                  const hasAnyService = formData.packaging || formData.furniture || formData.fragile || 
-                                      formData.storage || formData.disassembly || formData.unpacking || 
-                                      formData.supplies || formData.fragileItems;
-                  return !!hasAnyService;
-                }
               }
             ]
           },
@@ -446,6 +413,7 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
             label: "Contraintes d'accès au départ",
             className: "pickup-field",
             componentProps: {
+              id: "pickup",
               buttonLabel: "Contraintes d'accès au départ",
               modalTitle: "Contraintes d'accès et services - Logement de départ"
             }
@@ -519,6 +487,7 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
             label: "Contraintes d'accès à l'arrivée",
             className: "delivery-field",
             componentProps: {
+              id: "delivery",
               buttonLabel: "Contraintes d'accès à l'arrivée",
               modalTitle: "Contraintes d'accès et services - Logement d'arrivée"
             }
@@ -553,7 +522,7 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
       }
     ],
 
-    // Handlers qui utilisent les callbacks (fonctionnalité préservée)
+    // ✅ REFACTORISÉ: Handlers qui utilisent le service centralisé AutoDetectionService
     onChange: onPriceCalculated ? async (fieldName: string, value: any, formData: any) => {
       const priceRelevantFields = [
         'volume', 'movingDate', 'pickupAddress', 'deliveryAddress',
@@ -561,66 +530,83 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
         'pickupCarryDistance', 'deliveryCarryDistance',
         'pickupLogisticsConstraints', 'deliveryLogisticsConstraints'
       ];
-      
-      // ✅ LOGIQUE AUTOMATIQUE DU MONTE-MEUBLE
-      const furnitureLiftRelevantFields = [
+
+      // ✅ REFACTORISÉ: Logique automatique utilisant AutoDetectionService
+      const autoDetectionRelevantFields = [
         'pickupFloor', 'deliveryFloor', 'pickupElevator', 'deliveryElevator',
+        'pickupCarryDistance', 'deliveryCarryDistance',
         'pickupLogisticsConstraints', 'deliveryLogisticsConstraints'
       ];
-      
-      if (furnitureLiftRelevantFields.includes(fieldName)) {
+
+      if (autoDetectionRelevantFields.includes(fieldName)) {
         try {
-          // Préparer les données pour la détection
-          const pickupData = {
+          // Construire les données d'adresse pour le service centralisé
+          const pickupAddressData: AddressData = {
             floor: parseInt(formData.pickupFloor) || 0,
-            elevator: formData.pickupElevator || 'no',
-            constraints: formData.pickupLogisticsConstraints || [],
-            services: []
+            elevator: (formData.pickupElevator || 'no') as 'no' | 'small' | 'medium' | 'large',
+            carryDistance: formData.pickupCarryDistance as '0-10' | '10-30' | '30+' | undefined,
+            constraints: formData.pickupLogisticsConstraints || []
           };
-          
-          const deliveryData = {
+
+          const deliveryAddressData: AddressData = {
             floor: parseInt(formData.deliveryFloor) || 0,
-            elevator: formData.deliveryElevator || 'no',
-            constraints: formData.deliveryLogisticsConstraints || [],
-            services: []
+            elevator: (formData.deliveryElevator || 'no') as 'no' | 'small' | 'medium' | 'large',
+            carryDistance: formData.deliveryCarryDistance as '0-10' | '10-30' | '30+' | undefined,
+            constraints: formData.deliveryLogisticsConstraints || []
           };
-          
-          // Détecter si le monte-meuble est requis
-          const furnitureLiftRequired = detectFurnitureLiftForBothAddresses(pickupData, deliveryData);
-          
-          if (furnitureLiftRequired) {
-            // Ajouter automatiquement le monte-meuble aux contraintes si pas déjà présent
-            const updatedPickupConstraints = [...(formData.pickupLogisticsConstraints || [])];
-            const updatedDeliveryConstraints = [...(formData.deliveryLogisticsConstraints || [])];
-            
-            // Déterminer où ajouter le monte-meuble (départ ou arrivée selon la logique)
-            const pickupNeedsFurnitureLift = pickupData.floor > 3 && pickupData.elevator === 'no';
-            const deliveryNeedsFurnitureLift = deliveryData.floor > 3 && deliveryData.elevator === 'no';
-            
-            if (pickupNeedsFurnitureLift && !updatedPickupConstraints.includes('furniture_lift_required')) {
-              updatedPickupConstraints.push('furniture_lift_required');
-              // Mettre à jour le formData avec la nouvelle contrainte
-              formData.pickupLogisticsConstraints = updatedPickupConstraints;
-            }
-            
-            if (deliveryNeedsFurnitureLift && !updatedDeliveryConstraints.includes('furniture_lift_required')) {
-              updatedDeliveryConstraints.push('furniture_lift_required');
-              // Mettre à jour le formData avec la nouvelle contrainte
-              formData.deliveryLogisticsConstraints = updatedDeliveryConstraints;
-            }
-            
-            console.log('🏗️ Monte-meuble automatiquement ajouté:', {
-              pickup: pickupNeedsFurnitureLift,
-              delivery: deliveryNeedsFurnitureLift,
-              pickupConstraints: updatedPickupConstraints,
-              deliveryConstraints: updatedDeliveryConstraints
-            });
+
+          // Utiliser le service centralisé pour détecter les contraintes automatiques
+          const detectionResult = AutoDetectionService.detectAutomaticConstraints(
+            pickupAddressData,
+            deliveryAddressData,
+            formData.volume ? parseFloat(formData.volume) : undefined
+          );
+
+          // Appliquer les contraintes détectées
+          const updatedPickupConstraints = [...(formData.pickupLogisticsConstraints || [])];
+          const updatedDeliveryConstraints = [...(formData.deliveryLogisticsConstraints || [])];
+
+          // Ajouter monte-meuble au départ si requis
+          if (detectionResult.pickup.furnitureLiftRequired &&
+              !updatedPickupConstraints.includes('furniture_lift_required')) {
+            updatedPickupConstraints.push('furniture_lift_required');
+            formData.pickupLogisticsConstraints = updatedPickupConstraints;
+            console.log('🏗️ [PICKUP] Monte-meuble ajouté:', detectionResult.pickup.furnitureLiftReason);
           }
+
+          // Ajouter monte-meuble à l'arrivée si requis
+          if (detectionResult.delivery.furnitureLiftRequired &&
+              !updatedDeliveryConstraints.includes('furniture_lift_required')) {
+            updatedDeliveryConstraints.push('furniture_lift_required');
+            formData.deliveryLogisticsConstraints = updatedDeliveryConstraints;
+            console.log('🏗️ [DELIVERY] Monte-meuble ajouté:', detectionResult.delivery.furnitureLiftReason);
+          }
+
+          // Ajouter distance portage au départ si requise
+          if (detectionResult.pickup.longCarryingDistance &&
+              !updatedPickupConstraints.includes('long_carrying_distance')) {
+            updatedPickupConstraints.push('long_carrying_distance');
+            formData.pickupLogisticsConstraints = updatedPickupConstraints;
+            console.log('📏 [PICKUP] Distance portage ajoutée:', detectionResult.pickup.carryingDistanceReason);
+          }
+
+          // Ajouter distance portage à l'arrivée si requise
+          if (detectionResult.delivery.longCarryingDistance &&
+              !updatedDeliveryConstraints.includes('long_carrying_distance')) {
+            updatedDeliveryConstraints.push('long_carrying_distance');
+            formData.deliveryLogisticsConstraints = updatedDeliveryConstraints;
+            console.log('📏 [DELIVERY] Distance portage ajoutée:', detectionResult.delivery.carryingDistanceReason);
+          }
+
+          // Afficher le résumé des détections
+          const summary = AutoDetectionService.getSummary(detectionResult);
+          console.log('✅ Auto-détection complète:', summary);
+
         } catch (error) {
-          console.error('Erreur lors de la détection automatique du monte-meuble:', error);
+          console.error('❌ Erreur lors de l\'auto-détection:', error);
         }
       }
-      
+
       if (priceRelevantFields.includes(fieldName)) {
         try {
           // Le hook externe gérera le calcul réel
@@ -631,21 +617,87 @@ export const getMovingServiceConfig = (options: MovingServicePresetOptions = {})
       }
     } : undefined,
 
-    onSubmit: onSubmitSuccess ? async (data: any) => {
+    onSubmit: async (data: any) => {
       try {
-        // Le hook externe gérera la soumission réelle
-        onSubmitSuccess(data);
+        console.log('📤 Soumission du formulaire de déménagement:', data);
+        
+        // 1. Validation des données
+        if (!data.volume || !data.pickupAddress || !data.deliveryAddress) {
+          throw new Error('Veuillez remplir tous les champs obligatoires');
+        }
+        
+        // 2. Préparer les données pour l'API
+        const submissionData = {
+          // Données de base
+          movingDate: data.movingDate,
+          volume: parseFloat(data.volume),
+          pickupAddress: data.pickupAddress,
+          deliveryAddress: data.deliveryAddress,
+          
+          // Données d'étage et ascenseur
+          pickupFloor: data.pickupFloor,
+          deliveryFloor: data.deliveryFloor,
+          pickupElevator: data.pickupElevator,
+          deliveryElevator: data.deliveryElevator,
+          
+          // Distances de portage
+          pickupCarryDistance: data.pickupCarryDistance,
+          deliveryCarryDistance: data.deliveryCarryDistance,
+          
+          // Contraintes
+          pickupLogisticsConstraints: data.pickupLogisticsConstraints || [],
+          deliveryLogisticsConstraints: data.deliveryLogisticsConstraints || [],
+          
+          // Informations additionnelles
+          additionalInfo: data.additionalInfo,
+          whatsappOptIn: data.whatsappOptIn,
+          
+          // Données du logement
+          propertyType: data.propertyType,
+          surface: data.surface,
+          rooms: data.rooms,
+          occupants: data.occupants
+        };
+        
+        // 3. Appel API pour créer le devis
+        console.log('🌐 Appel API pour créer le devis de déménagement...');
+        const response = await fetch('/api/bookings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'MOVING',
+            data: submissionData
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Erreur lors de la création du devis');
+        }
+        
+        const result = await response.json();
+        console.log('✅ Devis créé avec succès:', result);
+        
+        // 4. Appeler le callback de succès si fourni
+        if (onSubmitSuccess) {
+          onSubmitSuccess(result);
+        }
+        
       } catch (error) {
-        onError?.(error);
+        console.error('❌ Erreur lors de la soumission:', error);
+        if (onError) {
+          onError(error);
+        } else {
+          alert('Erreur lors de la création du devis: ' + (error instanceof Error ? error.message : 'Erreur inconnue'));
+        }
       }
-    } : undefined,
+    },
 
     submitLabel: "Valider le devis",
     cancelLabel: "Annuler"
   };
-
-      // Les styles sont maintenant intégrés dans globals.css pour éviter les conflits de priorité CSS
-    // Cela assure un chargement plus fiable et évite les problèmes de flash content
 
   return baseConfig;
 }; 

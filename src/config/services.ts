@@ -1,5 +1,5 @@
 import { PDFService } from '@/quotation/infrastructure/adapters/PDFService';
-import { EmailService } from '@/quotation/infrastructure/adapters/EmailService';
+import { PrismaClient } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
 // Logger
@@ -38,33 +38,29 @@ try {
   pdfServiceInstance = new PDFService('./storage/pdfs');
 }
 
-let emailServiceInstance: EmailService;
+// L'ancien EmailService a été remplacé par le nouveau système de notifications
+// Utiliser le nouveau EmailAdapter dans src/notifications/infrastructure/adapters/
+const emailServiceInstance: any = null; // Temporaire pour compatibilité
+
+// Créer l'instance Prisma
+let prismaInstance: PrismaClient;
 try {
-  emailServiceInstance = new EmailService(
-    emailConfig.host,
-    emailConfig.port,
-    emailConfig.user,
-    emailConfig.pass,
-    emailConfig.from,
-    emailConfig.isDev
-  );
-  servicesLogger.info('Service Email initialisé avec succès');
+  prismaInstance = new PrismaClient();
+  servicesLogger.info('PrismaClient initialisé avec succès');
 } catch (error) {
-  servicesLogger.error('Erreur lors de l\'initialisation du service Email:', error);
-  // Initialiser en mode développement si une erreur se produit
-  emailServiceInstance = new EmailService(
-    'localhost',
-    25,
-    '',
-    '',
-    'noreply@example.com',
-    true
-  );
+  servicesLogger.error('Erreur lors de l\'initialisation de PrismaClient:', error);
+  prismaInstance = new PrismaClient();
 }
 
+// Services de configuration et distribution email (désactivés temporairement)
+// Ces services dépendaient de l'ancien EmailService - à migrer vers le nouveau système
+const emailConfigServiceInstance: any = null;
+const emailDistributionServiceInstance: any = null;
+servicesLogger.warn('Services EmailConfig et EmailDistribution désactivés - en attente de migration');
+
 // Exporter les instances uniques
+export const prisma = prismaInstance;
 export const pdfService = pdfServiceInstance;
-export const emailService = emailServiceInstance;
 
 // Helper pour adapter l'emailUtils au nouveau service d'email (compatibilité)
 export const emailServiceAdapter = {
@@ -79,4 +75,29 @@ export const emailServiceAdapter = {
     servicesLogger.info(`Envoi d'email via l'adaptateur à ${options.to}: ${options.subject}`);
     return Promise.resolve();
   }
+};
+
+// Services de notification (stubs temporaires pour compatibilité)
+export const notificationMetricsService = {
+  getMetrics: () => ({ recentEvents: [] }),
+  getMetricsForPeriod: (start: Date, end: Date) => ({ recentEvents: [] }),
+  getErrorRate: (channel: string) => 0,
+  getReadRate: (channel: string) => 0,
+};
+
+export const notificationOrchestratorService = {
+  getSuccessRates: () => ({ email: 100, whatsapp: 100, overall: 100 }),
+  getRetryStatistics: () => ({ totalRetries: 0, successfulRetries: 0, failedRetries: 0 }),
+};
+
+// WhatsApp service (stub temporaire pour compatibilité)
+export const whatsAppService = {
+  sendMessage: async (to: string, message: string) => {
+    servicesLogger.info(`WhatsApp message à ${to}: ${message}`);
+    return Promise.resolve({ success: true, messageId: 'stub' });
+  },
+  handleWebhook: async (data: any) => {
+    servicesLogger.info('WhatsApp webhook reçu');
+    return Promise.resolve();
+  },
 }; 

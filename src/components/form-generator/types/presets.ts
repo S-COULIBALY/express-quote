@@ -2,7 +2,7 @@ import React from "react";
 import { FormConfig } from "./form";
 
 // Types pour les presets
-export type IndustryPreset = "moving" | "pack" | "contact" | "default";
+export type IndustryPreset = "moving" | "cleaning" | "catalogueMovingItem" | "catalogueCleaningItem" | "catalogueDeliveryItem" | "contact" | "default";
 
 // Configuration d'un preset complet
 export interface PresetConfig {

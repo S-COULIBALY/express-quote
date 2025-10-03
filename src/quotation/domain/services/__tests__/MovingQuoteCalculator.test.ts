@@ -1,4 +1,4 @@
-import { MovingQuoteCalculator } from '../../calculators/MovingQuoteCalculator';
+import { QuoteCalculator } from '../../calculators/QuoteCalculator';
 import { QuoteContext } from '../../valueObjects/QuoteContext';
 import { Address } from '../../valueObjects/Address';
 import { ContactInfo } from '../../valueObjects/ContactInfo';
@@ -7,8 +7,8 @@ import { ServiceType } from '../../enums/ServiceType';
 import { Rule } from '../../valueObjects/Rule';
 import { movingRules } from '../rules/movingRules';
 
-describe('MovingQuoteCalculator', () => {
-    let calculator: MovingQuoteCalculator;
+describe('QuoteCalculator', () => {
+    let calculator: QuoteCalculator;
 
     beforeEach(() => {
         // Créer les règles à partir de movingRules.ts
@@ -21,7 +21,7 @@ describe('MovingQuoteCalculator', () => {
                 return rule.condition(context, new Money(0));
             })
         );
-        calculator = new MovingQuoteCalculator(rules);
+        calculator = new QuoteCalculator(rules);
     });
 
     describe('calculate', () => {

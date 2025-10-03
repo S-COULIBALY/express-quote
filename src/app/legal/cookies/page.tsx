@@ -73,10 +73,10 @@ export default async function CookiesPolicyPage() {
               Voici comment modifier vos paramètres de cookies dans les principaux navigateurs :
             </p>
             <ul>
-              <li>Chrome : Paramètres &gt; Confidentialité et sécurité &gt; Cookies et autres données de site</li>
-              <li>Firefox : Options &gt; Vie privée et sécurité &gt; Protection contre le pistage</li>
-              <li>Safari : Préférences &gt; Confidentialité</li>
-              <li>Edge : Paramètres &gt; Confidentialité, recherche et services &gt; Autorisations</li>
+                              <li>Chrome : Paramètres {'>'}{' '}Confidentialité et sécurité {'>'}{' '}Cookies et autres données de site</li>
+                <li>Firefox : Options {'>'}{' '}Vie privée et sécurité {'>'}{' '}Protection contre le pistage</li>
+                <li>Safari : Préférences {'>'}{' '}Confidentialité</li>
+                <li>Edge : Paramètres {'>'}{' '}Confidentialité, recherche et services {'>'}{' '}Autorisations</li>
             </ul>
           </div>
         </section>

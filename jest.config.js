@@ -1,40 +1,45 @@
-const nextJest = require('next/jest');
+const nextJest = require('next/jest')
 
 const createJestConfig = nextJest({
-  // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
+  // Provide the path to your Next.js app to load next.config.js and .env files
   dir: './',
-});
+})
 
 // Add any custom config to be passed to Jest
 const customJestConfig = {
+  setupFiles: ['<rootDir>/jest.env.js'], // Set up environment variables
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
+    // Handle module aliases (this will be automatically configured for you based on your tsconfig.json paths)
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^uuid$': '<rootDir>/__mocks__/uuid',
-    '^next/server$': '<rootDir>/__mocks__/next/server',
-    '^next/headers$': '<rootDir>/__mocks__/next/headers'
   },
+  testEnvironment: 'node', // Change to node for integration tests
   testMatch: [
-    '<rootDir>/src/tests/**/*.test.ts',
-    '<rootDir>/src/tests/**/*.test.tsx',
+    '**/__tests__/**/*.(test|spec).(js|jsx|ts|tsx)',
+    '**/*.(test|spec).(js|jsx|ts|tsx)'
   ],
-  // Ajout de la configuration des mocks automatiques
-  automock: false,
-  // Configurer les dossiers à ignorer
-  modulePathIgnorePatterns: [
-    '<rootDir>/.next/'
+  testPathIgnorePatterns: [
+    '<rootDir>/.next/',
+    '<rootDir>/node_modules/',
+    '<rootDir>/cypress/'
   ],
-  // Permettre d'utiliser les importations en @/
-  modulePaths: ['<rootDir>'],
+  coverageDirectory: '<rootDir>/coverage',
+  collectCoverageFrom: [
+    'src/components/**/*.{js,jsx,ts,tsx}',
+    '!src/components/**/*.stories.{js,jsx,ts,tsx}',
+    '!src/components/**/index.{js,jsx,ts,tsx}',
+    '!**/*.d.ts'
+  ],
+  coverageReporters: ['text', 'lcov', 'html'],
+  moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json'],
   transform: {
-    '^.+\\.(ts|tsx|js|jsx)$': ['babel-jest', { presets: ['next/babel'] }]
+    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }]
   },
-  // Transformer tous les modules sauf node_modules qui ne sont pas dans cette liste
   transformIgnorePatterns: [
-    '/node_modules/'
-  ],
-};
+    '/node_modules/',
+    '^.+\\.module\\.(css|sass|scss)$'
+  ]
+}
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-module.exports = createJestConfig(customJestConfig); 
+module.exports = createJestConfig(customJestConfig) 

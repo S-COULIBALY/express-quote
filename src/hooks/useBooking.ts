@@ -44,7 +44,7 @@ export function useBooking() {
   /**
    * Ajoute un service à la réservation courante
    */
-  const addServiceToBooking = async (serviceData: any) => {
+  const addCatalogueCleaningItemToBooking = async (serviceData: any) => {
     setIsLoading(true);
     setError(null);
     
@@ -134,10 +134,70 @@ export function useBooking() {
       setIsLoading(false);
     }
   };
+
+  /**
+   * Ajoute une livraison à la réservation courante
+   */
+  const addCatalogueDeliveryItemToBooking = async (deliveryData: any) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Vérifier si une réservation existe déjà
+      const currentBooking = await getCurrentBooking();
+      const bookingId = currentBooking?.id;
+      
+      if (!bookingId) {
+        // Créer une nouvelle réservation
+        const createResponse = await fetch('/api/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'DELIVERY',
+            status: 'DRAFT'
+          })
+        });
+        
+        if (!createResponse.ok) {
+          throw new Error(`Erreur lors de la création de la réservation: ${createResponse.status}`);
+        }
+        
+        const newBooking = await createResponse.json();
+              return addCatalogueDeliveryItemToExistingBooking(newBooking.id, deliveryData);
+    }
+    
+    return addCatalogueDeliveryItemToExistingBooking(bookingId, deliveryData);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      setError(errorMessage);
+      console.error("Erreur lors de l'ajout de la livraison:", errorMessage);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Ajoute une livraison à une réservation existante
+   */
+  const addCatalogueDeliveryItemToExistingBooking = async (bookingId: string, deliveryData: any) => {
+    const response = await fetch(`/api/bookings/${bookingId}/deliveries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(deliveryData)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erreur lors de l'ajout de la livraison: ${response.status}`);
+    }
+    
+    return await response.json();
+  };
   
   return { 
     getCurrentBooking, 
-    addServiceToBooking,
+    addCatalogueCleaningItemToBooking,
+    addCatalogueDeliveryItemToBooking,
     updateInsuranceOption,
     isLoading,
     error

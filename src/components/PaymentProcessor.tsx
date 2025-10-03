@@ -40,7 +40,7 @@ export const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
   serviceName = 'Service',
   orderSummary,
   showBackButton = true,
-  backUrl = '/services'
+  backUrl = '/catalogue'
 }) => {
   const router = useRouter();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -130,9 +130,17 @@ export const PaymentProcessor: React.FC<PaymentProcessorProps> = ({
       }
       
       // Rediriger vers l'URL de succès ou l'URL par défaut
-      const redirectUrl = paymentData.redirectUrl ? 
-        `${paymentData.redirectUrl}${paymentIntentId}` : 
-        `/services/success?payment_intent=${paymentIntentId}`;
+      let redirectUrl;
+      if (paymentData.redirectUrl) {
+        // Si c'est une URL de succès personnalisée, utiliser l'ID de réservation
+        if (paymentData.redirectUrl.includes('/success/')) {
+          redirectUrl = `${paymentData.redirectUrl}${paymentData.id}`;
+        } else {
+          redirectUrl = `${paymentData.redirectUrl}${paymentIntentId}`;
+        }
+      } else {
+        redirectUrl = `/success?payment_intent=${paymentIntentId}`;
+      }
       
       paymentLogger.debug(`Redirection vers: ${redirectUrl}`);
       router.push(redirectUrl);

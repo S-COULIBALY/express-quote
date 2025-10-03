@@ -9,7 +9,7 @@ import { Moving } from '../../../domain/entities/Moving';
 import { Pack } from '../../../domain/entities/Pack';
 import { Service } from '../../../domain/entities/Service';
 import { Customer } from '../../../domain/entities/Customer';
-import { MovingQuoteCalculator } from '../../../domain/calculators/MovingQuoteCalculator';
+import { QuoteCalculator } from '../../../domain/calculators/QuoteCalculator';
 import { CustomerService } from '../CustomerService';
 import { Quote } from '../../../domain/entities/Quote';
 import { QuoteType, QuoteStatus } from '../../../domain/enums/QuoteType';
@@ -104,7 +104,7 @@ describe('BookingService', () => {
     let prismaMock: any;
     
     // Services réels
-    let movingCalculator: MovingQuoteCalculator;
+    let calculator: QuoteCalculator;
     let customerService: CustomerService;
 
     beforeEach(() => {
@@ -112,7 +112,7 @@ describe('BookingService', () => {
         prismaMock = Database.getClient() as jest.Mocked<any>;
         
         // Initialize movingCalculator
-        movingCalculator = new MovingQuoteCalculator([
+        calculator = new QuoteCalculator([
             // Tableau de règles vide - à compléter selon les tests
         ]);
         
@@ -189,7 +189,7 @@ describe('BookingService', () => {
             movingRepository,
             packRepository,
             serviceRepository,
-            movingCalculator,
+            calculator,
             quoteRequestRepository,
             customerService
         );

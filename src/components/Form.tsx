@@ -39,21 +39,6 @@ export function TextInput({ error, className = '', ...props }: TextInputProps) {
   )
 }
 
-interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  error?: string
-}
-
-export function TextArea({ error, className = '', ...props }: TextAreaProps) {
-  return (
-    <textarea
-      className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-        error ? 'border-red-300' : 'border-gray-300'
-      } ${className}`}
-      {...props}
-    />
-  )
-}
-
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   options: Array<{ value: string; label: string }>
   error?: string

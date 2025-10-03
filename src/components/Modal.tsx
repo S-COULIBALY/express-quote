@@ -91,46 +91,4 @@ export function Modal({
     </div>,
     document.body
   )
-}
-
-// Composant de confirmation réutilisable
-interface ConfirmModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onConfirm: () => void
-  title: string
-  message: string
-  confirmLabel?: string
-  cancelLabel?: string
-}
-
-export function ConfirmModal({
-  isOpen,
-  onClose,
-  onConfirm,
-  title,
-  message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel'
-}: ConfirmModalProps) {
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={title}
-      size="sm"
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>
-            {cancelLabel}
-          </Button>
-          <Button onClick={onConfirm}>
-            {confirmLabel}
-          </Button>
-        </>
-      }
-    >
-      <p className="text-gray-600">{message}</p>
-    </Modal>
-  )
 } 

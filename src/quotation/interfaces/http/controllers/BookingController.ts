@@ -1,436 +1,531 @@
-import { HttpRequest, HttpResponse } from '../types';
+import { NextRequest, NextResponse } from 'next/server';
 import { BookingService } from '../../../application/services/BookingService';
 import { CustomerService } from '../../../application/services/CustomerService';
 import { BookingStatus } from '../../../domain/enums/BookingStatus';
 import { BookingType } from '../../../domain/enums/BookingType';
-import { QuoteRequestStatus } from '../../../domain/enums/QuoteRequestStatus';
-import { BookingRequestDTO, BookingResponseDTO } from '../dtos/BookingDTO';
-import { validate } from '../validators/BookingValidator';
-import { ServiceType } from '../../../domain/enums/ServiceType';
+import { BookingSearchCriteria } from '../../../domain/valueObjects/BookingSearchCriteria';
+import { BookingSearchResult } from '../../../domain/repositories/IBookingRepository';
+import { 
+  BookingNotFoundError, 
+  BookingAlreadyCancelledError,
+  BookingCannotBeCancelledError,
+  BookingUpdateNotAllowedError,
+  BookingDeletionNotAllowedError
+} from '../../../domain/errors/BookingErrors';
+import { logger } from '@/lib/logger';
+import { BaseApiController } from './BaseApiController';
 
-// Import les classes nécessaires pour le calcul de prix
-// Chemin à ajuster selon la structure réelle du projet
-import { QuoteCalculatorFactory } from '../../../application/factories/QuoteCalculatorFactory';
-import { QuoteContext } from '../../../domain/valueObjects/QuoteContext';
-
-export class BookingController {
+/**
+ * Contrôleur DDD pour la gestion des réservations
+ * Orchestre les appels au BookingService en respectant l'architecture DDD
+ */
+export class BookingController extends BaseApiController {
   constructor(
     private readonly bookingService: BookingService,
     private readonly customerService: CustomerService
-  ) {}
+  ) {
+    super();
+  }
 
   /**
-   * Crée une demande de devis temporaire
-   * @description Première étape du flux de réservation recommandé. Cette méthode crée une demande de devis
-   * sans informations client qui pourra être finalisée ultérieurement avec finalizeBooking.
+   * POST /api/bookings - Crée une nouvelle réservation
+   * Gère deux flux : création directe ou via QuoteRequest
    */
-  async createQuoteRequest(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      const quoteData = req.body;
+  async createBooking(request: NextRequest): Promise<NextResponse> {
+    return this.handleRequest(request, async (data) => {
+      logger.info('🔄 Création d\'une nouvelle réservation', { data });
       
-      // Créer la demande de devis
-      const quoteRequest = await this.bookingService.createQuoteRequest(quoteData);
+      // Vérifier si on a les données client pour créer directement
+      if (data.customer || (data.firstName && data.email)) {
+        // Flux direct : créer la réservation avec BookingService
+        const quoteRequest = await this.bookingService.createQuoteRequest(data);
+        const booking = await this.bookingService.createBookingAfterPayment(data.sessionId || 'direct');
+        
+        return {
+          success: true,
+          data: {
+            id: booking.getId(),
+            type: booking.getType(),
+            status: booking.getStatus(),
+            customer: {
+              id: booking.getCustomer().getId(),
+              firstName: booking.getCustomer().getContactInfo().getFirstName(),
+              lastName: booking.getCustomer().getContactInfo().getLastName(),
+              email: booking.getCustomer().getEmail()
+            },
+            totalAmount: booking.getTotalAmount().getAmount(),
+            createdAt: booking.getCreatedAt()
+          }
+        };
+      } else if (data.temporaryId && data.customerData) {
+        // 🆕 NOUVEAU FLUX : Confirmation de réservation avec QuoteRequest existante + données client
+        const booking = await this.bookingService.createAndConfirmBooking(
+          data.temporaryId,
+          data.customerData
+        );
+        
+        return {
+          success: true,
+          data: {
+            id: booking.getId(),
+            type: booking.getType(),
+            status: booking.getStatus(),
+            customer: {
+              id: booking.getCustomer().getId(),
+              firstName: booking.getCustomer().getContactInfo().getFirstName(),
+              lastName: booking.getCustomer().getContactInfo().getLastName(),
+              email: booking.getCustomer().getEmail()
+            },
+            totalAmount: booking.getTotalAmount().getAmount(),
+            createdAt: booking.getCreatedAt(),
+            message: '🎉 Réservation confirmée! Documents envoyés par email.'
+          }
+        };
+      } else {
+        // Flux QuoteRequest : créer d'abord une demande de devis
+        const quoteRequest = await this.bookingService.createQuoteRequest(data);
+        
+        return {
+          success: true,
+          data: {
+            temporaryId: quoteRequest.getTemporaryId(),
+            id: quoteRequest.getId(),
+            type: quoteRequest.getType(),
+            status: quoteRequest.getStatus(),
+            expiresAt: quoteRequest.getExpiresAt(),
+            message: 'Demande de devis créée. Utilisez /api/bookings/{id}/finalize pour compléter.'
+          }
+        };
+      }
+    });
+  }
+
+  /**
+   * GET /api/bookings - Recherche des réservations avec critères
+   */
+  async searchBookings(request: NextRequest): Promise<NextResponse> {
+    return this.handleRequest(request, async () => {
+      const { searchParams } = new URL(request.url);
       
-      // Construire la réponse
-      const response = {
-        temporaryId: quoteRequest.getTemporaryId(),
-        id: quoteRequest.getId(),
-        type: quoteRequest.getType(),
-        status: quoteRequest.getStatus(),
-        expiresAt: quoteRequest.getExpiresAt(),
-        data: quoteRequest.getQuoteData()
+      const criteria: BookingSearchCriteria = {
+        customerId: searchParams.get('customerId') || undefined,
+        professionalId: searchParams.get('professionalId') || undefined,
+        status: searchParams.get('status') as BookingStatus || undefined,
+        type: searchParams.get('type') as BookingType || undefined,
+        dateFrom: searchParams.get('dateFrom') ? new Date(searchParams.get('dateFrom')!) : undefined,
+        dateTo: searchParams.get('dateTo') ? new Date(searchParams.get('dateTo')!) : undefined,
+        limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 20,
+        offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0
       };
       
-      return res.status(201).json(response);
-    } catch (error) {
-      console.error('Erreur lors de la création de la demande de devis:', error);
-      return res.status(500).json({ 
-        message: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
+      logger.info('🔍 Recherche de réservations', { criteria });
+      
+      const result = await this.bookingService.searchBookings(criteria);
+      
+      return {
+        success: true,
+        data: {
+          bookings: result.bookings.map(booking => ({
+            id: booking.getId(),
+            type: booking.getType(),
+            status: booking.getStatus(),
+            customer: {
+              id: booking.getCustomer().getId(),
+              firstName: booking.getCustomer().getContactInfo().getFirstName(),
+              lastName: booking.getCustomer().getContactInfo().getLastName(),
+              email: booking.getCustomer().getEmail()
+            },
+            totalAmount: booking.getTotalAmount().getAmount(),
+            createdAt: booking.getCreatedAt()
+          })),
+          totalCount: result.totalCount,
+          hasMore: result.hasMore
+        }
+      };
+    });
   }
 
   /**
-   * Finalise une réservation avec les informations client
-   * @description Deuxième étape du flux de réservation recommandé. Cette méthode finalise une demande
-   * de devis existante en y ajoutant les informations client pour créer une réservation complète.
+   * GET /api/bookings/{id} - Récupère une réservation par ID
    */
-  async finalizeBooking(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      const { quoteRequestId, customer } = req.body;
+  async getBookingById(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async () => {
+      const { id } = params;
+      logger.info('🔍 Récupération d\'une réservation', { id });
       
-      // Finaliser la réservation
-      const booking = await this.bookingService.finalizeBooking(quoteRequestId, customer);
-      
-      // Construire la réponse
-      const response = this.buildBookingResponse(booking);
-      
-      return res.status(201).json(response);
-    } catch (error) {
-      console.error('Erreur lors de la finalisation de la réservation:', error);
-      return res.status(500).json({ 
-        message: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
-  }
-
-  /**
-   * Traite le paiement d'une réservation
-   * @description Troisième étape du flux de réservation recommandé. Cette méthode traite
-   * le paiement d'une réservation finalisée et génère les documents associés.
-   */
-  async processPayment(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      const { bookingId, paymentData } = req.body;
-      
-      // Traiter le paiement
-      const booking = await this.bookingService.processPayment(bookingId, paymentData);
-      
-      // Générer et envoyer le devis
-      await this.bookingService.generateAndSendQuote(bookingId);
-      
-      // Construire la réponse
-      const response = this.buildBookingResponse(booking);
-      
-      return res.status(200).json(response);
-    } catch (error) {
-      console.error('Erreur lors du traitement du paiement:', error);
-      return res.status(500).json({ 
-        message: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
-  }
-
-  /**
-   * Crée une réservation complète en utilisant le flux recommandé
-   * @description Cette méthode utilise le flux recommandé en deux étapes (createQuoteRequest puis finalizeBooking)
-   * via la méthode createReservation du BookingService. Si des informations client sont fournies, la réservation
-   * est complétée immédiatement. Sinon, une demande de devis temporaire est créée, à finaliser ultérieurement.
-   */
-  async createBooking(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      console.log('📌 CTRL - Données reçues du router:', JSON.stringify(req.body, null, 2));
-      
-      // Valider les données d'entrée
-      const errors = validate(req.body);
-      if (errors.length > 0) {
-        console.error('❌ CTRL - Erreurs de validation:', errors);
-        return res.status(400).json({ errors });
-      }
-
-      // Utiliser any pour éviter les problèmes de typage avec le DTO
-      const bookingData: any = req.body;
-      
-      // Recalculer le prix côté serveur (sécurité)
-      if (bookingData.type === 'service' && bookingData.calculatedPrice) {
-        try {
-          // Simulation d'un recalcul simplifié
-          console.log('🔒 CTRL - Vérification du prix pour sécurité');
-          
-          // Calcul manuel pour vérification (méthode simplifiée)
-          const basePrice = bookingData.basePrice || 0;
-          const serviceDuration = bookingData.defaultDuration || 1;
-          const serviceWorkers = bookingData.defaultWorkers || 1;
-          
-          const heuresSupp = Math.max(0, bookingData.duration - serviceDuration);
-          const prixHeuresSupp = heuresSupp * (basePrice / serviceDuration);
-          
-          const travailleursSupp = Math.max(0, bookingData.workers - serviceWorkers);
-          const prixTravailleursSupp = travailleursSupp * 50 * bookingData.duration;
-          
-          const serverCalculatedPrice = basePrice + prixHeuresSupp + prixTravailleursSupp;
-          
-          // Logguer les calculs pour debugging
-          console.log('💲 CTRL - Calcul manuel du prix:', {
-            basePrice,
-            heuresSupp,
-            prixHeuresSupp,
-            travailleursSupp,
-            prixTravailleursSupp,
-            total: serverCalculatedPrice
-          });
-          
-          // Compare avec le prix envoyé par le client
-          if (Math.abs(bookingData.calculatedPrice - serverCalculatedPrice) > 1) {
-            console.warn('⚠️ CTRL - Différence de prix détectée!', {
-              prixClient: bookingData.calculatedPrice,
-              prixServeur: serverCalculatedPrice,
-              différence: serverCalculatedPrice - bookingData.calculatedPrice
-            });
-            
-            // Remplacer par le prix serveur
-            bookingData.calculatedPrice = serverCalculatedPrice;
-            console.log('✅ CTRL - Prix recalculé appliqué:', serverCalculatedPrice);
+      try {
+        const booking = await this.bookingService.getBookingById(id);
+        
+        return {
+          success: true,
+          data: {
+            id: booking.getId(),
+            type: booking.getType(),
+            status: booking.getStatus(),
+            customer: {
+              id: booking.getCustomer().getId(),
+              firstName: booking.getCustomer().getContactInfo().getFirstName(),
+              lastName: booking.getCustomer().getContactInfo().getLastName(),
+              email: booking.getCustomer().getEmail(),
+              phone: booking.getCustomer().getContactInfo().getPhone()
+            },
+            totalAmount: booking.getTotalAmount().getAmount(),
+            createdAt: booking.getCreatedAt(),
+            updatedAt: booking.getUpdatedAt()
           }
-        } catch (error) {
-          console.error('❌ CTRL - Erreur lors de la vérification du prix:', error);
-          // Continue with the client price if calculation fails
-          console.warn('⚠️ CTRL - Conservation du prix client:', bookingData.calculatedPrice);
+        };
+      } catch (error) {
+        if (error instanceof BookingNotFoundError) {
+          return NextResponse.json(
+            { success: false, error: 'Réservation non trouvée' },
+            { status: 404 }
+          );
         }
+        throw error;
       }
+    });
+  }
+
+  /**
+   * PUT /api/bookings/{id} - Met à jour une réservation
+   */
+  async updateBooking(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async (data) => {
+      const { id } = params;
+      logger.info('🔄 Mise à jour d\'une réservation', { id, data });
       
-      let result;
-      
-      // Si des informations client sont fournies, utiliser le flux createReservation (deux étapes en une)
-      if (bookingData.customer) {
-        console.log('ℹ️ CTRL - Données client reçues - Utilisation du flux recommandé createReservation');
+      try {
+        const booking = await this.bookingService.updateBooking(id, data);
         
-        // Extraire les données client et du devis
-        const { customer, ...quoteData } = bookingData;
-        
-        // Utiliser la méthode recommandée qui crée une demande puis la finalise
-        result = await this.bookingService.createReservation(quoteData, customer);
-        
-        if (result.booking) {
-          console.log('✅ CTRL - Réservation créée avec le flux recommandé, ID:', result.booking.getId());
-          
-          // Construire la réponse pour une réservation complète
-          const response = this.buildBookingResponse(result.booking);
-          return res.status(201).json(response);
-        } else {
-          console.log('✅ CTRL - Processus de réservation initié, ID de demande:', result.quoteRequestId);
-          
-          // Retourner les informations de processus de réservation
-          return res.status(201).json({
-            message: "Processus de réservation initié avec succès",
-            quoteRequestId: result.quoteRequestId,
-            paymentSession: result.paymentSession,
-            paymentCompleted: result.paymentCompleted
-          });
+        return {
+          success: true,
+          data: {
+            id: booking.getId(),
+            type: booking.getType(),
+            status: booking.getStatus(),
+            customer: {
+              id: booking.getCustomer().getId(),
+              firstName: booking.getCustomer().getContactInfo().getFirstName(),
+              lastName: booking.getCustomer().getContactInfo().getLastName(),
+              email: booking.getCustomer().getEmail()
+            },
+            totalAmount: booking.getTotalAmount().getAmount(),
+            updatedAt: booking.getUpdatedAt()
+          }
+        };
+      } catch (error) {
+        if (error instanceof BookingNotFoundError) {
+          return NextResponse.json(
+            { success: false, error: 'Réservation non trouvée' },
+            { status: 404 }
+          );
         }
-      } else {
-        console.log('ℹ️ CTRL - Aucune donnée client fournie - création d\'une demande de devis temporaire');
+        if (error instanceof BookingUpdateNotAllowedError) {
+          return NextResponse.json(
+            { success: false, error: 'Modification non autorisée pour cette réservation' },
+            { status: 422 }
+          );
+        }
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * DELETE /api/bookings/{id} - Supprime une réservation
+   */
+  async deleteBooking(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async () => {
+      const { id } = params;
+      logger.info('🗑️ Suppression d\'une réservation', { id });
+      
+      try {
+        await this.bookingService.deleteBooking(id);
         
-        // Créer une demande de devis temporaire en utilisant createQuoteRequest
-        const quoteRequest = await this.bookingService.createQuoteRequest(bookingData);
+        return {
+          success: true,
+          message: 'Réservation supprimée avec succès'
+        };
+      } catch (error) {
+        if (error instanceof BookingNotFoundError) {
+          return NextResponse.json(
+            { success: false, error: 'Réservation non trouvée' },
+            { status: 404 }
+          );
+        }
+        if (error instanceof BookingDeletionNotAllowedError) {
+          return NextResponse.json(
+            { success: false, error: 'Suppression non autorisée pour cette réservation' },
+            { status: 422 }
+          );
+        }
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * POST /api/bookings/{id}/cancel - Annule une réservation
+   */
+  async cancelBooking(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async (data) => {
+      const { id } = params;
+      const { reason } = data || {};
+      logger.info('🚫 Annulation d\'une réservation', { id, reason });
+      
+      try {
+        await this.bookingService.cancelBooking(id, reason);
         
-        console.log('✅ CTRL - Demande de devis temporaire créée, ID:', quoteRequest.getId());
+        return {
+          success: true,
+          message: 'Réservation annulée avec succès',
+          cancelledAt: new Date().toISOString()
+        };
+      } catch (error) {
+        if (error instanceof BookingNotFoundError) {
+          return NextResponse.json(
+            { success: false, error: 'Réservation non trouvée' },
+            { status: 404 }
+          );
+        }
+        if (error instanceof BookingAlreadyCancelledError) {
+          return NextResponse.json(
+            { success: false, error: 'Cette réservation est déjà annulée' },
+            { status: 422 }
+          );
+        }
+        if (error instanceof BookingCannotBeCancelledError) {
+          return NextResponse.json(
+            { success: false, error: 'Cette réservation ne peut plus être annulée' },
+            { status: 422 }
+          );
+        }
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * GET /api/bookings/customer/{customerId} - Réservations d'un client
+   */
+  async getBookingsByCustomer(request: NextRequest, { params }: { params: { customerId: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async () => {
+      const { customerId } = params;
+      logger.info('📋 Récupération des réservations d\'un client', { customerId });
+      
+      const bookings = await this.bookingService.getBookingsByCustomer(customerId);
+      
+      return {
+        success: true,
+        data: {
+          customerId,
+          count: bookings.length,
+          bookings: bookings.map(booking => ({
+            id: booking.getId(),
+            type: booking.getType(),
+            status: booking.getStatus(),
+            totalAmount: booking.getTotalAmount().getAmount(),
+            createdAt: booking.getCreatedAt(),
+            updatedAt: booking.getUpdatedAt()
+          }))
+        }
+      };
+    });
+  }
+
+  /**
+   * GET /api/bookings/professional/{professionalId} - Réservations d'un professionnel
+   */
+  async getBookingsByProfessional(request: NextRequest, { params }: { params: { professionalId: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async () => {
+      const { professionalId } = params;
+      logger.info('📋 Récupération des réservations d\'un professionnel', { professionalId });
+      
+      const bookings = await this.bookingService.getBookingsByProfessional(professionalId);
+      
+      return {
+        success: true,
+        data: {
+          professionalId,
+          count: bookings.length,
+          bookings: bookings.map(booking => ({
+            id: booking.getId(),
+            type: booking.getType(),
+            status: booking.getStatus(),
+            customer: {
+              id: booking.getCustomer().getId(),
+              firstName: booking.getCustomer().getContactInfo().getFirstName(),
+              lastName: booking.getCustomer().getContactInfo().getLastName()
+            },
+            totalAmount: booking.getTotalAmount().getAmount(),
+            createdAt: booking.getCreatedAt()
+          }))
+        }
+      };
+    });
+  }
+
+  /**
+   * GET /api/bookings/stats/customer/{customerId} - Statistiques client
+   */
+  async getCustomerBookingStats(request: NextRequest, { params }: { params: { customerId: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async () => {
+      const { customerId } = params;
+      logger.info('📊 Récupération des statistiques client', { customerId });
+      
+      const stats = await this.bookingService.getCustomerBookingStats(customerId);
+      
+      return {
+        success: true,
+        data: {
+          customerId,
+          stats
+        }
+      };
+    });
+  }
+
+  /**
+   * GET /api/bookings/stats/professional/{professionalId} - Statistiques professionnel
+   */
+  async getProfessionalBookingStats(request: NextRequest, { params }: { params: { professionalId: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async () => {
+      const { professionalId } = params;
+      logger.info('📊 Récupération des statistiques professionnel', { professionalId });
+      
+      const stats = await this.bookingService.getProfessionalBookingStats(professionalId);
+      
+      return {
+        success: true,
+        data: {
+          professionalId,
+          stats
+        }
+      };
+    });
+  }
+
+  /**
+   * GET /api/bookings/count - Compte le nombre de réservations
+   */
+  async countBookings(request: NextRequest): Promise<NextResponse> {
+    return this.handleRequest(request, async () => {
+      const { searchParams } = new URL(request.url);
+      
+      let criteria: BookingSearchCriteria | undefined;
+      if (searchParams.has('status') || searchParams.has('type') || searchParams.has('customerId')) {
+        criteria = {
+          status: searchParams.get('status') as BookingStatus || undefined,
+          type: searchParams.get('type') as BookingType || undefined,
+          customerId: searchParams.get('customerId') || undefined
+        };
+      }
+      
+      const count = await this.bookingService.countBookings(criteria);
+      
+      return {
+        success: true,
+        data: {
+          count,
+          criteria: criteria || 'all'
+        }
+      };
+    });
+  }
+
+  /**
+   * POST /api/bookings/{id}/services - Ajouter un service à une réservation
+   */
+  async addServiceToBooking(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async (data) => {
+      const { id } = params;
+      logger.info(`🔧 Ajout de service à la réservation ${id}`, data);
+      
+      try {
+        const booking = await this.bookingService.getBookingById(id);
         
-        // Préparer une réponse spéciale pour une demande de devis
-        return res.status(201).json({
-          message: "Demande de devis créée avec succès. Utilisez finalizeBooking pour compléter la réservation avec les données client.",
-          quoteRequestId: quoteRequest.getId(),
-          expiresAt: quoteRequest.getExpiresAt(),
-          status: quoteRequest.getStatus()
-        });
+        // Valider les données du service
+        const { serviceId, serviceName, servicePrice, serviceData } = data;
+        if (!serviceId || !serviceName || !servicePrice) {
+          return NextResponse.json(
+            { success: false, error: 'serviceId, serviceName et servicePrice sont requis' },
+            { status: 400 }
+          );
+        }
+
+        // Logique d'ajout de service (à implémenter dans BookingService)
+        const serviceRecord = {
+          id: `service-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          bookingId: id,
+          serviceId,
+          serviceName,
+          servicePrice,
+          serviceData: serviceData || {},
+          createdAt: new Date().toISOString()
+        };
+
+        // Mettre à jour le montant total de la réservation
+        const currentAmount = booking.getTotalAmount().getAmount();
+        const newAmount = currentAmount + servicePrice;
+        await this.bookingService.updateBooking(id, { totalAmount: newAmount });
+
+        return {
+          success: true,
+          data: {
+            service: serviceRecord,
+            booking: {
+              id: booking.getId(),
+              totalAmount: newAmount,
+              status: booking.getStatus()
+            },
+            message: 'Service ajouté avec succès'
+          }
+        };
+      } catch (error) {
+        if (error instanceof BookingNotFoundError) {
+          return NextResponse.json(
+            { success: false, error: 'Réservation non trouvée' },
+            { status: 404 }
+          );
+        }
+        throw error;
       }
-    } catch (error) {
-      console.error('❌ CTRL - Erreur complète lors de la création de la réservation:', error);
-      return res.status(500).json({ 
-        message: `Erreur lors de la création de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
+    });
   }
 
   /**
-   * Crée une réservation en une seule étape (méthode de commodité)
-   * @description Cette méthode crée une réservation complète en une seule étape en combinant
-   * la création d'une demande de devis et sa finalisation. Elle applique le flux recommandé
-   * en utilisant la méthode createReservation en interne.
+   * GET /api/bookings/{id}/services - Récupérer les services d'une réservation
    */
-  async createOneStepBooking(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      const { quoteData, customerData } = req.body;
+  async getBookingServices(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
+    return this.handleRequest(request, async () => {
+      const { id } = params;
+      logger.info(`🔍 Récupération des services pour la réservation ${id}`);
       
-      if (!quoteData || !customerData) {
-        return res.status(400).json({
-          message: "Les données du devis (quoteData) et du client (customerData) sont requises"
-        });
-      }
-      
-      // Utiliser la méthode createReservation qui implémente le flux recommandé
-      const booking = await this.bookingService.createReservation(quoteData, customerData);
-      
-      // Construire la réponse
-      const response = this.buildBookingResponse(booking);
-      
-      return res.status(201).json(response);
-    } catch (error) {
-      console.error('Erreur lors de la création de la réservation en une étape:', error);
-      return res.status(500).json({ 
-        message: `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
-  }
+      try {
+        const booking = await this.bookingService.getBookingById(id);
+        
+        // Pour l'instant, retourner les services stockés dans additionalInfo
+        // En production, il faudrait une table services séparée
+        const services = []; // À implémenter selon le schéma DB
 
-  /**
-   * Récupérer plusieurs réservations avec filtres
-   */
-  async getBookings(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      const { customerId, professionalId, status, type } = req.query;
-      
-      let bookings;
-      
-      // Filtrer selon les paramètres fournis
-      if (customerId) {
-        bookings = await this.bookingService.findBookingsByCustomer(customerId as string);
-      } else if (professionalId) {
-        bookings = await this.bookingService.findBookingsByProfessional(professionalId as string);
-      } else if (status) {
-        bookings = await this.bookingService.findBookingsByStatus(status as BookingStatus);
-      } else if (type) {
-        bookings = await this.bookingService.findBookingsByType(type as BookingType);
-      } else {
-        // Par défaut, retourne les réservations confirmées
-        bookings = await this.bookingService.findBookingsByStatus(BookingStatus.CONFIRMED);
+        return {
+          success: true,
+          data: {
+            bookingId: id,
+            services,
+            totalServices: services.length,
+            message: 'Services récupérés avec succès'
+          }
+        };
+      } catch (error) {
+        if (error instanceof BookingNotFoundError) {
+          return NextResponse.json(
+            { success: false, error: 'Réservation non trouvée' },
+            { status: 404 }
+          );
+        }
+        throw error;
       }
-      
-      if (!bookings || bookings.length === 0) {
-        return res.status(404).json({ message: 'Aucune réservation trouvée' });
-      }
-      
-      // Pour chaque réservation, récupérer les détails et sérialiser
-      const bookingsWithDetails = await Promise.all(
-        bookings.map(async (booking) => {
-          const { details } = await this.bookingService.getBookingById(booking.getId());
-          return this.buildBookingResponse(booking, details);
-        })
-      );
-      
-      return res.status(200).json(bookingsWithDetails);
-    } catch (error) {
-      console.error('Erreur lors de la récupération des réservations:', error);
-      return res.status(500).json({ 
-        message: `Erreur lors de la récupération des réservations: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
-  }
-
-  /**
-   * Récupérer une réservation par ID
-   */
-  async getBookingById(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      const { id } = req.params;
-      
-      // Récupérer la réservation avec ses détails
-      const { booking, details } = await this.bookingService.getBookingById(id);
-      
-      // Construire la réponse
-      const response = this.buildBookingResponse(booking, details);
-      
-      return res.status(200).json(response);
-    } catch (error) {
-      console.error(`Erreur lors de la récupération de la réservation ${req.params.id}:`, error);
-      
-      if ((error as Error).message.includes('non trouvée')) {
-        return res.status(404).json({ message: `Réservation ${req.params.id} non trouvée` });
-      }
-      
-      return res.status(500).json({ 
-        message: `Erreur lors de la récupération de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
-  }
-
-  /**
-   * Mettre à jour une réservation
-   */
-  async updateBooking(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      const { id } = req.params;
-      const bookingData = req.body;
-      
-      // Mettre à jour la réservation
-      const booking = await this.bookingService.updateBooking(id, bookingData);
-      
-      // Construire la réponse
-      const response = this.buildBookingResponse(booking);
-      
-      return res.status(200).json(response);
-    } catch (error) {
-      console.error(`Erreur lors de la mise à jour de la réservation ${req.params.id}:`, error);
-      
-      if ((error as Error).message.includes('non trouvée')) {
-        return res.status(404).json({ message: `Réservation ${req.params.id} non trouvée` });
-      }
-      
-      return res.status(500).json({ 
-        message: `Erreur lors de la mise à jour de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
-  }
-
-  /**
-   * Supprimer une réservation (marquer comme annulée)
-   */
-  async deleteBooking(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      const { id } = req.params;
-      
-      // Supprimer la réservation
-      await this.bookingService.deleteBooking(id);
-      
-      return res.status(204).send();
-    } catch (error) {
-      console.error(`Erreur lors de la suppression de la réservation ${req.params.id}:`, error);
-      
-      if ((error as Error).message.includes('non trouvée')) {
-        return res.status(404).json({ message: `Réservation ${req.params.id} non trouvée` });
-      }
-      
-      return res.status(500).json({ 
-        message: `Erreur lors de la suppression de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
-  }
-
-  /**
-   * Mettre à jour le statut d'une réservation
-   */
-  async updateBookingStatus(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
-      
-      // Valider le statut
-      if (!Object.values(BookingStatus).includes(status)) {
-        return res.status(400).json({ message: `Statut invalide: ${status}` });
-      }
-      
-      // Mettre à jour le statut
-      const booking = await this.bookingService.updateBooking(id, { status });
-      
-      // Construire la réponse
-      const response = this.buildBookingResponse(booking);
-      
-      return res.status(200).json(response);
-    } catch (error) {
-      console.error(`Erreur lors de la mise à jour du statut de la réservation ${req.params.id}:`, error);
-      
-      if ((error as Error).message.includes('non trouvée')) {
-        return res.status(404).json({ message: `Réservation ${req.params.id} non trouvée` });
-      }
-      
-      return res.status(500).json({ 
-        message: `Erreur lors de la mise à jour du statut: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-      });
-    }
-  }
-
-  /**
-   * Construire la réponse pour une réservation
-   */
-  private buildBookingResponse(booking: any, details?: any): BookingResponseDTO {
-    return {
-      id: booking.getId(),
-      type: booking.getType(),
-      status: booking.getStatus(),
-      customer: {
-        id: booking.getCustomer().getId(),
-        firstName: booking.getCustomer().getFirstName(),
-        lastName: booking.getCustomer().getLastName(),
-        email: booking.getCustomer().getEmail(),
-        phone: booking.getCustomer().getPhone()
-      },
-      totalAmount: booking.getTotalAmount().getAmount(),
-      createdAt: booking.getCreatedAt(),
-      updatedAt: booking.getUpdatedAt(),
-      details: details ? {
-        ...details,
-        // Ajout d'informations spécifiques selon le type
-      } : undefined
-    };
+    });
   }
 } 

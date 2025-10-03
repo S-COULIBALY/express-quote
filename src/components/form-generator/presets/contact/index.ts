@@ -1,4 +1,7 @@
 import { PresetConfig, FormSummaryConfig } from "../../types";
+import { mergeWithGlobalPreset } from "../_shared/globalPreset";
+import { contactFields, commentsField } from "../_shared/sharedFields";
+import { emailValidation, phoneValidation } from "../_shared/sharedValidation";
 
 // 📝 Valeurs par défaut pour les formulaires de contact
 export const contactDefaultValues = {
@@ -16,6 +19,95 @@ export const contactDefaultValues = {
 
 // 🎨 Styles CSS maintenant intégrés dans globals.css
 export const contactStyles = ""; // Styles déplacés vers globals.css pour éviter les conflits
+
+// 📋 Champs contact avec nouveaux champs partagés
+export const contactSharedFields = [
+  // Informations personnelles
+  {
+    name: 'firstName',
+    label: 'Prénom',
+    type: 'text' as const,
+    required: true,
+    placeholder: 'Votre prénom'
+  },
+  {
+    name: 'lastName',
+    label: 'Nom',
+    type: 'text' as const,
+    required: true,
+    placeholder: 'Votre nom'
+  },
+  
+  // Contact - utilise les champs partagés
+  contactFields.email,
+  contactFields.phone,
+  
+  // Informations complémentaires
+  {
+    name: 'company',
+    label: 'Entreprise (optionnel)',
+    type: 'text' as const,
+    required: false,
+    placeholder: 'Nom de votre entreprise'
+  },
+  {
+    name: 'subject',
+    label: 'Sujet',
+    type: 'select' as const,
+    required: true,
+    options: [
+      { label: 'Demande de devis', value: 'quote' },
+      { label: 'Question générale', value: 'general' },
+      { label: 'Support technique', value: 'support' },
+      { label: 'Réclamation', value: 'complaint' },
+      { label: 'Partenariat', value: 'partnership' },
+      { label: 'Autre', value: 'other' }
+    ]
+  },
+  {
+    name: 'urgency',
+    label: 'Urgence',
+    type: 'radio' as const,
+    options: [
+      { label: 'Faible', value: 'low' },
+      { label: 'Moyenne', value: 'medium' },
+      { label: 'Élevée', value: 'high' }
+    ],
+    defaultValue: 'medium',
+    required: true
+  },
+  {
+    name: 'preferredContact',
+    label: 'Mode de contact préféré',
+    type: 'radio' as const,
+    options: [
+      { label: 'Email', value: 'email' },
+      { label: 'Téléphone', value: 'phone' },
+      { label: 'WhatsApp', value: 'whatsapp' }
+    ],
+    defaultValue: 'email',
+    required: true
+  },
+  
+  // Message - utilise le champ partagé
+  {
+    ...commentsField,
+    name: 'message',
+    label: 'Message',
+    required: true,
+    placeholder: 'Décrivez votre demande en détail...'
+  },
+  
+  // Newsletter
+  {
+    name: 'newsletter',
+    label: 'Je souhaite recevoir la newsletter',
+    type: 'checkbox' as const,
+    options: [
+      { label: 'Oui, tenez-moi informé des nouveautés', value: 'yes' }
+    ]
+  }
+];
 
 // 📋 Configuration du récapitulatif pour les contacts
 export const contactSummaryConfig: FormSummaryConfig = {
@@ -118,12 +210,155 @@ export const contactSummaryConfig: FormSummaryConfig = {
   ]
 };
 
-// 🎯 Configuration complète du preset Contact
+// 🎯 Configuration complète du preset Contact (maintenant hérite du global)
 export const ContactPreset: PresetConfig = {
   form: {
     title: "Nous Contacter",
     description: "Remplissez ce formulaire et nous vous répondrons rapidement",
-    serviceType: "general"
+    serviceType: "general",
+    // 🌍 Hérite du preset global avec customisations spécifiques aux formulaires de contact
+    globalConfig: mergeWithGlobalPreset({
+      appearance: {
+        primaryColor: '#3B82F6',      // Bleu professionnel pour contact
+        secondaryColor: '#1D4ED8',
+        borderRadius: 12              // Coins modérément arrondis pour sérieux
+      },
+      layout: {
+        type: 'single-column',        // Une seule colonne pour simplicité
+        sidebar: false,               // Pas de sidebar pour contact
+        showSteps: false,
+        labelPosition: 'top',
+        mobile: {
+          singleColumn: true,
+          optionDisplay: 'list'       // Liste simple pour les options
+        }
+      },
+      uiElements: {
+        showServiceIcon: false,       // Pas d'icône service pour contact générique
+        stickyHeader: false,          // Header simple pour contact
+        submitButtonStyle: 'filled',  // Bouton rempli pour CTA clair
+        headerAppearance: 'normal',   // Header normal, professionnel
+        showBreadcrumbs: false,       // Pas de breadcrumbs pour contact simple
+        showBackButton: false,        // Pas de bouton retour nécessaire
+        confirmationOnSubmit: true    // Confirmation importante pour contact
+      },
+      interactions: {
+        hoverEffects: true,
+        tapEffects: true,
+        livePreview: false,           // Pas de preview pour contact
+        autosave: false               // Pas d'autosave pour contact
+      },
+      validation: {
+        mode: 'onBlur',
+        showInlineErrors: true,       // Important pour validation email/téléphone
+        highlightInvalidFields: true,
+        errorSummaryAtTop: false      // Erreurs inline suffisantes
+      },
+      accessibility: {
+        keyboardNavigation: true,     // Important pour accessibilité contact
+        focusRing: true,
+        screenReaderSupport: true,
+        ariaLabels: true
+      },
+      metadata: {
+        compatibleWith: 'Formulaires de Contact'
+      }
+    }),
+    // 📋 Sections du formulaire (récupérées de l'exemple)
+    sections: [
+      {
+        title: "👤 Informations personnelles",
+        fields: [
+          {
+            name: "firstName",
+            type: "text",
+            label: "Prénom",
+            required: true
+          },
+          {
+            name: "lastName",
+            type: "text",
+            label: "Nom",
+            required: true
+          },
+          {
+            name: "email",
+            type: "email",
+            label: "Email",
+            required: true
+          },
+          {
+            name: "phone",
+            type: "text",
+            label: "Téléphone"
+          },
+          {
+            name: "company",
+            type: "text",
+            label: "Entreprise"
+          }
+        ]
+      },
+      {
+        title: "💬 Votre demande",
+        fields: [
+          {
+            name: "subject",
+            type: "select",
+            label: "Sujet",
+            required: true,
+            options: [
+              { value: "general", label: "Question générale" },
+              { value: "quote", label: "Demande de devis" },
+              { value: "support", label: "Support technique" },
+              { value: "partnership", label: "Partenariat" },
+              { value: "other", label: "Autre" }
+            ]
+          },
+          {
+            name: "urgency",
+            type: "radio",
+            label: "Niveau d'urgence",
+            options: [
+              { value: "low", label: "Non urgent" },
+              { value: "medium", label: "Modéré" },
+              { value: "high", label: "Urgent" }
+            ]
+          },
+          {
+            name: "message",
+            type: "textarea",
+            label: "Votre message",
+            required: true,
+            columnSpan: 2,
+            componentProps: {
+              rows: 4,
+              placeholder: "Décrivez votre demande en détail..."
+            }
+          }
+        ]
+      },
+      {
+        title: "📧 Préférences de contact",
+        fields: [
+          {
+            name: "preferredContact",
+            type: "select",
+            label: "Moyen de contact préféré",
+            options: [
+              { value: "email", label: "Email" },
+              { value: "phone", label: "Téléphone" },
+              { value: "whatsapp", label: "WhatsApp" }
+            ]
+          },
+          {
+            name: "newsletter",
+            type: "checkbox",
+            label: "Je souhaite recevoir la newsletter"
+          }
+        ]
+      }
+    ]
   },
   defaultValues: contactDefaultValues,
   summary: contactSummaryConfig,
@@ -131,7 +366,7 @@ export const ContactPreset: PresetConfig = {
   meta: {
     industry: "contact",
     name: "Contact",
-    description: "Preset complet pour les formulaires de contact",
-    version: "1.0.0"
+    description: "Preset complet pour les formulaires de contact (hérite du global)",
+    version: "2.0.0"  // Incrémenté pour indiquer la migration
   }
 }; 

@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { container } from 'tsyringe';
 import { WhatsAppConfigService } from '@/quotation/application/services/WhatsAppConfigService';
-import { 
+import {
   WhatsAppConfigDTO,
   DocumentConfigDTO,
   TemplateConfigDTO,
   SessionConfigDTO,
   AnalyticsConfigDTO
 } from '@/quotation/application/dtos/WhatsAppConfigDTO';
-import '../../../../lib/container';
+import '@/quotation/application/container';
 
 // Logger simplifié
 const logger = {

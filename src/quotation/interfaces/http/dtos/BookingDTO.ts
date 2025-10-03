@@ -1,7 +1,6 @@
 import { BookingStatus } from '../../../domain/enums/BookingStatus';
 import { BookingType } from '../../../domain/enums/BookingType';
 import { ServiceType } from '../../../domain/enums/ServiceType';
-import { Pack } from '../../../domain/entities/Pack';
 
 // DTO pour la création d'un client
 export interface CustomerDTO {
@@ -49,32 +48,19 @@ export interface MovingDTO extends BaseBookingDTO {
   items?: any[];
 }
 
-// DTO pour la création d'un pack
-export class PackDTO {
+// DTO pour la création d'un pack (legacy support - replaced by catalog system)
+export interface PackDTO extends BaseBookingDTO {
   id: string;
   bookingId: string;
   name: string;
   description: string;
   price: number;
   includes: string[];
-  scheduledDate: Date;
+  scheduledDate: string;
   pickupAddress: string;
   deliveryAddress: string;
   createdAt?: Date;
   updatedAt?: Date;
-
-  constructor(pack: Pack) {
-    this.id = pack.getId();
-    this.bookingId = pack.getBookingId() || '';
-    this.name = pack.getName();
-    this.description = pack.getDescription();
-    this.price = pack.getPrice().getAmount();
-    this.includes = pack.getIncludes ? pack.getIncludes() : [];
-    this.scheduledDate = new Date(); // Valeur par défaut car non disponible dans l'entité
-    this.pickupAddress = ''; // Valeur par défaut car non disponible dans l'entité
-    this.deliveryAddress = ''; // Valeur par défaut car non disponible dans l'entité
-    // Les propriétés createdAt et updatedAt seront ajoutées si disponibles
-  }
 }
 
 // DTO pour la création d'un service

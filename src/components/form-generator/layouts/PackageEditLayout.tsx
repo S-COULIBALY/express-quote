@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { FormLayoutProps, PackageOption } from "../types";
+import { DefaultValues } from '@/quotation/domain/configuration/DefaultValues';
 
 interface PackageEditLayoutProps extends FormLayoutProps {
   selectedPackage: PackageOption;
@@ -49,12 +50,12 @@ export const PackageEditLayout: React.FC<PackageEditLayoutProps> = ({
     let totalPrice = editablePackage.price;
     
     // Ajouter la logique de calcul selon les champs modifiés
-    if (modifications.packingLevel === 'premium') totalPrice += 50;
-    if (modifications.packingLevel === 'luxury') totalPrice += 120;
-    if (modifications.cleaningService === 'basic') totalPrice += 80;
-    if (modifications.cleaningService === 'deep') totalPrice += 150;
-    if (modifications.timeSlot === 'evening') totalPrice += 30;
-    if (modifications.extraWorkers) totalPrice += (modifications.extraWorkers * 40);
+    if (modifications.packingLevel === 'premium') totalPrice += DefaultValues.PACKAGE_PACKING_PREMIUM_PRICE;
+    if (modifications.packingLevel === 'luxury') totalPrice += DefaultValues.PACKAGE_PACKING_LUXURY_PRICE;
+    if (modifications.cleaningService === 'basic') totalPrice += DefaultValues.PACKAGE_CLEANING_BASIC_PRICE;
+    if (modifications.cleaningService === 'deep') totalPrice += DefaultValues.PACKAGE_CLEANING_DEEP_PRICE;
+    if (modifications.timeSlot === 'evening') totalPrice += DefaultValues.PACKAGE_EVENING_TIMESLOT_PRICE;
+    if (modifications.extraWorkers) totalPrice += (modifications.extraWorkers * DefaultValues.PACKAGE_EXTRA_WORKER_PRICE);
     
     return totalPrice;
   };

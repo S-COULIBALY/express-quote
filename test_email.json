@@ -1,0 +1,5 @@
+{
+  "to": "s.coulibaly@outlook.com",
+  "subject": "Test API Notifications - Nouveau systeme",
+  "text": "Le nouveau systeme de notifications sans InversifyJS fonctionne parfaitement. API simplifiee avec templates React Email et queue BullMQ/Redis."
+}

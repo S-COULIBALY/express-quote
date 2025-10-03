@@ -111,6 +111,7 @@ export interface SidebarLayoutOptions {
   showConstraintsByAddress?: boolean;
   showModificationsSummary?: boolean;
   initialPrice?: number;
+  externalCalculatedPrice?: number; // ✅ Ajouter le prix calculé externe
   onPriceCalculated?: (price: number) => void;
   priceModifications?: Array<{
     label: string;
@@ -185,4 +186,4 @@ export interface PackageEditLayoutOptions {
 }
 
 // Type pour les presets d'industrie
-export type IndustryPreset = "moving" | "pack" | "service" | "contact" | "default"; 
+export type IndustryPreset = "moving" | "cleaning" | "catalogueMovingItem" | "catalogueCleaningItem" | "catalogueDeliveryItem" | "contact" | "default" | "demenagement-sur-mesure" | "menage-sur-mesure"; 

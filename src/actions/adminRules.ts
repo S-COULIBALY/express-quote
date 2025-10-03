@@ -1,14 +1,16 @@
 'use server'
 
 import { ServiceType } from '@/quotation/domain/enums/ServiceType';
-import { 
-  ConfigurationCategory, 
-  BusinessRulesConfigKey, 
-  LimitsConfigKey, 
-  ServiceParamsConfigKey 
+import {
+  BusinessRulesConfigKey,
+  LimitsConfigKey,
+  ServiceParamsConfigKey
 } from '@/quotation/domain/configuration/ConfigurationKey';
-import { ConfigurationRepository } from '@/quotation/infrastructure/repositories/ConfigurationRepository';
-import { Configuration } from '@/quotation/domain/configuration/Configuration';
+// Ancienne imports désormais inutiles - migration vers UnifiedDataService
+// import { ConfigurationRepository } from '@/quotation/infrastructure/repositories/ConfigurationRepository';
+// import { Configuration } from '@/quotation/domain/configuration/Configuration';
+import { UnifiedDataService, ConfigurationCategory as UnifiedConfigCategory } from '@/quotation/infrastructure/services/UnifiedDataService';
+import { logger } from '@/lib/logger';
 
 /**
  * Interface pour les règles métier
@@ -90,10 +92,12 @@ export interface ServiceParamsConfig {
  * Récupère les règles métier actuelles
  */
 export async function getBusinessRulesConfig(): Promise<BusinessRulesConfig> {
-  const configRepository = ConfigurationRepository.getInstance();
-  const configService = configRepository.getConfigurationService();
-  
-  // Dans une implémentation réelle, ces valeurs viendraient de la configuration
+  logger.info('🔍 [ADMIN-RULES] Récupération des règles métier...');
+  logger.info('🔍 [ADMIN-RULES] Origine: adminRules.getBusinessRulesConfig via UnifiedDataService');
+
+  const unifiedService = UnifiedDataService.getInstance();
+
+  // Récupération depuis le système unifié avec fallback
   return {
     // Règles de réservation
     minAdvanceBookingHours: '24',
@@ -109,57 +113,57 @@ export async function getBusinessRulesConfig(): Promise<BusinessRulesConfig> {
     maxServiceDuration: '8',
     bufferBetweenBookings: '1',
     
-    // Règles par type de service
-    movingEarlyBookingDays: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.MOVING_EARLY_BOOKING_DAYS, 
+    // Règles par type de service - récupération depuis UnifiedDataService
+    movingEarlyBookingDays: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.MOVING_EARLY_BOOKING_DAYS,
       '30'
     ),
-    movingEarlyBookingDiscount: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.MOVING_EARLY_BOOKING_DISCOUNT, 
+    movingEarlyBookingDiscount: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.MOVING_EARLY_BOOKING_DISCOUNT,
       '10'
     ),
-    movingWeekendSurcharge: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.MOVING_WEEKEND_SURCHARGE, 
+    movingWeekendSurcharge: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.MOVING_WEEKEND_SURCHARGE,
       '15'
     ),
-    
-    serviceEarlyBookingDays: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.SERVICE_EARLY_BOOKING_DAYS, 
+
+    serviceEarlyBookingDays: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.SERVICE_EARLY_BOOKING_DAYS,
       '14'
     ),
-    serviceEarlyBookingDiscount: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.SERVICE_EARLY_BOOKING_DISCOUNT, 
+    serviceEarlyBookingDiscount: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.SERVICE_EARLY_BOOKING_DISCOUNT,
       '5'
     ),
-    serviceWeekendSurcharge: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.SERVICE_WEEKEND_SURCHARGE, 
+    serviceWeekendSurcharge: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.SERVICE_WEEKEND_SURCHARGE,
       '10'
     ),
-    
-    packEarlyBookingDays: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.PACK_EARLY_BOOKING_DAYS, 
+
+    packEarlyBookingDays: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.PACK_EARLY_BOOKING_DAYS,
       '14'
     ),
-    packEarlyBookingDiscount: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.PACK_EARLY_BOOKING_DISCOUNT, 
+    packEarlyBookingDiscount: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.PACK_EARLY_BOOKING_DISCOUNT,
       '5'
     ),
-    packWeekendSurcharge: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.PACK_WEEKEND_SURCHARGE, 
+    packWeekendSurcharge: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.PACK_WEEKEND_SURCHARGE,
       '10'
     ),
-    packUrgentBookingSurcharge: configService.getStringValue(
-      ConfigurationCategory.BUSINESS_RULES, 
-      BusinessRulesConfigKey.PACK_URGENT_BOOKING_SURCHARGE, 
+    packUrgentBookingSurcharge: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.BUSINESS_RULES,
+      BusinessRulesConfigKey.PACK_URGENT_BOOKING_SURCHARGE,
       '20'
     ),
   };
@@ -169,10 +173,12 @@ export async function getBusinessRulesConfig(): Promise<BusinessRulesConfig> {
  * Récupère les limites actuelles
  */
 export async function getLimitsConfig(): Promise<LimitsConfig> {
-  const configRepository = ConfigurationRepository.getInstance();
-  const configService = configRepository.getConfigurationService();
-  
-  // Dans une implémentation réelle, ces valeurs viendraient de la configuration
+  logger.info('🔍 [ADMIN-RULES] Récupération des limites...');
+  logger.info('🔍 [ADMIN-RULES] Origine: adminRules.getLimitsConfig via UnifiedDataService');
+
+  const unifiedService = UnifiedDataService.getInstance();
+
+  // Récupération depuis le système unifié avec fallback
   return {
     // Limites de réservation
     maxActiveBookingsPerUser: '5',
@@ -188,25 +194,25 @@ export async function getLimitsConfig(): Promise<LimitsConfig> {
     maxServiceDistance: '50',
     maxPackDistance: '100',
     
-    // Limites générales
-    minBookingHours: configService.getStringValue(
-      ConfigurationCategory.LIMITS, 
-      LimitsConfigKey.MIN_BOOKING_HOURS, 
+    // Limites générales - récupération depuis UnifiedDataService
+    minBookingHours: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.LIMITS,
+      LimitsConfigKey.MIN_BOOKING_HOURS,
       '24'
     ),
-    maxBookingDaysAhead: configService.getStringValue(
-      ConfigurationCategory.LIMITS, 
-      LimitsConfigKey.MAX_BOOKING_DAYS_AHEAD, 
+    maxBookingDaysAhead: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.LIMITS,
+      LimitsConfigKey.MAX_BOOKING_DAYS_AHEAD,
       '90'
     ),
-    minWorkers: configService.getStringValue(
-      ConfigurationCategory.LIMITS, 
-      LimitsConfigKey.MIN_WORKERS, 
+    minWorkers: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.LIMITS,
+      LimitsConfigKey.MIN_WORKERS,
       '1'
     ),
-    maxWorkers: configService.getStringValue(
-      ConfigurationCategory.LIMITS, 
-      LimitsConfigKey.MAX_WORKERS, 
+    maxWorkers: await unifiedService.getConfigurationValue(
+      UnifiedConfigCategory.LIMITS,
+      LimitsConfigKey.MAX_WORKERS,
       '10'
     ),
   };
@@ -216,78 +222,60 @@ export async function getLimitsConfig(): Promise<LimitsConfig> {
  * Récupère les paramètres de service actuels
  */
 export async function getServiceParamsConfig(): Promise<ServiceParamsConfig> {
-  const configRepository = ConfigurationRepository.getInstance();
-  const configService = configRepository.getConfigurationService();
-  
-  const availableServiceTypes = configService.getConfiguration(
-    ConfigurationCategory.SERVICE_PARAMS,
-    ServiceParamsConfigKey.AVAILABLE_SERVICE_TYPES
-  );
-  
-  const enabledServiceTypes = availableServiceTypes ? 
-    availableServiceTypes.value : 
+  logger.info('🔍 [ADMIN-RULES] Récupération des paramètres de service...');
+  logger.info('🔍 [ADMIN-RULES] Origine: adminRules.getServiceParamsConfig via UnifiedDataService');
+
+  const unifiedService = UnifiedDataService.getInstance();
+
+  // Récupération depuis le système unifié avec fallback
+  const enabledServiceTypes = await unifiedService.getConfigurationValue(
+    UnifiedConfigCategory.SERVICE_PARAMS,
+    ServiceParamsConfigKey.AVAILABLE_SERVICE_TYPES,
     [
       ServiceType.MOVING,
       ServiceType.CLEANING,
       ServiceType.PACKING,
       ServiceType.DELIVERY
-    ];
-  
-  const availablePackTypes = configService.getConfiguration(
-    ConfigurationCategory.SERVICE_PARAMS,
-    ServiceParamsConfigKey.AVAILABLE_PACK_TYPES
+    ]
   );
-  
-  const enabledPackTypes = availablePackTypes ? 
-    availablePackTypes.value : 
-    ['basic', 'standard', 'premium'];
-  
+
+  const enabledPackTypes = await unifiedService.getConfigurationValue(
+    UnifiedConfigCategory.SERVICE_PARAMS,
+    ServiceParamsConfigKey.AVAILABLE_PACK_TYPES,
+    ['basic', 'standard', 'premium']
+  );
+
   // Récupérer les paramètres de disponibilité
-  const workingHoursStartConfig = configService.getConfiguration(
-    ConfigurationCategory.SERVICE_PARAMS,
-    ServiceParamsConfigKey.WORKING_HOURS_START
+  const workingHoursStart = await unifiedService.getConfigurationValue(
+    UnifiedConfigCategory.SERVICE_PARAMS,
+    ServiceParamsConfigKey.WORKING_HOURS_START,
+    '8:00'
   );
-  
-  const workingHoursStart = workingHoursStartConfig ?
-    workingHoursStartConfig.value : 
-    '8:00';
-  
-  const workingHoursEndConfig = configService.getConfiguration(
-    ConfigurationCategory.SERVICE_PARAMS,
-    ServiceParamsConfigKey.WORKING_HOURS_END
+
+  const workingHoursEnd = await unifiedService.getConfigurationValue(
+    UnifiedConfigCategory.SERVICE_PARAMS,
+    ServiceParamsConfigKey.WORKING_HOURS_END,
+    '18:00'
   );
-  
-  const workingHoursEnd = workingHoursEndConfig ?
-    workingHoursEndConfig.value : 
-    '18:00';
-  
-  const workingDaysConfig = configService.getConfiguration(
-    ConfigurationCategory.SERVICE_PARAMS,
-    ServiceParamsConfigKey.WORKING_DAYS
+
+  const workingDays = await unifiedService.getConfigurationValue(
+    UnifiedConfigCategory.SERVICE_PARAMS,
+    ServiceParamsConfigKey.WORKING_DAYS,
+    ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
   );
-  
-  const workingDays = workingDaysConfig ?
-    workingDaysConfig.value : 
-    ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  
+
   // Récupérer les paramètres de trajet
-  const defaultTravelSpeedConfig = configService.getConfiguration(
-    ConfigurationCategory.SERVICE_PARAMS,
-    ServiceParamsConfigKey.DEFAULT_TRAVEL_SPEED
+  const defaultTravelSpeed = await unifiedService.getConfigurationValue(
+    UnifiedConfigCategory.SERVICE_PARAMS,
+    ServiceParamsConfigKey.DEFAULT_TRAVEL_SPEED,
+    '30'
   );
-  
-  const defaultTravelSpeed = defaultTravelSpeedConfig ?
-    defaultTravelSpeedConfig.value : 
-    '30';
-  
-  const workerSetupTimeConfig = configService.getConfiguration(
-    ConfigurationCategory.SERVICE_PARAMS,
-    ServiceParamsConfigKey.WORKER_SETUP_TIME
+
+  const workerSetupTime = await unifiedService.getConfigurationValue(
+    UnifiedConfigCategory.SERVICE_PARAMS,
+    ServiceParamsConfigKey.WORKER_SETUP_TIME,
+    '15'
   );
-  
-  const workerSetupTime = workerSetupTimeConfig ?
-    workerSetupTimeConfig.value : 
-    '15';
   
   return {
     // Types de service
@@ -306,105 +294,91 @@ export async function getServiceParamsConfig(): Promise<ServiceParamsConfig> {
 }
 
 /**
- * Sauvegarde les règles métier
+ * Sauvegarde les règles métier avec vraie persistance BDD
  */
 export async function saveBusinessRulesConfig(config: BusinessRulesConfig): Promise<{ success: boolean, message: string }> {
   try {
-    const configRepository = ConfigurationRepository.getInstance();
+    logger.info('🔧 [ADMIN-RULES] Sauvegarde des règles métier en cours...');
+    logger.info('🔍 [ADMIN-RULES] Origine: adminRules.saveBusinessRulesConfig via UnifiedDataService');
+    const unifiedService = UnifiedDataService.getInstance();
     
-    // Enregistrer les règles métier pour les types de service
+    // Enregistrer toutes les règles métier en BDD avec rafraîchissement automatique
+    await Promise.all([
     // Moving rules
-    const movingEarlyBookingDaysConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.MOVING_EARLY_BOOKING_DAYS,
       config.movingEarlyBookingDays,
       'Jours pour réduction de réservation anticipée (déménagement)'
-    );
-    configRepository.saveConfiguration(movingEarlyBookingDaysConfig);
-    
-    const movingEarlyBookingDiscountConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.MOVING_EARLY_BOOKING_DISCOUNT,
       config.movingEarlyBookingDiscount,
       'Pourcentage de réduction pour réservation anticipée (déménagement)'
-    );
-    configRepository.saveConfiguration(movingEarlyBookingDiscountConfig);
-    
-    const movingWeekendSurchargeConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.MOVING_WEEKEND_SURCHARGE,
       config.movingWeekendSurcharge,
       'Supplément pour déménagement en week-end'
-    );
-    configRepository.saveConfiguration(movingWeekendSurchargeConfig);
+      ),
     
     // Service rules
-    const serviceEarlyBookingDaysConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.SERVICE_EARLY_BOOKING_DAYS,
       config.serviceEarlyBookingDays,
       'Jours pour réduction de réservation anticipée (service)'
-    );
-    configRepository.saveConfiguration(serviceEarlyBookingDaysConfig);
-    
-    const serviceEarlyBookingDiscountConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.SERVICE_EARLY_BOOKING_DISCOUNT,
       config.serviceEarlyBookingDiscount,
       'Pourcentage de réduction pour réservation anticipée (service)'
-    );
-    configRepository.saveConfiguration(serviceEarlyBookingDiscountConfig);
-    
-    const serviceWeekendSurchargeConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.SERVICE_WEEKEND_SURCHARGE,
       config.serviceWeekendSurcharge,
       'Supplément pour service en week-end'
-    );
-    configRepository.saveConfiguration(serviceWeekendSurchargeConfig);
+      ),
     
     // Pack rules
-    const packEarlyBookingDaysConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.PACK_EARLY_BOOKING_DAYS,
       config.packEarlyBookingDays,
       'Jours pour réduction de réservation anticipée (pack)'
-    );
-    configRepository.saveConfiguration(packEarlyBookingDaysConfig);
-    
-    const packEarlyBookingDiscountConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.PACK_EARLY_BOOKING_DISCOUNT,
       config.packEarlyBookingDiscount,
       'Pourcentage de réduction pour réservation anticipée (pack)'
-    );
-    configRepository.saveConfiguration(packEarlyBookingDiscountConfig);
-    
-    const packWeekendSurchargeConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.PACK_WEEKEND_SURCHARGE,
       config.packWeekendSurcharge,
       'Supplément pour pack en week-end'
-    );
-    configRepository.saveConfiguration(packWeekendSurchargeConfig);
-    
-    const packUrgentBookingSurchargeConfig = Configuration.create(
-      ConfigurationCategory.BUSINESS_RULES,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.BUSINESS_RULES,
       BusinessRulesConfigKey.PACK_URGENT_BOOKING_SURCHARGE,
       config.packUrgentBookingSurcharge,
       'Supplément pour réservation urgente de pack'
-    );
-    configRepository.saveConfiguration(packUrgentBookingSurchargeConfig);
+      ),
+    ]);
     
-    // Simulation d'une pause pour l'UX
-    await new Promise(resolve => setTimeout(resolve, 500));
+    logger.info('✅ [ADMIN-RULES] Règles métier sauvegardées avec succès via UnifiedDataService');
     
     return {
       success: true,
-      message: "Règles métier mises à jour avec succès"
+      message: "Règles métier mises à jour avec succès en base de données"
     };
   } catch (error) {
-    console.error("Erreur lors de la sauvegarde des règles métier:", error);
+    logger.error(error as Error, "❌ [ADMIN-RULES] Erreur lors de la sauvegarde des règles métier via UnifiedDataService");
     return {
       success: false,
       message: "Une erreur est survenue lors de la mise à jour des règles métier"
@@ -413,38 +387,38 @@ export async function saveBusinessRulesConfig(config: BusinessRulesConfig): Prom
 }
 
 /**
- * Sauvegarde les limites
+ * Sauvegarde les limites avec vraie persistance BDD
  */
 export async function saveLimitsConfig(config: LimitsConfig): Promise<{ success: boolean, message: string }> {
   try {
-    const configRepository = ConfigurationRepository.getInstance();
+    logger.info('🔧 [ADMIN-RULES] Sauvegarde des limites en cours...');
+    logger.info('🔍 [ADMIN-RULES] Origine: adminRules.saveLimitsConfig via UnifiedDataService');
+    const unifiedService = UnifiedDataService.getInstance();
     
-    // Enregistrer les limites générales
-    const minBookingHoursConfig = Configuration.create(
-      ConfigurationCategory.LIMITS,
+    // Enregistrer toutes les limites en BDD avec rafraîchissement automatique
+    await Promise.all([
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.LIMITS,
       LimitsConfigKey.MIN_BOOKING_HOURS,
       config.minBookingHours,
       'Heures minimales avant réservation'
-    );
-    configRepository.saveConfiguration(minBookingHoursConfig);
-    
-    const maxBookingDaysAheadConfig = Configuration.create(
-      ConfigurationCategory.LIMITS,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.LIMITS,
       LimitsConfigKey.MAX_BOOKING_DAYS_AHEAD,
       config.maxBookingDaysAhead,
       'Jours maximum à l\'avance pour une réservation'
-    );
-    configRepository.saveConfiguration(maxBookingDaysAheadConfig);
+      ),
+    ]);
     
-    // Simulation d'une pause pour l'UX
-    await new Promise(resolve => setTimeout(resolve, 500));
+    logger.info('✅ [ADMIN-RULES] Limites sauvegardées avec succès via UnifiedDataService');
     
     return {
       success: true,
-      message: "Limites mises à jour avec succès"
+      message: "Limites mises à jour avec succès en base de données"
     };
   } catch (error) {
-    console.error("Erreur lors de la sauvegarde des limites:", error);
+    logger.error(error as Error, "❌ [ADMIN-RULES] Erreur lors de la sauvegarde des limites via UnifiedDataService");
     return {
       success: false,
       message: "Une erreur est survenue lors de la mise à jour des limites"
@@ -453,82 +427,62 @@ export async function saveLimitsConfig(config: LimitsConfig): Promise<{ success:
 }
 
 /**
- * Sauvegarde les paramètres de service
+ * Sauvegarde les paramètres de service avec vraie persistance BDD
  */
 export async function saveServiceParamsConfig(config: ServiceParamsConfig): Promise<{ success: boolean, message: string }> {
   try {
-    const configRepository = ConfigurationRepository.getInstance();
+    logger.info('🔧 [ADMIN-RULES] Sauvegarde des paramètres de service en cours...');
+    logger.info('🔍 [ADMIN-RULES] Origine: adminRules.saveServiceParamsConfig via UnifiedDataService');
+    const unifiedService = UnifiedDataService.getInstance();
     
-    // Enregistrer les types de service disponibles
-    const availableServiceTypesConfig = Configuration.create(
-      ConfigurationCategory.SERVICE_PARAMS,
+    // Enregistrer tous les paramètres en BDD avec rafraîchissement automatique
+    await Promise.all([
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.SERVICE_PARAMS,
       ServiceParamsConfigKey.AVAILABLE_SERVICE_TYPES,
       config.enabledServiceTypes,
       'Types de services activés dans l\'application'
-    );
-    configRepository.saveConfiguration(availableServiceTypesConfig);
-    
-    // Enregistrer les types de pack disponibles
-    const availablePackTypesConfig = Configuration.create(
-      ConfigurationCategory.SERVICE_PARAMS,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.SERVICE_PARAMS,
       ServiceParamsConfigKey.AVAILABLE_PACK_TYPES,
       config.enabledPackTypes,
       'Types de forfaits activés dans l\'application'
-    );
-    configRepository.saveConfiguration(availablePackTypesConfig);
-    
-    // Enregistrer les heures de travail
-    const workingHoursStartConfig = Configuration.create(
-      ConfigurationCategory.SERVICE_PARAMS,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.SERVICE_PARAMS,
       ServiceParamsConfigKey.WORKING_HOURS_START,
       config.workingHoursStart,
       'Heure de début de la journée de travail'
-    );
-    configRepository.saveConfiguration(workingHoursStartConfig);
-    
-    const workingHoursEndConfig = Configuration.create(
-      ConfigurationCategory.SERVICE_PARAMS,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.SERVICE_PARAMS,
       ServiceParamsConfigKey.WORKING_HOURS_END,
       config.workingHoursEnd,
       'Heure de fin de la journée de travail'
-    );
-    configRepository.saveConfiguration(workingHoursEndConfig);
-    
-    // Enregistrer les jours de travail
-    const workingDaysConfig = Configuration.create(
-      ConfigurationCategory.SERVICE_PARAMS,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.SERVICE_PARAMS,
       ServiceParamsConfigKey.WORKING_DAYS,
       config.workingDays,
       'Jours de travail dans la semaine'
-    );
-    configRepository.saveConfiguration(workingDaysConfig);
-    
-    // Enregistrer les paramètres de trajet
-    const defaultTravelSpeedConfig = Configuration.create(
-      ConfigurationCategory.SERVICE_PARAMS,
+      ),
+      unifiedService.updateConfiguration(
+      UnifiedConfigCategory.SERVICE_PARAMS,
       ServiceParamsConfigKey.DEFAULT_TRAVEL_SPEED,
       config.defaultTravelSpeed,
-      'Vitesse moyenne de déplacement en km/h'
-    );
-    configRepository.saveConfiguration(defaultTravelSpeedConfig);
+        'Vitesse de déplacement par défaut (km/h)'
+      ),
+    ]);
     
-    const workerSetupTimeConfig = Configuration.create(
-      ConfigurationCategory.SERVICE_PARAMS,
-      ServiceParamsConfigKey.WORKER_SETUP_TIME,
-      config.workerSetupTime,
-      'Temps nécessaire pour la préparation en minutes'
-    );
-    configRepository.saveConfiguration(workerSetupTimeConfig);
-    
-    // Simulation d'une pause pour l'UX
-    await new Promise(resolve => setTimeout(resolve, 500));
+    logger.info('✅ [ADMIN-RULES] Paramètres de service sauvegardés avec succès via UnifiedDataService');
     
     return {
       success: true,
-      message: "Paramètres de service mis à jour avec succès"
+      message: "Paramètres de service mis à jour avec succès en base de données"
     };
   } catch (error) {
-    console.error("Erreur lors de la sauvegarde des paramètres de service:", error);
+    logger.error(error as Error, "❌ [ADMIN-RULES] Erreur lors de la sauvegarde des paramètres de service via UnifiedDataService");
     return {
       success: false,
       message: "Une erreur est survenue lors de la mise à jour des paramètres de service"

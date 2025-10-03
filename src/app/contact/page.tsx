@@ -10,6 +10,8 @@ import {
   ClockIcon
 } from '@heroicons/react/24/outline'
 import ContactSchema from './schema'
+import { FormStylesSimplified } from '@/components/form-generator/styles/FormStylesSimplified'
+import { globalFormPreset } from '@/components/form-generator/presets/_shared/globalPreset'
 
 export default function ContactPage() {
   const { toast } = useToast()
@@ -51,16 +53,19 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="bg-gradient-to-b from-sky-50/50 to-white">
+    <div className="bg-gradient-to-b from-sky-50/50 to-white font-ios">
+      {/* 🎨 Styles iOS 18 simplifiés */}
+      <FormStylesSimplified globalConfig={globalFormPreset} />
+      
       {/* Intégration du schema JSON-LD via le composant séparé */}
       <ContactSchema />
       
       <div className="container max-w-7xl mx-auto px-4 py-12">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-3">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-3 font-ios-bold">
             Contactez-nous
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto font-ios">
             Nous sommes à votre disposition pour répondre à toutes vos questions concernant nos services de déménagement et de nettoyage.
           </p>
         </div>
@@ -68,8 +73,8 @@ export default function ContactPage() {
         <div className="grid md:grid-cols-3 gap-8">
           {/* Informations de contact */}
           <div className="md:col-span-1 space-y-6">
-            <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-100">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Nos coordonnées</h2>
+            <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-100 card-ios">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 font-ios-semibold">Nos coordonnées</h2>
               
               <div className="space-y-4">
                 <div className="flex items-start">

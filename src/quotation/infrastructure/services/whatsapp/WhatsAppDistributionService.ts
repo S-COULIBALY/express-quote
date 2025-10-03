@@ -19,7 +19,6 @@ export class WhatsAppDistributionService {
         @inject('ProviderService') private providerService: ProviderService
     ) {}
 
-    // Harmonisation : Méthodes publiques similaires à EmailDistributionService
     async distributeQuoteConfirmation(quoteRequest: QuoteRequest, template?: WhatsAppTemplate): Promise<void> {
         try {
             // Client

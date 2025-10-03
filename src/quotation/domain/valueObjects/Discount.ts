@@ -15,6 +15,7 @@ export class Discount extends Entity {
         private readonly value: number,
         private readonly code?: string,
         private readonly expirationDate?: Date,
+        private readonly isReductionFlag: boolean = true,
         id?: UniqueId
     ) {
         super(id);
@@ -45,7 +46,9 @@ export class Discount extends Entity {
             throw new Error('Discount value must be a positive number');
         }
         if (this.type === DiscountType.PERCENTAGE && this.value > 100) {
-            throw new Error('Percentage discount cannot exceed 100%');
+            console.error(`❌ PERCENTAGE DISCOUNT ERROR: name="${this.name}", value=${this.value}%, type=${this.type}`);
+            console.error(`❌ Validation failed: percentage value ${this.value}% exceeds 100%`);
+            throw new Error(`Percentage discount cannot exceed 100% (rule: "${this.name}", value: ${this.value}%)`);
         }
         if (this.expirationDate && this.expirationDate < new Date()) {
             throw new Error('Expiration date cannot be in the past');
@@ -90,7 +93,8 @@ export class Discount extends Entity {
 
     public getDescription(): string {
         const typeStr = this.type === DiscountType.PERCENTAGE ? '%' : '€';
-        return `${this.name} (-${this.value}${typeStr})`;
+        const sign = this.isReductionFlag ? '-' : '+';
+        return `${this.name} (${sign}${this.value}${typeStr})`;
     }
 
     public getCode(): string | undefined {
@@ -99,5 +103,13 @@ export class Discount extends Entity {
 
     public getExpirationDate(): Date | undefined {
         return this.expirationDate ? new Date(this.expirationDate) : undefined;
+    }
+
+    public isReduction(): boolean {
+        return this.isReductionFlag;
+    }
+
+    public isSurcharge(): boolean {
+        return !this.isReductionFlag;
     }
 } 

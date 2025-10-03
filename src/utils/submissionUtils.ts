@@ -1,4 +1,4 @@
-import { NotificationService } from '@/utils/notificationService';
+// Note: Notifications envoyées via API business pour cohérence avec BookingService
 
 export interface SubmissionConfig {
   submissionType: 'MOVING' | 'PACK' | 'SERVICE';
@@ -10,7 +10,7 @@ export interface SubmissionConfig {
 
 // Appel API standardisé pour la soumission
 export const callSubmissionAPI = async (type: string, data: any) => {
-  const response = await fetch('/api/quotes/request', {
+  const response = await fetch('/api/bookings', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -66,19 +66,51 @@ export const sendSubmissionNotification = async (
     const { email, name, phone } = extractContactInfo(formData.additionalInfo);
 
     if (email && notificationData) {
-      console.log(`📧 Envoi d'une notification de confirmation de devis ${config.submissionType}`);
-      
-      await NotificationService.sendQuoteConfirmation({
+      console.log(`📧 Envoi notifications multi-canaux pour devis ${config.submissionType}`);
+
+      // ✅ Suivre le pattern de BookingService - appel API au lieu d'import direct
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+      const notificationPayload = {
         email,
-        phone,
-        clientName: name,
-        quoteId: responseData.id,
+        customerName: name,
+        quoteNumber: responseData.id,
+        firstName: name.split(' ')[0],
+        lastName: name.split(' ').slice(1).join(' '),
+        customerPhone: phone,
+        amount: calculatedPrice,
         serviceDate: notificationData.serviceDate,
         serviceAddress: notificationData.serviceAddress,
-        amount: calculatedPrice,
+        serviceType: config.submissionType,
+        additionalDetails: notificationData.additionalDetails,
         whatsappOptIn: formData.whatsappOptIn,
-        additionalDetails: notificationData.additionalDetails
+        metadata: {
+          quoteId: responseData.id,
+          submissionType: config.submissionType,
+          source: 'quote-submission'
+        }
+      };
+
+      const response = await fetch(`${baseUrl}/api/notifications/business/quote-confirmation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Call': 'true'
+        },
+        body: JSON.stringify(notificationPayload)
       });
+
+      if (!response.ok) {
+        console.warn('⚠️ Erreur envoi notification devis:', response.status);
+      } else {
+        const result = await response.json();
+        console.log('✅ Notifications devis envoyées:', {
+          messageId: result.messageId,
+          emailSent: result.emailSent,
+          smsSent: result.smsSent,
+          whatsappSent: result.whatsappSent
+        });
+      }
     }
   } catch (notificationError) {
     console.error(`⚠️ Erreur lors de l'envoi de la notification de devis ${config.submissionType}:`, notificationError);

@@ -1,11 +1,24 @@
 'use client';
 
-import { Fragment, useState, useEffect } from 'react';
-import { Dialog, Transition, Listbox } from '@headlessui/react';
-import { CheckIcon, ChevronUpDownIcon, PlusCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { FLOOR_CONSTANTS } from '@/quotation/domain/configuration/constants';
+import React, { Fragment, useState, useEffect } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { ChevronUpDownIcon, PlusCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { UnifiedDataService, ServiceType } from '@/quotation/infrastructure/services/UnifiedDataService';
+import { useModalPerformance, measureApiCall } from '@/lib/performance-metrics';
+import { AutoDetectionService, AddressData } from '@/quotation/domain/services/AutoDetectionService';
+import { ConstraintIconService, ConstraintTransformerService } from '@/quotation/domain/configuration';
+import { allMovingItemsFallback } from '@/data/fallbacks';
 
-// Type pour les contraintes et services
+/**
+ * FLUX DE DONNÉES:
+ * 1. Chargement: BDD via UnifiedDataService, fallbacks si erreur
+ * 2. Auto-détection: Analyse étage/ascenseur → ajoute monte-meuble si requis
+ * 3. Sélection: Validation des contraintes obligatoires (bloque désélection)
+ * 4. Affichage: Raisons détaillées pour contraintes auto-ajoutées
+ *
+ * Fallbacks générés via: npm run generate:fallbacks
+ */
+
 export interface Constraint {
   id: string;
   name: string;
@@ -13,68 +26,28 @@ export interface Constraint {
   icon?: string;
   description?: string;
   type: 'constraint' | 'service';
+  value?: number;
+  impact?: string;
+  autoDetection?: boolean;
+  ruleId?: string;
+  categoryLabel?: string;
 }
 
-// Options de contraintes logistiques
-export const constraints: Constraint[] = [
-  // 🚛 Accès véhicule
-  { id: 'pedestrian_zone', name: 'Zone piétonne avec restrictions', category: 'vehicle', icon: '🚛', description: 'Autorisation mairie requise', type: 'constraint' },
-  { id: 'narrow_inaccessible_street', name: 'Rue étroite ou inaccessible au camion', category: 'vehicle', icon: '🚛', description: 'Camion ne peut pas accéder', type: 'constraint' },
-  { id: 'difficult_parking', name: 'Stationnement difficile ou payant', category: 'vehicle', icon: '🚛', description: 'Surcoût possible', type: 'constraint' },
-  { id: 'complex_traffic', name: 'Sens unique ou circulation complexe', category: 'vehicle', icon: '🚛', description: 'Temps de trajet augmenté', type: 'constraint' },
-  
-  // 🏢 Contraintes bâtiment
-  { id: 'elevator_unavailable', name: 'Ascenseur en panne ou hors service', category: 'building', icon: '🏢', description: 'Ascenseur non fonctionnel', type: 'constraint' },
-  { id: 'elevator_unsuitable_size', name: 'Ascenseur trop petit pour les meubles', category: 'building', icon: '🏢', description: 'Dimensions insuffisantes', type: 'constraint' },
-  { id: 'elevator_forbidden_moving', name: 'Ascenseur interdit pour déménagement', category: 'building', icon: '🏢', description: 'Règlement copropriété', type: 'constraint' },
-  { id: 'difficult_stairs', name: 'Escalier étroit, en colimaçon ou dangereux', category: 'building', icon: '🏢', description: 'Monte-meuble recommandé', type: 'constraint' },
-  { id: 'narrow_corridors', name: 'Couloirs étroits ou encombrés (< 1m de large)', category: 'building', icon: '🏢', description: 'Temps augmenté', type: 'constraint' },
-  
-  // 📏 Distance et portage
-  { id: 'long_carrying_distance', name: 'Distance immeuble-camion supérieure à 30m', category: 'distance', icon: '📏', description: 'Surcoût main d\'œuvre', type: 'constraint' },
-  { id: 'indirect_exit', name: 'Passage par cour, jardin ou sous-sol obligatoire', category: 'distance', icon: '📏', description: 'Sortie non directe sur rue', type: 'constraint' },
-  { id: 'complex_multilevel_access', name: 'Accès complexe multi-niveaux', category: 'distance', icon: '📏', description: 'Plusieurs étages à traverser', type: 'constraint' },
-  
-  // 🛡️ Sécurité et autorisations
-  { id: 'access_control', name: 'Contrôle d\'accès strict (gardien/interphone)', category: 'security', icon: '🛡️', description: 'Autorisation préalable requise', type: 'constraint' },
-  { id: 'administrative_permit', name: 'Autorisation administrative obligatoire', category: 'security', icon: '🛡️', description: 'Démarches préalables', type: 'constraint' },
-  { id: 'time_restrictions', name: 'Restrictions horaires strictes', category: 'security', icon: '🛡️', description: 'Créneaux limités', type: 'constraint' },
-  { id: 'fragile_floor', name: 'Sol fragile ou délicat (parquet ancien, marbre)', category: 'security', icon: '🛡️', description: 'Protection supplémentaire', type: 'constraint' },
-  
-  // Contrainte spéciale (gérée automatiquement)
-  { id: 'furniture_lift_required', name: 'Monte-meuble', category: 'building', icon: '🏢', description: 'Ajouté automatiquement si nécessaire', type: 'constraint' }
-];
+// Exports pour compatibilité
+export const constraintsFallback = allMovingItemsFallback.filter(item => item.type === 'constraint');
+export const additionalServicesFallback = allMovingItemsFallback.filter(item => item.type === 'service');
+export const allItemsFallback = allMovingItemsFallback;
+export const constraints = allMovingItemsFallback;
 
-// Prestations supplémentaires
-export const additionalServices: Constraint[] = [
-  // 🔧 Services de manutention
-  { id: 'bulky_furniture', name: 'Meubles encombrants ou non démontables', category: 'handling', icon: '🔧', description: 'Armoires, canapés d\'angle, etc.', type: 'service' },
-  { id: 'furniture_disassembly', name: 'Démontage de meubles au départ', category: 'handling', icon: '🔧', description: 'Temps supplémentaire inclus', type: 'service' },
-  { id: 'furniture_reassembly', name: 'Remontage de meubles à l\'arrivée', category: 'handling', icon: '🔧', description: 'Temps supplémentaire inclus', type: 'service' },
-  
-  // 📦 Services d'emballage
-  { id: 'professional_packing_departure', name: 'Emballage professionnel au départ', category: 'packing', icon: '📦', description: 'Équipe spécialisée avec matériel', type: 'service' },
-  { id: 'professional_unpacking_arrival', name: 'Déballage professionnel à l\'arrivée', category: 'packing', icon: '📦', description: 'Équipe spécialisée avec nettoyage', type: 'service' },
-  { id: 'packing_supplies', name: 'Fournitures d\'emballage complètes', category: 'packing', icon: '📦', description: 'Cartons, papier bulle, sangles', type: 'service' },
-  
-  // 🛡️ Services de protection
-  { id: 'fragile_valuable_items', name: 'Objets fragiles ou de grande valeur', category: 'protection', icon: '🛡️', description: 'Emballage renforcé + assurance', type: 'service' },
-  { id: 'heavy_items', name: 'Objets très lourds (piano, coffre-fort, etc.)', category: 'protection', icon: '🛡️', description: 'Équipement spécialisé requis', type: 'service' },
-  { id: 'additional_insurance', name: 'Assurance complémentaire renforcée', category: 'protection', icon: '🛡️', description: 'Calcul sur valeur déclarée', type: 'service' },
-  
-  // 🏪 Services annexes
-  { id: 'temporary_storage_service', name: 'Stockage temporaire sécurisé', category: 'annexe', icon: '🏪', description: 'Garde-meuble avec accès', type: 'service' }
-];
-
-// Combine constraints and services
-export const allItems = [...constraints, ...additionalServices];
+function getIconForCategory(type: 'constraint' | 'service'): string {
+  return ConstraintIconService.getIconForCategory('', type);
+}
 
 interface MovingConstraintsAndServicesModalProps {
   id?: 'pickup' | 'delivery';
   onChange?: (values: string[]) => void;
   buttonLabel?: string;
   modalTitle?: string;
-  // Pour la logique automatique du monte-meuble
   floor?: string;
   elevator?: string;
   formData?: any;
@@ -92,172 +65,236 @@ export default function MovingConstraintsAndServicesModal({
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<Constraint[]>([]);
   const [initialSelected, setInitialSelected] = useState<Constraint[]>([]);
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [showFurnitureLiftWarning, setShowFurnitureLiftWarning] = useState(false);
-  
-  // Logique pour détecter si le monte-meuble est nécessaire
-  const isFurnitureLiftRequired = () => {
+  const [constraints, setConstraints] = useState<Constraint[]>([]);
+  const [additionalServices, setAdditionalServices] = useState<Constraint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<'database' | 'fallback'>('fallback');
+
+  useModalPerformance('moving-constraints-modal');
+
+  // Construction données adresse courante pour auto-détection
+  const buildCurrentAddressData = (): AddressData => {
     const currentFloor = floor || (id === 'pickup' ? formData?.pickupFloor : formData?.deliveryFloor);
     const currentElevator = elevator || (id === 'pickup' ? formData?.pickupElevator : formData?.deliveryElevator);
-    const volume = formData?.volume ? parseFloat(formData.volume) : 0;
-    
-    console.log(`🏗️ Détection monte-meuble [${id}]:`, {
-      currentFloor,
-      currentElevator,
-      volume,
-      formData: {
-        pickupFloor: formData?.pickupFloor,
-        deliveryFloor: formData?.deliveryFloor,
-        pickupElevator: formData?.pickupElevator,
-        deliveryElevator: formData?.deliveryElevator
-      }
+    const currentCarryDistance = id === 'pickup' ? formData?.pickupCarryDistance : formData?.deliveryCarryDistance;
+
+    return AutoDetectionService.buildAddressDataFromForm({
+      floor: currentFloor,
+      elevator: currentElevator,
+      carryDistance: currentCarryDistance,
+      selectedConstraints: selected.map(item => item.id)
     });
-    
-    // Récupérer les contraintes et services sélectionnés
-    const selectedIds = selected.map(item => item.id);
-    
-    // Variables pour la nouvelle logique
-    const floorNumber = currentFloor ? parseInt(currentFloor) : 0;
-    const ascenseur_present = currentElevator && currentElevator !== 'no';
-    const ascenseur_type = currentElevator || 'no';
-    
-    // Contraintes d'ascenseur
-    const ascenseur_indisponible = selectedIds.includes('elevator_unavailable');
-    const ascenseur_inadapte = selectedIds.includes('elevator_unsuitable_size');
-    const ascenseur_interdit_demenagement = selectedIds.includes('elevator_forbidden_moving');
-    
-    // Contraintes d'accès
-    const escalier_difficile = selectedIds.includes('difficult_stairs');
-    const couloirs_etroits = selectedIds.includes('narrow_corridors');
-    const sortie_indirecte = selectedIds.includes('indirect_exit');
-    const cour_a_traverser = selectedIds.includes('indirect_exit'); // Même contrainte
-    
-    // Services/objets
-    const meubles_encombrants = selectedIds.includes('bulky_furniture');
-    const objet_tres_lourd = selectedIds.includes('fragile_valuable_items') || selectedIds.includes('heavy_items');
-    
-    // 🎯 NOUVELLE LOGIQUE ÉCONOMIQUE
-    
-    // CAS 1: Ascenseur medium/large fonctionnel → PAS de monte-meuble
-    if (ascenseur_present && ['medium', 'large'].includes(ascenseur_type) &&
-        !ascenseur_indisponible && !ascenseur_inadapte && !ascenseur_interdit_demenagement) {
-      console.log(`🏗️ Monte-meuble [${id}] → NON REQUIS (ascenseur ${ascenseur_type} fonctionnel)`);
+  };
+
+  // Construction données autre adresse pour contexte complet
+  const buildOtherAddressData = (): AddressData => {
+    const otherFloor = id === 'pickup' ? formData?.deliveryFloor : formData?.pickupFloor;
+    const otherElevator = id === 'pickup' ? formData?.deliveryElevator : formData?.pickupElevator;
+    const otherCarryDistance = id === 'pickup' ? formData?.deliveryCarryDistance : formData?.pickupCarryDistance;
+
+    return AutoDetectionService.buildAddressDataFromForm({
+      floor: otherFloor,
+      elevator: otherElevator,
+      carryDistance: otherCarryDistance,
+      selectedConstraints: []
+    });
+  };
+
+  // Vérification monte-meuble requis
+  const isFurnitureLiftRequired = (): boolean => {
+    if (!formData) return false;
+
+    try {
+      const currentAddressData = buildCurrentAddressData();
+      const result = AutoDetectionService.detectFurnitureLift(
+        currentAddressData,
+        formData.volume ? parseFloat(formData.volume) : undefined
+      );
+
+      return result.furnitureLiftRequired;
+    } catch (error) {
+      console.error(`❌ [MODAL-${id?.toUpperCase()}] Erreur détection monte-meuble:`, error);
       return false;
     }
-    
-    // CAS 2: Ascenseur small avec contraintes spécifiques
-    if (ascenseur_present && ascenseur_type === 'small' &&
-        !ascenseur_indisponible && !ascenseur_inadapte && !ascenseur_interdit_demenagement &&
-        (escalier_difficile || couloirs_etroits || sortie_indirecte || cour_a_traverser) &&
-        floorNumber >= 1 &&
-        (meubles_encombrants || objet_tres_lourd)) {
-      return true;
-    }
-    
-    // CAS 3: Aucun ascenseur - LOGIQUE HARMONISÉE
-    if (!ascenseur_present) {
-             // Cas 3a: Étage > 3 → Monte-meuble OBLIGATOIRE (même sans contraintes)
-       if (floorNumber > 3) {
-         console.log(`🏗️ Monte-meuble [${id}] → REQUIS (étage ${floorNumber} > 3, aucun ascenseur)`);
-         return true;
-       }
-      
-      // Cas 3b: Étage >= 1 avec contraintes spécifiques OU objets lourds/encombrants
-      if (floorNumber >= 1 && 
-          ((escalier_difficile || couloirs_etroits || sortie_indirecte || cour_a_traverser) ||
-           (meubles_encombrants || objet_tres_lourd))) {
-        return true;
-      }
-    }
-    
-    // CAS 4: Ascenseur indisponible/inadapté/interdit → Traiter comme "aucun ascenseur"
-    if (ascenseur_indisponible || ascenseur_inadapte || ascenseur_interdit_demenagement) {
-      // Cas 4a: Étage > 3 → Monte-meuble OBLIGATOIRE (même sans contraintes)
-      if (floorNumber > 3) {
-        return true;
-      }
-      
-      // Cas 4b: Étage >= 1 avec contraintes spécifiques OU objets lourds/encombrants
-      if (floorNumber >= 1 && 
-          ((escalier_difficile || couloirs_etroits || sortie_indirecte || cour_a_traverser) ||
-           (meubles_encombrants || objet_tres_lourd))) {
-        return true;
-      }
-    }
-    
-    // Par défaut : pas de monte-meuble
-    console.log(`🏗️ Monte-meuble [${id}] → NON REQUIS (aucune condition remplie)`);
-    return false;
   };
+
+  // Vérification distance portage > 30m
+  const shouldAddLongCarryingDistance = (): boolean => {
+    if (!formData) return false;
+
+    try {
+      const currentAddressData = buildCurrentAddressData();
+      const result = AutoDetectionService.detectLongCarryingDistance(currentAddressData);
+
+      return result.longCarryingDistance;
+    } catch (error) {
+      console.error(`❌ [MODAL-${id?.toUpperCase()}] Erreur détection distance portage:`, error);
+      return false;
+    }
+  };
+
+  // Chargement des données: BDD en priorité, fallbacks si erreur
+  useEffect(() => {
+    async function initializeData() {
+      setIsLoading(true);
+      let apiData = null;
+
+      try {
+        const { result } = await measureApiCall(
+          'moving-constraints-modal',
+          async () => {
+            const unifiedService = UnifiedDataService.getInstance();
+            const allBusinessRules = await unifiedService.getBusinessRules(ServiceType.MOVING);
+
+            if (!allBusinessRules || allBusinessRules.length === 0) {
+              throw new Error('Aucune règle trouvée dans la BDD');
+            }
+
+            return ConstraintTransformerService.transformRulesToModalFormat(
+              allBusinessRules,
+              'MOVING'
+            );
+          },
+          'api'
+        );
+
+        apiData = result;
+
+      } catch (error) {
+        console.warn('🔴 [MODAL] BDD indisponible, utilisation des fallbacks:', error);
+        apiData = null;
+      }
+
+      if (apiData && apiData.meta.source === 'database' && apiData.constraints.length > 0) {
+        setConstraints(apiData.constraints);
+        setAdditionalServices(apiData.services);
+        setDataSource('database');
+      } else {
+        setConstraints(constraintsFallback);
+        setAdditionalServices(additionalServicesFallback);
+        setDataSource('fallback');
+      }
+
+      setIsLoading(false);
+    }
+
+    initializeData();
+  }, []); // Chargement une seule fois au montage
 
   // Gérer automatiquement le monte-meuble selon les conditions - ✅ INDÉPENDANT PAR ADRESSE
   useEffect(() => {
     const furnitureLiftConstraint = constraints.find(c => c.id === 'furniture_lift_required');
-    const isCurrentlySelected = selected.some(s => s.id === 'furniture_lift_required');
+    const longCarryingConstraint = constraints.find(c => c.id === 'long_carrying_distance');
     
+    const isCurrentlyFurnitureLiftSelected = selected.some(s => s.id === 'furniture_lift_required');
+    const isCurrentlyLongCarryingSelected = selected.some(s => s.id === 'long_carrying_distance');
+    
+    let newSelected = [...selected];
+    let hasChanges = false;
+    
+    // Gestion monte-meuble
     if (isFurnitureLiftRequired()) {
-      // Ajouter le monte-meuble s'il n'est pas déjà sélectionné
-      if (furnitureLiftConstraint && !isCurrentlySelected) {
-        const newSelected = [...selected, furnitureLiftConstraint];
-        setSelected(newSelected);
-        onChange(newSelected.map(item => item.id));
+      if (furnitureLiftConstraint && !isCurrentlyFurnitureLiftSelected) {
+        newSelected.push(furnitureLiftConstraint);
+        hasChanges = true;
       }
     } else {
-      // Retirer le monte-meuble s'il était automatiquement ajouté et n'est plus nécessaire
-      if (isCurrentlySelected) {
-        const newSelected = selected.filter(s => s.id !== 'furniture_lift_required');
-        setSelected(newSelected);
-        onChange(newSelected.map(item => item.id));
-        setShowFurnitureLiftWarning(false); // Réinitialiser l'avertissement
+      if (isCurrentlyFurnitureLiftSelected) {
+        newSelected = newSelected.filter(s => s.id !== 'furniture_lift_required');
+        hasChanges = true;
+        setShowFurnitureLiftWarning(false);
       }
     }
+
+    // Gestion distance de portage
+    if (shouldAddLongCarryingDistance()) {
+      if (longCarryingConstraint && !isCurrentlyLongCarryingSelected) {
+        newSelected.push(longCarryingConstraint);
+        hasChanges = true;
+      }
+    } else {
+      if (isCurrentlyLongCarryingSelected) {
+        newSelected = newSelected.filter(s => s.id !== 'long_carrying_distance');
+        hasChanges = true;
+      }
+    }
+    
+    // Appliquer les changements seulement s'il y en a
+    if (hasChanges) {
+      setSelected(newSelected);
+      onChange(newSelected.map(item => item.id));
+    }
   }, [
-    // ✅ CORRECTION: Surveiller uniquement les données de l'adresse concernée
-    floor, 
-    elevator, 
-    // Surveiller uniquement les données de l'adresse spécifique (pickup OU delivery)
+    floor,
+    elevator,
     id === 'pickup' ? formData?.pickupFloor : formData?.deliveryFloor,
     id === 'pickup' ? formData?.pickupElevator : formData?.deliveryElevator,
-    formData?.volume, // Volume global OK
-    selected
+    id === 'pickup' ? formData?.pickupCarryDistance : formData?.deliveryCarryDistance,
+    formData?.volume,
+    selected,
+    constraints,
+    onChange,
+    id
   ]);
-
-  function closeModal() {
-    setIsOpen(false);
-  }
 
   function openModal() {
     setInitialSelected(selected);
     setIsOpen(true);
   }
 
+  // Validation de la sélection (bloque désélection contraintes obligatoires)
   function handleSelectionChange(selectedItems: Constraint[]) {
-    // Vérifier si l'utilisateur essaie manuellement de décocher le monte-meuble quand c'est nécessaire
-    const wasFurnitureLiftSelected = selected.some(s => s.id === 'furniture_lift_required');
-    const isFurnitureLiftSelected = selectedItems.some(s => s.id === 'furniture_lift_required');
-    
-    if (wasFurnitureLiftSelected && !isFurnitureLiftSelected && isFurnitureLiftRequired()) {
-      // L'utilisateur essaie manuellement de décocher le monte-meuble alors qu'il est nécessaire
-      setShowFurnitureLiftWarning(true);
-      return; // Ne pas appliquer le changement
+    const addressData = buildCurrentAddressData();
+    const volume = formData?.volume ? parseFloat(formData.volume) : undefined;
+
+    const validation = AutoDetectionService.validateConstraintSelection(
+      selected.map(s => s.id),
+      selectedItems.map(s => s.id),
+      addressData,
+      volume
+    );
+
+    if (!validation.isValid) {
+      if (validation.blockedConstraintId === 'furniture_lift_required') {
+        setShowFurnitureLiftWarning(true);
+      }
+      return;
     }
-    
+
     setSelected(selectedItems);
     onChange(selectedItems.map(item => item.id));
     setShowFurnitureLiftWarning(false);
   }
 
-  // Séparer les contraintes et services sélectionnés
   const selectedConstraints = selected.filter(item => item.type === 'constraint');
   const selectedServices = selected.filter(item => item.type === 'service');
 
-  // Résumé pour le bouton avec style moderne
-  let buttonContent = (
-    <div className="flex items-center gap-2 text-gray-500">
-      <PlusCircleIcon className="w-4 h-4" />
-      <span>{buttonLabel}</span>
-    </div>
-  );
+  // Affichage du bouton selon l'état
+  let buttonContent: React.ReactNode;
+
+  if (isLoading) {
+    buttonContent = (
+      <div className="flex items-center gap-2 text-blue-500">
+        <div className="w-4 h-4 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+        <span>Chargement...</span>
+      </div>
+    );
+  } else {
+    
+    const sourceIndicator = dataSource === 'database' ? '🗄️' : '⚠️';
+    const sourceTitle = dataSource === 'database'
+      ? 'Données depuis la base de données'
+      : 'Données de fallback (API indisponible)';
+
+    buttonContent = (
+      <div className="flex items-center gap-2 text-gray-500">
+        <PlusCircleIcon className="w-4 h-4" />
+        <span>{buttonLabel}</span>
+        <span className="text-xs" title={sourceTitle}>{sourceIndicator}</span>
+      </div>
+    );
+  }
   
   if (selected.length > 0) {
     const constraintCount = selectedConstraints.length;
@@ -300,7 +337,7 @@ export default function MovingConstraintsAndServicesModal({
   }
 
   return (
-    <>
+    <React.Fragment>
       {/* Bouton moderne épuré avec style des autres inputs */}
       <button
         type="button"
@@ -335,7 +372,7 @@ export default function MovingConstraintsAndServicesModal({
       )}
 
       <Transition appear show={isOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-[100]" onClose={handleCancel}>
+        <Dialog as="div" className="relative z-[100] modal-mobile" onClose={handleCancel}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -345,62 +382,66 @@ export default function MovingConstraintsAndServicesModal({
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black/25" />
+            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
           </Transition.Child>
 
           <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4 text-center">
               <Transition.Child
                 as={Fragment}
                 enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
+                enterFrom="opacity-0 translate-y-full sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
                 leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-full sm:scale-95"
               >
-                <Dialog.Panel className="w-full max-w-6xl transform overflow-hidden rounded-2xl bg-white p-0 text-left align-middle shadow-xl transition-all border border-emerald-200">
+                <Dialog.Panel className="modal-content w-full max-w-6xl transform overflow-hidden
+                                       rounded-t-3xl sm:rounded-2xl bg-white p-0 text-left align-middle shadow-xl
+                                       transition-all border-0 sm:border border-emerald-200
+                                       max-h-[90vh] sm:max-h-[85vh]">
                   <Dialog.Title
                     as="div"
-                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-4"
+                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 mobile-px-4 mobile-py-3 sticky top-0 z-10"
                   >
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                      {modalTitle}
-                    </h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2 truncate">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        <span className="truncate">{modalTitle}</span>
+                      </h3>
+                      {/* Handle de fermeture mobile */}
+                      <button
+                        onClick={handleCancel}
+                        className="sm:hidden p-2 hover:bg-white/20 rounded-lg transition-colors"
+                        aria-label="Fermer"
+                      >
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    {/* Handle visuel pour swipe to dismiss sur mobile */}
+                    <div className="sm:hidden flex justify-center mt-2">
+                      <div className="w-12 h-1 bg-white/30 rounded-full"></div>
+                    </div>
                   </Dialog.Title>
-                  
-                  <div className="p-6">
+
+                  <div className="mobile-px-4 mobile-py-3 overflow-y-auto flex-1">
                     {/* Message d'information automatique pour le monte-meuble */}
                     {(() => {
                       const isRequired = isFurnitureLiftRequired();
                       const isSelected = selected.some(s => s.id === 'furniture_lift_required');
-                      const currentFloor = id === 'pickup' ? formData?.pickupFloor : formData?.deliveryFloor;
-                      const currentElevator = id === 'pickup' ? formData?.pickupElevator : formData?.deliveryElevator;
-                      const volume = formData?.volume ? parseFloat(formData.volume) : 0;
-                      
+
                       if (isRequired && isSelected) {
-                        // Déterminer les raisons du monte-meuble
-                        const selectedIds = selected.map(item => item.id);
-                        const reasons = [];
-                        
-                        if (selectedIds.includes('elevator_unavailable')) reasons.push('ascenseur indisponible');
-                        if (selectedIds.includes('difficult_stairs')) reasons.push('escalier difficile');
-                        if (selectedIds.includes('narrow_corridors')) reasons.push('couloirs étroits');
-                        if (selectedIds.includes('indirect_exit')) reasons.push('sortie indirecte');
-                        if (selectedIds.includes('bulky_furniture')) reasons.push('meubles encombrants');
-                        if (selectedIds.includes('fragile_valuable_items')) reasons.push('objets fragiles/précieux');
-                        if (selectedIds.includes('heavy_items')) reasons.push('objets très lourds');
-                        
-                        const floorNumber = currentFloor ? parseInt(currentFloor) : 0;
-                        const hasNoElevator = !currentElevator || currentElevator === 'no';
-                        const hasSmallElevator = currentElevator === 'small';
-                        if (floorNumber > FLOOR_CONSTANTS.FURNITURE_LIFT_REQUIRED_THRESHOLD && (hasNoElevator || hasSmallElevator)) {
-                          reasons.push(`étage élevé (${currentFloor})`);
-                        }
-                        
+                        const addressData = buildCurrentAddressData();
+                        const volume = formData?.volume ? parseFloat(formData.volume) : 0;
+                        const reasons = AutoDetectionService.getDetailedReasonsForFurnitureLift(
+                          addressData,
+                          volume
+                        );
+
                         const reasonsText = reasons.length > 0 ? reasons.join(', ') : 'contraintes détectées';
                         
                         return (
@@ -413,9 +454,6 @@ export default function MovingConstraintsAndServicesModal({
                                 <p className="text-sm font-medium text-blue-800">Monte-meuble automatiquement ajouté</p>
                                 <p className="text-xs text-blue-600 mt-1">
                                   En raison de : {reasonsText}
-                                  {volume >= FLOOR_CONSTANTS.SMALL_VOLUME_EXCEPTION && (volume > 0) && (
-                                    <span className="block mt-1">Volume : {volume} m³ (≥ {FLOOR_CONSTANTS.SMALL_VOLUME_EXCEPTION} m³)</span>
-                                  )}
                                 </p>
                               </div>
                             </div>
@@ -447,9 +485,9 @@ export default function MovingConstraintsAndServicesModal({
                         </div>
                       </div>
                     )}
-                    
-                    {/* Layout en deux colonnes */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Layout en deux colonnes - Mobile first */}
+                    <div className="space-y-4 sm:space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 mobile-gap-4">
                       {/* Colonne 1: Contraintes logistiques */}
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
@@ -469,6 +507,7 @@ export default function MovingConstraintsAndServicesModal({
                           onChange={handleSelectionChange}
                           placeholder="Sélectionner les contraintes"
                           furnitureLiftRequired={isFurnitureLiftRequired()}
+                          longCarryingDistanceRequired={shouldAddLongCarryingDistance()}
                           type="constraints"
                         />
                       </div>
@@ -496,22 +535,33 @@ export default function MovingConstraintsAndServicesModal({
                         />
                       </div>
                     </div>
-                    
-                    <div className="mt-6 flex justify-end gap-3">
-                      <button
-                        type="button"
-                        className="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 transition-colors"
-                        onClick={handleCancel}
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex justify-center rounded-lg border border-transparent bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 transition-colors"
-                        onClick={handleOk}
-                      >
-                        OK
-                      </button>
+
+                    </div>
+
+                    {/* Boutons mobile-first */}
+                    <div className="sticky bottom-0 bg-white border-t border-gray-200 mobile-px-4 mobile-py-3 mt-auto">
+                      <div className="flex flex-col sm:flex-row justify-end mobile-gap-3 sm:gap-3">
+                        <button
+                          type="button"
+                          className="touch-48 inline-flex justify-center rounded-lg border border-gray-300 bg-white
+                                   mobile-px-4 mobile-py-3 text-sm sm:text-base font-medium text-gray-700
+                                   hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
+                                   focus-visible:ring-offset-2 transition-colors order-2 sm:order-1"
+                          onClick={handleCancel}
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          type="button"
+                          className="touch-48 inline-flex justify-center rounded-lg border border-transparent
+                                   bg-emerald-600 mobile-px-4 mobile-py-3 text-sm sm:text-base font-medium text-white
+                                   hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
+                                   focus-visible:ring-offset-2 transition-colors order-1 sm:order-2"
+                          onClick={handleOk}
+                        >
+                          Valider la sélection
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </Dialog.Panel>
@@ -520,7 +570,7 @@ export default function MovingConstraintsAndServicesModal({
           </div>
         </Dialog>
       </Transition>
-    </>
+    </React.Fragment>
   );
 }
 
@@ -530,10 +580,19 @@ interface MultipleSelectProps {
   onChange: (selectedItems: Constraint[]) => void;
   placeholder?: string;
   furnitureLiftRequired?: boolean;
+  longCarryingDistanceRequired?: boolean;
   type: 'constraints' | 'services';
 }
 
-function MultipleSelect({ items, selected, onChange, placeholder, furnitureLiftRequired = false, type }: MultipleSelectProps) {
+function MultipleSelect({ 
+  items, 
+  selected, 
+  onChange, 
+  placeholder, 
+  furnitureLiftRequired = false, 
+  longCarryingDistanceRequired = false,
+  type 
+}: MultipleSelectProps): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredItems = searchQuery === ''
@@ -590,7 +649,10 @@ function MultipleSelect({ items, selected, onChange, placeholder, furnitureLiftR
         {/* Selected items */}
         <div className="flex flex-wrap gap-2 px-4 pt-4">
           {selected.filter(item => items.some(i => i.id === item.id)).map((item) => {
-            const isAutoAdded = item.id === 'furniture_lift_required' && furnitureLiftRequired;
+            const isFurnitureLiftAutoAdded = item.id === 'furniture_lift_required' && furnitureLiftRequired;
+            const isLongCarryingAutoAdded = item.id === 'long_carrying_distance' && longCarryingDistanceRequired;
+            const isAutoAdded = isFurnitureLiftAutoAdded || isLongCarryingAutoAdded;
+            
             return (
               <span 
                 key={item.id} 
@@ -603,7 +665,7 @@ function MultipleSelect({ items, selected, onChange, placeholder, furnitureLiftR
                 }`}
                 title={item.description}
               >
-                {item.icon && <span className="mr-1 text-xs">{item.icon}</span>}
+                <span className="mr-1 text-xs">{item.icon || ConstraintIconService.getIconForRule(item.name, 'MOVING', item.type || 'constraint')}</span>
                 {isAutoAdded && (
                   <svg className="w-3 h-3 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -660,7 +722,10 @@ function MultipleSelect({ items, selected, onChange, placeholder, furnitureLiftR
                 {/* Items de la catégorie */}
                 {categoryItems.map((item) => {
                   const isSelected = selected.some(i => i.id === item.id);
-                  const isAutoAdded = item.id === 'furniture_lift_required' && furnitureLiftRequired;
+                  const isFurnitureLiftAutoAdded = item.id === 'furniture_lift_required' && furnitureLiftRequired;
+                  const isLongCarryingAutoAdded = item.id === 'long_carrying_distance' && longCarryingDistanceRequired;
+                  const isAutoAdded = isFurnitureLiftAutoAdded || isLongCarryingAutoAdded;
+                  
                   if (searchQuery !== '' && isSelected) return null;
                   return (
                     <label
@@ -685,25 +750,25 @@ function MultipleSelect({ items, selected, onChange, placeholder, furnitureLiftR
                         className={`h-4 w-4 rounded border transition-all duration-200 ${
                           isAutoAdded
                             ? 'border-blue-300 text-blue-600 bg-blue-100 cursor-not-allowed'
-                            : type === 'constraints'
-                              ? 'border-gray-300 text-orange-600 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500'
-                              : 'border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                            : isSelected
+                              ? type === 'constraints'
+                                ? 'border-orange-500 text-orange-600 focus:ring-orange-500/20'
+                                : 'border-emerald-500 text-emerald-600 focus:ring-emerald-500/20'
+                              : 'border-gray-300 text-gray-600 hover:border-gray-400 focus:ring-2 focus:ring-emerald-500/20'
                         }`}
                       />
-                      {/* Icône de la contrainte/service */}
-                      {item.icon && (
-                        <span className="text-sm flex-shrink-0">{item.icon}</span>
-                      )}
-                      {/* Label de l'option */}
                       <div className="flex-1 min-w-0">
-                        <span className={`block truncate ${isSelected ? 'font-medium' : 'font-normal'}`}>
-                          {item.name}
-                          {isAutoAdded && <span className="ml-2 text-xs text-blue-600">(obligatoire)</span>}
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{item.icon || ConstraintIconService.getIconForRule(item.name, 'MOVING', item.type || 'constraint')}</span>
+                          <span className="font-medium text-sm">{item.name}</span>
+                          {isAutoAdded && (
+                            <span className="text-xs bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded-full font-medium">
+                              auto
                         </span>
+                          )}
+                        </div>
                         {item.description && (
-                          <span className="block text-xs text-gray-500 truncate mt-0.5">
-                            {item.description}
-                          </span>
+                          <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
                         )}
                       </div>
                     </label>

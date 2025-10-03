@@ -2,7 +2,7 @@
 
 import React from "react";
 import { FormGenerator, FormConfig } from "../../";
-import { FLOOR_CONSTANTS } from '@/quotation/domain/configuration/constants';
+import { DefaultValues } from '@/quotation/domain/configuration/DefaultValues';
 
 const movingFormConfig: FormConfig = {
   preset: "moving", // ✨ Utilise automatiquement defaultValues, styles et summary
@@ -88,7 +88,7 @@ const movingFormConfig: FormConfig = {
           className: "pickup-field",
           conditional: {
             dependsOn: "pickupElevator",
-            condition: (value, formData) => value === "no" && parseInt(formData?.pickupFloor || "0") > FLOOR_CONSTANTS.FURNITURE_LIFT_WARNING_THRESHOLD
+            condition: (value, formData) => value === "no" && parseInt(formData?.pickupFloor || "0") > DefaultValues.FURNITURE_LIFT_WARNING_THRESHOLD
           }
         },
         {
@@ -219,7 +219,7 @@ const movingFormConfig: FormConfig = {
           className: "delivery-field",
           conditional: {
             dependsOn: "deliveryElevator",
-            condition: (value, formData) => value === "no" && parseInt(formData?.deliveryFloor || "0") > FLOOR_CONSTANTS.FURNITURE_LIFT_WARNING_THRESHOLD
+            condition: (value, formData) => value === "no" && parseInt(formData?.deliveryFloor || "0") > DefaultValues.FURNITURE_LIFT_WARNING_THRESHOLD
           }
         },
         {

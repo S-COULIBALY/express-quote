@@ -1,6 +1,56 @@
 import { Entity } from '../../../shared/domain/Entity';
 import { ConfigurationCategory } from './ConfigurationKey';
 
+/**
+ * ============================================================================
+ * ENTITÉ CONFIGURATION - Gestion centralisée des paramètres système
+ * ============================================================================
+ * 
+ * 🎯 OBJECTIF :
+ * Cette classe représente une configuration système avec gestion de version,
+ * validité temporelle et traçabilité des modifications.
+ * 
+ * 📋 CARACTÉRISTIQUES :
+ * 
+ * ✅ VERSIONING : Chaque configuration a une période de validité
+ * ✅ AUDIT : Traçabilité des modifications avec timestamps
+ * ✅ ACTIVATION : Possibilité d'activer/désactiver les configurations
+ * ✅ CATÉGORISATION : Organisation par catégories métier
+ * ✅ IMMUTABILITÉ : Les objets sont immutables, création de nouvelles instances
+ * 
+ * 🔧 UTILISATION :
+ * 
+ * 1. CRÉATION :
+ *    - Configuration.create() pour nouvelles configurations
+ *    - Valeurs par défaut depuis DefaultValues.ts
+ * 
+ * 2. MODIFICATION :
+ *    - update() pour changer la valeur
+ *    - deactivate() pour désactiver
+ *    - Création d'une nouvelle instance (immutabilité)
+ * 
+ * 3. VALIDATION :
+ *    - isValid() pour vérifier la validité temporelle
+ *    - Vérification des dates de début/fin
+ * 
+ * 📊 STRUCTURE :
+ * 
+ * - category : Type de configuration (PRICING, BUSINESS_RULES, etc.)
+ * - key : Identifiant unique de la configuration
+ * - value : Valeur de la configuration (any type)
+ * - description : Description optionnelle
+ * - isActive : Statut d'activation
+ * - validFrom/validTo : Période de validité
+ * - updatedAt : Timestamp de dernière modification
+ * 
+ * 🚀 AVANTAGES :
+ * 
+ * ✅ Historique : Conservation de l'historique des modifications
+ * ✅ Rollback : Possibilité de revenir à une version précédente
+ * ✅ A/B Testing : Comparaison de différentes configurations
+ * ✅ Sécurité : Validation des périodes de validité
+ * ✅ Performance : Cache des configurations valides
+ */
 export class Configuration extends Entity {
   private readonly _value: any;
   private readonly _description: string | null;
@@ -65,6 +115,22 @@ export class Configuration extends Entity {
     return new Date(this._updatedAt);
   }
 
+  /**
+   * VALIDATION TEMPORELLE - Vérifie si la configuration est valide à une date donnée
+   * 
+   * 🎯 UTILITÉ :
+   * - Vérification de la période de validité
+   * - Gestion des configurations expirées
+   * - Support des tests avec dates spécifiques
+   * 
+   * ✅ CRITÈRES DE VALIDITÉ :
+   * - Configuration active (isActive = true)
+   * - Date >= validFrom
+   * - Date <= validTo (si défini)
+   * 
+   * @param date Date de vérification (par défaut: maintenant)
+   * @returns true si la configuration est valide à cette date
+   */
   public isValid(date: Date = new Date()): boolean {
     if (!this._isActive) return false;
     if (date < this._validFrom) return false;
@@ -72,6 +138,24 @@ export class Configuration extends Entity {
     return true;
   }
 
+  /**
+   * FACTORY METHOD - Création d'une nouvelle configuration
+   * 
+   * 🎯 UTILITÉ :
+   * - Création simplifiée avec valeurs par défaut
+   * - Génération automatique des timestamps
+   * - Configuration active par défaut
+   * 
+   * 📋 PARAMÈTRES :
+   * - category : Catégorie de la configuration
+   * - key : Clé unique de la configuration
+   * - value : Valeur de la configuration
+   * - description : Description optionnelle
+   * - validFrom : Date de début (par défaut: maintenant)
+   * - validTo : Date de fin (optionnelle)
+   * 
+   * @returns Nouvelle instance de Configuration
+   */
   public static create(
     category: ConfigurationCategory,
     key: string,
@@ -93,6 +177,24 @@ export class Configuration extends Entity {
     );
   }
 
+  /**
+   * MISE À JOUR - Création d'une nouvelle version de la configuration
+   * 
+   * 🎯 UTILITÉ :
+   * - Modification de la valeur ou description
+   * - Mise à jour de la date de fin
+   * - Conservation de l'historique (immutabilité)
+   * 
+   * ⚠️ IMPORTANT :
+   * - Crée une nouvelle instance (pas de modification directe)
+   * - Met à jour le timestamp updatedAt
+   * - Conserve l'ID et les autres propriétés
+   * 
+   * @param value Nouvelle valeur
+   * @param description Nouvelle description (optionnelle)
+   * @param validTo Nouvelle date de fin (optionnelle)
+   * @returns Nouvelle instance avec les modifications
+   */
   public update(value: any, description?: string, validTo?: Date): Configuration {
     return new Configuration(
       this.getId(),
@@ -107,6 +209,21 @@ export class Configuration extends Entity {
     );
   }
 
+  /**
+   * DÉSACTIVATION - Désactive la configuration
+   * 
+   * 🎯 UTILITÉ :
+   * - Désactivation sans suppression
+   * - Conservation de l'historique
+   * - Possibilité de réactivation future
+   * 
+   * ⚠️ IMPORTANT :
+   * - Crée une nouvelle instance inactive
+   * - Met à jour le timestamp updatedAt
+   * - Conserve toutes les autres propriétés
+   * 
+   * @returns Nouvelle instance désactivée
+   */
   public deactivate(): Configuration {
     return new Configuration(
       this.getId(),

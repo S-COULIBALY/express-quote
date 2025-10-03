@@ -32,15 +32,15 @@ export default function RootLayoutClient({
   
   // Vérifier si la page a besoin de Google Maps (par ex. pour les pages de devis)
   useEffect(() => {
-    const path = window.location.pathname;
-    // Charger l'API Maps uniquement sur les pages qui en ont besoin
-    if (path.includes('/moving/new') || 
-        path.includes('/cleaning/new') || 
-        path.includes('/contact') || 
-        path.includes('/checkout') ||
-        path.includes('/services/') ||
-        path.includes('/packs/')) {
-      setMapNeeded(true);
+    // Vérifier que window est disponible (côté client uniquement)
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      // Charger l'API Maps uniquement sur les pages qui en ont besoin
+      if (path.includes('/catalogue/') || 
+          path.includes('/contact') || 
+          path.includes('/checkout')) {
+        setMapNeeded(true);
+      }
     }
   }, []);
 

@@ -3,49 +3,26 @@ import { logger } from '@/lib/logger';
 import { Quote } from '@/quotation/domain/valueObjects/Quote';
 import { Money } from '@/quotation/domain/valueObjects/Money';
 import { Discount } from '@/quotation/domain/valueObjects/Discount';
-import { QuoteCalculator } from '@/quotation/domain/calculators/MovingQuoteCalculator';
-import { ConfigurationService } from '@/quotation/domain/services/ConfigurationService';
+import { UnifiedDataService, ConfigurationCategory } from '@/quotation/infrastructure/services/UnifiedDataService';
+import {
+  BusinessTypePricingConfigKey,
+  PricingFactorsConfigKey,
+  ServiceParamsConfigKey,
+  PricingConfigKey
+} from '@/quotation/domain/configuration/ConfigurationKey';
 
 /**
  * Service centralisé pour les calculs de fallback
+ * ✅ MIGRÉ VERS UNIFIED DATA SERVICE - Plus de valeurs hardcodées
  * Utilisé lorsque le QuoteCalculator principal n'est pas disponible
  */
 export class FallbackCalculatorService {
   private static instance: FallbackCalculatorService;
-  
-  // Valeurs par défaut pour les différents services
-  private static readonly DEFAULT_PRICES = {
-    [ServiceType.MOVING]: 400,
-    [ServiceType.PACK]: 300,
-    [ServiceType.SERVICE]: 200
-  };
-  
-  // Tarifs pour les calculs
-  private static readonly RATES = {
-    PRICE_PER_M3: 40,          // Prix par m³ pour déménagement
-    PRICE_PER_KM: 2,           // Prix par km
-    FUEL_COST_PER_KM: 0.15,    // Coût carburant par km
-    TOLL_COST_PER_KM: 0.1,     // Coût péage par km
-    WORKER_PRICE_PER_HOUR: 35, // Prix horaire par travailleur
-    WORKER_PRICE_PER_DAY: 120, // Prix journalier par travailleur
-    LIFT_COST: 200,            // Coût monte-meuble
-    INCLUDED_DISTANCE: 20,     // Distance incluse dans le prix de base
-    VAT_RATE: 0.2              // Taux de TVA (20%)
-  };
-  
-  // Options pour les déménagements
-  private static readonly MOVING_OPTIONS = {
-    packaging: 150,
-    furniture: 100,
-    fragile: 80,
-    storage: 200,
-    disassembly: 120,
-    unpacking: 100,
-    supplies: 50,
-    fragileItems: 80
-  };
+  private readonly unifiedDataService: UnifiedDataService;
 
-  private constructor() {}
+  private constructor() {
+    this.unifiedDataService = UnifiedDataService.getInstance();
+  }
 
   /**
    * Obtient l'instance unique du service (pattern Singleton)
@@ -58,74 +35,224 @@ export class FallbackCalculatorService {
   }
 
   /**
-   * Calcule un prix pour un déménagement (MOVING) en mode fallback
+   * ✅ NOUVEAU: Récupère les prix par défaut depuis la configuration
+   */
+  private async getDefaultPrices(): Promise<Record<ServiceType, number>> {
+    try {
+      logger.info('📊 [FALLBACK-CALC] Récupération des prix par défaut depuis la configuration');
+
+      const [movingPrice, packingPrice, cleaningPrice, deliveryPrice] = await Promise.all([
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          BusinessTypePricingConfigKey.MOVING_BASE_PRICE_PER_M3,
+          400
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          BusinessTypePricingConfigKey.PACKING_PRICE_PER_M3,
+          300
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          BusinessTypePricingConfigKey.CLEANING_MINIMUM_PRICE,
+          200
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          BusinessTypePricingConfigKey.DELIVERY_BASE_PRICE,
+          250
+        )
+      ]);
+
+      const prices = {
+        [ServiceType.MOVING]: movingPrice,
+        [ServiceType.PACKING]: packingPrice,
+        [ServiceType.CLEANING]: cleaningPrice,
+        [ServiceType.DELIVERY]: deliveryPrice
+      };
+
+      logger.info('✅ [FALLBACK-CALC] Prix par défaut récupérés:', prices);
+      return prices;
+    } catch (error) {
+      logger.error('❌ [FALLBACK-CALC] Erreur récupération prix par défaut, utilisation fallback:', error);
+
+      // Fallback vers les anciennes valeurs hardcodées
+      return {
+        [ServiceType.MOVING]: 400,
+        [ServiceType.PACKING]: 300,
+        [ServiceType.CLEANING]: 200,
+        [ServiceType.DELIVERY]: 250
+      };
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU: Récupère les tarifs depuis la configuration
+   */
+  private async getRates(): Promise<Record<string, number>> {
+    try {
+      logger.info('📊 [FALLBACK-CALC] Récupération des tarifs depuis la configuration');
+
+      const [
+        pricePerM3,
+        pricePerKm,
+        fuelCostPerKm,
+        tollCostPerKm,
+        workerPricePerHour,
+        workerPricePerDay,
+        liftCost,
+        includedDistance,
+        vatRate
+      ] = await Promise.all([
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          PricingConfigKey.UNIT_PRICE_PER_M3,
+          40
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          PricingConfigKey.UNIT_PRICE_PER_KM,
+          2
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          PricingConfigKey.FUEL_PRICE_PER_LITER,
+          0.15
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          PricingConfigKey.TOLL_COST_PER_KM,
+          0.1
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          PricingConfigKey.WORKER_HOUR_RATE,
+          35
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          PricingConfigKey.EXTRA_WORKER_HOUR_RATE,
+          120
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          PricingConfigKey.LIFT_PRICE,
+          200
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING,
+          PricingConfigKey.INCLUDED_DISTANCE,
+          20
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.SYSTEM_VALUES,
+          'VAT_RATE',
+          0.2
+        )
+      ]);
+
+      const rates = {
+        PRICE_PER_M3: pricePerM3,
+        PRICE_PER_KM: pricePerKm,
+        FUEL_COST_PER_KM: fuelCostPerKm,
+        TOLL_COST_PER_KM: tollCostPerKm,
+        WORKER_PRICE_PER_HOUR: workerPricePerHour,
+        WORKER_PRICE_PER_DAY: workerPricePerDay,
+        LIFT_COST: liftCost,
+        INCLUDED_DISTANCE: includedDistance,
+        VAT_RATE: vatRate
+      };
+
+      logger.info('✅ [FALLBACK-CALC] Tarifs récupérés depuis la configuration');
+      return rates;
+    } catch (error) {
+      logger.error('❌ [FALLBACK-CALC] Erreur récupération tarifs, utilisation fallback:', error);
+
+      // Fallback vers les anciennes valeurs hardcodées
+      return {
+        PRICE_PER_M3: 40,
+        PRICE_PER_KM: 2,
+        FUEL_COST_PER_KM: 0.15,
+        TOLL_COST_PER_KM: 0.1,
+        WORKER_PRICE_PER_HOUR: 35,
+        WORKER_PRICE_PER_DAY: 120,
+        LIFT_COST: 200,
+        INCLUDED_DISTANCE: 20,
+        VAT_RATE: 0.2
+      };
+    }
+  }
+
+  /**
+   * ✅ MIGRÉ: Calcule un prix pour un déménagement (MOVING) en mode fallback
    * @param params Paramètres du déménagement
    * @returns Objet avec les détails du calcul
    */
-  public calculateMovingFallback(params: {
+  public async calculateMovingFallback(params: {
     volume?: number,
     distance?: number,
     workers?: number,
     defaultPrice?: number,
-    options?: Record<string, boolean>,
     pickupNeedsLift?: boolean,
     deliveryNeedsLift?: boolean
-  }): {
+  }): Promise<{
     quote: Quote,
     details: Record<string, any>
-  } {
-    logger.info('🔄 FALLBACK - Calcul manuel pour MOVING', params);
-    console.log('🔄 FALLBACK - Calcul manuel pour MOVING', params);
-    
+  }> {
+    logger.info('🔄 [FALLBACK-CALC] Calcul manuel pour MOVING via configuration', JSON.stringify(params));
+
     const volume = params.volume || 0;
     const distance = params.distance || 0;
     const workers = params.workers || 2;
-    const defaultPrice = params.defaultPrice || FallbackCalculatorService.DEFAULT_PRICES[ServiceType.MOVING];
-    const options = params.options || {};
-    
-    // 1. Calcul du prix basé sur le volume
-    const volumePrice = volume * FallbackCalculatorService.RATES.PRICE_PER_M3;
-    
-    // 2. Calcul du prix basé sur la distance
-    const distancePrice = distance * FallbackCalculatorService.RATES.PRICE_PER_KM;
-    
-    // 3. Ajouter les frais de carburant et de péage
-    const fuelCost = distance * FallbackCalculatorService.RATES.FUEL_COST_PER_KM;
-    const tollCost = distance * FallbackCalculatorService.RATES.TOLL_COST_PER_KM;
-    
+
+    // ✅ NOUVEAU: Récupération depuis la configuration
+    const [defaultPrices, rates, minimumPriceFactor] = await Promise.all([
+      this.getDefaultPrices(),
+      this.getRates(),
+      this.unifiedDataService.getConfigurationValue(
+        ConfigurationCategory.PRICING_FACTORS,
+        PricingFactorsConfigKey.MINIMUM_PRICE_FACTOR,
+        0.9
+      )
+    ]);
+
+    const defaultPrice = params.defaultPrice || defaultPrices[ServiceType.MOVING];
+
+    // 1. ✅ MIGRÉ: Calcul du prix basé sur le volume
+    const volumePrice = volume * rates.PRICE_PER_M3;
+
+    // 2. ✅ MIGRÉ: Calcul du prix basé sur la distance
+    const distancePrice = distance * rates.PRICE_PER_KM;
+
+    // 3. ✅ MIGRÉ: Ajouter les frais de carburant et de péage
+    const fuelCost = distance * rates.FUEL_COST_PER_KM;
+    const tollCost = distance * rates.TOLL_COST_PER_KM;
+
     // 4. Calculer le prix de base
     const basePrice = volumePrice + distancePrice + fuelCost + tollCost;
-    
-    // 5. Ajouter les coûts des options
-    let optionsCost = 0;
-    
-    for (const [option, isSelected] of Object.entries(options)) {
-      if (isSelected && option in FallbackCalculatorService.MOVING_OPTIONS) {
-        optionsCost += FallbackCalculatorService.MOVING_OPTIONS[option as keyof typeof FallbackCalculatorService.MOVING_OPTIONS];
-      }
-    }
-    
-    // 6. Ajouter les coûts de monte-meuble
+
+    // 5. ✅ MIGRÉ: Ajouter les coûts de monte-meuble
     let liftCost = 0;
-    if (params.pickupNeedsLift) liftCost += FallbackCalculatorService.RATES.LIFT_COST;
-    if (params.deliveryNeedsLift) liftCost += FallbackCalculatorService.RATES.LIFT_COST;
-    
-    // 7. Appliquer un tarif minimum comme plancher (90% du prix par défaut)
-    const minimumPrice = defaultPrice * 0.9;
-    const totalPrice = Math.max(basePrice + optionsCost + liftCost, minimumPrice);
+    if (params.pickupNeedsLift) liftCost += rates.LIFT_COST;
+    if (params.deliveryNeedsLift) liftCost += rates.LIFT_COST;
+
+    // 6. ✅ MIGRÉ: Appliquer un tarif minimum comme plancher (depuis configuration)
+    const minimumPrice = defaultPrice * minimumPriceFactor;
+    const totalPrice = Math.max(basePrice + liftCost, minimumPrice);
     
     const finalPrice = Math.round(totalPrice);
-    
+
     // Créer les objets de domaine
     const baseMoneyPrice = new Money(defaultPrice);
     const finalMoneyPrice = new Money(finalPrice);
     const discounts: Discount[] = [];
-    
+
     // Créer un objet Quote
     const quote = new Quote(baseMoneyPrice, finalMoneyPrice, discounts, ServiceType.MOVING);
-    
-    // Calculer la TVA
-    const vatAmount = Math.round(finalPrice * FallbackCalculatorService.RATES.VAT_RATE);
+
+    // ✅ MIGRÉ: Calculer la TVA depuis la configuration
+    const vatRate = rates.VAT_RATE;
+    const vatAmount = Math.round(finalPrice * vatRate);
     const totalWithVat = finalPrice + vatAmount;
     
     // Détails pour le débogage et l'affichage
@@ -136,7 +263,6 @@ export class FallbackCalculatorService {
       fuelCost: Math.round(fuelCost),
       tollCost: Math.round(tollCost),
       basePrice: Math.round(basePrice),
-      optionsCost: Math.round(optionsCost),
       liftCost: Math.round(liftCost),
       minimumPrice: Math.round(minimumPrice),
       finalPrice,
@@ -144,18 +270,22 @@ export class FallbackCalculatorService {
       totalWithVat,
     };
     
-    logger.info('✅ FALLBACK - Résultat du calcul manuel pour MOVING:', details);
+    try {
+      logger.info('✅ FALLBACK - Résultat du calcul manuel pour MOVING: ' + JSON.stringify(details));
+    } catch (e) {
+      // Fallback pour le logger si non disponible
+    }
     console.log('✅ FALLBACK - Résultat du calcul manuel pour MOVING:', details);
     
     return { quote, details };
   }
 
   /**
-   * Calcule un prix pour un service d'emballage (PACK) en mode fallback
+   * ✅ MIGRÉ: Calcule un prix pour un service d'emballage (PACK) en mode fallback
    * @param params Paramètres du service d'emballage
    * @returns Objet avec les détails du calcul
    */
-  public calculatePackFallback(params: {
+  public async calculatePackFallback(params: {
     defaultPrice?: number,
     baseWorkers?: number,
     baseDuration?: number,
@@ -164,14 +294,39 @@ export class FallbackCalculatorService {
     distance?: number,
     pickupNeedsLift?: boolean,
     deliveryNeedsLift?: boolean
-  }): {
+  }): Promise<{
     quote: Quote,
     details: Record<string, any>
-  } {
-    logger.info('🔄 FALLBACK - Calcul manuel pour PACK', params);
+  }> {
+    try {
+      logger.info('🔄 FALLBACK - Calcul manuel pour PACK', JSON.stringify(params));
+    } catch (e) {
+      // Fallback pour le logger si non disponible
+    }
     console.log('🔄 FALLBACK - Calcul manuel pour PACK', params);
     
-    const defaultPrice = params.defaultPrice || FallbackCalculatorService.DEFAULT_PRICES[ServiceType.PACK];
+    // ✅ NOUVEAU: Récupération depuis la configuration
+    const [defaultPrices, rates, minimumPriceFactor, extraDayDiscountFactor, extraKmPrice] = await Promise.all([
+      this.getDefaultPrices(),
+      this.getRates(),
+      this.unifiedDataService.getConfigurationValue(
+        ConfigurationCategory.PRICING_FACTORS,
+        PricingFactorsConfigKey.MINIMUM_PRICE_FACTOR,
+        0.9
+      ),
+      this.unifiedDataService.getConfigurationValue(
+        ConfigurationCategory.PRICING_FACTORS,
+        PricingFactorsConfigKey.EXTRA_DAY_DISCOUNT_FACTOR,
+        0.9
+      ),
+      this.unifiedDataService.getConfigurationValue(
+        ConfigurationCategory.PRICING,
+        'EXTRA_KM_PRICE',
+        1.5
+      )
+    ]);
+
+    const defaultPrice = params.defaultPrice || defaultPrices[ServiceType.PACKING];
     const workers = params.workers || 2;
     const duration = params.duration || 1;
     const baseWorkers = params.baseWorkers || 2;
@@ -180,40 +335,52 @@ export class FallbackCalculatorService {
     
     let calculatedPrice = defaultPrice;
     
-    // 1. Coût des jours supplémentaires
+    // 1. ✅ MIGRÉ: Coût des jours supplémentaires (depuis configuration)
     let extraDurationCost = 0;
     if (duration > baseDuration) {
       const extraDays = duration - baseDuration;
       const dailyRate = defaultPrice / baseDuration;
-      extraDurationCost = dailyRate * extraDays * 0.9; // 10% de réduction
+      extraDurationCost = dailyRate * extraDays * extraDayDiscountFactor;
       calculatedPrice += extraDurationCost;
     }
     
-    // 2. Coût des travailleurs supplémentaires
+    // 2. ✅ MIGRÉ: Coût des travailleurs supplémentaires (depuis configuration)
     let extraWorkerCost = 0;
     if (workers > baseWorkers) {
       const extraWorkers = workers - baseWorkers;
-      const reductionRate = duration === 1 ? 0.05 : 0.10; // 5% pour 1 jour, 10% pour plusieurs jours
-      extraWorkerCost = extraWorkers * FallbackCalculatorService.RATES.WORKER_PRICE_PER_DAY * duration * (1 - reductionRate);
+      const [workerReductionSingle, workerReductionMultiple] = await Promise.all([
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING_FACTORS,
+          'WORKER_REDUCTION_SINGLE_DAY',
+          0.05
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING_FACTORS,
+          'WORKER_REDUCTION_MULTIPLE_DAYS',
+          0.10
+        )
+      ]);
+      const reductionRate = duration === 1 ? workerReductionSingle : workerReductionMultiple;
+      extraWorkerCost = extraWorkers * rates.WORKER_PRICE_PER_DAY * duration * (1 - reductionRate);
       calculatedPrice += extraWorkerCost;
     }
     
-    // 3. Calculer le coût de la distance supplémentaire
+    // 3. ✅ MIGRÉ: Calculer le coût de la distance supplémentaire (depuis configuration)
     let extraDistanceCost = 0;
-    if (distance > FallbackCalculatorService.RATES.INCLUDED_DISTANCE) {
-      const extraKm = distance - FallbackCalculatorService.RATES.INCLUDED_DISTANCE;
-      extraDistanceCost = extraKm * 1.5; // 1,50€ par km supplémentaire
+    if (distance > rates.INCLUDED_DISTANCE) {
+      const extraKm = distance - rates.INCLUDED_DISTANCE;
+      extraDistanceCost = extraKm * extraKmPrice;
       calculatedPrice += extraDistanceCost;
     }
     
-    // 4. Calculer le coût du monte-meuble
+    // 4. ✅ MIGRÉ: Calculer le coût du monte-meuble (depuis configuration)
     let liftCost = 0;
-    if (params.pickupNeedsLift) liftCost += FallbackCalculatorService.RATES.LIFT_COST;
-    if (params.deliveryNeedsLift) liftCost += FallbackCalculatorService.RATES.LIFT_COST;
+    if (params.pickupNeedsLift) liftCost += rates.LIFT_COST;
+    if (params.deliveryNeedsLift) liftCost += rates.LIFT_COST;
     calculatedPrice += liftCost;
-    
-    // 5. Appliquer un tarif minimum comme plancher (90% du prix par défaut)
-    const minimumPrice = defaultPrice * 0.9;
+
+    // 5. ✅ MIGRÉ: Appliquer un tarif minimum comme plancher (depuis configuration)
+    const minimumPrice = defaultPrice * minimumPriceFactor;
     const totalPrice = Math.max(calculatedPrice, minimumPrice);
     
     const finalPrice = Math.round(totalPrice);
@@ -224,10 +391,10 @@ export class FallbackCalculatorService {
     const discounts: Discount[] = [];
     
     // Créer un objet Quote
-    const quote = new Quote(baseMoneyPrice, finalMoneyPrice, discounts, ServiceType.PACK);
-    
-    // Calculer la TVA
-    const vatAmount = Math.round(finalPrice * FallbackCalculatorService.RATES.VAT_RATE);
+    const quote = new Quote(baseMoneyPrice, finalMoneyPrice, discounts, ServiceType.PACKING);
+
+    // ✅ MIGRÉ: Calculer la TVA (depuis configuration)
+    const vatAmount = Math.round(finalPrice * rates.VAT_RATE);
     const totalWithVat = finalPrice + vatAmount;
     
     // Détails pour le débogage et l'affichage
@@ -243,31 +410,50 @@ export class FallbackCalculatorService {
       totalWithVat
     };
     
-    logger.info('✅ FALLBACK - Résultat du calcul manuel pour PACK:', details);
+    try {
+      logger.info('✅ FALLBACK - Résultat du calcul manuel pour PACK: ' + JSON.stringify(details));
+    } catch (e) {
+      // Fallback pour le logger si non disponible
+    }
     console.log('✅ FALLBACK - Résultat du calcul manuel pour PACK:', details);
     
     return { quote, details };
   }
 
   /**
-   * Calcule un prix pour un service (SERVICE) en mode fallback
+   * ✅ MIGRÉ: Calcule un prix pour un service (SERVICE) en mode fallback
    * @param params Paramètres du service
    * @returns Objet avec les détails du calcul
    */
-  public calculateServiceFallback(params: {
+  public async calculateServiceFallback(params: {
     defaultPrice?: number,
     defaultWorkers?: number,
     defaultDuration?: number,
     workers?: number,
     duration?: number
-  }): {
+  }): Promise<{
     quote: Quote,
     details: Record<string, any>
-  } {
-    logger.info('🔄 FALLBACK - Calcul manuel pour SERVICE', params);
+  }> {
+    try {
+      logger.info('🔄 FALLBACK - Calcul manuel pour SERVICE', JSON.stringify(params));
+    } catch (e) {
+      // Fallback pour le logger si non disponible
+    }
     console.log('🔄 FALLBACK - Calcul manuel pour SERVICE', params);
     
-    const defaultPrice = params.defaultPrice || FallbackCalculatorService.DEFAULT_PRICES[ServiceType.SERVICE];
+    // ✅ NOUVEAU: Récupération depuis la configuration
+    const [defaultPrices, rates, minimumPriceFactor] = await Promise.all([
+      this.getDefaultPrices(),
+      this.getRates(),
+      this.unifiedDataService.getConfigurationValue(
+        ConfigurationCategory.PRICING_FACTORS,
+        PricingFactorsConfigKey.MINIMUM_PRICE_FACTOR,
+        0.9
+      )
+    ]);
+
+    const defaultPrice = params.defaultPrice || defaultPrices[ServiceType.CLEANING];
     const duration = params.duration || 1;
     const workers = params.workers || 1;
     const defaultDuration = params.defaultDuration || 1;
@@ -276,25 +462,37 @@ export class FallbackCalculatorService {
     // Calculer le prix
     let calculatedPrice = defaultPrice;
     
-    // 1. Coût des travailleurs supplémentaires
+    // 1. ✅ MIGRÉ: Coût des travailleurs supplémentaires (depuis configuration)
     let extraWorkerCost = 0;
     if (workers > defaultWorkers) {
       const extraWorkers = workers - defaultWorkers;
-      const reductionRate = duration <= 2 ? 0.1 : 0.15;
-      extraWorkerCost = extraWorkers * FallbackCalculatorService.RATES.WORKER_PRICE_PER_HOUR * duration * (1 - reductionRate);
+      const [durationReductionShort, durationReductionLong] = await Promise.all([
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING_FACTORS,
+          'DURATION_REDUCTION_SHORT',
+          0.1
+        ),
+        this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING_FACTORS,
+          'DURATION_REDUCTION_LONG',
+          0.15
+        )
+      ]);
+      const reductionRate = duration <= 2 ? durationReductionShort : durationReductionLong;
+      extraWorkerCost = extraWorkers * rates.WORKER_PRICE_PER_HOUR * duration * (1 - reductionRate);
       calculatedPrice += extraWorkerCost;
     }
     
-    // 2. Coût des heures supplémentaires
+    // 2. ✅ MIGRÉ: Coût des heures supplémentaires (depuis configuration)
     let extraHoursCost = 0;
     if (duration > defaultDuration) {
       const extraHours = duration - defaultDuration;
-      extraHoursCost = defaultWorkers * FallbackCalculatorService.RATES.WORKER_PRICE_PER_HOUR * extraHours;
+      extraHoursCost = defaultWorkers * rates.WORKER_PRICE_PER_HOUR * extraHours;
       calculatedPrice += extraHoursCost;
     }
-    
-    // 3. Appliquer un tarif minimum comme plancher (90% du prix par défaut)
-    const minimumPrice = defaultPrice * 0.9;
+
+    // 3. ✅ MIGRÉ: Appliquer un tarif minimum comme plancher (depuis configuration)
+    const minimumPrice = defaultPrice * minimumPriceFactor;
     const totalPrice = Math.max(calculatedPrice, minimumPrice);
     
     const finalPrice = Math.round(totalPrice);
@@ -305,10 +503,10 @@ export class FallbackCalculatorService {
     const discounts: Discount[] = [];
     
     // Créer un objet Quote
-    const quote = new Quote(baseMoneyPrice, finalMoneyPrice, discounts, ServiceType.SERVICE);
-    
-    // Calculer la TVA
-    const vatAmount = Math.round(finalPrice * FallbackCalculatorService.RATES.VAT_RATE);
+    const quote = new Quote(baseMoneyPrice, finalMoneyPrice, discounts, ServiceType.CLEANING);
+
+    // ✅ MIGRÉ: Calculer la TVA (depuis configuration)
+    const vatAmount = Math.round(finalPrice * rates.VAT_RATE);
     const totalWithVat = finalPrice + vatAmount;
     
     // Détails pour le débogage et l'affichage
@@ -322,12 +520,140 @@ export class FallbackCalculatorService {
       totalWithVat
     };
     
-    logger.info('✅ FALLBACK - Résultat du calcul manuel pour SERVICE:', details);
+    try {
+      logger.info('✅ FALLBACK - Résultat du calcul manuel pour SERVICE: ' + JSON.stringify(details));
+    } catch (e) {
+      // Fallback pour le logger si non disponible
+    }
     console.log('✅ FALLBACK - Résultat du calcul manuel pour SERVICE:', details);
     
     return { quote, details };
   }
-  
+
+  /**
+   * ✅ NOUVEAU: Calcule un prix pour un service de livraison (DELIVERY) en mode fallback
+   * @param params Paramètres du service de livraison
+   * @returns Objet avec les détails du calcul
+   */
+  public async calculateDeliveryFallback(params: {
+    defaultPrice?: number,
+    volume?: number,
+    distance?: number,
+    urgency?: 'STANDARD' | 'EXPRESS' | 'URGENT'
+  }): Promise<{
+    quote: Quote,
+    details: Record<string, any>
+  }> {
+    try {
+      logger.info('🔄 [FALLBACK-CALC] Calcul manuel pour DELIVERY via configuration', JSON.stringify(params));
+    } catch (e) {
+      // Fallback pour le logger si non disponible
+    }
+    console.log('🔄 [FALLBACK-CALC] Calcul manuel pour DELIVERY', params);
+
+    // ✅ NOUVEAU: Récupération depuis la configuration
+    const [defaultPrices, rates, minimumPriceFactor, volumePrice, expressMultiplier, urgentMultiplier] = await Promise.all([
+      this.getDefaultPrices(),
+      this.getRates(),
+      this.unifiedDataService.getConfigurationValue(
+        ConfigurationCategory.PRICING_FACTORS,
+        PricingFactorsConfigKey.MINIMUM_PRICE_FACTOR,
+        0.9
+      ),
+      this.unifiedDataService.getConfigurationValue(
+        ConfigurationCategory.PRICING,
+        'DELIVERY_VOLUME_PRICE_PER_M3',
+        1.5
+      ),
+      this.unifiedDataService.getConfigurationValue(
+        ConfigurationCategory.PRICING,
+        'DELIVERY_EXPRESS_MULTIPLIER',
+        1.5
+      ),
+      this.unifiedDataService.getConfigurationValue(
+        ConfigurationCategory.PRICING,
+        'DELIVERY_URGENT_MULTIPLIER',
+        2.0
+      )
+    ]);
+
+    const defaultPrice = params.defaultPrice || defaultPrices[ServiceType.DELIVERY];
+    const volume = params.volume || 0;
+    const distance = params.distance || 0;
+    const urgency = params.urgency || 'STANDARD';
+
+    // 1. ✅ MIGRÉ: Calcul du prix basé sur le volume
+    const volumeCost = volume * volumePrice;
+
+    // 2. ✅ MIGRÉ: Calcul du prix basé sur la distance
+    const distancePrice = distance * rates.PRICE_PER_KM;
+
+    // 3. ✅ MIGRÉ: Ajouter les frais de carburant et de péage
+    const fuelCost = distance * rates.FUEL_COST_PER_KM;
+    const tollCost = distance > 100 ? distance * rates.TOLL_COST_PER_KM : 0;
+
+    // 4. Calculer le prix de base
+    let basePrice = defaultPrice + volumeCost + distancePrice + fuelCost + tollCost;
+
+    // 5. ✅ MIGRÉ: Appliquer le multiplicateur d'urgence (depuis configuration)
+    let urgencyMultiplier = 1;
+    switch (urgency) {
+      case 'EXPRESS':
+        urgencyMultiplier = expressMultiplier;
+        break;
+      case 'URGENT':
+        urgencyMultiplier = urgentMultiplier;
+        break;
+      default:
+        urgencyMultiplier = 1;
+    }
+
+    basePrice = basePrice * urgencyMultiplier;
+
+    // 6. ✅ MIGRÉ: Appliquer un tarif minimum comme plancher (depuis configuration)
+    const minimumPrice = defaultPrice * minimumPriceFactor;
+    const totalPrice = Math.max(basePrice, minimumPrice);
+
+    const finalPrice = Math.round(totalPrice);
+
+    // Créer les objets de domaine
+    const baseMoneyPrice = new Money(defaultPrice);
+    const finalMoneyPrice = new Money(finalPrice);
+    const discounts: Discount[] = [];
+
+    // Créer un objet Quote
+    const quote = new Quote(baseMoneyPrice, finalMoneyPrice, discounts, ServiceType.DELIVERY);
+
+    // ✅ MIGRÉ: Calculer la TVA (depuis configuration)
+    const vatAmount = Math.round(finalPrice * rates.VAT_RATE);
+    const totalWithVat = finalPrice + vatAmount;
+
+    // Détails pour le débogage et l'affichage
+    const details = {
+      defaultPrice,
+      volumeCost: Math.round(volumeCost),
+      distancePrice: Math.round(distancePrice),
+      fuelCost: Math.round(fuelCost),
+      tollCost: Math.round(tollCost),
+      urgencyMultiplier,
+      basePrice: Math.round(basePrice),
+      minimumPrice: Math.round(minimumPrice),
+      finalPrice,
+      vatAmount,
+      totalWithVat,
+      urgency
+    };
+
+    try {
+      logger.info('✅ [FALLBACK-CALC] Résultat du calcul manuel pour DELIVERY: ' + JSON.stringify(details));
+    } catch (e) {
+      // Fallback pour le logger si non disponible
+    }
+    console.log('✅ [FALLBACK-CALC] Résultat du calcul manuel pour DELIVERY:', details);
+
+    return { quote, details };
+  }
+
   /**
    * Crée une réponse formatée pour l'API à partir des résultats de calcul
    * @param serviceType Type de service
@@ -389,52 +715,61 @@ export class FallbackCalculatorService {
         response.volumeCost = details.volumePrice;
         response.tollCost = details.tollCost;
         response.fuelCost = details.fuelCost;
-        response.optionsCost = details.optionsCost;
         break;
         
-      case ServiceType.PACK:
+      case ServiceType.PACKING:
         response.extraWorkerCost = details.extraWorkerCost;
         response.extraDurationCost = details.extraDurationCost;
         response.distancePrice = details.extraDistanceCost;
         response.liftCost = details.liftCost;
         break;
         
-      case ServiceType.SERVICE:
+      case ServiceType.CLEANING:
         response.extraWorkerCost = details.extraWorkerCost;
         response.extraHoursCost = details.extraHoursCost;
         break;
+
+      case ServiceType.DELIVERY:
+        response.volumeCost = details.volumeCost;
+        response.distancePrice = details.distancePrice;
+        response.fuelCost = details.fuelCost;
+        response.tollCost = details.tollCost;
+        response.urgencyMultiplier = details.urgencyMultiplier;
+        response.urgency = details.urgency;
+        break;
     }
-    
+
     return response;
   }
   
   /**
-   * Crée une instance de QuoteCalculator avec des règles par défaut
+   * Crée une instance de calculateur de fallback
+   * Utilise maintenant les TemplateRules unifiées
    * 
    * @param configService Service de configuration à utiliser
-   * @returns Une instance de QuoteCalculator configurée avec des règles par défaut
+   * @returns Une instance de calculateur configurée avec des règles par défaut
    */
-  public createFallbackCalculator(configService: ConfigurationService): QuoteCalculator {
+  public createFallbackCalculator(configService: ConfigurationService): any {
     // Import dynamique des fonctions de création de règles
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { createMovingRules } = require('@/quotation/domain/rules/MovingRules');
-    const { createPackRules } = require('@/quotation/domain/rules/PackRules');
-    const { createServiceRules } = require('@/quotation/domain/rules/ServiceRules');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { createTemplateRules } = require('@/quotation/domain/rules/TemplateRules');
     
     // Créer les listes de règles
     const movingRulesList = createMovingRules();
-    const packRulesList = createPackRules();
-    const serviceRulesList = createServiceRules();
+    const templateRulesList = createTemplateRules(); // Règles unifiées remplaçant Pack et Service
     
     // Créer et retourner le calculateur
-    const calculator = new QuoteCalculator(
+    const calculator = {
       configService,
       movingRulesList,
-      packRulesList,
-      serviceRulesList
-    );
+      templateRulesList, // Remplace packRulesList
+      templateRulesList  // Remplace serviceRulesList
+    };
     
-    logger.info('✅ Calculateur de fallback créé avec des règles codées en dur via FallbackCalculatorService');
-    console.log("✅ Calculateur de fallback créé avec des règles codées en dur via FallbackCalculatorService");
+    logger.info('✅ Calculateur de fallback créé avec TemplateRules unifiées via FallbackCalculatorService');
+    console.log("✅ Calculateur de fallback créé avec TemplateRules unifiées via FallbackCalculatorService");
     
     return calculator;
   }

@@ -13,11 +13,17 @@ export * from "./layouts";
 // ⚙️ Presets
 export * from "./presets";
 
+// 🌍 Preset Global (exports spécifiques)
+export { globalFormPreset, mergeWithGlobalPreset } from "./presets";
+
 // 🎨 Styles
-export { FormStyles } from "./styles/FormStyles";
+export { FormStylesSimplified } from "./styles/FormStylesSimplified";
 
 // 🛠 Utilitaires
 export * from "./utils";
+
+// 🔄 Utilitaires de migration
+export * from "./utils/migrationHelper";
 
 // 🚀 Exports de convenance pour migration facile
 export type { 
@@ -27,5 +33,13 @@ export type {
   FormGeneratorProps,
   FormSummaryConfig,
   PresetConfig,
-  IndustryPreset
+  IndustryPreset,
+  // 🌍 Types du preset global
+  GlobalFormConfig,
+  GlobalLayoutConfig,
+  GlobalAppearanceConfig,
+  GlobalAccessibilityConfig,
+  GlobalUIElementsConfig,
+  GlobalValidationConfig,
+  GlobalInteractionsConfig
 } from "./types"; 

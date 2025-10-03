@@ -5,37 +5,30 @@ export type { UsePriceCalculatorResult } from './generic/usePriceCalculator';
 export { useSubmission } from './generic/useSubmission';
 export type { UseSubmissionResult } from './generic/useSubmission';
 
-// Export des hooks métier - MOVING
-export { useMovingPriceCalculator } from './business/moving/useMovingPriceCalculator';
-export { useMovingSubmission } from './business/moving/useMovingSubmission';
 
 // Export des hooks métier - PACK
-export { usePackPriceCalculator } from './business/pack/usePackPriceCalculator';
-export { usePackSubmission } from './business/pack/usePackSubmission';
+export { useCatalogueMovingItemPriceCalculator } from './business/CatalogueMovingItem/useCatalogueMovingItemPriceCalculator';
+export { useCatalogueMovingItemSubmission } from './business/CatalogueMovingItem/useCatalogueMovingItemSubmission';
 
 // Export des hooks métier - SERVICE
-export { useServicePriceCalculator } from './business/service/useServicePriceCalculator';
-export { useServiceBookingSubmission } from './business/service/useServiceBookingSubmission';
+export { useCatalogueCleaningItemPriceCalculator } from './business/CatalogueCleaningItem/useCatalogueCleaningItemPriceCalculator';
+export { useCatalogueCleaningItemSubmission } from './business/CatalogueCleaningItem/useCatalogueCleaningItemSubmission';
 
 // Export des configurations de calcul de prix
-export { createMovingPriceConfig } from './business/moving/movingPriceConfig';
-export type { MovingExtraData } from './business/moving/movingPriceConfig';
 
-export { createPackPriceConfig } from './business/pack/packPriceConfig';
-export type { PackExtraData } from './business/pack/packPriceConfig';
+export { createCatalogueMovingItemPriceConfig } from './business/CatalogueMovingItem/catalogueMovingItemPriceConfig';
+export type { CatalogueMovingItemExtraData } from './business/CatalogueMovingItem/catalogueMovingItemPriceConfig';
 
-export { createServicePriceConfig } from './business/service/servicePriceConfig';
-export type { ServiceExtraData, ServicePriceDetails } from './business/service/servicePriceConfig';
+export { createCatalogueCleaningItemPriceConfig } from './business/CatalogueCleaningItem/catalogueCleaningItemPriceConfig';
+export type { CatalogueCleaningItemExtraData, CatalogueCleaningItemPriceDetails } from './business/CatalogueCleaningItem/catalogueCleaningItemPriceConfig';
 
 // Export des configurations de submission
-export { createMovingSubmissionConfig } from './business/moving/movingSubmissionConfig';
-export type { MovingSubmissionExtraData } from './business/moving/movingSubmissionConfig';
 
-export { createPackSubmissionConfig } from './business/pack/packSubmissionConfig';
-export type { PackSubmissionExtraData } from './business/pack/packSubmissionConfig';
+export { createCatalogueMovingItemSubmissionConfig } from './business/CatalogueMovingItem/catalogueMovingItemSubmissionConfig';
+export type { CatalogueMovingItemSubmissionExtraData } from './business/CatalogueMovingItem/catalogueMovingItemSubmissionConfig';
 
-export { createServiceSubmissionConfig } from './business/service/serviceSubmissionConfig';
-export type { ServiceSubmissionExtraData } from './business/service/serviceSubmissionConfig';
+export { createCatalogueCleaningItemSubmissionConfig } from './business/CatalogueCleaningItem/catalogueCleaningItemSubmissionConfig';
+export type { CatalogueCleaningItemSubmissionExtraData } from './business/CatalogueCleaningItem/catalogueCleaningItemSubmissionConfig';
 
 // Export des utilitaires de calcul de prix
 export { 

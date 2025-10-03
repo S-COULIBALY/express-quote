@@ -1,7 +1,7 @@
-import { Pack, Service } from '@/types/booking'
+import { CatalogueMovingItem, CatalogueCleaningItem } from '@/types/booking'
 
 // Fonction utilitaire pour générer les features de base
-function generateBaseFeatures(pack: Partial<Pack>): string[] {
+function generateBaseFeatures(pack: Partial<CatalogueMovingItem>): string[] {
   const features = [
     `${pack.workers} déménageur${pack.workers! > 1 ? 's' : ''} professionnel${pack.workers! > 1 ? 's' : ''}`,
     `${pack.duration} jour${pack.duration! > 1 ? 's' : ''} de service`,
@@ -11,7 +11,7 @@ function generateBaseFeatures(pack: Partial<Pack>): string[] {
 }
 
 // Fonction utilitaire pour générer les features de base des services
-function generateServiceFeatures(service: Partial<Service>): string[] {
+function generateServiceFeatures(service: Partial<CatalogueCleaningItem>): string[] {
   const features = [
     `${service.workers} professionnel${service.workers! > 1 ? 's' : ''} qualifié${service.workers! > 1 ? 's' : ''}`,
     service.duration === 1 
@@ -23,7 +23,7 @@ function generateServiceFeatures(service: Partial<Service>): string[] {
   return features
 }
 
-export const mockPacks: Pack[] = [
+export const mockPacks: CatalogueMovingItem[] = [
   {
     id: 'pack-1',
     bookingId: '',
@@ -199,13 +199,14 @@ export const mockPacks: Pack[] = [
   }
 ]
 
-export const mockServices: Service[] = [
+export const mockServices: CatalogueCleaningItem[] = [
   {
     id: 'service-1',
     bookingId: '',
     name: 'Service de Démontage',
     description: 'Service professionnel de démontage de meubles, assurant une dépose soigneuse et sécurisée.',
     price: 149,
+    categoryId: 'MENAGE',
     duration: 4,
     workers: 2,
     includes: [],
@@ -230,6 +231,7 @@ export const mockServices: Service[] = [
     name: 'Service d\'Emballage',
     description: 'Service complet d\'emballage de vos biens, avec des matériaux professionnels et une expertise garantie.',
     price: 199,
+    categoryId: 'MENAGE',
     duration: 8,
     workers: 2,
     includes: [],
@@ -254,6 +256,7 @@ export const mockServices: Service[] = [
     name: 'Service de Nettoyage',
     description: 'Service de nettoyage professionnel de votre ancien et nouveau logement.',
     price: 249,
+    categoryId: 'MENAGE',
     duration: 6,
     workers: 3,
     includes: [],
@@ -278,6 +281,7 @@ export const mockServices: Service[] = [
     name: 'Service de Garde-Meuble',
     description: 'Solution de stockage sécurisé pour vos biens, avec accès flexible et surveillance 24/7.',
     price: 99,
+    categoryId: 'MENAGE',
     duration: 720, // 30 jours × 24 heures
     workers: 1,
     includes: [],
@@ -302,6 +306,7 @@ export const mockServices: Service[] = [
     name: 'Service de Remontage',
     description: 'Service professionnel de remontage de meubles, assurant une installation parfaite.',
     price: 179,
+    categoryId: 'MENAGE',
     duration: 4,
     workers: 2,
     includes: [],
@@ -326,6 +331,7 @@ export const mockServices: Service[] = [
     name: 'Service de Conciergerie',
     description: 'Service personnalisé de conciergerie pour gérer tous les aspects de votre déménagement.',
     price: 1299,
+    categoryId: 'MENAGE',
     duration: 168, // 7 jours × 24 heures
     workers: 1,
     includes: [],

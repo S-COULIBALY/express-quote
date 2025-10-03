@@ -1,332 +1,355 @@
 /**
- * Valeurs par défaut centralisées pour toutes les configurations
- * 
- * ⚠️ IMPORTANT : Ces valeurs sont la source unique de vérité.
- * Elles sont utilisées par :
- * - DefaultConfigurations.ts (pour initialiser la BDD)
- * - MovingQuoteCalculator.ts (comme fallback en cas de panne)
- * - Tests unitaires (pour des valeurs prévisibles)
- * 
- * 🔧 Pour modifier une valeur :
- * 1. Changez-la ICI uniquement
- * 2. Les autres fichiers l'utiliseront automatiquement
- * 3. Cohérence garantie dans tous les contextes
+ * Configuration centrale - Valeurs par défaut du système
+ *
+ * Source unique de vérité pour:
+ * - Initialisation BDD (DefaultConfigurations.ts)
+ * - Fallback des calculs (QuoteCalculator.ts)
+ * - Tests unitaires
+ * - Développement local
  */
 export class DefaultValues {
-  
-  // ============================================================================
-  // MOVING - Configurations de déménagement
-  // ============================================================================
-  
-  /** Prix de base par m³ pour les déménagements */
-  static readonly MOVING_BASE_PRICE_PER_M3 = 10;
-  
-  /** Prix par kilomètre pour les déménagements */
-  static readonly MOVING_DISTANCE_PRICE_PER_KM = 2;
-  
-  /** Consommation de carburant pour 100km (en litres) */
+  // TARIFICATION BASE
+  static readonly UNIT_PRICE_PER_M3 = 35;
+  static readonly UNIT_PRICE_PER_KM = 2;
+  static readonly EXTRA_KM_PRICE = 1.5;
+  static readonly WORKER_PRICE = 120;
+  static readonly LIFT_PRICE = 200;
+  static readonly WORKER_HOUR_RATE = 35;
+  static readonly EXTRA_WORKER_HOUR_RATE = 40;
+
+  // FRAIS FIXES
+  static readonly VEHICLE_FLAT_FEE = 150;
+  static readonly INCLUDED_DISTANCE = 20;
+
+  // TRANSPORT
   static readonly FUEL_CONSUMPTION_PER_100KM = 25;
-  
-  /** Prix du carburant par litre (en euros) */
   static readonly FUEL_PRICE_PER_LITER = 1.8;
-  
-  /** Coût des péages par kilomètre (en euros) */
   static readonly TOLL_COST_PER_KM = 0.15;
-  
-  /** Ratio de distance sur autoroute (0.7 = 70%) */
   static readonly HIGHWAY_RATIO = 0.7;
-  
-  // ============================================================================
-  // PACK - Configurations de forfaits
-  // ============================================================================
-  
-  /** Prix par ouvrier par jour pour les forfaits */
-  static readonly PACK_WORKER_PRICE = 120;
-  
-  /** Distance incluse dans le forfait de base (en km) */
-  static readonly PACK_INCLUDED_DISTANCE = 20;
-  
-  /** Prix par kilomètre supplémentaire pour les forfaits */
-  static readonly PACK_EXTRA_KM_PRICE = 1.5;
-  
-  /** Taux de réduction pour les jours supplémentaires */
-  static readonly PACK_EXTRA_DAY_DISCOUNT_RATE = 0.8;
-  
-  /** Taux de réduction pour ouvriers supplémentaires (1 jour) */
-  static readonly PACK_WORKER_DISCOUNT_RATE_1_DAY = 0.05;
-  
-  /** Taux de réduction pour ouvriers supplémentaires (multi-jours) */
-  static readonly PACK_WORKER_DISCOUNT_RATE_MULTI_DAYS = 0.10;
-  
-  /** Prix du monte-charge pour les forfaits */
-  static readonly PACK_LIFT_PRICE = 200;
-  
-  // ============================================================================
-  // SERVICE - Configurations de services à l'heure
-  // ============================================================================
-  
-  /** Prix par ouvrier par heure pour les services */
-  static readonly SERVICE_WORKER_PRICE_PER_HOUR = 35;
-  
-  /** Taux de réduction pour services courts */
-  static readonly SERVICE_WORKER_DISCOUNT_RATE_SHORT = 0.1;
-  
-  /** Taux de réduction pour services longs */
-  static readonly SERVICE_WORKER_DISCOUNT_RATE_LONG = 0.15;
-  
-  /** Taux pour les heures supplémentaires (0.9 = 90% du tarif normal) */
-  static readonly SERVICE_EXTRA_HOUR_RATE = 0.9;
-  
-  // ============================================================================
-  // BUSINESS_RULES - Règles métier par défaut
-  // ============================================================================
-  
-  /** Nombre de jours pour bénéficier de la réduction anticipée (déménagement) */
-  static readonly MOVING_EARLY_BOOKING_DAYS = 30;
-  
-  /** Pourcentage de réduction pour réservation anticipée (déménagement) */
-  static readonly MOVING_EARLY_BOOKING_DISCOUNT = 10;
-  
-  /** Supplément week-end pour les déménagements (en %) */
-  static readonly MOVING_WEEKEND_SURCHARGE = 15;
-  
-  /** Nombre de jours pour bénéficier de la réduction anticipée (service) */
-  static readonly SERVICE_EARLY_BOOKING_DAYS = 14;
-  
-  /** Pourcentage de réduction pour réservation anticipée (service) */
-  static readonly SERVICE_EARLY_BOOKING_DISCOUNT = 5;
-  
-  /** Supplément week-end pour les services (en %) */
-  static readonly SERVICE_WEEKEND_SURCHARGE = 10;
-  
-  /** Nombre de jours pour bénéficier de la réduction anticipée (pack) */
-  static readonly PACK_EARLY_BOOKING_DAYS = 14;
-  
-  /** Pourcentage de réduction pour réservation anticipée (pack) */
-  static readonly PACK_EARLY_BOOKING_DISCOUNT = 5;
-  
-  /** Supplément week-end pour les packs (en %) */
-  static readonly PACK_WEEKEND_SURCHARGE = 10;
-  
-    /** Supplément pour réservation urgente de pack (en %) */
-  static readonly PACK_URGENT_BOOKING_SURCHARGE = 20;
 
-  // ============================================================================
-  // BOOKING & PLANNING - Règles de réservation et planification
-  // ============================================================================
-  
-  /** Heures minimales de réservation à l'avance */
-  static readonly MIN_ADVANCE_BOOKING_HOURS = 24;
-  
-  /** Jours maximum de réservation à l'avance */
-  static readonly MAX_BOOKING_DAYS_AHEAD = 90;
-  
-  /** Heures avant annulation sans frais */
-  static readonly CANCELLATION_DEADLINE_HOURS = 48;
-  
-  /** Heures pour remboursement complet */
-  static readonly FULL_REFUND_HOURS = 72;
-  
-  /** Pourcentage de remboursement partiel */
-  static readonly PARTIAL_REFUND_PERCENTAGE = 50;
-  
-  /** Durée minimale de service (en heures) */
-  static readonly MIN_SERVICE_DURATION_HOURS = 1;
-  
-  /** Durée maximale de service (en heures) */
-  static readonly MAX_SERVICE_DURATION_HOURS = 8;
-  
-  /** Intervalle minimum entre réservations (en heures) */
-  static readonly BUFFER_BETWEEN_BOOKINGS_HOURS = 1;
+  // RÉDUCTIONS
+  static readonly EXTRA_DAY_DISCOUNT_RATE = 0.08;
+  static readonly EXTRA_WORKER_DISCOUNT_RATE = 0.05;
 
-  // ============================================================================
-  // FALLBACK & GENERAL - Valeurs pour les calculs de fallback et générales
-  // ============================================================================
-  
-  /** Taux de TVA (20%) */
-  static readonly VAT_RATE = 0.20;
-  
-  /** Prix par défaut pour déménagement en mode fallback */
-  static readonly FALLBACK_DEFAULT_MOVING_PRICE = 400;
-  
-  /** Prix par défaut pour pack en mode fallback */
-  static readonly FALLBACK_DEFAULT_PACK_PRICE = 300;
-  
-  /** Prix par défaut pour service en mode fallback */
-  static readonly FALLBACK_DEFAULT_SERVICE_PRICE = 200;
-  
-  // Options pour déménagements (mode fallback)
-  static readonly MOVING_OPTION_PACKAGING = 150;
-  static readonly MOVING_OPTION_FURNITURE = 100;
-  static readonly MOVING_OPTION_FRAGILE = 80;
-  static readonly MOVING_OPTION_STORAGE = 200;
-  static readonly MOVING_OPTION_DISASSEMBLY = 120;
-  static readonly MOVING_OPTION_UNPACKING = 100;
-  static readonly MOVING_OPTION_SUPPLIES = 50;
-  static readonly MOVING_OPTION_FRAGILE_ITEMS = 80;
-
-  // ============================================================================
-  // ASSURANCE - Prix d'assurance centralisés
-  // ============================================================================
-  
-  /** Prix de l'assurance complémentaire HT (30€) */
+  // ASSURANCE
   static readonly INSURANCE_PRICE_HT = 30;
-  
-  /** Prix de l'assurance complémentaire TTC (36€) */
   static readonly INSURANCE_PRICE_TTC = 36;
-  
-  // ============================================================================
-  // CLEANING - Valeurs pour le nettoyage (migrées depuis constants.ts)
-  // ============================================================================
-  
-  /** Prix de base par m² pour le nettoyage */
-  static readonly CLEANING_BASE_PRICE_PER_M2 = 2;
-  
-  /** Prix supplémentaire par pièce */
-  static readonly CLEANING_ROOM_EXTRA_PRICE = 10;
-  
-  /** Multiplicateur pour balcon (+10%) */
-  static readonly CLEANING_BALCONY_MULTIPLIER = 1.1;
-  
-  /** Multiplicateur pour animaux (+15%) */
-  static readonly CLEANING_PETS_MULTIPLIER = 1.15;
-  
-  /** Réduction hebdomadaire (-20%) */
-  static readonly CLEANING_WEEKLY_DISCOUNT = 0.2;
-  
-  /** Réduction bi-hebdomadaire (-15%) */
-  static readonly CLEANING_BIWEEKLY_DISCOUNT = 0.15;
-  
-  /** Réduction mensuelle (-10%) */
-  static readonly CLEANING_MONTHLY_DISCOUNT = 0.1;
-  
-  // ============================================================================
-  // FLOOR & LIFT - Valeurs pour étages et monte-meuble (migrées depuis constants.ts)
-  // ============================================================================
-  
-  /** Supplément par étage sans ascenseur */
-  static readonly FLOOR_SURCHARGE_AMOUNT = 25;
-  
-  /** Seuil d'étages pour surcoût */
-  static readonly FLOOR_SURCHARGE_THRESHOLD = 1;
-  
-  /** Seuil pour monte-meuble obligatoire */
-  static readonly FURNITURE_LIFT_REQUIRED_THRESHOLD = 3;
-  
-  /** Seuil pour avertissement monte-meuble */
-  static readonly FURNITURE_LIFT_WARNING_THRESHOLD = 2;
-  
-  /** Exception de volume pour monte-meuble */
-  static readonly SMALL_VOLUME_EXCEPTION = 10;
-  
-  /** Surcoût pour étages très élevés (+15%) */
-  static readonly HIGH_FLOOR_SURCHARGE_PERCENT = 15;
-  
-  // ============================================================================
-  // MÉTHODES UTILITAIRES
-  // ============================================================================
-  
+
+  // PROFESSIONNELS
+  static readonly PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM = 150;
+
+  // CONSTANTES GÉNÉRALES
+  static readonly VAT_RATE = 0.20;
+  static readonly DEFAULT_CURRENCY = 'EUR';
+  static readonly MIN_PRICE = 0;
+  static readonly MIN_VOLUME = 1;
+  static readonly MAX_VOLUME = 200;
+  static readonly MIN_SQUARE_METERS = 10;
+  // MULTIPLICATEURS TEMPS
+  static readonly HOURLY_RATE_MULTIPLIER = 1.0;
+  static readonly DAILY_RATE_MULTIPLIER = 0.8;
+  static readonly WEEKLY_RATE_MULTIPLIER = 0.7;
+
+  // SEUILS & REMISES
+  static readonly FREE_DELIVERY_DISTANCE_KM = 5;
+  static readonly VOLUME_DISCOUNT_THRESHOLD_M3 = 50;
+  static readonly VOLUME_DISCOUNT_RATE = 0.1;
+
+  // ÉQUIPEMENT
+  static readonly EQUIPMENT_RENTAL_DAILY = 25;
+  static readonly MATERIAL_COST_PER_M3 = 12;
+  static readonly PROTECTIVE_EQUIPMENT_COST = 15;
+
+  // OPÉRATIONNEL
+  static readonly MAX_WORKERS_PER_VEHICLE = 3;
+  static readonly MAX_VOLUME_PER_VEHICLE_M3 = 30;
+  static readonly STANDARD_SERVICE_DURATION_HOURS = 8;
+  static readonly OVERTIME_RATE_MULTIPLIER = 1.5;
+
+  // QUALITÉ & SÉCURITÉ
+  static readonly INSURANCE_COVERAGE_MINIMUM = 100000;
+  static readonly QUALITY_GUARANTEE_DAYS = 30;
+  static readonly SAFETY_EQUIPMENT_REQUIRED = true;
+
+  // DÉMÉNAGEMENT
+  static readonly MOVING_BASE_PRICE_PER_M3 = 35;
+  static readonly MOVING_WORKER_PRICE = 120;
+  static readonly MOVING_WORKER_HOUR_RATE = 35;
+  static readonly MOVING_EXTRA_HOUR_RATE = 40;
+  static readonly MOVING_LIFT_PRICE = 200;
+  static readonly MOVING_VEHICLE_FLAT_FEE = 150;
+  static readonly MOVING_BOXES_PER_M3 = 10; // Cartons par m³
+  static readonly MOVING_BOX_PRICE = 2; // Prix par carton
+  static readonly MOVING_WORKERS_PER_M3_THRESHOLD = 5; // 1 worker par 5m³
+  static readonly MOVING_PREMIUM_WORKER_PRICE_PER_HOUR = 40; // Taux horaire premium
+  static readonly MOVING_PREMIUM_SUPPLIES_MULTIPLIER = 2.5; // Fournitures premium = cartons × 2.5
+  static readonly HOURS_PER_DAY = 7; // Heures de travail par jour
+
+  // NETTOYAGE
+  static readonly CLEANING_PRICE_PER_M2 = 8;
+  static readonly CLEANING_WORKER_PRICE = 25;
+  static readonly CLEANING_WORKER_HOUR_RATE = 20;
+  static readonly CLEANING_EXTRA_HOUR_RATE = 25;
+  static readonly CLEANING_MINIMUM_PRICE = 80;
+
+  // LIVRAISON
+  static readonly DELIVERY_BASE_PRICE = 25;
+  static readonly DELIVERY_PRICE_PER_KM = 1.2;
+  static readonly DELIVERY_WORKER_HOUR_RATE = 18;
+  static readonly DELIVERY_EXTRA_HOUR_RATE = 22;
+  static readonly DELIVERY_WEIGHT_SURCHARGE = 0.5;
+
+  // TRANSPORT
+  static readonly TRANSPORT_BASE_PRICE = 40;
+  static readonly TRANSPORT_PRICE_PER_KM = 1.8;
+  static readonly TRANSPORT_WORKER_HOUR_RATE = 22;
+  static readonly TRANSPORT_EXTRA_HOUR_RATE = 28;
+  static readonly TRANSPORT_VOLUME_SURCHARGE = 0.3;
+
+  // EMBALLAGE
+  static readonly PACKING_PRICE_PER_M3 = 45;
+  static readonly PACKING_WORKER_PRICE = 30;
+  static readonly PACKING_WORKER_HOUR_RATE = 25;
+  static readonly PACKING_EXTRA_HOUR_RATE = 30;
+  static readonly PACKING_MATERIAL_COST = 15;
+
+  // STOCKAGE
+  static readonly STORAGE_PRICE_PER_M3_PER_MONTH = 12;
+  static readonly STORAGE_WORKER_HOUR_RATE = 20;
+  static readonly STORAGE_EXTRA_HOUR_RATE = 25;
+  static readonly STORAGE_MINIMUM_DURATION_MONTHS = 1;
+  static readonly STORAGE_ACCESS_FEE = 20;
+
+  // AUTO-DÉTECTION
+  static readonly FURNITURE_LIFT_FLOOR_THRESHOLD = 3;
+  static readonly FURNITURE_LIFT_SURCHARGE = 200;
+  static readonly LONG_CARRYING_DISTANCE_THRESHOLD = 30;
+  static readonly LONG_CARRYING_DISTANCE_SURCHARGE = 50;
   /**
-   * Retourne toutes les valeurs sous forme d'objet pour debug/logging
+   * Export toutes les valeurs pour debug/logging
    */
-  static getAllValues(): Record<string, number> {
+  static getAllValues(): Record<string, number | string> {
     return {
-      // MOVING
-      MOVING_BASE_PRICE_PER_M3: this.MOVING_BASE_PRICE_PER_M3,
-      MOVING_DISTANCE_PRICE_PER_KM: this.MOVING_DISTANCE_PRICE_PER_KM,
+      UNIT_PRICE_PER_M3: this.UNIT_PRICE_PER_M3,
+      UNIT_PRICE_PER_KM: this.UNIT_PRICE_PER_KM,
+      EXTRA_KM_PRICE: this.EXTRA_KM_PRICE,
+      WORKER_PRICE: this.WORKER_PRICE,
+      LIFT_PRICE: this.LIFT_PRICE,
+      WORKER_HOUR_RATE: this.WORKER_HOUR_RATE,
+      EXTRA_WORKER_HOUR_RATE: this.EXTRA_WORKER_HOUR_RATE,
+      VEHICLE_FLAT_FEE: this.VEHICLE_FLAT_FEE,
+      INCLUDED_DISTANCE: this.INCLUDED_DISTANCE,
       FUEL_CONSUMPTION_PER_100KM: this.FUEL_CONSUMPTION_PER_100KM,
       FUEL_PRICE_PER_LITER: this.FUEL_PRICE_PER_LITER,
       TOLL_COST_PER_KM: this.TOLL_COST_PER_KM,
       HIGHWAY_RATIO: this.HIGHWAY_RATIO,
-      
-      // PACK
-      PACK_WORKER_PRICE: this.PACK_WORKER_PRICE,
-      PACK_INCLUDED_DISTANCE: this.PACK_INCLUDED_DISTANCE,
-      PACK_EXTRA_KM_PRICE: this.PACK_EXTRA_KM_PRICE,
-      PACK_EXTRA_DAY_DISCOUNT_RATE: this.PACK_EXTRA_DAY_DISCOUNT_RATE,
-      PACK_WORKER_DISCOUNT_RATE_1_DAY: this.PACK_WORKER_DISCOUNT_RATE_1_DAY,
-      PACK_WORKER_DISCOUNT_RATE_MULTI_DAYS: this.PACK_WORKER_DISCOUNT_RATE_MULTI_DAYS,
-      PACK_LIFT_PRICE: this.PACK_LIFT_PRICE,
-      
-      // SERVICE
-      SERVICE_WORKER_PRICE_PER_HOUR: this.SERVICE_WORKER_PRICE_PER_HOUR,
-      SERVICE_WORKER_DISCOUNT_RATE_SHORT: this.SERVICE_WORKER_DISCOUNT_RATE_SHORT,
-      SERVICE_WORKER_DISCOUNT_RATE_LONG: this.SERVICE_WORKER_DISCOUNT_RATE_LONG,
-      SERVICE_EXTRA_HOUR_RATE: this.SERVICE_EXTRA_HOUR_RATE,
-      
-      // BUSINESS_RULES
-      MOVING_EARLY_BOOKING_DAYS: this.MOVING_EARLY_BOOKING_DAYS,
-      MOVING_EARLY_BOOKING_DISCOUNT: this.MOVING_EARLY_BOOKING_DISCOUNT,
-      MOVING_WEEKEND_SURCHARGE: this.MOVING_WEEKEND_SURCHARGE,
-      SERVICE_EARLY_BOOKING_DAYS: this.SERVICE_EARLY_BOOKING_DAYS,
-      SERVICE_EARLY_BOOKING_DISCOUNT: this.SERVICE_EARLY_BOOKING_DISCOUNT,
-      SERVICE_WEEKEND_SURCHARGE: this.SERVICE_WEEKEND_SURCHARGE,
-      PACK_EARLY_BOOKING_DAYS: this.PACK_EARLY_BOOKING_DAYS,
-      PACK_EARLY_BOOKING_DISCOUNT: this.PACK_EARLY_BOOKING_DISCOUNT,
-      PACK_WEEKEND_SURCHARGE: this.PACK_WEEKEND_SURCHARGE,
-      PACK_URGENT_BOOKING_SURCHARGE: this.PACK_URGENT_BOOKING_SURCHARGE,
-      
-      // FALLBACK & GENERAL
+      EXTRA_DAY_DISCOUNT_RATE: this.EXTRA_DAY_DISCOUNT_RATE,
+      EXTRA_WORKER_DISCOUNT_RATE: this.EXTRA_WORKER_DISCOUNT_RATE,
+      INSURANCE_PRICE_HT: this.INSURANCE_PRICE_HT,
+      INSURANCE_PRICE_TTC: this.INSURANCE_PRICE_TTC,
+      PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM: this.PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM,
       VAT_RATE: this.VAT_RATE,
-      FALLBACK_DEFAULT_MOVING_PRICE: this.FALLBACK_DEFAULT_MOVING_PRICE,
-      FALLBACK_DEFAULT_PACK_PRICE: this.FALLBACK_DEFAULT_PACK_PRICE,
-      FALLBACK_DEFAULT_SERVICE_PRICE: this.FALLBACK_DEFAULT_SERVICE_PRICE,
-      
-      // MOVING OPTIONS
-      MOVING_OPTION_PACKAGING: this.MOVING_OPTION_PACKAGING,
-      MOVING_OPTION_FURNITURE: this.MOVING_OPTION_FURNITURE,
-      MOVING_OPTION_FRAGILE: this.MOVING_OPTION_FRAGILE,
-      MOVING_OPTION_STORAGE: this.MOVING_OPTION_STORAGE,
-      MOVING_OPTION_DISASSEMBLY: this.MOVING_OPTION_DISASSEMBLY,
-      MOVING_OPTION_UNPACKING: this.MOVING_OPTION_UNPACKING,
-      MOVING_OPTION_SUPPLIES: this.MOVING_OPTION_SUPPLIES,
-      MOVING_OPTION_FRAGILE_ITEMS: this.MOVING_OPTION_FRAGILE_ITEMS,
-      
-      // CLEANING
-      CLEANING_BASE_PRICE_PER_M2: this.CLEANING_BASE_PRICE_PER_M2,
-      CLEANING_ROOM_EXTRA_PRICE: this.CLEANING_ROOM_EXTRA_PRICE,
-      CLEANING_BALCONY_MULTIPLIER: this.CLEANING_BALCONY_MULTIPLIER,
-      CLEANING_PETS_MULTIPLIER: this.CLEANING_PETS_MULTIPLIER,
-      CLEANING_WEEKLY_DISCOUNT: this.CLEANING_WEEKLY_DISCOUNT,
-      CLEANING_BIWEEKLY_DISCOUNT: this.CLEANING_BIWEEKLY_DISCOUNT,
-      CLEANING_MONTHLY_DISCOUNT: this.CLEANING_MONTHLY_DISCOUNT,
-      
-      // FLOOR & LIFT
-      FLOOR_SURCHARGE_AMOUNT: this.FLOOR_SURCHARGE_AMOUNT,
-      FLOOR_SURCHARGE_THRESHOLD: this.FLOOR_SURCHARGE_THRESHOLD,
-      FURNITURE_LIFT_REQUIRED_THRESHOLD: this.FURNITURE_LIFT_REQUIRED_THRESHOLD,
-      FURNITURE_LIFT_WARNING_THRESHOLD: this.FURNITURE_LIFT_WARNING_THRESHOLD,
-      SMALL_VOLUME_EXCEPTION: this.SMALL_VOLUME_EXCEPTION,
-      HIGH_FLOOR_SURCHARGE_PERCENT: this.HIGH_FLOOR_SURCHARGE_PERCENT
+      DEFAULT_CURRENCY: this.DEFAULT_CURRENCY,
+      MIN_PRICE: this.MIN_PRICE,
+      MIN_VOLUME: this.MIN_VOLUME,
+      MAX_VOLUME: this.MAX_VOLUME,
+      MIN_SQUARE_METERS: this.MIN_SQUARE_METERS,
+      HOURLY_RATE_MULTIPLIER: this.HOURLY_RATE_MULTIPLIER,
+      DAILY_RATE_MULTIPLIER: this.DAILY_RATE_MULTIPLIER,
+      WEEKLY_RATE_MULTIPLIER: this.WEEKLY_RATE_MULTIPLIER,
+      FREE_DELIVERY_DISTANCE_KM: this.FREE_DELIVERY_DISTANCE_KM,
+      VOLUME_DISCOUNT_THRESHOLD_M3: this.VOLUME_DISCOUNT_THRESHOLD_M3,
+      VOLUME_DISCOUNT_RATE: this.VOLUME_DISCOUNT_RATE,
+      EQUIPMENT_RENTAL_DAILY: this.EQUIPMENT_RENTAL_DAILY,
+      MATERIAL_COST_PER_M3: this.MATERIAL_COST_PER_M3,
+      PROTECTIVE_EQUIPMENT_COST: this.PROTECTIVE_EQUIPMENT_COST,
+      MAX_WORKERS_PER_VEHICLE: this.MAX_WORKERS_PER_VEHICLE,
+      MAX_VOLUME_PER_VEHICLE_M3: this.MAX_VOLUME_PER_VEHICLE_M3,
+      STANDARD_SERVICE_DURATION_HOURS: this.STANDARD_SERVICE_DURATION_HOURS,
+      OVERTIME_RATE_MULTIPLIER: this.OVERTIME_RATE_MULTIPLIER,
+      INSURANCE_COVERAGE_MINIMUM: this.INSURANCE_COVERAGE_MINIMUM,
+      QUALITY_GUARANTEE_DAYS: this.QUALITY_GUARANTEE_DAYS,
+      SAFETY_EQUIPMENT_REQUIRED: this.SAFETY_EQUIPMENT_REQUIRED ? 1 : 0,
+      MOVING_BASE_PRICE_PER_M3: this.MOVING_BASE_PRICE_PER_M3,
+      MOVING_WORKER_PRICE: this.MOVING_WORKER_PRICE,
+      MOVING_WORKER_HOUR_RATE: this.MOVING_WORKER_HOUR_RATE,
+      MOVING_EXTRA_HOUR_RATE: this.MOVING_EXTRA_HOUR_RATE,
+      MOVING_LIFT_PRICE: this.MOVING_LIFT_PRICE,
+      MOVING_VEHICLE_FLAT_FEE: this.MOVING_VEHICLE_FLAT_FEE,
+      MOVING_BOXES_PER_M3: this.MOVING_BOXES_PER_M3,
+      MOVING_BOX_PRICE: this.MOVING_BOX_PRICE,
+      MOVING_WORKERS_PER_M3_THRESHOLD: this.MOVING_WORKERS_PER_M3_THRESHOLD,
+      MOVING_PREMIUM_WORKER_PRICE_PER_HOUR: this.MOVING_PREMIUM_WORKER_PRICE_PER_HOUR,
+      MOVING_PREMIUM_SUPPLIES_MULTIPLIER: this.MOVING_PREMIUM_SUPPLIES_MULTIPLIER,
+      HOURS_PER_DAY: this.HOURS_PER_DAY,
+      CLEANING_PRICE_PER_M2: this.CLEANING_PRICE_PER_M2,
+      CLEANING_WORKER_PRICE: this.CLEANING_WORKER_PRICE,
+      CLEANING_WORKER_HOUR_RATE: this.CLEANING_WORKER_HOUR_RATE,
+      CLEANING_EXTRA_HOUR_RATE: this.CLEANING_EXTRA_HOUR_RATE,
+      CLEANING_MINIMUM_PRICE: this.CLEANING_MINIMUM_PRICE,
+      DELIVERY_BASE_PRICE: this.DELIVERY_BASE_PRICE,
+      DELIVERY_PRICE_PER_KM: this.DELIVERY_PRICE_PER_KM,
+      DELIVERY_WORKER_HOUR_RATE: this.DELIVERY_WORKER_HOUR_RATE,
+      DELIVERY_EXTRA_HOUR_RATE: this.DELIVERY_EXTRA_HOUR_RATE,
+      DELIVERY_WEIGHT_SURCHARGE: this.DELIVERY_WEIGHT_SURCHARGE,
+      TRANSPORT_BASE_PRICE: this.TRANSPORT_BASE_PRICE,
+      TRANSPORT_PRICE_PER_KM: this.TRANSPORT_PRICE_PER_KM,
+      TRANSPORT_WORKER_HOUR_RATE: this.TRANSPORT_WORKER_HOUR_RATE,
+      TRANSPORT_EXTRA_HOUR_RATE: this.TRANSPORT_EXTRA_HOUR_RATE,
+      TRANSPORT_VOLUME_SURCHARGE: this.TRANSPORT_VOLUME_SURCHARGE,
+      PACKING_PRICE_PER_M3: this.PACKING_PRICE_PER_M3,
+      PACKING_WORKER_PRICE: this.PACKING_WORKER_PRICE,
+      PACKING_WORKER_HOUR_RATE: this.PACKING_WORKER_HOUR_RATE,
+      PACKING_EXTRA_HOUR_RATE: this.PACKING_EXTRA_HOUR_RATE,
+      PACKING_MATERIAL_COST: this.PACKING_MATERIAL_COST,
+      STORAGE_PRICE_PER_M3_PER_MONTH: this.STORAGE_PRICE_PER_M3_PER_MONTH,
+      STORAGE_WORKER_HOUR_RATE: this.STORAGE_WORKER_HOUR_RATE,
+      STORAGE_EXTRA_HOUR_RATE: this.STORAGE_EXTRA_HOUR_RATE,
+      STORAGE_MINIMUM_DURATION_MONTHS: this.STORAGE_MINIMUM_DURATION_MONTHS,
+      STORAGE_ACCESS_FEE: this.STORAGE_ACCESS_FEE,
+      FURNITURE_LIFT_FLOOR_THRESHOLD: this.FURNITURE_LIFT_FLOOR_THRESHOLD,
+      FURNITURE_LIFT_SURCHARGE: this.FURNITURE_LIFT_SURCHARGE,
+      LONG_CARRYING_DISTANCE_THRESHOLD: this.LONG_CARRYING_DISTANCE_THRESHOLD,
+      LONG_CARRYING_DISTANCE_SURCHARGE: this.LONG_CARRYING_DISTANCE_SURCHARGE
     };
   }
-  
   /**
-   * Valide que toutes les valeurs sont cohérentes
+   * Valide la cohérence des valeurs
    */
   static validateValues(): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
-    
-    // Vérifications de cohérence
-    if (this.MOVING_BASE_PRICE_PER_M3 <= 0) {
-      errors.push('MOVING_BASE_PRICE_PER_M3 doit être positif');
+
+    // Prix positifs
+    const mustBePositive = [
+      'UNIT_PRICE_PER_M3', 'UNIT_PRICE_PER_KM', 'WORKER_PRICE', 'WORKER_HOUR_RATE',
+      'FUEL_PRICE_PER_LITER', 'MIN_VOLUME', 'MIN_SQUARE_METERS'
+    ];
+    mustBePositive.forEach(key => {
+      if ((this as any)[key] <= 0) errors.push(`${key} doit être positif`);
+    });
+
+    // Ratios entre 0 et 1
+    const mustBeRatio = [
+      'HIGHWAY_RATIO', 'EXTRA_DAY_DISCOUNT_RATE', 'EXTRA_WORKER_DISCOUNT_RATE',
+      'VAT_RATE', 'VOLUME_DISCOUNT_RATE'
+    ];
+    mustBeRatio.forEach(key => {
+      const val = (this as any)[key];
+      if (val < 0 || val > 1) errors.push(`${key} doit être entre 0 et 1`);
+    });
+
+    // Limites logiques
+    if (this.MAX_VOLUME <= this.MIN_VOLUME) {
+      errors.push('MAX_VOLUME doit être > MIN_VOLUME');
     }
-    
-    if (this.FUEL_PRICE_PER_LITER <= 0) {
-      errors.push('FUEL_PRICE_PER_LITER doit être positif');
+    if (this.OVERTIME_RATE_MULTIPLIER <= 1) {
+      errors.push('OVERTIME_RATE_MULTIPLIER doit être > 1');
     }
-    
-    if (this.HIGHWAY_RATIO < 0 || this.HIGHWAY_RATIO > 1) {
-      errors.push('HIGHWAY_RATIO doit être entre 0 et 1');
-    }
-    
-    if (this.PACK_INCLUDED_DISTANCE < 0) {
-      errors.push('PACK_INCLUDED_DISTANCE ne peut pas être négatif');
-    }
-    
+
     return {
       isValid: errors.length === 0,
       errors
     };
   }
-} 
+
+  // RÈGLES FALLBACK (utilisées si BDD indisponible)
+  static readonly DEFAULT_MOVING_CONSTRAINTS = [
+    { id: 'elevator_unavailable', name: 'Ascenseur en panne ou hors service', value: 35, category: 'SURCHARGE', description: 'Transport par escaliers obligatoire' },
+    { id: 'narrow_street', name: 'Rue étroite ou inaccessible au camion', value: 50, category: 'SURCHARGE', description: 'Camion ne peut pas accéder, portage supplémentaire' },
+    { id: 'difficult_parking', name: 'Stationnement difficile ou payant', value: 30, category: 'SURCHARGE', description: 'Frais de stationnement, temps supplémentaire' },
+    { id: 'long_carrying_distance', name: 'Portage longue distance (>50m)', value: 40, category: 'SURCHARGE', description: 'Distance excessive entre véhicule et logement' },
+    { id: 'administrative_permit', name: 'Autorisation administrative', value: 30, category: 'SURCHARGE', description: 'Démarches administratives requises' },
+    { id: 'access_control', name: 'Contrôle d\'accès strict', value: 25, category: 'SURCHARGE', description: 'Procédures de sécurité complexes' },
+    { id: 'time_restrictions', name: 'Restrictions horaires', value: 20, category: 'SURCHARGE', description: 'Créneaux horaires limités' },
+    { id: 'pedestrian_zone', name: 'Zone piétonne avec restrictions', value: 40, category: 'SURCHARGE', description: 'Autorisation mairie requise' },
+    { id: 'complex_traffic', name: 'Circulation complexe', value: 25, category: 'SURCHARGE', description: 'Temps de trajet augmenté' },
+    { id: 'fragile_floor', name: 'Sol fragile ou délicat', value: 30, category: 'SURCHARGE', description: 'Protection sol spécialisée' },
+    { id: 'complex_access', name: 'Accès complexe multi-niveaux', value: 50, category: 'SURCHARGE', description: 'Accès difficile au logement' },
+    { id: 'heavy_floor', name: 'Étage élevé sans ascenseur', value: 35, category: 'SURCHARGE', description: 'Transport manuel par escaliers' },
+    { id: 'weekend_service', name: 'Service week-end', value: 30, category: 'SURCHARGE', description: 'Majoration weekend et jours fériés' },
+    { id: 'emergency_service', name: 'Service urgent (< 48h)', value: 50, category: 'SURCHARGE', description: 'Intervention en urgence' },
+    { id: 'seasonal_demand', name: 'Période de forte demande', value: 20, category: 'SURCHARGE', description: 'Majoration période chargée' },
+    { id: 'special_equipment', name: 'Équipement spécialisé requis', value: 40, category: 'SURCHARGE', description: 'Matériel spécialisé nécessaire' }
+  ] as const;
+
+  static readonly DEFAULT_MOVING_SERVICES = [
+    { id: 'furniture_disassembly', name: 'Démontage de meubles', value: 80, category: 'FIXED', description: 'Démontage professionnel des meubles volumineux' },
+    { id: 'furniture_reassembly', name: 'Remontage de meubles', value: 100, category: 'FIXED', description: 'Remontage professionnel des meubles' },
+    { id: 'professional_packing', name: 'Emballage professionnel', value: 150, category: 'FIXED', description: 'Emballage sécurisé par nos équipes' },
+    { id: 'professional_unpacking', name: 'Déballage professionnel', value: 120, category: 'FIXED', description: 'Déballage et installation' },
+    { id: 'fragile_handling', name: 'Manipulation objets fragiles', value: 90, category: 'FIXED', description: 'Soin particulier pour objets délicats' },
+    { id: 'heavy_items', name: 'Transport objets lourds', value: 110, category: 'FIXED', description: 'Équipement spécialisé pour objets lourds' },
+    { id: 'storage_service', name: 'Service de stockage temporaire', value: 200, category: 'FIXED', description: 'Stockage sécurisé entre déménagements' },
+    { id: 'cleaning_service', name: 'Nettoyage fin de déménagement', value: 180, category: 'FIXED', description: 'Nettoyage complet post-déménagement' },
+    { id: 'furniture_lift_service', name: 'Location monte-meuble', value: 300, category: 'FIXED', description: 'Location et utilisation d\'un monte-meuble' },
+    { id: 'piano_transport', name: 'Transport piano', value: 250, category: 'FIXED', description: 'Transport spécialisé pour piano' },
+    { id: 'artwork_handling', name: 'Transport œuvres d\'art', value: 200, category: 'FIXED', description: 'Manipulation spécialisée œuvres d\'art' },
+    { id: 'appliance_connection', name: 'Branchement électroménager', value: 80, category: 'FIXED', description: 'Installation électroménager' },
+    { id: 'furniture_protection', name: 'Protection mobilier', value: 60, category: 'FIXED', description: 'Emballage de protection' },
+    { id: 'vehicle_upgrade', name: 'Véhicule plus grand', value: 150, category: 'FIXED', description: 'Camion de plus grande capacité' },
+    { id: 'extra_crew', name: 'Équipe supplémentaire', value: 120, category: 'FIXED', description: 'Déménageurs additionnels' },
+    { id: 'insurance_premium', name: 'Assurance premium', value: 100, category: 'FIXED', description: 'Couverture assurance étendue' }
+  ] as const;
+
+  static readonly DEFAULT_CLEANING_CONSTRAINTS = [
+    { id: 'high_dirt_level', name: 'Saleté importante', value: 100, category: 'SURCHARGE', description: 'Nettoyage intensif requis' },
+    { id: 'no_water_access', name: 'Accès eau limité', value: 50, category: 'SURCHARGE', description: 'Contraintes d\'approvisionnement en eau' },
+    { id: 'mold_presence', name: 'Présence de moisissure confirmée', value: 100, category: 'SURCHARGE', description: 'Traitement spécialisé anti-moisissure' },
+    { id: 'emergency_service', name: 'Service d\'urgence (< 24h)', value: 50, category: 'SURCHARGE', description: 'Intervention en urgence' },
+    { id: 'weekend_service', name: 'Intervention week-end', value: 30, category: 'SURCHARGE', description: 'Majoration weekend et jours fériés' },
+    { id: 'difficult_access', name: 'Accès difficile au bâtiment', value: 25, category: 'SURCHARGE', description: 'Contraintes d\'accès au site' },
+    { id: 'no_elevator', name: 'Absence d\'ascenseur', value: 35, category: 'SURCHARGE', description: 'Transport matériel par escaliers' },
+    { id: 'hazardous_products', name: 'Produits dangereux/toxiques', value: 80, category: 'SURCHARGE', description: 'Équipement de protection spécialisé' }
+  ] as const;
+
+  static readonly DEFAULT_CLEANING_SERVICES = [
+    { id: 'deep_cleaning', name: 'Grand nettoyage de printemps', value: 80, category: 'FIXED', description: 'Nettoyage en profondeur complet' },
+    { id: 'carpet_cleaning', name: 'Nettoyage tapis et moquettes', value: 60, category: 'FIXED', description: 'Nettoyage spécialisé textiles' },
+    { id: 'window_cleaning', name: 'Nettoyage vitres complet', value: 40, category: 'FIXED', description: 'Nettoyage intérieur/extérieur vitres' },
+    { id: 'kitchen_deep_clean', name: 'Dégraissage cuisine professionnelle', value: 90, category: 'FIXED', description: 'Nettoyage approfondi cuisine' },
+    { id: 'bathroom_sanitizing', name: 'Désinfection salle de bain', value: 50, category: 'FIXED', description: 'Traitement antibactérien complet' }
+  ] as const;
+
+  static readonly DEFAULT_DELIVERY_CONSTRAINTS = [
+    { id: 'heavy_package', name: 'Colis très lourd (>30kg)', value: 20, category: 'FIXED', description: 'Équipement spécialisé requis' },
+    { id: 'fragile_delivery', name: 'Livraison fragile', value: 15, category: 'FIXED', description: 'Manipulation délicate nécessaire' },
+    { id: 'express_delivery', name: 'Livraison express', value: 25, category: 'FIXED', description: 'Livraison prioritaire sous 2h' }
+  ] as const;
+
+  static getDefaultRulesForService(serviceType: 'MOVING' | 'CLEANING' | 'DELIVERY'): {
+    constraints: readonly any[];
+    services: readonly any[];
+  } {
+    switch (serviceType) {
+      case 'MOVING':
+        return {
+          constraints: this.DEFAULT_MOVING_CONSTRAINTS,
+          services: this.DEFAULT_MOVING_SERVICES
+        };
+      case 'CLEANING':
+        return {
+          constraints: this.DEFAULT_CLEANING_CONSTRAINTS,
+          services: this.DEFAULT_CLEANING_SERVICES
+        };
+      case 'DELIVERY':
+        return {
+          constraints: this.DEFAULT_DELIVERY_CONSTRAINTS,
+          services: []
+        };
+      default:
+        return { constraints: [], services: [] };
+    }
+  }
+
+  static getAllDefaultRules(): {
+    MOVING: { constraints: readonly any[]; services: readonly any[] };
+    CLEANING: { constraints: readonly any[]; services: readonly any[] };
+    DELIVERY: { constraints: readonly any[]; services: readonly any[] };
+  } {
+    return {
+      MOVING: this.getDefaultRulesForService('MOVING'),
+      CLEANING: this.getDefaultRulesForService('CLEANING'),
+      DELIVERY: this.getDefaultRulesForService('DELIVERY')
+    };
+  }
+}

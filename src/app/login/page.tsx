@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useToast } from "@/components/ui/use-toast"
+import { FormStylesSimplified } from '@/components/form-generator/styles/FormStylesSimplified'
+import { globalFormPreset } from '@/components/form-generator/presets/_shared/globalPreset'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -27,37 +29,44 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simuler un délai d'authentification
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Pour ce prototype, nous simulons simplement une authentification réussie
+    // Redirection vers la page de connexion professionnelle pour une vraie authentification
     toast({
-      title: "Connexion réussie!",
-      description: "Bienvenue sur Express Quote",
+      title: "Redirection",
+      description: "Vous allez être redirigé vers l'espace professionnel",
       variant: "default",
     })
 
-    // Rediriger vers la page d'accueil
-    router.push('/')
+    // Rediriger vers la page de connexion professionnelle
+    setTimeout(() => {
+      router.push('/professional/login')
+    }, 1000)
+
     setIsLoading(false)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50/50 to-white flex flex-col justify-center">
+    <div className="min-h-screen bg-gradient-to-b from-sky-50/50 to-white flex flex-col justify-center font-ios">
+      {/* 🎨 Styles iOS 18 simplifiés */}
+      <FormStylesSimplified globalConfig={globalFormPreset} />
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-center text-2xl font-bold text-gray-900 mb-2">
-          Connexion
+        <h1 className="text-center text-2xl font-bold text-gray-900 mb-2 font-ios-bold">
+          Connexion Client
         </h1>
-        <p className="text-center text-sm text-gray-600 mb-8">
-          Accédez à votre compte pour gérer vos services et réservations
+        <p className="text-center text-sm text-gray-600 mb-4 font-ios">
+          Page de connexion client (sera redirigée vers l'espace professionnel)
         </p>
+        <div className="text-center mb-4">
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            🔄 Redirection automatique
+          </div>
+        </div>
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100 card-ios">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 font-ios-medium">
                 Adresse email
               </label>
               <div className="mt-1">
@@ -75,7 +84,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 font-ios-medium">
                 Mot de passe
               </label>
               <div className="mt-1">
@@ -102,13 +111,13 @@ export default function LoginPage() {
                   onChange={handleChange}
                   className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
                 />
-                <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-900">
+                <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-900 font-ios">
                   Se souvenir de moi
                 </label>
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-emerald-600 hover:text-emerald-500">
+                <a href="#" className="font-medium text-emerald-600 hover:text-emerald-500 font-ios">
                   Mot de passe oublié?
                 </a>
               </div>
@@ -136,9 +145,9 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-6">
-              <p className="text-center text-sm text-gray-600">
+              <p className="text-center text-sm text-gray-600 font-ios">
                 Pas encore de compte?{' '}
-                <Link href="/register" className="font-medium text-emerald-600 hover:text-emerald-500">
+                <Link href="/register" className="font-medium text-emerald-600 hover:text-emerald-500 font-ios">
                   S'inscrire
                 </Link>
               </p>

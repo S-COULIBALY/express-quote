@@ -1,7 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { IQuoteRequestRepository } from '../../domain/repositories/IQuoteRequestRepository';
-import { QuoteRequest, QuoteRequestStatus, QuoteRequestType } from '../../domain/entities/QuoteRequest';
+import { QuoteRequest, QuoteRequestStatus } from '../../domain/entities/QuoteRequest';
+import { ServiceType } from '../../domain/enums/ServiceType';
 import { Database } from '../config/database';
+import { logger } from '@/lib/logger';
 
 export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
     private prisma: PrismaClient;
@@ -20,12 +22,15 @@ export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
                 : null;
 
             // Données de base pour la demande de devis
+            const quoteData = quoteRequest.getQuoteData();
+            
             const quoteRequestData = {
                 type: quoteRequest.getType(),
                 status: quoteRequest.getStatus(),
-                quoteData: quoteRequest.getQuoteData(),
+                quoteData: quoteData,
                 temporaryId: quoteRequest.getTemporaryId(),
-                expiresAt: quoteRequest.getExpiresAt()
+                expiresAt: quoteRequest.getExpiresAt(),
+                updatedAt: new Date()
             };
 
             if (existingQuoteRequest) {
@@ -53,7 +58,7 @@ export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
     }
 
     /**
-     * Trouve une demande de devis par son ID temporaire
+     * Recherche une demande de devis par son ID temporaire
      */
     async findByTemporaryId(temporaryId: string): Promise<QuoteRequest | null> {
         try {
@@ -61,19 +66,15 @@ export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
                 where: { temporaryId }
             });
 
-            if (!quoteRequest) {
-                return null;
-            }
-
-            return this.mapDbToQuoteRequest(quoteRequest);
+            return quoteRequest ? this.mapDbToQuoteRequest(quoteRequest) : null;
         } catch (error) {
-            console.error(`Erreur lors de la recherche de la demande de devis par ID temporaire ${temporaryId}:`, error);
-            throw new Error(`Erreur lors de la recherche de la demande de devis: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+            console.error('Erreur lors de la recherche de la demande de devis par ID temporaire:', error);
+            throw new Error(`Erreur lors de la recherche de la demande: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
         }
     }
 
     /**
-     * Trouve une demande de devis par son ID
+     * Recherche une demande de devis par son ID
      */
     async findById(id: string): Promise<QuoteRequest | null> {
         try {
@@ -81,14 +82,10 @@ export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
                 where: { id }
             });
 
-            if (!quoteRequest) {
-                return null;
-            }
-
-            return this.mapDbToQuoteRequest(quoteRequest);
+            return quoteRequest ? this.mapDbToQuoteRequest(quoteRequest) : null;
         } catch (error) {
-            console.error(`Erreur lors de la recherche de la demande de devis par ID ${id}:`, error);
-            throw new Error(`Erreur lors de la recherche de la demande de devis: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+            console.error('Erreur lors de la recherche de la demande de devis par ID:', error);
+            throw new Error(`Erreur lors de la recherche de la demande: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
         }
     }
 
@@ -99,36 +96,42 @@ export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
         try {
             await this.prisma.quoteRequest.update({
                 where: { id },
-                data: { status }
+                data: { 
+                    status,
+                    updatedAt: new Date()
+                }
             });
         } catch (error) {
-            console.error(`Erreur lors de la mise à jour du statut de la demande de devis ${id}:`, error);
+            console.error('Erreur lors de la mise à jour du statut:', error);
             throw new Error(`Erreur lors de la mise à jour du statut: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
         }
     }
 
     /**
-     * Trouve les demandes de devis expirées
+     * Recherche les demandes de devis expirées
      */
     async findExpired(): Promise<QuoteRequest[]> {
         try {
-            const now = new Date();
             const expiredQuoteRequests = await this.prisma.quoteRequest.findMany({
                 where: {
-                    expiresAt: { lt: now },
-                    status: QuoteRequestStatus.TEMPORARY
+                    expiresAt: {
+                        lt: new Date()
+                    },
+                    status: {
+                        not: QuoteRequestStatus.EXPIRED
+                    }
                 }
             });
 
-            return expiredQuoteRequests.map(this.mapDbToQuoteRequest);
+            return expiredQuoteRequests.map(qr => this.mapDbToQuoteRequest(qr));
         } catch (error) {
-            console.error('Erreur lors de la recherche des demandes de devis expirées:', error);
+            console.error('Erreur lors de la recherche des demandes expirées:', error);
             throw new Error(`Erreur lors de la recherche des demandes expirées: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
         }
     }
 
     /**
-     * Trouve toutes les demandes de devis
+     * Recherche toutes les demandes de devis
      */
     async findAll(): Promise<QuoteRequest[]> {
         try {
@@ -136,7 +139,7 @@ export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
                 orderBy: { createdAt: 'desc' }
             });
 
-            return quoteRequests.map(this.mapDbToQuoteRequest);
+            return quoteRequests.map(qr => this.mapDbToQuoteRequest(qr));
         } catch (error) {
             console.error('Erreur lors de la recherche de toutes les demandes de devis:', error);
             throw new Error(`Erreur lors de la recherche des demandes: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
@@ -144,28 +147,41 @@ export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
     }
 
     /**
+     * Supprime une demande de devis
+     */
+    async delete(id: string): Promise<void> {
+        try {
+            await this.prisma.quoteRequest.delete({
+                where: { id }
+            });
+        } catch (error) {
+            console.error('Erreur lors de la suppression de la demande de devis:', error);
+            throw new Error(`Erreur lors de la suppression de la demande: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+        }
+    }
+
+    /**
      * Convertit un enregistrement de la base de données en entité QuoteRequest
+     * Utilise maintenant le constructeur fromDatabase pour éviter les (entity as any)
      */
     private mapDbToQuoteRequest(dbQuoteRequest: any): QuoteRequest {
         // Validation des types enum
-        const type = dbQuoteRequest.type as QuoteRequestType;
+        const type = dbQuoteRequest.type as ServiceType;
+        const status = dbQuoteRequest.status as QuoteRequestStatus;
         const quoteData = dbQuoteRequest.quoteData as Record<string, any>;
         
-        // Création de l'entité
-        const quoteRequest = new QuoteRequest(
+
+        
+        // Utilisation du constructeur fromDatabase sécurisé
+        return QuoteRequest.fromDatabase(
             type,
             quoteData,
-            dbQuoteRequest.id
+            dbQuoteRequest.id,
+            status,
+            dbQuoteRequest.createdAt,
+            dbQuoteRequest.updatedAt,
+            dbQuoteRequest.expiresAt,
+            dbQuoteRequest.temporaryId
         );
-        
-        // Configuration des valeurs provenant de la base de données
-        // Utiliser des méthodes privées directement n'est pas idéal, mais c'est pour l'exemple
-        (quoteRequest as any).status = dbQuoteRequest.status;
-        (quoteRequest as any).createdAt = dbQuoteRequest.createdAt;
-        (quoteRequest as any).updatedAt = dbQuoteRequest.updatedAt;
-        (quoteRequest as any).expiresAt = dbQuoteRequest.expiresAt;
-        (quoteRequest as any).temporaryId = dbQuoteRequest.temporaryId;
-        
-        return quoteRequest;
     }
 } 

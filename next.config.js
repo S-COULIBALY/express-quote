@@ -19,7 +19,6 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
-  optimizeFonts: true,
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['@heroicons/react', '@headlessui/react'],
@@ -86,8 +85,7 @@ const nextConfig = {
     }
     return config
   },
-  reactStrictMode: true,
-  swcMinify: true,
+  reactStrictMode: false, // Désactivé pour éviter les double renders en dev
   poweredByHeader: false,
 }
 

@@ -1,0 +1,204 @@
+/* 🎨 DESIGN TOKENS CENTRALISÉS - ExpressQuote
+ * Ce fichier centralise toutes les variables CSS utilisées dans l'application
+ * pour éviter les duplications et faciliter la maintenance
+ */
+
+:root {
+  /* 🌲 PALETTE DE COULEURS PRINCIPALE */
+  --color-primary: #1B5E20;           /* Forest Green - Vert foncé principal */
+  --color-secondary: #2E7D32;         /* Green Darken-3 - Vert moyen actif */
+  --color-accent: #4CAF50;            /* Green - Vert clair pour highlights */
+  --color-light: #C8E6C9;             /* Green Lighten-4 - Vert très clair */
+  --color-dark: #0D2818;              /* Très foncé pour contraste */
+  
+  /* 🎯 COULEURS D'ÉTAT */
+  --color-success: #66BB6A;           /* Vert success */
+  --color-warning: #FFA726;           /* Orange pour warnings */
+  --color-error: #EF5350;             /* Rouge pour erreurs */
+  --color-info: #42A5F5;              /* Bleu pour informations */
+  
+  /* 🎨 COULEURS NEUTRES */
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+  --color-gray-50: #F9FAFB;
+  --color-gray-100: #F3F4F6;
+  --color-gray-200: #E5E7EB;
+  --color-gray-300: #D1D5DB;
+  --color-gray-400: #9CA3AF;
+  --color-gray-500: #6B7280;
+  --color-gray-600: #4B5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1F2937;
+  --color-gray-900: #111827;
+  
+  /* 🎨 COULEURS SPÉCIALES */
+  --color-orange-500: #F97316;
+  --color-orange-600: #EA580C;
+  --color-blue-500: #3B82F6;
+  --color-blue-600: #2563EB;
+  --color-purple-500: #8B5CF6;
+  --color-purple-600: #7C3AED;
+  
+  /* 📝 TYPOGRAPHIE */
+  --font-family-primary: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  --font-family-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+  
+  /* 📏 TAILLES DE POLICE */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
+  --font-size-4xl: 2.25rem;   /* 36px */
+  --font-size-5xl: 3rem;      /* 48px */
+  
+  /* 📏 POIDS DE POLICE */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  
+  /* 📐 BORDER RADIUS */
+  --border-radius-none: 0;
+  --border-radius-sm: 0.25rem;    /* 4px */
+  --border-radius-md: 0.375rem;   /* 6px */
+  --border-radius-lg: 0.5rem;     /* 8px */
+  --border-radius-xl: 0.75rem;    /* 12px */
+  --border-radius-2xl: 1rem;      /* 16px */
+  --border-radius-3xl: 1.5rem;    /* 24px */
+  --border-radius-full: 9999px;
+  
+  /* 📏 ESPACEMENT */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;   /* 4px */
+  --spacing-2: 0.5rem;    /* 8px */
+  --spacing-3: 0.75rem;   /* 12px */
+  --spacing-4: 1rem;      /* 16px */
+  --spacing-5: 1.25rem;   /* 20px */
+  --spacing-6: 1.5rem;    /* 24px */
+  --spacing-8: 2rem;      /* 32px */
+  --spacing-10: 2.5rem;   /* 40px */
+  --spacing-12: 3rem;     /* 48px */
+  --spacing-16: 4rem;     /* 64px */
+  --spacing-20: 5rem;     /* 80px */
+  --spacing-24: 6rem;     /* 96px */
+  
+  /* 🎨 OMBRES */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  
+  /* 🔄 TRANSITIONS */
+  --transition-fast: 0.15s ease-in-out;
+  --transition-normal: 0.2s ease-in-out;
+  --transition-slow: 0.3s ease-in-out;
+  --transition-slower: 0.5s ease-in-out;
+  
+  /* 🎨 DÉGRADÉS */
+  --gradient-primary: linear-gradient(135deg, #f8fafc, #e2e8f0);
+  --gradient-accent: linear-gradient(135deg, var(--color-accent), var(--color-primary));
+  --gradient-subtle: linear-gradient(135deg, var(--color-light), rgba(255, 255, 255, 0.8));
+  --gradient-orange: linear-gradient(135deg, #f9c784, #FFB74D);
+  --gradient-blue: linear-gradient(135deg, var(--color-blue-500), var(--color-blue-600));
+  --gradient-purple: linear-gradient(135deg, var(--color-purple-500), var(--color-purple-600));
+  
+  /* 📱 BREAKPOINTS */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  
+  /* 🎨 Z-INDEX */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+}
+
+/* 🌙 DARK MODE */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-white: #000000;
+    --color-black: #FFFFFF;
+    --color-gray-50: #1F2937;
+    --color-gray-100: #374151;
+    --color-gray-200: #4B5563;
+    --color-gray-300: #6B7280;
+    --color-gray-400: #9CA3AF;
+    --color-gray-500: #D1D5DB;
+    --color-gray-600: #E5E7EB;
+    --color-gray-700: #F3F4F6;
+    --color-gray-800: #F9FAFB;
+    --color-gray-900: #FFFFFF;
+  }
+}
+
+/* 🍏 iOS 18 SPECIFIC TOKENS */
+:root {
+  --ios18-primary: var(--color-primary);
+  --ios18-secondary: var(--color-secondary);
+  --ios18-accent: var(--color-accent);
+  --ios18-light: var(--color-light);
+  --ios18-dark: var(--color-dark);
+  
+  /* 🍏 iOS 18 Border Radius */
+  --ios18-border-radius: 14px;
+  --ios18-border-radius-large: 20px;
+  
+  /* 🍏 iOS 18 Transitions */
+  --ios18-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* 🍏 iOS 18 Shadows */
+  --ios18-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --ios18-shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.12);
+  
+  /* 🍏 iOS 18 Backdrop */
+  --ios18-backdrop: blur(20px);
+  --ios18-backdrop-light: rgba(255, 255, 255, 0.95);
+  --ios18-backdrop-dark: rgba(44, 44, 46, 0.95);
+}
+
+/* 🎨 COMPATIBILITÉ AVEC LES ANCIENS NOMS DE VARIABLES */
+:root {
+  --form-primary-color: var(--color-primary);
+  --form-secondary-color: var(--color-secondary);
+  --form-accent-color: var(--color-accent);
+  --form-light-color: var(--color-light);
+  --form-dark-color: var(--color-dark);
+  --form-success-color: var(--color-success);
+  --form-warning-color: var(--color-warning);
+  --form-error-color: var(--color-error);
+  --form-font-family: var(--font-family-primary);
+  --form-font-size: var(--font-size-base);
+  --form-border-radius: var(--ios18-border-radius);
+  --form-gradient-primary: var(--gradient-primary);
+  --form-gradient-accent: var(--gradient-accent);
+  --form-gradient-subtle: var(--gradient-subtle);
+}
+
+/* 🎈 ANIMATIONS DE FLOTTEMENT */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+    box-shadow: 0 20px 40px -8px rgba(0, 0, 0, 0.4), 0 10px 20px -4px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    transform: translateY(-15px);
+    box-shadow: 0 40px 80px -16px rgba(0, 0, 0, 0.5), 0 20px 40px -8px rgba(0, 0, 0, 0.4);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}

@@ -1,24 +1,33 @@
 import { NextResponse } from 'next/server';
-import { ConfigurationCacheService } from '@/quotation/infrastructure/services/ConfigurationCacheService';
+import { UnifiedDataService } from '@/quotation/infrastructure/services/UnifiedDataService';
+import { logger } from '@/lib/logger';
 
 /**
  * POST /api/admin/refresh-cache
- * Rafraîchit le cache des configurations
+ * Rafraîchit le cache unifié des règles et configurations
  */
 export async function POST() {
   try {
-    const cacheService = ConfigurationCacheService.getInstance();
-    await cacheService.invalidateCache();
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Cache rafraîchi avec succès',
+    logger.info('🔄 Demande de rafraîchissement du cache unifié');
+
+    const unifiedService = UnifiedDataService.getInstance();
+    unifiedService.clearAllCaches();
+
+    logger.info('✅ Cache unifié rafraîchi avec succès via endpoint admin');
+
+    return NextResponse.json({
+      success: true,
+      message: 'Cache unifié rafraîchi avec succès',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Erreur lors du rafraîchissement du cache:', error);
+    logger.error(error as Error, '❌ Erreur lors du rafraîchissement du cache unifié');
     return NextResponse.json(
-      { success: false, message: 'Erreur lors du rafraîchissement du cache' },
+      {
+        success: false,
+        message: 'Erreur lors du rafraîchissement du cache unifié',
+        error: (error as Error).message
+      },
       { status: 500 }
     );
   }

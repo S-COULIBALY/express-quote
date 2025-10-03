@@ -7,7 +7,7 @@ export const PRICE_CONSTANTS = {
 export const MOVING_CONSTANTS = {
   MIN_VOLUME: 1,
   MAX_VOLUME: 200,
-  BASE_PRICE_PER_M3: 40,
+  // BASE_PRICE_PER_M3 migré vers DefaultValues.ts (35€)
   FLOOR_PRICE_MULTIPLIER: 0.1, // +10% par étage sans ascenseur
   WEEKEND_PRICE_MULTIPLIER: 1.25, // +25% le weekend
 } as const;

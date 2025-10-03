@@ -1,23 +1,20 @@
-import { PrismaClient, RuleCategory, ServiceType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { createDefaultConfigurations } from '../src/quotation/domain/configuration/DefaultConfigurations';
-import { createServiceRules } from '../src/quotation/domain/rules/ServiceRules';
-import { createPackRules } from '../src/quotation/domain/rules/PackRules';
-import { createMovingRules } from '../src/quotation/domain/rules/MovingRules';
 
 const prisma = new PrismaClient();
 
 /**
- * Initialise le système avec les configurations et règles métier par défaut
- * Vérifie d'abord si les tables sont vides avant d'initialiser
+ * Initialise le système avec les configurations par défaut
+ * ✅ SIMPLIFIÉ: Gère uniquement les configurations (les règles sont gérées ailleurs)
  */
 async function initializeSystem() {
   try {
-    console.log('=== Initialisation du système ===');
+    console.log('=== Initialisation des configurations système ===');
     await initializeConfigurations();
-    await initializeRules();
     console.log('=== Initialisation terminée avec succès ===');
   } catch (error) {
     console.error('Erreur lors de l\'initialisation du système:', error);
+    throw error;
   } finally {
     await prisma.$disconnect();
   }
@@ -25,24 +22,58 @@ async function initializeSystem() {
 
 /**
  * Initialise les configurations par défaut
+ * ✅ MISE À JOUR: Ajoute intelligemment les configurations manquantes
+ * 📊 Retourne un JSON structuré avec les statistiques
  */
 async function initializeConfigurations() {
   try {
-    // Vérifier si des configurations existent déjà
-    const count = await prisma.configuration.count();
-    
-    if (count > 0) {
-      console.log(`${count} configurations existent déjà dans la base de données. Abandon.`);
-      return;
-    }
-    
-    console.log('Initialisation des configurations par défaut...');
-    
+    console.log('🔄 Vérification des configurations...');
+
     // Obtenir les configurations par défaut
     const defaultConfigs = createDefaultConfigurations();
-    
-    // Insérer chaque configuration dans la base de données
-    for (const config of defaultConfigs) {
+
+    // Récupérer toutes les configurations existantes
+    const existingConfigs = await prisma.configuration.findMany({
+      select: {
+        category: true,
+        key: true
+      }
+    });
+
+    // Créer un Set des clés existantes pour recherche rapide
+    const existingKeys = new Set(
+      existingConfigs.map(c => `${c.category}:${c.key}`)
+    );
+
+    // Filtrer pour obtenir seulement les configurations manquantes
+    const missingConfigs = defaultConfigs.filter(config =>
+      !existingKeys.has(`${config.category}:${config.key}`)
+    );
+
+    if (missingConfigs.length === 0) {
+      console.log(`✅ Toutes les ${existingConfigs.length} configurations sont déjà présentes. Aucune mise à jour nécessaire.`);
+      // Retourner un JSON pour parsing par l'API
+      console.log('RESULT_JSON:', JSON.stringify({
+        existingCount: existingConfigs.length,
+        addedCount: 0,
+        totalCount: existingConfigs.length,
+        addedConfigs: []
+      }));
+      return;
+    }
+
+    console.log(`📊 État actuel:`);
+    console.log(`   - Configurations existantes: ${existingConfigs.length}`);
+    console.log(`   - Configurations à ajouter: ${missingConfigs.length}`);
+    console.log(`   - Total après ajout: ${existingConfigs.length + missingConfigs.length}`);
+    console.log('');
+    console.log('🔧 Ajout des configurations manquantes...');
+
+    // Insérer seulement les configurations manquantes
+    let addedCount = 0;
+    const addedConfigs: string[] = [];
+
+    for (const config of missingConfigs) {
       await prisma.configuration.create({
         data: {
           category: config.category,
@@ -52,129 +83,29 @@ async function initializeConfigurations() {
           isActive: config.isActive,
           validFrom: config.validFrom,
           validTo: config.validTo,
+          createdAt: new Date(),
           updatedAt: new Date()
         }
       });
+      addedCount++;
+      const configName = `${config.category}.${config.key}`;
+      addedConfigs.push(configName);
+      console.log(`   ✅ ${configName} ajoutée`);
     }
-    
-    console.log(`${defaultConfigs.length} configurations ont été initialisées avec succès.`);
-  } catch (error) {
-    console.error('Erreur lors de l\'initialisation des configurations:', error);
-    throw error;
-  }
-}
 
-/**
- * Initialise les règles métier par défaut
- */
-async function initializeRules() {
-  try {
-    // Vérifier si des règles existent déjà
-    const count = await prisma.rule.count();
-    
-    if (count > 0) {
-      console.log(`${count} règles métier existent déjà dans la base de données. Abandon.`);
-      return;
-    }
-    
-    console.log('Initialisation des règles métier...');
-    
-    // Récupérer les règles depuis les fonctions existantes
-    const serviceRules = createServiceRules();
-    const packRules = createPackRules();
-    const movingRules = createMovingRules();
-    
-    let rulesCount = 0;
-    
-    // Règles de service
-    for (const rule of serviceRules) {
-      await prisma.rule.create({
-        data: {
-          name: rule.name,
-          description: rule.name, // Utiliser le nom comme description si pas spécifié
-          value: Math.abs(rule.value), // Valeur absolue du montant
-          isActive: true,
-          category: rule.value < 0 ? RuleCategory.REDUCTION : 
-                   (rule.name.includes('minimum') ? RuleCategory.MINIMUM : RuleCategory.SURCHARGE),
-          percentBased: !rule.name.includes('minimum') && !rule.name.includes('fixe'),
-          serviceType: ServiceType.SERVICE,
-          condition: getConditionFromRuleName(rule.name)
-        }
-      });
-      rulesCount++;
-    }
-    
-    // Règles de pack
-    for (const rule of packRules) {
-      await prisma.rule.create({
-        data: {
-          name: rule.name,
-          description: rule.name,
-          value: Math.abs(rule.value),
-          isActive: true,
-          category: rule.value < 0 ? RuleCategory.REDUCTION : 
-                   (rule.name.includes('minimum') ? RuleCategory.MINIMUM : RuleCategory.SURCHARGE),
-          percentBased: !rule.name.includes('minimum') && !rule.name.includes('fixe'),
-          serviceType: ServiceType.PACK,
-          condition: getConditionFromRuleName(rule.name)
-        }
-      });
-      rulesCount++;
-    }
-    
-    // Règles de déménagement
-    for (const rule of movingRules) {
-      await prisma.rule.create({
-        data: {
-          name: rule.name,
-          description: rule.name,
-          value: Math.abs(rule.value),
-          isActive: true,
-          category: rule.value < 0 ? RuleCategory.REDUCTION : 
-                   (rule.name.includes('minimum') ? RuleCategory.MINIMUM : 
-                   rule.value > 100 ? RuleCategory.FIXED : RuleCategory.SURCHARGE),
-          percentBased: !rule.name.includes('minimum') && !rule.name.includes('fixe') && rule.value <= 100,
-          serviceType: ServiceType.MOVING,
-          condition: getConditionFromRuleName(rule.name)
-        }
-      });
-      rulesCount++;
-    }
-    
-    console.log(`${rulesCount} règles métier ont été initialisées avec succès.`);
-  } catch (error) {
-    console.error('Erreur lors de l\'initialisation des règles métier:', error);
-    throw error;
-  }
-}
+    console.log('');
+    console.log(`✅ ${addedCount} nouvelle(s) configuration(s) ajoutée(s) avec succès.`);
 
-/**
- * Génère une condition simple basée sur le nom de la règle
- * Puisque nous ne pouvons pas accéder directement à la condition de la règle
- */
-function getConditionFromRuleName(ruleName: string): string {
-  if (ruleName.includes('week-end')) {
-    return 'day === 0 || day === 6';
-  } else if (ruleName.includes('anticipée') || ruleName.includes('anticipation')) {
-    return 'diffDays > 14';
-  } else if (ruleName.includes('urgente') || ruleName.includes('urgence')) {
-    return 'diffHours < 48';
-  } else if (ruleName.includes('étages') || ruleName.includes('escalier')) {
-    return 'floor > 1 && !hasElevator';
-  } else if (ruleName.includes('durée')) {
-    return 'duration > 4';
-  } else if (ruleName.includes('volume')) {
-    return 'volume > 30';
-  } else if (ruleName.includes('haute saison')) {
-    return 'month >= 6 && month <= 9';
-  } else if (ruleName.includes('minimum')) {
-    return 'price < value';
-  } else if (ruleName.includes('fidèle')) {
-    return 'isReturningCustomer === true';
-  } else if (ruleName.includes('horaire') || ruleName.includes('heure')) {
-    return 'hour < 8 || hour >= 18';
-  } else {
-    return '';
+    // Retourner un JSON structuré pour parsing par l'API
+    console.log('RESULT_JSON:', JSON.stringify({
+      existingCount: existingConfigs.length,
+      addedCount: addedCount,
+      totalCount: existingConfigs.length + addedCount,
+      addedConfigs: addedConfigs
+    }));
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'initialisation des configurations:', error);
+    throw error;
   }
 }
 

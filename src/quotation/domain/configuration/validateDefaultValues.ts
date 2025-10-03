@@ -1,6 +1,6 @@
 import { DefaultValues } from './DefaultValues';
 import { createDefaultConfigurations } from './DefaultConfigurations';
-import { PricingConfigKey, BusinessRulesConfigKey } from './ConfigurationKey';
+import { PricingConfigKey, BusinessRulesConfigKey, BusinessTypePricingConfigKey } from './ConfigurationKey';
 
 /**
  * Script de validation pour s'assurer que DefaultValues.ts et DefaultConfigurations.ts
@@ -45,45 +45,128 @@ export function validateDefaultConfigurationsConsistency(): ValidationResult {
     const configurations = createDefaultConfigurations();
     result.summary.totalConfigurations = configurations.length;
 
-    // 3. Mapper les valeurs attendues depuis DefaultValues
+    // 3. Mapper les valeurs attendues depuis DefaultValues (noms alignés)
     const expectedPricingValues = {
-      [PricingConfigKey.MOVING_BASE_PRICE_PER_M3]: DefaultValues.MOVING_BASE_PRICE_PER_M3,
-      [PricingConfigKey.MOVING_DISTANCE_PRICE_PER_KM]: DefaultValues.MOVING_DISTANCE_PRICE_PER_KM,
+      // PRIX UNITAIRES DE BASE
+      [PricingConfigKey.UNIT_PRICE_PER_M3]: DefaultValues.UNIT_PRICE_PER_M3,
+      [PricingConfigKey.UNIT_PRICE_PER_KM]: DefaultValues.UNIT_PRICE_PER_KM,
+      [PricingConfigKey.EXTRA_KM_PRICE]: DefaultValues.EXTRA_KM_PRICE,
+      
+      // PRIX OUVRERS ET ÉQUIPEMENTS
+      [PricingConfigKey.WORKER_PRICE]: DefaultValues.WORKER_PRICE,
+      [PricingConfigKey.LIFT_PRICE]: DefaultValues.LIFT_PRICE,
+      [PricingConfigKey.WORKER_HOUR_RATE]: DefaultValues.WORKER_HOUR_RATE,
+      [PricingConfigKey.EXTRA_WORKER_HOUR_RATE]: DefaultValues.EXTRA_WORKER_HOUR_RATE,
+      
+      // FRAIS FIXES & FORFAITS
+      [PricingConfigKey.VEHICLE_FLAT_FEE]: DefaultValues.VEHICLE_FLAT_FEE,
+      [PricingConfigKey.INCLUDED_DISTANCE]: DefaultValues.INCLUDED_DISTANCE,
+      
+      // FRAIS VARIABLES TRANSPORT
       [PricingConfigKey.FUEL_CONSUMPTION_PER_100KM]: DefaultValues.FUEL_CONSUMPTION_PER_100KM,
       [PricingConfigKey.FUEL_PRICE_PER_LITER]: DefaultValues.FUEL_PRICE_PER_LITER,
       [PricingConfigKey.TOLL_COST_PER_KM]: DefaultValues.TOLL_COST_PER_KM,
       [PricingConfigKey.HIGHWAY_RATIO]: DefaultValues.HIGHWAY_RATIO,
-      [PricingConfigKey.PACK_WORKER_PRICE]: DefaultValues.PACK_WORKER_PRICE,
-      [PricingConfigKey.PACK_INCLUDED_DISTANCE]: DefaultValues.PACK_INCLUDED_DISTANCE,
-      [PricingConfigKey.PACK_EXTRA_KM_PRICE]: DefaultValues.PACK_EXTRA_KM_PRICE,
-      [PricingConfigKey.PACK_EXTRA_DAY_DISCOUNT_RATE]: DefaultValues.PACK_EXTRA_DAY_DISCOUNT_RATE,
-      [PricingConfigKey.PACK_WORKER_DISCOUNT_RATE_1_DAY]: DefaultValues.PACK_WORKER_DISCOUNT_RATE_1_DAY,
-      [PricingConfigKey.PACK_WORKER_DISCOUNT_RATE_MULTI_DAYS]: DefaultValues.PACK_WORKER_DISCOUNT_RATE_MULTI_DAYS,
-      [PricingConfigKey.PACK_LIFT_PRICE]: DefaultValues.PACK_LIFT_PRICE,
-      [PricingConfigKey.SERVICE_WORKER_PRICE_PER_HOUR]: DefaultValues.SERVICE_WORKER_PRICE_PER_HOUR,
-      [PricingConfigKey.SERVICE_WORKER_DISCOUNT_RATE_SHORT]: DefaultValues.SERVICE_WORKER_DISCOUNT_RATE_SHORT,
-      [PricingConfigKey.SERVICE_WORKER_DISCOUNT_RATE_LONG]: DefaultValues.SERVICE_WORKER_DISCOUNT_RATE_LONG,
-      [PricingConfigKey.SERVICE_EXTRA_HOUR_RATE]: DefaultValues.SERVICE_EXTRA_HOUR_RATE,
+      
+      // RÉDUCTIONS & RABAIS
+      [PricingConfigKey.EXTRA_DAY_DISCOUNT_RATE]: DefaultValues.EXTRA_DAY_DISCOUNT_RATE,
+      [PricingConfigKey.EXTRA_WORKER_DISCOUNT_RATE]: DefaultValues.EXTRA_WORKER_DISCOUNT_RATE,
+      
+      // PARAMÈTRES DE TARIFICATION COMPLÉMENTAIRES
+      // TARIFICATION BASÉE SUR LE TEMPS
+      [PricingConfigKey.HOURLY_RATE_MULTIPLIER]: DefaultValues.HOURLY_RATE_MULTIPLIER,
+      [PricingConfigKey.DAILY_RATE_MULTIPLIER]: DefaultValues.DAILY_RATE_MULTIPLIER,
+      [PricingConfigKey.WEEKLY_RATE_MULTIPLIER]: DefaultValues.WEEKLY_RATE_MULTIPLIER,
+      
+      // SEUILS DISTANCE & VOLUME
+      [PricingConfigKey.FREE_DELIVERY_DISTANCE_KM]: DefaultValues.FREE_DELIVERY_DISTANCE_KM,
+      [PricingConfigKey.VOLUME_DISCOUNT_THRESHOLD_M3]: DefaultValues.VOLUME_DISCOUNT_THRESHOLD_M3,
+      [PricingConfigKey.VOLUME_DISCOUNT_RATE]: DefaultValues.VOLUME_DISCOUNT_RATE,
+      
+      // COÛTS ÉQUIPEMENT & MATÉRIEL
+      [PricingConfigKey.EQUIPMENT_RENTAL_DAILY]: DefaultValues.EQUIPMENT_RENTAL_DAILY,
+      [PricingConfigKey.MATERIAL_COST_PER_M3]: DefaultValues.MATERIAL_COST_PER_M3,
+      [PricingConfigKey.PROTECTIVE_EQUIPMENT_COST]: DefaultValues.PROTECTIVE_EQUIPMENT_COST,
+      
+      // CONSTANTES OPÉRATIONNELLES
+      [PricingConfigKey.MAX_WORKERS_PER_VEHICLE]: DefaultValues.MAX_WORKERS_PER_VEHICLE,
+      [PricingConfigKey.MAX_VOLUME_PER_VEHICLE_M3]: DefaultValues.MAX_VOLUME_PER_VEHICLE_M3,
+      [PricingConfigKey.STANDARD_SERVICE_DURATION_HOURS]: DefaultValues.STANDARD_SERVICE_DURATION_HOURS,
+      [PricingConfigKey.OVERTIME_RATE_MULTIPLIER]: DefaultValues.OVERTIME_RATE_MULTIPLIER,
+      
+      // STANDARDS QUALITÉ & SÉCURITÉ
+      [PricingConfigKey.INSURANCE_COVERAGE_MINIMUM]: DefaultValues.INSURANCE_COVERAGE_MINIMUM,
+      [PricingConfigKey.QUALITY_GUARANTEE_DAYS]: DefaultValues.QUALITY_GUARANTEE_DAYS,
+      [PricingConfigKey.SAFETY_EQUIPMENT_REQUIRED]: DefaultValues.SAFETY_EQUIPMENT_REQUIRED ? 1 : 0,
+      
+      // ASSURANCE - Prix d'assurance centralisés
+      [PricingConfigKey.INSURANCE_PRICE_HT]: DefaultValues.INSURANCE_PRICE_HT,
+      [PricingConfigKey.INSURANCE_PRICE_TTC]: DefaultValues.INSURANCE_PRICE_TTC,
+      
+      // CONSTANTES ATTRIBUTION PROFESSIONNELS
+      [PricingConfigKey.PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM]: DefaultValues.PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM,
     };
 
-    const expectedBusinessRulesValues = {
-      [BusinessRulesConfigKey.MOVING_EARLY_BOOKING_DAYS]: DefaultValues.MOVING_EARLY_BOOKING_DAYS,
-      [BusinessRulesConfigKey.MOVING_EARLY_BOOKING_DISCOUNT]: DefaultValues.MOVING_EARLY_BOOKING_DISCOUNT,
-      [BusinessRulesConfigKey.MOVING_WEEKEND_SURCHARGE]: DefaultValues.MOVING_WEEKEND_SURCHARGE,
-      [BusinessRulesConfigKey.SERVICE_EARLY_BOOKING_DAYS]: DefaultValues.SERVICE_EARLY_BOOKING_DAYS,
-      [BusinessRulesConfigKey.SERVICE_EARLY_BOOKING_DISCOUNT]: DefaultValues.SERVICE_EARLY_BOOKING_DISCOUNT,
-      [BusinessRulesConfigKey.SERVICE_WEEKEND_SURCHARGE]: DefaultValues.SERVICE_WEEKEND_SURCHARGE,
-      [BusinessRulesConfigKey.PACK_EARLY_BOOKING_DAYS]: DefaultValues.PACK_EARLY_BOOKING_DAYS,
-      [BusinessRulesConfigKey.PACK_EARLY_BOOKING_DISCOUNT]: DefaultValues.PACK_EARLY_BOOKING_DISCOUNT,
-      [BusinessRulesConfigKey.PACK_WEEKEND_SURCHARGE]: DefaultValues.PACK_WEEKEND_SURCHARGE,
-      [BusinessRulesConfigKey.PACK_URGENT_BOOKING_SURCHARGE]: DefaultValues.PACK_URGENT_BOOKING_SURCHARGE,
+    // NOTE: Les règles métier sont maintenant commentées dans DefaultValues.ts
+    // Elles ne sont plus validées pour l'instant
+    const expectedBusinessRulesValues = {};
+
+    // Configurations TARIFS PAR TYPE DE SERVICE MÉTIER
+    const expectedBusinessTypePricingValues = {
+      // DÉMÉNAGEMENT
+      [BusinessTypePricingConfigKey.MOVING_BASE_PRICE_PER_M3]: DefaultValues.MOVING_BASE_PRICE_PER_M3,
+      [BusinessTypePricingConfigKey.MOVING_WORKER_PRICE]: DefaultValues.MOVING_WORKER_PRICE,
+      [BusinessTypePricingConfigKey.MOVING_WORKER_HOUR_RATE]: DefaultValues.MOVING_WORKER_HOUR_RATE,
+      [BusinessTypePricingConfigKey.MOVING_EXTRA_HOUR_RATE]: DefaultValues.MOVING_EXTRA_HOUR_RATE,
+      [BusinessTypePricingConfigKey.MOVING_LIFT_PRICE]: DefaultValues.MOVING_LIFT_PRICE,
+      [BusinessTypePricingConfigKey.MOVING_VEHICLE_FLAT_FEE]: DefaultValues.MOVING_VEHICLE_FLAT_FEE,
+      
+      // NETTOYAGE
+      [BusinessTypePricingConfigKey.CLEANING_PRICE_PER_M2]: DefaultValues.CLEANING_PRICE_PER_M2,
+      [BusinessTypePricingConfigKey.CLEANING_WORKER_PRICE]: DefaultValues.CLEANING_WORKER_PRICE,
+      [BusinessTypePricingConfigKey.CLEANING_WORKER_HOUR_RATE]: DefaultValues.CLEANING_WORKER_HOUR_RATE,
+      [BusinessTypePricingConfigKey.CLEANING_EXTRA_HOUR_RATE]: DefaultValues.CLEANING_EXTRA_HOUR_RATE,
+      [BusinessTypePricingConfigKey.CLEANING_MINIMUM_PRICE]: DefaultValues.CLEANING_MINIMUM_PRICE,
+      
+      // LIVRAISON
+      [BusinessTypePricingConfigKey.DELIVERY_BASE_PRICE]: DefaultValues.DELIVERY_BASE_PRICE,
+      [BusinessTypePricingConfigKey.DELIVERY_PRICE_PER_KM]: DefaultValues.DELIVERY_PRICE_PER_KM,
+      [BusinessTypePricingConfigKey.DELIVERY_WORKER_HOUR_RATE]: DefaultValues.DELIVERY_WORKER_HOUR_RATE,
+      [BusinessTypePricingConfigKey.DELIVERY_EXTRA_HOUR_RATE]: DefaultValues.DELIVERY_EXTRA_HOUR_RATE,
+      [BusinessTypePricingConfigKey.DELIVERY_WEIGHT_SURCHARGE]: DefaultValues.DELIVERY_WEIGHT_SURCHARGE,
+      
+      // TRANSPORT
+      [BusinessTypePricingConfigKey.TRANSPORT_BASE_PRICE]: DefaultValues.TRANSPORT_BASE_PRICE,
+      [BusinessTypePricingConfigKey.TRANSPORT_PRICE_PER_KM]: DefaultValues.TRANSPORT_PRICE_PER_KM,
+      [BusinessTypePricingConfigKey.TRANSPORT_WORKER_HOUR_RATE]: DefaultValues.TRANSPORT_WORKER_HOUR_RATE,
+      [BusinessTypePricingConfigKey.TRANSPORT_EXTRA_HOUR_RATE]: DefaultValues.TRANSPORT_EXTRA_HOUR_RATE,
+      [BusinessTypePricingConfigKey.TRANSPORT_VOLUME_SURCHARGE]: DefaultValues.TRANSPORT_VOLUME_SURCHARGE,
+      
+      // EMBALLAGE
+      [BusinessTypePricingConfigKey.PACKING_PRICE_PER_M3]: DefaultValues.PACKING_PRICE_PER_M3,
+      [BusinessTypePricingConfigKey.PACKING_WORKER_PRICE]: DefaultValues.PACKING_WORKER_PRICE,
+      [BusinessTypePricingConfigKey.PACKING_WORKER_HOUR_RATE]: DefaultValues.PACKING_WORKER_HOUR_RATE,
+      [BusinessTypePricingConfigKey.PACKING_EXTRA_HOUR_RATE]: DefaultValues.PACKING_EXTRA_HOUR_RATE,
+      [BusinessTypePricingConfigKey.PACKING_MATERIAL_COST]: DefaultValues.PACKING_MATERIAL_COST,
+      
+      // STOCKAGE
+      [BusinessTypePricingConfigKey.STORAGE_PRICE_PER_M3_PER_MONTH]: DefaultValues.STORAGE_PRICE_PER_M3_PER_MONTH,
+      [BusinessTypePricingConfigKey.STORAGE_WORKER_HOUR_RATE]: DefaultValues.STORAGE_WORKER_HOUR_RATE,
+      [BusinessTypePricingConfigKey.STORAGE_EXTRA_HOUR_RATE]: DefaultValues.STORAGE_EXTRA_HOUR_RATE,
+      [BusinessTypePricingConfigKey.STORAGE_MINIMUM_DURATION_MONTHS]: DefaultValues.STORAGE_MINIMUM_DURATION_MONTHS,
+      [BusinessTypePricingConfigKey.STORAGE_ACCESS_FEE]: DefaultValues.STORAGE_ACCESS_FEE,
     };
 
     // 4. Valider chaque configuration
     for (const config of configurations) {
-      const expectedValue = config.category === 'PRICING' 
-        ? expectedPricingValues[config.key as PricingConfigKey]
-        : expectedBusinessRulesValues[config.key as BusinessRulesConfigKey];
+      let expectedValue: any = undefined;
+      
+      if (config.category === 'PRICING') {
+        expectedValue = expectedPricingValues[config.key as PricingConfigKey];
+      } else if (config.category === 'BUSINESS_TYPE_PRICING') {
+        expectedValue = expectedBusinessTypePricingValues[config.key as BusinessTypePricingConfigKey];
+      }
+      // Les règles métier ne sont plus validées pour l'instant
 
       if (expectedValue !== undefined) {
         if (config.value === expectedValue) {
@@ -101,7 +184,10 @@ export function validateDefaultConfigurationsConsistency(): ValidationResult {
     }
 
     // 5. Vérifier les configurations manquantes
-    const allExpectedKeys = [...Object.keys(expectedPricingValues), ...Object.keys(expectedBusinessRulesValues)];
+    const allExpectedKeys = [
+      ...Object.keys(expectedPricingValues),
+      ...Object.keys(expectedBusinessTypePricingValues)
+    ];
     const actualKeys = configurations.map(c => c.key);
     
     for (const expectedKey of allExpectedKeys) {

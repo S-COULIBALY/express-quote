@@ -1,5 +1,5 @@
 import { QuoteRequest } from '../entities/QuoteRequest';
-import { QuoteRequestStatus } from '../enums/QuoteRequestStatus';
+import { QuoteRequestStatus } from '../entities/QuoteRequest';
 
 export interface IQuoteRequestRepository {
     save(quoteRequest: QuoteRequest): Promise<QuoteRequest>;
@@ -8,4 +8,5 @@ export interface IQuoteRequestRepository {
     updateStatus(id: string, status: QuoteRequestStatus): Promise<void>;
     findExpired(): Promise<QuoteRequest[]>;
     findAll(): Promise<QuoteRequest[]>;
+    delete(id: string): Promise<void>;
 } 

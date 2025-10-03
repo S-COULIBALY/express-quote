@@ -5,7 +5,68 @@ export interface Category {
   icon?: string
 }
 
-export interface Pack {
+// ===== NOUVEAU SYSTÈME TEMPLATE/ITEM =====
+
+export interface Template {
+  id: string
+  name: string
+  description: string
+  serviceType: string
+  basePrice: number
+  duration: number
+  workers: number
+  createdAt: Date
+  updatedAt: Date
+  items?: Item[]
+}
+
+export interface Item {
+  id: string
+  templateId: string
+  name: string
+  description: string
+  price: number
+  isPopular: boolean
+  createdAt: Date
+  updatedAt: Date
+  template?: Template
+  catalogSelections?: CatalogSelection[]
+}
+
+export interface CatalogSelection {
+  id: string
+  itemId?: string
+  category: string
+  subcategory?: string
+  displayOrder: number
+  isActive: boolean
+  isFeatured: boolean
+  isNewOffer: boolean
+  marketingTitle?: string
+  marketingSubtitle?: string
+  marketingDescription?: string
+  marketingPrice?: number
+  originalPrice?: number
+  badgeText?: string
+  badgeColor?: string
+  promotionText?: string
+  targetAudience?: string
+  // Système de promotion
+  promotionCode?: string
+  promotionValue?: number
+  promotionType?: string
+  isPromotionActive?: boolean
+  isVisible: boolean
+  startDate?: Date
+  endDate?: Date
+  createdAt: Date
+  updatedAt: Date
+  item?: Item
+}
+
+// ===== ANCIEN SYSTÈME (MAINTENU POUR COMPATIBILITÉ) =====
+
+export interface CatalogueMovingItem {
   id: string
   bookingId: string
   name: string
@@ -32,9 +93,33 @@ export interface Pack {
   isAvailable?: boolean
   scheduledTime?: string
   distance?: number
+  // Nouvelles propriétés pour le catalogue
+  displayName?: string
+  displayDescription?: string
+  displayPrice?: number
+  originalPrice?: number
+  catalogId?: string
+  catalogCategory?: string
+  subcategory?: string
+  isFeatured?: boolean
+  isNewOffer?: boolean
+  badgeText?: string
+  badgeColor?: string
+  promotionText?: string
+  technicalPrice?: number
+  baseName?: string
+  baseDescription?: string
+  hasPromotion?: boolean
+  source?: 'pack-only' | 'catalog' | 'catalog-enhanced'
+  
+  // Système de promotion
+  promotionCode?: string
+  promotionValue?: number
+  promotionType?: string
+  isPromotionActive?: boolean
 }
 
-export interface Service {
+export interface CatalogueCleaningItem {
   id: string
   bookingId: string
   name: string
@@ -60,6 +145,72 @@ export interface Service {
   pickupAddress?: string
   deliveryAddress?: string
   distance?: number
+  // Nouvelles propriétés pour le catalogue
+  displayName?: string
+  displayDescription?: string
+  displayPrice?: number
+  originalPrice?: number
+  catalogId?: string
+  catalogCategory?: string
+  subcategory?: string
+  isFeatured?: boolean
+  isNewOffer?: boolean
+  badgeText?: string
+  badgeColor?: string
+  promotionText?: string
+  technicalPrice?: number
+  baseName?: string
+  baseDescription?: string
+  hasPromotion?: boolean
+  source?: 'service-only' | 'catalog' | 'catalog-enhanced'
+  
+  // Système de promotion
+  promotionCode?: string
+  promotionValue?: number
+  promotionType?: string
+  isPromotionActive?: boolean
+}
+
+export interface CatalogueDeliveryItem {
+  id: string
+  bookingId: string
+  name: string
+  description: string
+  price: number
+  originalPrice?: number
+  features: string[]
+  includes: string[]
+  imagePath?: string
+  
+  // Spécifique à la livraison
+  packageType: 'colis' | 'meuble' | 'electromenager' | 'fragile' | 'document'
+  weight?: number
+  isFragile?: boolean
+  pickupAddress: string
+  deliveryAddress: string
+  pickupTime?: string
+  deliveryTime?: string
+  scheduledDate: Date
+  additionalInfo?: string
+  
+  // Métadonnées catalogue
+  catalogId?: string
+  catalogCategory?: string
+  subcategory?: string
+  badgeText?: string
+  badgeColor?: string
+  promotionText?: string
+  isFeatured?: boolean
+  isNewOffer?: boolean
+  source: 'catalog'
+  createdAt: Date
+  updatedAt: Date
+  
+  // Système de promotion
+  promotionCode?: string
+  promotionValue?: number
+  promotionType?: string
+  isPromotionActive?: boolean
 }
 
 export interface Booking {
@@ -81,9 +232,9 @@ export interface Booking {
 
 export interface BookingItem {
   id: string
-  type: 'pack' | 'service'
+  type: 'pack' | 'service' | 'delivery' | 'personalizedItem'
   itemId: string
-  data: Pack | Service
+  data: CatalogueMovingItem | CatalogueCleaningItem | CatalogueDeliveryItem | any // any pour les items personnalisés
   price: number
   createdAt: Date
   updatedAt: Date
@@ -91,7 +242,7 @@ export interface BookingItem {
 
 export interface BookingItemData {
   type: 'pack' | 'service'
-  data: Pack | Service
+  data: CatalogueMovingItem | CatalogueCleaningItem
 } 
 
 export interface BookingData {

@@ -34,3 +34,37 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Documentation générée / Rapports d'analyse
+ANALYSE_*.md
+MIGRATION_*.md
+RAPPORT_*.md
+RESOLUTION_*.md
+QUICK_WINS_*.md
+METRIQUES_*.md
+PLAN_*.md
+EXEMPLES_*.md
+INDEX_*.md
+LISEZMOI_*.txt
+RESUME_*.txt
+
+# Fichiers de test temporaires
+test-*.html
+test-*.json
+nul
+
+# Logs
+*.log
+logs/
+
+# Backups
+*.backup
+*.bak
+*.old
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+Thumbs.db

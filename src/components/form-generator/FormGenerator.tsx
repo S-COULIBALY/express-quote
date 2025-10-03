@@ -1,347 +1,345 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { FormConfig, FormGeneratorProps, IndustryPreset, FormSection as FormSectionType } from "./types";
-import { generateSchema, generateConditionalSchema } from "./utils";
-import { FormSection } from "./components";
-import { DefaultLayout, SidebarLayout, AuthLayout, PackageLayout, PackageEditLayout, PackageCardLayout } from "./layouts";
+import { FormGeneratorProps, FormSection as FormSectionType } from "./types";
+import { DefaultLayout } from "./layouts/DefaultLayout";
+import { SidebarLayout } from "./layouts/SidebarLayout";
+import { PackageEditLayout } from "./layouts/PackageEditLayout";
+import { PackageCardLayout } from "./layouts/PackageCardLayout";
 import { ServiceSummaryLayout } from "./layouts/ServiceSummaryLayout";
-import { FormStyles } from "./styles/FormStyles";
-import { getPresetDefaults, getPresetStyles, getPresetSummary } from "./presets";
+import { FormStylesSimplified } from "./styles/FormStylesSimplified";
+import { FormSection } from "./components/FormSection";
 
+/**
+ * 🎨 FormGenerator - Générateur de formulaires dynamiques
+ * 
+ * Ce composant centralise la logique de rendu des formulaires
+ * en fonction de la configuration fournie.
+ * 
+ * ✅ OPTIMISATIONS APPLIQUÉES:
+ * - Mémorisation des FormStyles pour éviter les re-renders
+ * - Utilisation de FormStylesSimplified pour de meilleures performances
+ * - Gestion des fallbacks pour tous les layouts
+ * - Validation des données requises
+ */
 export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // 🎨 Validation de la configuration
+  if (!config) {
+    console.error("❌ [FormGenerator] Configuration manquante");
+    return (
+      <div className="form-generator p-4 text-center">
+        <p className="text-red-600">Erreur: Configuration manquante</p>
+      </div>
+    );
+  }
 
-  // Récupérer les valeurs par défaut depuis les presets si configuré
-  const defaultValues = useMemo(() => {
-    if (config.preset) {
-      const presetDefaults = getPresetDefaults(config.preset);
-      return { ...presetDefaults, ...(config.customDefaults || {}) };
-    }
-    return config.customDefaults || {};
-  }, [config.preset, config.customDefaults]);
-
-  // Collecter tous les champs depuis les sections ou directement depuis fields
-  const allFields = useMemo(() => {
-    if (config.sections) {
-      return config.sections.flatMap((section: FormSectionType) => section.fields);
-    }
-    return config.fields || [];
-  }, [config.sections, config.fields]);
-
-  // Générer le schéma de validation avec React Hook Form et Zod
-  const schema = useMemo(() => generateSchema(allFields), [allFields]);
-
+  // Configuration du form controller (react-hook-form)
   const {
     register,
     handleSubmit,
+    formState: { errors },
     watch,
     setValue,
-    formState: { errors, isValid }
+    getValues,
+    reset
   } = useForm({
-    resolver: zodResolver(schema),
-    defaultValues,
-    mode: "onChange"
+    defaultValues: config.customDefaults || {},
+    mode: 'onChange'
   });
 
-  // Observer toutes les valeurs pour les conditions et récapitulatifs
+  console.log('🎨 [ÉTAPE 8] FormGenerator - Initialisation React Hook Form');
+  console.log('📋 [ÉTAPE 8] Configuration reçue:', {
+    title: config.title,
+    hasFields: !!config.fields,
+    hasSections: !!config.sections,
+    hasCustomDefaults: !!config.customDefaults,
+    layoutType: config.layout?.type,
+    sectionsCount: config.sections?.length || 0,
+    fieldsCount: config.fields?.length || 0,
+    defaultValuesCount: Object.keys(config.customDefaults || {}).length
+  });
+  
+  console.log('⚙️ [ÉTAPE 8] React Hook Form setup avec mode: onChange');
+
+  // Réinitialiser le formulaire seulement au premier chargement
+  const hasInitialized = React.useRef(false);
+  React.useEffect(() => {
+    if (config.customDefaults && !hasInitialized.current) {
+      console.log('🔄 [ÉTAPE 8.1] Reset initial du formulaire avec valeurs par défaut');
+      console.log('📊 [ÉTAPE 8.1] CustomDefaults appliqués:', {
+        totalValues: Object.keys(config.customDefaults).length,
+        hasImportantValues: !!(config.customDefaults.duration || config.customDefaults.workers),
+        sampleValues: Object.entries(config.customDefaults)
+          .slice(0, 5)
+          .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {})
+      });
+      reset(config.customDefaults);
+      hasInitialized.current = true;
+      console.log('✅ [ÉTAPE 8.1] Formulaire initialisé avec succès');
+    }
+  }, [config.customDefaults, reset]);
+
   const formData = watch();
 
-  // Mettre à jour le schéma pour les validations conditionnelles
-  const conditionalSchema = useMemo(
-    () => generateConditionalSchema(allFields, formData),
-    [allFields, formData]
+  // 📊 Console.log pour surveiller l'état du formulaire
+  React.useEffect(() => {
+    console.log('📊 [ÉTAPE 11] Surveillance état formulaire - watch() déclenché');
+    console.log('📋 [SURVEILLANCE] État actuel du formulaire:', formData);
+    console.log('🎯 [SURVEILLANCE] Champs avec valeurs:', 
+      Object.entries(formData).filter(([key, value]) => value !== '' && value !== null && value !== undefined)
+    );
+    
+    const filledFieldsCount = Object.entries(formData).filter(([key, value]) => 
+      value !== '' && value !== null && value !== undefined && value !== false
+    ).length;
+    console.log('📈 [SURVEILLANCE] Statistiques:', {
+      totalFields: Object.keys(formData).length,
+      filledFields: filledFieldsCount,
+      completionPercentage: Object.keys(formData).length > 0 ? Math.round((filledFieldsCount / Object.keys(formData).length) * 100) + '%' : '0%'
+    });
+  }, [formData]);
+
+  const handleFieldChange = useCallback(
+    (fieldName: string, value: any) => {
+      console.log('🔄 [ÉTAPE 10] Interaction utilisateur - Changement de champ');
+      console.log('🎯 [ÉTAPE 10] Field change:', fieldName, '=', value, typeof value);
+      setValue(fieldName, value, { shouldValidate: true, shouldDirty: true });
+      const current = getValues();
+      console.log('📊 [ÉTAPE 10] Données complètes après changement:', current);
+      console.log('🔗 [ÉTAPE 10] Synchronisation avec DetailForm...');
+      config.onChange?.(fieldName, value, current);
+    },
+    [config.onChange, setValue, getValues]
   );
 
-  // Gestion des changements de champs
-  const handleFieldChange = (fieldName: string, value: any) => {
-    setValue(fieldName, value, { shouldValidate: true, shouldDirty: true });
-    config.onChange?.(fieldName, value, formData);
-  };
 
-  // Helper pour obtenir le layoutType compatible avec FormSection
-  const getFormSectionLayoutType = (): "default" | "sidebar" | "tabs" | "wizard" | undefined => {
-    const layoutType = config.layout?.type;
-    // Filtrer les types spéciaux car FormSection ne les accepte pas
-    if (layoutType === "custom" || layoutType === "auth" || 
-        layoutType === "package" || layoutType === "package-edit" || 
-        layoutType === "package-card" || layoutType === "service-summary") {
-      return "default"; // Fallback vers default pour FormSection
-    }
-    return layoutType;
-  };
 
-  // Gestion de la soumission
-  const onSubmit = async (data: any) => {
-    try {
-      setIsSubmitting(true);
-      
-      // Ajouter le serviceType aux données si configuré
-      const submitData = {
-        ...data,
-        ...(config.serviceType && { serviceType: config.serviceType })
-      };
-      
-      await config.onSubmit?.(submitData);
-    } catch (error) {
-      console.error("Erreur lors de la soumission:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Gestion des erreurs de validation
-  const onError = (errors: any) => {
-    config.onValidationError?.(errors);
-  };
-
-  // Boutons d'action
-  const renderActions = () => (
-    <>
-      {config.onCancel && (
-        <button
-          type="button"
-          onClick={config.onCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-        >
-          {config.cancelLabel || "Annuler"}
-        </button>
-      )}
-      <button
-        type="submit"
-        disabled={isSubmitting || config.isLoading}
-        className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 border border-transparent rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isSubmitting || config.isLoading
-          ? config.loadingText || "Chargement..."
-          : config.submitLabel || "Valider"}
-      </button>
-    </>
+  const onSubmit = useCallback(
+    async (data: any) => {
+      await config.onSubmit?.(data);
+    },
+    [config.onSubmit]
   );
 
-  // Contenu du formulaire
-  const renderForm = () => (
-    <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-6">
-      {config.sections ? (
-        // Rendu avec sections
-        config.sections.map((section: FormSectionType, index: number) => {
-          // Vérifier les conditions d'affichage de la section
-          const shouldShowSection = section.conditional
-            ? section.conditional.condition(formData[section.conditional.dependsOn], formData)
-            : true;
-
-          if (!shouldShowSection) {
-            return null;
-          }
-
-          return (
-            <FormSection
-              key={index}
-              section={section}
-              register={register}
-              errors={errors}
-              formData={formData}
-              onFieldChange={handleFieldChange}
-              layoutType={getFormSectionLayoutType()}
-            />
-          );
-        })
-      ) : (
-        // Rendu simple avec fields
-        config.fields && (
-          <FormSection
-            section={{ fields: config.fields }}
-            register={register}
-            errors={errors}
-            formData={formData}
-            onFieldChange={handleFieldChange}
-            layoutType={getFormSectionLayoutType()}
-          />
-        )
-      )}
-    </form>
+  const onError = useCallback(
+    (formErrors: Record<string, any>) => {
+      config.onValidationError?.(formErrors);
+    },
+    [config.onValidationError]
   );
 
-  // Configuration du layout
-  const layoutType = config.layout?.type || "default";
-  const layoutProps = {
-    title: config.title,
+  // Rendu d'une section
+  const renderSection = (section: FormSectionType, layoutType?: "default" | "sidebar") => (
+    <FormSection
+      key={section.title || Math.random().toString(36)}
+      section={section}
+      register={register}
+      errors={errors}
+      formData={formData}
+      onFieldChange={(name, value) => handleFieldChange(name, value)}
+      layoutType={layoutType}
+    />
+  );
+
+  // 🎨 Rendu du contenu du formulaire (à placer comme children des layouts)
+  const formElement = useMemo(() => {
+    const hasSections = Array.isArray(config.sections) && config.sections.length > 0;
+    const hasFields = Array.isArray(config.fields) && config.fields.length > 0;
+
+    const content = (
+      <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-4">
+        {hasSections
+          ? config.sections!.map((section) => renderSection(section, config.layout?.type === "sidebar" ? "sidebar" : "default"))
+          : hasFields
+            ? renderSection({ fields: config.fields! })
+            : (
+              <div className="p-4 text-center">
+                <p className="text-gray-600">Aucun champ à afficher</p>
+              </div>
+            )}
+
+        {/* Actions par défaut si pas gérées par le layout */}
+        {config.layout?.type !== "sidebar" && (
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={!!config.isLoading}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors disabled:opacity-60"
+            >
+              {config.isLoading ? (config.loadingText || "Envoi en cours...") : (config.submitLabel || "Valider")}
+            </button>
+            {config.onCancel && (
+              <button
+                type="button"
+                onClick={config.onCancel}
+                className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-xl transition-colors"
+              >
+                {config.cancelLabel || "Annuler"}
+              </button>
+            )}
+          </div>
+        )}
+      </form>
+    );
+
+    return content;
+  }, [config.sections, config.fields, config.layout?.type, handleSubmit, onSubmit, onError, register, errors, formData, handleFieldChange, config.isLoading, config.loadingText, config.submitLabel, config.onCancel, config.cancelLabel]);
+
+  // 🎨 Props communes pour tous les layouts
+  const layoutProps = useMemo(() => ({
+    title: config.title || "Formulaire",
     description: config.description,
-    actions: renderActions(),
-    formData,
     className: config.className,
-    serviceType: config.serviceType
-  };
+    formData
+  }), [config.title, config.description, config.className, formData]);
 
-  // Rendu selon le type de layout
+  // 🎨 Rendu du layout approprié
   const renderLayout = () => {
+    const layoutType = config.layout?.type || "default";
+
     switch (layoutType) {
-      case "sidebar":
+      case "sidebar": {
+        // ✅ Créer les actions pour le sidebar
+        const sidebarActions = (
+          <div className="space-y-2">
+            <button
+              type="button"
+              disabled={!!config.isLoading}
+              className="w-full py-3 px-4 rounded-xl transition-colors disabled:opacity-60 font-semibold text-white"
+              style={{
+                backgroundColor: config.isLoading ? '#6B7280' : '#059669',
+                borderColor: config.isLoading ? '#6B7280' : '#059669'
+              }}
+              onMouseEnter={(e) => {
+                if (!config.isLoading) {
+                  e.currentTarget.style.backgroundColor = '#047857';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!config.isLoading) {
+                  e.currentTarget.style.backgroundColor = '#059669';
+                }
+              }}
+              onClick={handleSubmit(onSubmit, onError)}
+            >
+              {config.isLoading ? (config.loadingText || "Envoi en cours...") : (config.submitLabel || "Réserver")}
+            </button>
+            {config.onCancel && (
+              <button
+                type="button"
+                onClick={config.onCancel}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-4 rounded-xl transition-colors"
+              >
+                {config.cancelLabel || "Annuler"}
+              </button>
+            )}
+          </div>
+        );
+
         const sidebarProps = {
           ...layoutProps,
-          autoSummary: config.layout?.autoSummary,
-          summaryConfig: config.layout?.summaryConfig,
-          // Nouvelles propriétés du SidebarLayout amélioré
-          showPriceCalculation: config.layout?.showPriceCalculation,
-          showConstraintsByAddress: config.layout?.showConstraintsByAddress,
-          showModificationsSummary: config.layout?.showModificationsSummary,
-          initialPrice: config.layout?.initialPrice,
-          onPriceCalculated: config.layout?.onPriceCalculated,
-          priceModifications: config.layout?.priceModifications,
-          headerActions: config.layout?.headerActions,
-          serviceInfo: config.layout?.serviceInfo,
-        };
-        
-        // Utiliser le layout personnalisé du preset si disponible
-        if (config.preset) {
-          const summaryConfig = getPresetSummary(config.preset);
-          if (summaryConfig && !config.layout?.summaryConfig) {
-            sidebarProps.summaryConfig = summaryConfig;
-          }
-        }
+          ...config.layout,
+          actions: sidebarActions, // ✅ Passer les actions au sidebar
+        } as any;
         
         return (
           <SidebarLayout {...sidebarProps}>
-            {renderForm()}
+            {formElement}
           </SidebarLayout>
         );
+      }
 
-      case "auth":
-        const authOptions = config.layout?.authOptions || {};
-        return (
-          <AuthLayout 
-            {...layoutProps}
-            {...authOptions}
-            trustedProviders={authOptions.trustedProviders}
-          >
-            {renderForm()}
-          </AuthLayout>
-        );
-
-      case "package":
-        const packageOptions = config.layout?.packageOptions;
-        if (!packageOptions?.packages || packageOptions.packages.length === 0) {
-          // Fallback au layout par défaut si aucun package n'est fourni
-          return (
-            <DefaultLayout {...layoutProps}>
-              {renderForm()}
-            </DefaultLayout>
-          );
-        }
-        return (
-          <PackageLayout 
-            {...layoutProps}
-            packages={packageOptions.packages}
-            selectedPackage={packageOptions.selectedPackage}
-            onKeepPackage={packageOptions.onKeepPackage}
-            onCustomizePackage={packageOptions.onCustomizePackage}
-            customizationTitle={packageOptions.customizationTitle}
-          >
-            {renderForm()}
-          </PackageLayout>
-        );
-
-      case "package-edit":
+      case "package-edit": {
         const packageEditOptions = config.layout?.packageEditOptions;
-        if (!packageEditOptions?.selectedPackage) {
-          // Fallback au layout par défaut si aucun package sélectionné
+        if (!packageEditOptions) {
           return (
             <DefaultLayout {...layoutProps}>
-              {renderForm()}
+              {formElement}
             </DefaultLayout>
           );
         }
         return (
-          <PackageEditLayout 
-            {...layoutProps}
-            {...packageEditOptions}
-          >
-            {renderForm()}
+          <PackageEditLayout {...layoutProps} {...packageEditOptions}>
+            {formElement}
           </PackageEditLayout>
         );
+      }
 
-      case "package-card":
+      case "package-card": {
         const packageCardOptions = config.layout?.packageCardOptions;
-        if (!packageCardOptions?.packages || packageCardOptions.packages.length === 0) {
-          // Fallback au layout par défaut si aucun package n'est fourni
+        if (!packageCardOptions) {
           return (
             <DefaultLayout {...layoutProps}>
-              {renderForm()}
+              {formElement}
             </DefaultLayout>
           );
         }
         const { packages: cardPackages, ...otherCardOptions } = packageCardOptions;
         return (
-          <PackageCardLayout 
-            {...layoutProps}
-            packages={cardPackages}
-            {...otherCardOptions}
-          />
+          <PackageCardLayout {...layoutProps} packages={cardPackages} {...otherCardOptions} />
         );
+      }
 
-      case "service-summary":
+      case "service-summary": {
         const serviceSummaryOptions = config.layout?.serviceSummaryOptions;
         if (!serviceSummaryOptions?.serviceDetails || !serviceSummaryOptions?.quoteDetails) {
-          // Fallback au layout par défaut si les données requises ne sont pas fournies
           return (
             <DefaultLayout {...layoutProps}>
-              {renderForm()}
+              {formElement}
             </DefaultLayout>
           );
         }
-        
-        // Ajouter le serviceType aux serviceDetails si pas déjà défini
         const enhancedServiceDetails = {
           ...serviceSummaryOptions.serviceDetails,
-          ...(config.serviceType && !serviceSummaryOptions.serviceDetails.type && { 
-            type: config.serviceType as any 
-          })
+          ...(config.serviceType && !serviceSummaryOptions.serviceDetails.type && { type: config.serviceType as any })
         };
-        
         return (
-          <ServiceSummaryLayout 
-            {...serviceSummaryOptions}
-            serviceDetails={enhancedServiceDetails}
-          />
+          <ServiceSummaryLayout {...serviceSummaryOptions} serviceDetails={enhancedServiceDetails} />
         );
+      }
 
-      case "custom":
+      case "custom": {
         if (config.layout?.component) {
           const CustomLayout = config.layout.component;
           return (
             <CustomLayout {...layoutProps}>
-              {renderForm()}
+              {formElement}
             </CustomLayout>
           );
         }
-        // Fallback au layout par défaut si le composant personnalisé n'est pas fourni
         return (
           <DefaultLayout {...layoutProps}>
-            {renderForm()}
+            {formElement}
           </DefaultLayout>
         );
+      }
 
       default:
         return (
           <DefaultLayout {...layoutProps}>
-            {renderForm()}
+            {formElement}
           </DefaultLayout>
         );
     }
   };
 
+  // ✅ OPTIMISÉ: Mémoriser FormStylesSimplified pour éviter les re-renders
+  const memoizedFormStyles = useMemo(() => (
+    <FormStylesSimplified 
+      preset={config.preset} 
+      customStyles={config.customStyles}
+      globalConfig={config.globalConfig}
+    />
+  ), [config.preset, config.customStyles, config.globalConfig]);
+
   return (
-    <>
-      {/* Styles automatiques basés sur les presets */}
-      <FormStyles 
-        preset={config.preset} 
-        customStyles={config.customStyles} 
-      />
+    <div className="form-generator">
+      {/* 🎨 Styles iOS 18 simplifiés - OPTIMISÉ */}
+      {memoizedFormStyles}
       
       {/* Layout et formulaire */}
       {renderLayout()}
-    </>
+    </div>
   );
 }; 

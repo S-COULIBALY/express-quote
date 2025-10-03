@@ -137,17 +137,27 @@ export class QuoteContext {
     validate(): void {
         const requiredFields: Record<ServiceType, string[]> = {
             [ServiceType.MOVING]: ['volume', 'distance'],
-            [ServiceType.PACK]: ['defaultPrice', 'duration', 'workers'],
-            [ServiceType.SERVICE]: ['defaultPrice', 'duration', 'workers'],
-            [ServiceType.PACKING]: ['volume', 'workers', 'duration'],
-            [ServiceType.CLEANING]: ['area', 'workers'],
-            [ServiceType.DELIVERY]: ['volume', 'distance', 'workers']
+            [ServiceType.MOVING_PREMIUM]: ['volume', 'distance'], // Même validation que MOVING
+            [ServiceType.PACKING]: ['defaultPrice', 'duration', 'workers'],
+            [ServiceType.CLEANING]: ['defaultPrice', 'duration', 'workers'],
+            [ServiceType.CLEANING_PREMIUM]: ['defaultPrice', 'duration', 'workers'], // Même validation que CLEANING
+            [ServiceType.DELIVERY]: ['defaultPrice', 'duration', 'workers'],
+            [ServiceType.SERVICE]: ['defaultPrice', 'duration', 'workers'] // Service générique
         };
         
         const fields = requiredFields[this.serviceType];
         
         if (!fields) {
-            throw new ValidationError(`Type de service non pris en charge: ${this.serviceType}`);
+            // Essayer une validation plus flexible
+            console.warn(`⚠️ Type de service non reconnu: ${this.serviceType}, utilisation de la validation par défaut`);
+            // Validation minimale par défaut
+            const hasVolumeDistance = this.hasValue('volume') && this.hasValue('distance');
+            const hasDefaultPrice = this.hasValue('defaultPrice') || this.hasValue('basePrice');
+            
+            if (!hasVolumeDistance && !hasDefaultPrice) {
+                throw new ValidationError(`Validation impossible pour ${this.serviceType}: au moins volume+distance OU defaultPrice requis`);
+            }
+            return;
         }
         
         // Vérifier les champs requis (avec compatibilité entre basePrice et defaultPrice)

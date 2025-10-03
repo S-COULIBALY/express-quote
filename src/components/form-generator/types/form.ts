@@ -1,3 +1,5 @@
+import { IndustryPreset } from './presets';
+
 export interface FormFieldOption {
   value: string; //   value: "express",
   label: string; //   label: "Livraison Express"
@@ -103,9 +105,12 @@ export interface FormConfig {
   fields?: FormField[]; // Pour compatibilité avec structure simple
   
   // Configuration du preset et layout
-  preset?: "moving" | "contact" | "default"; // Preset automatique à utiliser
+  preset?: IndustryPreset; // Preset automatique à utiliser
   customDefaults?: Record<string, any>; // Valeurs par défaut personnalisées
   customStyles?: string; // Styles CSS personnalisés
+  
+  // 🌍 Configuration globale avancée (nouveau)
+  globalConfig?: GlobalFormConfig;
   layout?: {
     type?: "default" | "sidebar" | "custom" | "auth" | "package" | "package-edit" | "package-card" | "service-summary";
     autoSummary?: "moving" | "contact" | React.ComponentType<any>;
@@ -117,6 +122,7 @@ export interface FormConfig {
     showConstraintsByAddress?: boolean;
     showModificationsSummary?: boolean;
     initialPrice?: number;
+    externalCalculatedPrice?: number; // ✅ Prix calculé externe
     onPriceCalculated?: (price: number) => void;
     priceModifications?: Array<{
       label: string;
@@ -320,4 +326,106 @@ export interface PackageOption {
   popular?: boolean;
   customizable?: boolean;
   customizationFields?: FormField[];
+} 
+
+// 🌍 Configuration globale pour layout avancé
+export interface GlobalLayoutConfig {
+  type?: 'single-column' | 'two-column' | 'three-column';
+  sidebar?: boolean;
+  showSteps?: boolean;
+  labelPosition?: 'top' | 'left' | 'right' | 'inside';
+  inputSpacing?: 'sm' | 'md' | 'lg' | 'xl';
+  sectionSpacing?: 'sm' | 'md' | 'lg' | 'xl';
+  maxWidth?: string;
+  mobileBreakpoint?: string;
+
+  // 📱 Comportement Mobile
+  mobileFixedHeader?: boolean;
+  modalRecap?: boolean;
+  mobile?: {
+    singleColumn?: boolean;
+    optionDisplay?: 'list' | 'grid' | 'cards';
+  };
+
+  // 🖥️ Comportement Desktop
+  desktopFixedPriceBox?: boolean;
+  desktopInlineRecap?: boolean;
+}
+
+// 🎨 Configuration globale pour l'apparence
+export interface GlobalAppearanceConfig {
+  theme?: 'light' | 'dark' | 'system';
+  primaryColor?: string;
+  secondaryColor?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  borderRadius?: number;
+  elevation?: 'none' | 'low' | 'medium' | 'high';
+  fieldStyle?: 'outlined' | 'filled' | 'underlined';
+  selectionIndicator?: {
+    type?: 'ios-checkmark' | 'material-radio' | 'custom';
+    position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  };
+  transitions?: {
+    hover?: boolean;
+    click?: boolean;
+    focus?: boolean;
+  };
+}
+
+// ♿ Configuration globale pour l'accessibilité
+export interface GlobalAccessibilityConfig {
+  keyboardNavigation?: boolean;
+  focusRing?: boolean;
+  screenReaderSupport?: boolean;
+  ariaLabels?: boolean;
+}
+
+// 🔧 Configuration globale pour les éléments UI
+export interface GlobalUIElementsConfig {
+  showTitle?: boolean;
+  showBreadcrumbs?: boolean;
+  showServiceIcon?: boolean;
+  stickyHeader?: boolean;
+  stickySubmit?: boolean;
+  submitButtonPosition?: 'top' | 'bottom' | 'floating';
+  submitButtonStyle?: 'filled' | 'outlined' | 'text' | 'flat';
+  includeHelpText?: boolean;
+  showBackButton?: boolean;
+  confirmationOnSubmit?: boolean;
+  headerAppearance?: 'normal' | 'blur' | 'transparent';
+}
+
+// ✅ Configuration globale pour la validation
+export interface GlobalValidationConfig {
+  mode?: 'onChange' | 'onBlur' | 'onSubmit';
+  showInlineErrors?: boolean;
+  highlightInvalidFields?: boolean;
+  errorSummaryAtTop?: boolean;
+}
+
+// 🎭 Configuration globale pour les interactions
+export interface GlobalInteractionsConfig {
+  autosave?: boolean;
+  autosaveInterval?: number;
+  livePreview?: boolean;
+  hoverEffects?: boolean;
+  tapEffects?: boolean;
+}
+
+// 📊 Configuration globale complète
+export interface GlobalFormConfig {
+  layout?: GlobalLayoutConfig;
+  appearance?: GlobalAppearanceConfig;
+  accessibility?: GlobalAccessibilityConfig;
+  uiElements?: GlobalUIElementsConfig;
+  validation?: GlobalValidationConfig;
+  interactions?: GlobalInteractionsConfig;
+  metadata?: {
+    version?: string;
+    createdBy?: string;
+    createdAt?: string;
+    compatibleWith?: string;
+  };
+  // ✅ sharedFields supprimé - géré séparément dans sharedFields.ts
 } 

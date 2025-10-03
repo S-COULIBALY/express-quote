@@ -42,7 +42,7 @@ async function main() {
     prisma.professional.create({
       data: {
         companyName: 'Déménagements Express',
-        businessType: ProfessionalType.MOVER,
+        businessType: ProfessionalType.MOVING_COMPANY,
         email: 'contact@demenagements-express.fr',
         phone: '0601020304',
         address: '15 rue de la Paix',
@@ -56,7 +56,7 @@ async function main() {
     prisma.professional.create({
       data: {
         companyName: 'Nettoyage Pro',
-        businessType: ProfessionalType.SERVICE_PROVIDER,
+        businessType: ProfessionalType.CLEANING_SERVICE,
         email: 'contact@nettoyage-pro.fr',
         phone: '0602030405',
         address: '25 avenue des Champs-Élysées',

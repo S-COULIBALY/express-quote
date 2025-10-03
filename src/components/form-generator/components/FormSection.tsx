@@ -22,6 +22,12 @@ export const FormSection: React.FC<FormSectionProps> = ({
   onFieldChange,
   layoutType
 }) => {
+  console.log('📄 [ÉTAPE 9] FormSection - Rendu section:', {
+    sectionTitle: section.title,
+    fieldsCount: section.fields.length,
+    columns: section.columns,
+    layoutType: layoutType
+  });
   const [isExpanded, setIsExpanded] = useState(
     section.defaultExpanded ?? true
   );
@@ -39,10 +45,10 @@ export const FormSection: React.FC<FormSectionProps> = ({
   const effectiveColumns = section.columns ?? (layoutType === "sidebar" ? 2 : 1);
 
   return (
-    <div className={`space-y-4 ${section.className || ""}`}>
+    <div className={`space-y-2 sm:space-y-4 ${section.className || ""}`}>
       {/* En-tête de section */}
       {(section.title || section.description) && (
-        <div className="border-b border-gray-200 pb-3">
+        <div className="border-b border-gray-200 pb-1 sm:pb-3">
           {section.title && (
             <div 
               className={`flex items-center justify-between ${
@@ -50,7 +56,7 @@ export const FormSection: React.FC<FormSectionProps> = ({
               }`}
               onClick={toggleExpanded}
             >
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                 {section.title}
               </h3>
               {section.collapsible && (
@@ -79,7 +85,7 @@ export const FormSection: React.FC<FormSectionProps> = ({
             </div>
           )}
           {section.description && (
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
               {section.description}
             </p>
           )}
@@ -90,10 +96,10 @@ export const FormSection: React.FC<FormSectionProps> = ({
       {isExpanded && (
         <div className={`${
           effectiveColumns === 3
-            ? "grid grid-cols-3 gap-4"
+            ? "grid grid-cols-3 gap-2 sm:gap-4"
             : effectiveColumns === 2 
-              ? "grid grid-cols-2 gap-4" 
-              : "space-y-4 max-w-md"
+              ? "grid grid-cols-2 gap-2 sm:gap-4" 
+              : "space-y-2 sm:space-y-4 max-w-md"
         }`}>
           {section.fields.map((field, index) => {
             // Vérifier les conditions d'affichage
@@ -142,7 +148,10 @@ export const FormSection: React.FC<FormSectionProps> = ({
                   register={register}
                   errors={errors}
                   value={formData?.[field.name]}
-                  onChange={(value) => onFieldChange?.(field.name, value)}
+                  onChange={(value) => {
+                    console.log('🔄 [ÉTAPE 9.1] FormSection relay - Field change:', field.name, '=', value);
+                    onFieldChange?.(field.name, value);
+                  }}
                   formData={formData}
                 />
               </div>

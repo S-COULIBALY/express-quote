@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -52,22 +53,60 @@ export const authOptions: NextAuthOptions = {
             };
           }
 
-          // Vérifier les professionnels
+          // Vérifier les professionnels externes
           const professional = await prisma.professional.findUnique({
             where: {
               email: credentials.email
+            },
+            select: {
+              id: true,
+              companyName: true,
+              email: true,
+              password: true,
+              verified: true
             }
           });
 
-          if (professional && professional.verified) {
-            // Dans un environnement de production, vérifier le mot de passe haché
-            // Ici, pour simplifier, nous supposons que le mot de passe est correct
-            return {
-              id: professional.id,
-              name: professional.companyName,
-              email: professional.email,
-              role: "PROFESSIONAL",
-            };
+          if (professional && professional.verified && professional.password) {
+            // Vérifier le mot de passe haché avec bcrypt
+            const isPasswordValid = await bcrypt.compare(credentials.password, professional.password);
+            if (isPasswordValid) {
+              return {
+                id: professional.id,
+                name: professional.companyName,
+                email: professional.email,
+                role: "EXTERNAL_PROFESSIONAL",
+              };
+            }
+          }
+
+          // Vérifier le staff interne
+          const internalStaff = await prisma.internalStaff.findUnique({
+            where: {
+              email: credentials.email
+            },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              password: true,
+              role: true,
+              isActive: true
+            }
+          });
+
+          if (internalStaff && internalStaff.isActive && internalStaff.password) {
+            // Vérifier le mot de passe haché avec bcrypt
+            const isPasswordValid = await bcrypt.compare(credentials.password, internalStaff.password);
+            if (isPasswordValid) {
+              return {
+                id: internalStaff.id,
+                name: `${internalStaff.firstName} ${internalStaff.lastName}`,
+                email: internalStaff.email,
+                role: internalStaff.role,
+              };
+            }
           }
 
           return null;

@@ -1,73 +1,112 @@
-import { Request, Response } from 'express';
+import { NextRequest, NextResponse } from 'next/server';
 import { ConfigurationService } from '../../../application/services/ConfigurationService';
 import { ConfigurationCategory } from '../../../domain/configuration/ConfigurationKey';
+import { BaseApiController } from './BaseApiController';
+import { logger } from '@/lib/logger';
 
-export class ConfigurationController {
-  constructor(private configurationService: ConfigurationService) {}
+/**
+ * Contrôleur DDD pour la gestion des configurations
+ * Orchestre les appels au ConfigurationService en respectant l'architecture DDD
+ */
+export class ConfigurationController extends BaseApiController {
+  constructor(private configurationService: ConfigurationService) {
+    super();
+  }
 
-  async getConfigurations(req: Request, res: Response): Promise<void> {
-    try {
-      const { category } = req.params;
-      const date = req.query.date ? new Date(req.query.date as string) : undefined;
+  /**
+   * Récupère toutes les configurations d'une catégorie
+   */
+  async getConfigurations(request: NextRequest): Promise<NextResponse> {
+    return this.handleRequest(request, async (data: any) => {
+      const { category, date } = data;
+
+      if (!category) {
+        throw new Error('Paramètre category requis');
+      }
 
       if (!Object.values(ConfigurationCategory).includes(category as ConfigurationCategory)) {
-        res.status(400).json({ error: 'Invalid category' });
-        return;
+        throw new Error(`Catégorie invalide. Valeurs autorisées: ${Object.values(ConfigurationCategory).join(', ')}`);
       }
 
       const configurations = await this.configurationService.getConfigurations(
         category as ConfigurationCategory,
-        date
+        date ? new Date(date) : undefined
       );
 
-      res.json(configurations);
-    } catch (error) {
-      console.error('Error getting configurations:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+      logger.info(`Configurations récupérées pour la catégorie ${category}: ${configurations.length} éléments`);
+
+      return {
+        configurations,
+        category,
+        total: configurations.length
+      };
+    });
   }
 
-  async getValue(req: Request, res: Response): Promise<void> {
-    try {
-      const { category, key } = req.params;
-      const date = req.query.date ? new Date(req.query.date as string) : undefined;
+  /**
+   * Récupère la valeur d'une configuration spécifique
+   */
+  async getValue(request: NextRequest): Promise<NextResponse> {
+    return this.handleRequest(request, async (data: any) => {
+      const { category, key, date } = data;
 
-      if (!Object.values(ConfigurationCategory).includes(category as ConfigurationCategory)) {
-        res.status(400).json({ error: 'Invalid category' });
-        return;
+      if (!category || !key) {
+        throw new Error('Paramètres category et key requis');
       }
 
-      const value = await this.configurationService.getValue(
+      if (!Object.values(ConfigurationCategory).includes(category as ConfigurationCategory)) {
+        throw new Error(`Catégorie invalide. Valeurs autorisées: ${Object.values(ConfigurationCategory).join(', ')}`);
+      }
+
+      // Récupérer la configuration complète, pas seulement la valeur
+      const configuration = await this.configurationService.getConfigurations(
         category as ConfigurationCategory,
-        key,
-        date
+        date ? new Date(date) : undefined
       );
 
-      if (value === null) {
-        res.status(404).json({ error: 'Configuration not found' });
-        return;
+      // Trouver la configuration spécifique par clé
+      const specificConfig = configuration.find(config => config.key === key);
+
+      if (!specificConfig) {
+        throw new Error('Configuration non trouvée');
       }
 
-      res.json({ value });
-    } catch (error) {
-      console.error('Error getting configuration value:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+      logger.info(`Configuration récupérée pour ${category}.${key}: ${JSON.stringify(specificConfig.value)}`);
+
+      return {
+        configuration: {
+          id: specificConfig.getId(),
+          category: specificConfig.category,
+          key: specificConfig.key,
+          value: specificConfig.value,
+          description: specificConfig.description,
+          isActive: specificConfig.isActive,
+          validFrom: specificConfig.validFrom,
+          validTo: specificConfig.validTo,
+          updatedAt: specificConfig.updatedAt
+        },
+        retrievedAt: new Date().toISOString()
+      };
+    });
   }
 
-  async setValue(req: Request, res: Response): Promise<void> {
-    try {
-      const { category, key } = req.params;
-      const { value, description, validFrom, validTo } = req.body;
+  /**
+   * Définit la valeur d'une configuration
+   */
+  async setValue(request: NextRequest): Promise<NextResponse> {
+    return this.handleRequest(request, async (data: any) => {
+      const { category, key, value, description, validFrom, validTo } = data;
 
-      if (!Object.values(ConfigurationCategory).includes(category as ConfigurationCategory)) {
-        res.status(400).json({ error: 'Invalid category' });
-        return;
+      if (!category || !key) {
+        throw new Error('Paramètres category et key requis');
       }
 
       if (value === undefined) {
-        res.status(400).json({ error: 'Value is required' });
-        return;
+        throw new Error('Paramètre value requis');
+      }
+
+      if (!Object.values(ConfigurationCategory).includes(category as ConfigurationCategory)) {
+        throw new Error(`Catégorie invalide. Valeurs autorisées: ${Object.values(ConfigurationCategory).join(', ')}`);
       }
 
       const configuration = await this.configurationService.setValue(
@@ -79,20 +118,29 @@ export class ConfigurationController {
         validTo ? new Date(validTo) : undefined
       );
 
-      res.json(configuration);
-    } catch (error) {
-      console.error('Error setting configuration value:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+      logger.info(`Configuration mise à jour: ${category}.${key} = ${JSON.stringify(value)}`);
+
+      return {
+        configuration,
+        updatedAt: new Date().toISOString(),
+        message: `Configuration ${category}.${key} mise à jour avec succès`
+      };
+    });
   }
 
-  async deactivateConfiguration(req: Request, res: Response): Promise<void> {
-    try {
-      const { category, key } = req.params;
+  /**
+   * Désactive une configuration
+   */
+  async deactivateConfiguration(request: NextRequest): Promise<NextResponse> {
+    return this.handleRequest(request, async (data: any) => {
+      const { category, key } = data;
+
+      if (!category || !key) {
+        throw new Error('Paramètres category et key requis');
+      }
 
       if (!Object.values(ConfigurationCategory).includes(category as ConfigurationCategory)) {
-        res.status(400).json({ error: 'Invalid category' });
-        return;
+        throw new Error(`Catégorie invalide. Valeurs autorisées: ${Object.values(ConfigurationCategory).join(', ')}`);
       }
 
       await this.configurationService.deactivateConfiguration(
@@ -100,31 +148,98 @@ export class ConfigurationController {
         key
       );
 
-      res.status(204).send();
-    } catch (error) {
-      console.error('Error deactivating configuration:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+      logger.info(`Configuration désactivée: ${category}.${key}`);
+
+      return {
+        message: `Configuration ${category}.${key} désactivée avec succès`,
+        deactivatedAt: new Date().toISOString()
+      };
+    });
   }
 
-  async deleteConfiguration(req: Request, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
+  /**
+   * Supprime définitivement une configuration
+   */
+  async deleteConfiguration(request: NextRequest): Promise<NextResponse> {
+    return this.handleRequest(request, async (data: any) => {
+      const { id } = data;
+
+      if (!id) {
+        throw new Error('Paramètre id requis');
+      }
+
       await this.configurationService.deleteConfiguration(id);
-      res.status(204).send();
-    } catch (error) {
-      console.error('Error deleting configuration:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+
+      logger.info(`Configuration supprimée définitivement: ${id}`);
+
+      return {
+        message: `Configuration ${id} supprimée définitivement`,
+        deletedAt: new Date().toISOString()
+      };
+    });
   }
 
-  clearCache(req: Request, res: Response): void {
-    try {
+  /**
+   * Vide le cache des configurations
+   */
+  async clearCache(): Promise<NextResponse> {
+    return this.handleRequest(async () => {
       this.configurationService.clearConfigurationCache();
-      res.status(204).send();
-    } catch (error) {
-      console.error('Error clearing configuration cache:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+
+      logger.info('Cache des configurations vidé');
+
+      return {
+        message: 'Cache des configurations vidé avec succès',
+        clearedAt: new Date().toISOString()
+      };
+    });
+  }
+
+  /**
+   * Récupère toutes les catégories de configuration disponibles
+   */
+  async getCategories(): Promise<NextResponse> {
+    return this.handleRequest(async () => {
+      const categories = Object.values(ConfigurationCategory);
+
+      return {
+        categories,
+        total: categories.length,
+        description: 'Catégories de configuration disponibles'
+      };
+    });
+  }
+
+  /**
+   * Récupère les statistiques des configurations
+   */
+  async getStatistics(request: NextRequest): Promise<NextResponse> {
+    return this.handleRequest(request, async (data: any) => {
+      const { category } = data;
+
+      // Ici on pourrait implémenter des statistiques via le service
+      // Pour le moment, retournons des statistiques basiques
+      const allCategories = Object.values(ConfigurationCategory);
+
+      const stats: any = {
+        totalCategories: allCategories.length,
+        availableCategories: allCategories,
+        generatedAt: new Date().toISOString()
+      };
+
+      if (category) {
+        if (!Object.values(ConfigurationCategory).includes(category as ConfigurationCategory)) {
+          throw new Error(`Catégorie invalide. Valeurs autorisées: ${allCategories.join(', ')}`);
+        }
+
+        // Stats pour une catégorie spécifique
+        stats.requestedCategory = category;
+        stats.message = `Statistiques pour la catégorie ${category}`;
+      } else {
+        stats.message = 'Statistiques globales des configurations';
+      }
+
+      return stats;
+    });
   }
 } 

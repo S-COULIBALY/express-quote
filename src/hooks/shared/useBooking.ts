@@ -44,41 +44,86 @@ export function useBooking() {
   /**
    * Ajoute un service à la réservation courante
    */
-  const addServiceToBooking = async (serviceData: any) => {
+  const addCatalogueCleaningItemToBooking = async (serviceData: any) => {
+    console.log('🚀 [useBooking] Début de addCatalogueCleaningItemToBooking');
     setIsLoading(true);
     setError(null);
     
     try {
+      console.log('📝 [useBooking] Données du service:', serviceData);
+      
       // Vérifier si une réservation existe déjà
+      console.log('🔍 [useBooking] Vérification de la réservation courante...');
       const currentBooking = await getCurrentBooking();
       const bookingId = currentBooking?.id;
       
+      console.log('📋 [useBooking] Réservation courante:', { bookingId, currentBooking });
+      
       if (!bookingId) {
         // Créer une nouvelle réservation
+        console.log('➕ [useBooking] Création d\'une nouvelle réservation...');
+        
+        // Déterminer le type de service à partir des données
+        let serviceType = 'SERVICE'; // Valeur par défaut
+        
+        // Mapper la catégorie vers le type de service attendu par l'API
+        const categoryMapping: { [key: string]: string } = {
+          'DEMENAGEMENT': 'MOVING',
+          'MENAGE': 'CLEANING',
+          'CLEANING': 'CLEANING',
+          'MOVING': 'MOVING'
+        };
+        
+        if (serviceData?.category && categoryMapping[serviceData.category]) {
+          serviceType = categoryMapping[serviceData.category];
+        } else if (serviceData?.serviceType) {
+          serviceType = serviceData.serviceType;
+        }
+        
+        console.log('📋 [useBooking] Type de service déterminé:', serviceType);
+        console.log('📋 [useBooking] Catégorie originale:', serviceData?.category);
+        
         const createResponse = await fetch('/api/bookings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: 'SERVICE',
+            type: serviceType,
+            data: serviceData || {},
             status: 'DRAFT'
           })
         });
         
+        console.log('📨 [useBooking] Réponse création réservation:', {
+          status: createResponse.status,
+          ok: createResponse.ok,
+          statusText: createResponse.statusText
+        });
+        
         if (!createResponse.ok) {
-          throw new Error(`Erreur lors de la création de la réservation: ${createResponse.status}`);
+          const errorText = await createResponse.text();
+          console.error('❌ [useBooking] Erreur création réservation:', errorText);
+          throw new Error(`Erreur lors de la création de la réservation: ${createResponse.status} - ${errorText}`);
         }
         
         const newBooking = await createResponse.json();
+        console.log('✅ [useBooking] Nouvelle réservation créée:', newBooking);
         return addServiceToExistingBooking(newBooking.id, serviceData);
       }
       
+      console.log('📎 [useBooking] Ajout du service à la réservation existante:', bookingId);
       return addServiceToExistingBooking(bookingId, serviceData);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      console.error("❌ [useBooking] Erreur lors de l'ajout du service:", {
+        error,
+        errorMessage,
+        serviceData
+      });
+      
       setError(errorMessage);
-      console.error("Erreur lors de l'ajout du service:", errorMessage);
       throw error;
     } finally {
+      console.log('🔄 [useBooking] Fin de addCatalogueCleaningItemToBooking');
       setIsLoading(false);
     }
   };
@@ -87,18 +132,45 @@ export function useBooking() {
    * Ajoute un service à une réservation existante
    */
   const addServiceToExistingBooking = async (bookingId: string, serviceData: any) => {
-    const response = await fetch(`/api/bookings/${bookingId}/services`, {
+    console.log('🔗 [useBooking] Ajout service à réservation existante:', {
+      bookingId,
+      serviceData
+    });
+    
+    const apiUrl = `/api/bookings/${bookingId}/services`;
+    console.log('🌐 [useBooking] Appel API:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(serviceData)
     });
     
+    console.log('📨 [useBooking] Réponse API:', {
+      url: apiUrl,
+      status: response.status,
+      ok: response.ok,
+      statusText: response.statusText
+    });
+    
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Erreur ${response.status}`);
+      let errorData;
+      try {
+        errorData = await response.json();
+        console.error('❌ [useBooking] Erreur API (JSON):', errorData);
+      } catch (parseError) {
+        const errorText = await response.text();
+        console.error('❌ [useBooking] Erreur API (text):', errorText);
+        console.error('❌ [useBooking] Erreur parsing JSON:', parseError);
+        throw new Error(`Erreur ${response.status}: ${errorText || response.statusText}`);
+      }
+      
+      throw new Error(errorData.message || `Erreur ${response.status}: ${errorData.error || response.statusText}`);
     }
     
-    return response.json();
+    const result = await response.json();
+    console.log('✅ [useBooking] Service ajouté avec succès:', result);
+    return result;
   };
 
   /**
@@ -137,7 +209,7 @@ export function useBooking() {
   
   return { 
     getCurrentBooking, 
-    addServiceToBooking,
+    addCatalogueCleaningItemToBooking,
     updateInsuranceOption,
     isLoading,
     error

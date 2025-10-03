@@ -19,12 +19,31 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
    */
   private mapToDomain(data: any): Configuration {
     try {
+      let parsedValue = data.value;
+
+      // Essayer de parser seulement si c'est vraiment du JSON valide
+      if (typeof data.value === 'string' && data.value.length > 0) {
+        try {
+          // Plus strict sur la détection JSON - doit vraiment ressembler à du JSON
+          const trimmedValue = data.value.trim();
+          if ((trimmedValue.startsWith('{') && trimmedValue.endsWith('}') && trimmedValue.length > 2) ||
+              (trimmedValue.startsWith('[') && trimmedValue.endsWith(']') && trimmedValue.length > 2)) {
+            // Tester si c'est vraiment du JSON valide
+            const testParse = JSON.parse(trimmedValue);
+            parsedValue = testParse;
+          }
+          // Sinon, garder la valeur string telle quelle
+        } catch (jsonError) {
+          // Si le parse JSON échoue, garder la valeur string originale
+          parsedValue = data.value;
+        }
+      }
+
       return new Configuration(
         data.id,
         data.category as ConfigurationCategory,
         data.key,
-        // Convertir la valeur JSON si nécessaire
-        typeof data.value === 'string' ? JSON.parse(data.value) : data.value,
+        parsedValue,
         data.description,
         data.isActive,
         data.validFrom,
@@ -33,11 +52,11 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
       );
     } catch (error) {
       logger.error(`Erreur lors du mapping de la configuration ${data.key}:`, error as Error);
-      // Créer un objet configuration minimal en cas d'erreur
+      // Créer un objet configuration minimal en cas d'erreur - ne pas essayer de parser
       return Configuration.create(
         data.category as ConfigurationCategory,
         data.key,
-        data.value,
+        String(data.value), // Forcer en string pour éviter les erreurs de parsing
         data.description || 'Erreur de conversion'
       );
     }
@@ -64,7 +83,7 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
   async save(configuration: Configuration): Promise<Configuration> {
     try {
       logger.debug(`Sauvegarde de la configuration ${configuration.category}.${configuration.key}`);
-      
+
       const data = await this.prisma.configuration.create({
         data: {
           category: configuration.category,
@@ -74,6 +93,11 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
           isActive: configuration.isActive,
           validFrom: configuration.validFrom,
           validTo: configuration.validTo,
+          // Nouveaux champs avec valeurs par défaut
+          environment: 'production',
+          createdBy: 'system',
+          tags: [],
+          priority: 100,
         },
       });
 
@@ -404,13 +428,122 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
             key,
             value,
             description,
-            isActive: true
+            isActive: true,
+            environment: 'production',
+            createdBy: 'system',
+            tags: [],
+            priority: 100
           }
         });
       }
     } catch (error) {
       console.error(`Failed to update configuration ${category}_${key}`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Créer ou mettre à jour une configuration avec tous les nouveaux champs
+   */
+  async upsertConfiguration(
+    category: ConfigurationCategory,
+    key: string,
+    value: any,
+    options: {
+      description?: string;
+      environment?: string;
+      createdBy?: string;
+      tags?: string[];
+      priority?: number;
+      validationSchema?: any;
+      changeReason?: string;
+    } = {}
+  ): Promise<Configuration> {
+    try {
+      const data = await this.prisma.configuration.upsert({
+        where: {
+          category_key: {
+            category,
+            key
+          }
+        },
+        update: {
+          value,
+          description: options.description,
+          tags: options.tags || [],
+          priority: options.priority,
+          validationSchema: options.validationSchema,
+          changeReason: options.changeReason,
+          updatedAt: new Date()
+        },
+        create: {
+          category,
+          key,
+          value,
+          description: options.description,
+          isActive: true,
+          environment: options.environment || 'production',
+          createdBy: options.createdBy || 'system',
+          tags: options.tags || [],
+          priority: options.priority || 100,
+          validationSchema: options.validationSchema,
+          changeReason: options.changeReason || 'Configuration créée'
+        }
+      });
+
+      return this.mapToDomain(data);
+    } catch (error) {
+      logger.error(`Erreur lors de l'upsert de la configuration ${category}.${key}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Recherche des configurations par environnement
+   */
+  async findByEnvironment(environment: string): Promise<Configuration[]> {
+    try {
+      const data = await this.prisma.configuration.findMany({
+        where: {
+          environment,
+          isActive: true
+        },
+        orderBy: [
+          { category: 'asc' },
+          { key: 'asc' }
+        ]
+      });
+
+      return data.map(item => this.mapToDomain(item));
+    } catch (error) {
+      logger.error(`Erreur lors de la recherche par environnement ${environment}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Recherche des configurations par tags
+   */
+  async findByTags(tags: string[]): Promise<Configuration[]> {
+    try {
+      const data = await this.prisma.configuration.findMany({
+        where: {
+          tags: {
+            hasSome: tags
+          },
+          isActive: true
+        },
+        orderBy: [
+          { priority: 'asc' },
+          { category: 'asc' },
+          { key: 'asc' }
+        ]
+      });
+
+      return data.map(item => this.mapToDomain(item));
+    } catch (error) {
+      logger.error(`Erreur lors de la recherche par tags:`, error);
+      return [];
     }
   }
 } 

@@ -12,15 +12,26 @@ declare global {
 
 export function useGoogleMaps() {
   const [mapsLoaded, setMapsLoaded] = useState(() => {
-    // Vérifier dès l'initialisation si Google Maps est déjà chargé
-    return !!(window.google?.maps?.places && window.googleMapsLoaded)
+    // Vérifier dès l'initialisation si Google Maps est déjà chargé (côté client uniquement)
+    if (typeof window !== 'undefined') {
+      return !!(window.google?.maps?.places && window.googleMapsLoaded)
+    }
+    return false
   })
   const [error, setError] = useState<string | null>(() => {
-    // Vérifier dès l'initialisation s'il y a déjà une erreur
-    return window.googleMapsError || null
+    // Vérifier dès l'initialisation s'il y a déjà une erreur (côté client uniquement)
+    if (typeof window !== 'undefined') {
+      return window.googleMapsError || null
+    }
+    return null
   })
 
   useEffect(() => {
+    // Vérifier que nous sommes côté client
+    if (typeof window === 'undefined') {
+      return
+    }
+
     // Si l'API est déjà chargée, mettre à jour l'état
     if (window.google?.maps?.places && window.googleMapsLoaded) {
       console.log('Google Maps déjà chargé, marquant comme disponible')

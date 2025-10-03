@@ -1,3 +1,5 @@
+import { DefaultValues } from '@/quotation/domain/configuration/DefaultValues';
+
 type Currency = 'EUR' | 'USD' | 'CHF'
 
 const currencyFormats: Record<Currency, Intl.NumberFormatOptions> = {
@@ -11,7 +13,7 @@ export const priceUtils = {
     return new Intl.NumberFormat('fr-FR', currencyFormats[currency]).format(amount)
   },
 
-  calculateTotal(amount: number, taxRate = 7.7): {
+  calculateTotal(amount: number, taxRate = DefaultValues.VAT_RATE * 100): {
     tax: number
     total: number
   } {
@@ -23,14 +25,14 @@ export const priceUtils = {
   },
 
   calculateDeposit(amount: number): number {
-    return amount * 0.3 // 30% de dépôt
+    return amount * DefaultValues.DEPOSIT_PERCENTAGE;
   },
 
-  calculateTax(amount: number, rate = 7.7): number {
+  calculateTax(amount: number, rate = DefaultValues.VAT_RATE * 100): number {
     return Math.round((amount * rate) / 100)
   },
 
-  formatWithTax(amount: number, currency: Currency = 'EUR', taxRate = 7.7): {
+  formatWithTax(amount: number, currency: Currency = 'EUR', taxRate = DefaultValues.VAT_RATE * 100): {
     subtotal: string
     tax: string
     total: string

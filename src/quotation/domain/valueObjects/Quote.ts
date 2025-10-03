@@ -9,7 +9,8 @@ export class Quote {
     private readonly basePrice: Money,
     private readonly totalPrice: Money,
     private readonly discounts: Discount[],
-    private readonly serviceType: ServiceType
+    private readonly serviceType: ServiceType,
+    private readonly details?: { label: string; amount: number }[]
   ) {
     this.calculatedAt = new Date();
   }
@@ -19,6 +20,7 @@ export class Quote {
   getDiscounts(): Discount[] { return [...this.discounts]; }
   getServiceType(): ServiceType { return this.serviceType; }
   getCalculationDate(): Date { return new Date(this.calculatedAt); }
+  getDetails(): { label: string; amount: number }[] { return this.details ? [...this.details] : []; }
 
   getTotalDiscount(): Money {
     return Discount.combine(this.discounts);
@@ -38,6 +40,7 @@ export class Quote {
         amount: d.getAmount().toString(),
         description: d.getDescription()
       })),
+      details: this.details || [],
       calculatedAt: this.calculatedAt.toISOString()
     };
   }

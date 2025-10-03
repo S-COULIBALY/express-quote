@@ -17,10 +17,10 @@ const validateStripeKey = (key: string | undefined, prefix: string, name: string
   // Si la clé est vide ou undefined, utiliser la clé par défaut
   if (!key || key.trim() === '') {
     if (defaultKey) {
-      logger.warn(`${name} non définie dans les variables d'environnement, utilisation de la clé par défaut`);
+      console.warn(`${name} non définie dans les variables d'environnement, utilisation de la clé par défaut`);
       return defaultKey;
     } else {
-      logger.warn(`${name} non définie dans les variables d'environnement`);
+      console.warn(`${name} non définie dans les variables d'environnement`);
       return '';
     }
   }
@@ -30,12 +30,12 @@ const validateStripeKey = (key: string | undefined, prefix: string, name: string
   
   // Vérifier le format de la clé
   if (!key.startsWith(prefix)) {
-    logger.warn(`La clé ${name} ne commence pas par ${prefix}`);
+    console.warn(`La clé ${name} ne commence pas par ${prefix}`);
   }
   
   // Afficher seulement un fragment de la clé pour la sécurité
   if (key.length > 10) {
-    logger.info(`${name} chargée: ${key.substring(0, 4)}...${key.slice(-4)}`);
+    console.info(`${name} chargée: ${key.substring(0, 4)}...${key.slice(-4)}`);
   }
   
   return key;

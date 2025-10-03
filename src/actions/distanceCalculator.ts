@@ -1,6 +1,5 @@
 'use server'
 
-import { apiConfig } from '@/config/api'
 import { getDistanceFromGoogleMaps } from '@/actions/callApi'
 
 /**
@@ -26,44 +25,14 @@ export async function calculateTripCosts(origin: string, destination: string): P
   fuelCost: number;
 }> {
   try {
-    // D'abord obtenir la distance
+    // Obtenir la distance
     const distance = await calculateDistance(origin, destination)
     
-    // Puis faire l'appel à l'API Toolguru si disponible, sinon faire un calcul local
-    try {
-      // URL absolue pour l'API (à adapter selon l'environnement)
-      const apiUrl = process.env.TOOLGURU_API_URL || apiConfig.toolguru.baseUrl
-      
-      const response = await fetch(
-        `${apiUrl}/trip-costs?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${apiConfig.toolguru.apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          cache: 'no-store' // Pour s'assurer que la requête n'est pas mise en cache par Next.js
-        }
-      )
-      
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`)
-      }
-      
-      const data = await response.json()
-      return {
-        distance: data.distance || distance,
-        tollCost: data.tollCost || 0,
-        fuelCost: data.fuelCost || 0
-      }
-    } catch (apiError) {
-      console.error('Erreur API Toolguru, utilisation du calcul local:', apiError)
-      
-      // Calcul local en cas d'erreur
-      return {
-        distance,
-        tollCost: Math.round(distance * 0.15), // 0.15€/km de péage
-        fuelCost: Math.round((distance * 25 * 1.8) / 100) // 25L/100km, 1.8€/L
-      }
+    // Calcul local des coûts
+    return {
+      distance,
+      tollCost: Math.round(distance * 0.15), // 0.15€/km de péage
+      fuelCost: Math.round((distance * 25 * 1.8) / 100) // 25L/100km, 1.8€/L
     }
   } catch (error) {
     console.error('Erreur lors du calcul des coûts:', error)

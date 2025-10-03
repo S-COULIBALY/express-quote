@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useToast } from "@/components/ui/use-toast"
+import { FormStylesSimplified } from '@/components/form-generator/styles/FormStylesSimplified'
+import { globalFormPreset } from '@/components/form-generator/presets/_shared/globalPreset'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -57,18 +59,20 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50/50 to-white flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-b from-green-50/50 to-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-ios">
+      {/* 🎨 Styles iOS 18 simplifiés */}
+      <FormStylesSimplified globalConfig={globalFormPreset} />
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-center text-2xl font-bold text-gray-900 mb-2">
+        <h1 className="text-center text-2xl font-bold text-gray-900 mb-2 font-ios-bold">
           Créer un compte
         </h1>
-        <p className="text-center text-sm text-gray-600 mb-8">
+        <p className="text-center text-sm text-gray-600 mb-8 font-ios">
           Inscrivez-vous pour profiter de tous nos services
         </p>
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100 card-ios">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>

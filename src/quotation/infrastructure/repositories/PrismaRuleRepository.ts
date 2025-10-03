@@ -1,11 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { IRuleRepository } from '../../domain/repositories/IRuleRepository';
 import { Rule } from '../../domain/valueObjects/Rule';
 import { ServiceType } from '../../domain/enums/ServiceType';
+import { PrismaClient } from '@prisma/client';
 import { logger } from '../../../lib/logger';
 import { prisma } from '../../../lib/prisma';
 import { createMovingRules } from '../../domain/rules/MovingRules';
-import { createPackRules } from '../../domain/rules/PackRules';
-import { createServiceRules } from '../../domain/rules/ServiceRules';
+// import { createPackRules } from '../../domain/rules/PackRules'; // TEMPORAIRE: Commenté pendant migration
+// import { createServiceRules } from '../../domain/rules/ServiceRules'; // TEMPORAIRE: Commenté pendant migration
 
 /**
  * Repository pour accéder aux règles dans la base de données Prisma
@@ -23,15 +24,16 @@ export class PrismaRuleRepository {
    * ce qui correspond au champ serviceType dans la base de données.
    */
   private mapToDomain(record: any): Rule {
-    console.log(`Mapping rule from DB: ${record.name}, serviceType=${record.serviceType}`);
+    console.log(`Mapping rule from DB: ${record.name}, serviceType=${record.serviceType}, percentBased=${record.percentBased}`);
     
     return new Rule(
       record.name,
       record.serviceType,  // Le champ serviceType de la BD est passé au paramètre correspondant de la Rule
-      record.percentBased ? record.value / 100 : record.value,
+      record.value,
       record.condition,
       record.isActive,
-      record.id
+      record.id,
+      record.percentBased
     );
   }
 

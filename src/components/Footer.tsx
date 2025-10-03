@@ -18,12 +18,12 @@ export function Footer() {
             <h4 className="text-sm font-medium text-gray-900 mb-3" id="footer-services">Services</h4>
             <ul className="space-y-2" aria-labelledby="footer-services">
               <li>
-                <Link href="/moving/new" className="text-sm text-gray-600 hover:text-gray-900">
+                <Link href="/catalogue?category=DEMENAGEMENT" className="text-sm text-gray-600 hover:text-gray-900">
                   Déménagement
                 </Link>
               </li>
               <li>
-                <Link href="/cleaning/new" className="text-sm text-gray-600 hover:text-gray-900">
+                <Link href="/catalogue?category=MENAGE" className="text-sm text-gray-600 hover:text-gray-900">
                   Nettoyage
                 </Link>
               </li>

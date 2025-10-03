@@ -1,5 +1,5 @@
 import { Injectable } from '@/core/dependency-injection/Injectable';
-import { IPaymentService } from '@/quotation/domain/services/IPaymentService';
+import { IPaymentService } from '../../domain/services/IPaymentService';
 import { Money } from '@/quotation/domain/valueObjects/Money';
 import { 
   CreatePaymentIntentCommand,
