@@ -1,16 +1,35 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/components/ui/use-toast"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -18,7 +37,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   PlusIcon,
   PencilIcon,
@@ -32,179 +51,203 @@ import {
   ChartBarIcon,
   MapPinIcon,
   CubeIcon,
-  StarIcon
-} from "@heroicons/react/24/outline"
+  StarIcon,
+} from "@heroicons/react/24/outline";
 
 // Types pour les règles unifiées (conforme à la structure BDD)
 interface Rule {
-  id: string
-  name: string
-  description?: string
-  value: number
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-  ruleType: string // En BDD toutes sont 'BUSINESS' mais on filtre par serviceType + logique
-  category: RuleCategory
-  condition?: any // JSON object
-  percentBased: boolean
-  serviceType: ServiceType
-  priority: number
-  validFrom: string
-  validTo?: string
-  tags: string[]
-  configKey?: string
-  metadata?: any
+  id: string;
+  name: string;
+  description?: string;
+  value: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  ruleType: string; // En BDD toutes sont 'BUSINESS' mais on filtre par serviceType + logique
+  category: RuleCategory;
+  condition?: any; // JSON object
+  percentBased: boolean;
+  serviceType: ServiceType;
+  priority: number;
+  validFrom: string;
+  validTo?: string;
+  tags: string[];
+  configKey?: string;
+  metadata?: any;
 }
 
 // Enums adaptés à l'analyse
-type RuleViewType = 'CONSTRAINT' | 'BUSINESS' | 'TEMPORAL' // Types d'affichage basés sur l'analyse
-type RuleCategory = 'REDUCTION' | 'SURCHARGE' | 'MINIMUM' | 'MAXIMUM' | 'FIXED' | 'PERCENTAGE'
-type ServiceType = 'MOVING' | 'PACKING' | 'CLEANING' | 'DELIVERY' | 'SERVICE'
+type RuleViewType = "CONSTRAINT" | "BUSINESS" | "TEMPORAL"; // Types d'affichage basés sur l'analyse
+type RuleCategory =
+  | "REDUCTION"
+  | "SURCHARGE"
+  | "MINIMUM"
+  | "MAXIMUM"
+  | "FIXED"
+  | "PERCENTAGE";
+type ServiceType = "MOVING" | "PACKING" | "CLEANING" | "DELIVERY" | "SERVICE";
 
 // Configuration des onglets basée sur l'analyse réelle des données
-const RULE_VIEW_TYPES: { value: RuleViewType; label: string; icon: any; color: string; description: string }[] = [
+const RULE_VIEW_TYPES: {
+  value: RuleViewType;
+  label: string;
+  icon: any;
+  color: string;
+  description: string;
+}[] = [
   {
-    value: 'CONSTRAINT',
-    label: 'Contraintes',
+    value: "CONSTRAINT",
+    label: "Contraintes",
     icon: Cog6ToothIcon,
-    color: 'bg-slate-100 text-slate-700',
-    description: 'Logistique et terrain'
+    color: "bg-slate-100 text-slate-700",
+    description: "Logistique et terrain",
   },
   {
-    value: 'BUSINESS',
-    label: 'Services',
+    value: "BUSINESS",
+    label: "Services",
     icon: ChartBarIcon,
-    color: 'bg-slate-100 text-slate-700',
-    description: 'Prestations annexes'
+    color: "bg-slate-100 text-slate-700",
+    description: "Prestations annexes",
   },
   {
-    value: 'TEMPORAL',
-    label: 'Horaires',
+    value: "TEMPORAL",
+    label: "Horaires",
     icon: ClockIcon,
-    color: 'bg-slate-100 text-slate-700',
-    description: 'Créneaux et urgences'
+    color: "bg-slate-100 text-slate-700",
+    description: "Créneaux et urgences",
   },
-]
+];
 
-const RULE_CATEGORIES = ['REDUCTION', 'SURCHARGE', 'MINIMUM', 'MAXIMUM', 'FIXED', 'PERCENTAGE']
-const SERVICE_TYPES = ['MOVING', 'PACKING', 'CLEANING', 'DELIVERY', 'SERVICE']
+const RULE_CATEGORIES = [
+  "REDUCTION",
+  "SURCHARGE",
+  "MINIMUM",
+  "MAXIMUM",
+  "FIXED",
+  "PERCENTAGE",
+];
+const SERVICE_TYPES = ["MOVING", "PACKING", "CLEANING", "DELIVERY", "SERVICE"];
 
 // Fonction pour déterminer le type d'affichage basé sur l'analyse
 const getViewTypeFromRule = (rule: Rule): RuleViewType => {
   // Services annexes (montants fixes) = BUSINESS
-  if (!rule.percentBased && rule.category === 'FIXED') {
-    return 'BUSINESS';
+  if (!rule.percentBased && rule.category === "FIXED") {
+    return "BUSINESS";
   }
 
   // Contraintes temporelles
-  if (rule.condition?.type === 'schedule' ||
-      rule.condition?.time ||
-      rule.condition?.day === 'weekend' ||
-      rule.condition?.urgency === 'emergency') {
-    return 'TEMPORAL';
+  if (
+    rule.condition?.type === "schedule" ||
+    rule.condition?.time ||
+    rule.condition?.day === "weekend" ||
+    rule.condition?.urgency === "emergency"
+  ) {
+    return "TEMPORAL";
   }
 
   // Par défaut, les contraintes logistiques
-  return 'CONSTRAINT';
-}
+  return "CONSTRAINT";
+};
 
 export function UnifiedRuleManager() {
-  const { toast } = useToast()
-  const [rules, setRules] = useState<Rule[]>([])
-  const [loading, setLoading] = useState(false)
-  const [generatingFallbacks, setGeneratingFallbacks] = useState(false)
-  const [fallbacksCount, setFallbacksCount] = useState<number | null>(null)
-  const [activeTab, setActiveTab] = useState<RuleViewType>('CONSTRAINT')
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedService, setSelectedService] = useState<string>("all")
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [selectedRule, setSelectedRule] = useState<Rule | null>(null)
+  const { toast } = useToast();
+  const [rules, setRules] = useState<Rule[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [generatingFallbacks, setGeneratingFallbacks] = useState(false);
+  const [fallbacksCount, setFallbacksCount] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<RuleViewType>("CONSTRAINT");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedService, setSelectedService] = useState<string>("all");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
 
   // Form state pour création/édition
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    value: '',
-    ruleType: 'CONSTRAINT' as RuleViewType,
-    category: 'SURCHARGE' as RuleCategory,
-    serviceType: 'MOVING' as ServiceType,
+    name: "",
+    description: "",
+    value: "",
+    ruleType: "CONSTRAINT" as RuleViewType,
+    category: "SURCHARGE" as RuleCategory,
+    serviceType: "MOVING" as ServiceType,
     percentBased: true,
     priority: 100,
-    tags: '',
-    condition: '',
-    configKey: ''
-  })
+    tags: "",
+    condition: "",
+    configKey: "",
+  });
 
   useEffect(() => {
-    loadRules()
-  }, [])
+    loadRules();
+  }, []);
 
   // ✅ READ - Charger toutes les règles
   const loadRules = async () => {
     try {
-      setLoading(true)
-      console.log('🔍 UNIFIED RULES: Début du chargement des règles...')
+      setLoading(true);
+      console.log("🔍 UNIFIED RULES: Début du chargement des règles...");
 
       // 🔓 AUTHENTIFICATION DÉSACTIVÉE TEMPORAIREMENT
-      const token = 'bypass-token'
+      const token = "bypass-token";
 
       // API endpoint existante avec support des filtres étendus
-      const response = await fetch('/api/admin/rules?stats=true', {
-        method: 'GET',
+      const response = await fetch("/api/admin/rules?stats=true", {
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      })
+      });
 
-      console.log('🔍 UNIFIED RULES: Réponse API reçue:', response.status)
-      const data = await response.json()
+      console.log("🔍 UNIFIED RULES: Réponse API reçue:", response.status);
+      const data = await response.json();
 
       if (data.success && data.data) {
-        setRules(data.data || [])
-        console.log('🔍 UNIFIED RULES: Règles chargées:', data.data?.length)
+        setRules(data.data || []);
+        console.log("🔍 UNIFIED RULES: Règles chargées:", data.data?.length);
 
         // Afficher les statistiques par type
         if (data.statistics?.byRuleType) {
-          console.log('📊 Statistiques par ruleType:', data.statistics.byRuleType)
+          console.log(
+            "📊 Statistiques par ruleType:",
+            data.statistics.byRuleType,
+          );
         }
       } else {
-        console.error('🔍 UNIFIED RULES: Erreur dans la réponse API:', data)
+        console.error("🔍 UNIFIED RULES: Erreur dans la réponse API:", data);
         toast({
           title: "❌ Erreur API",
           description: data.error || "Impossible de charger les règles",
           variant: "destructive",
-        })
+        });
       }
     } catch (error) {
-      console.error('🔍 UNIFIED RULES: Erreur lors du chargement:', error)
+      console.error("🔍 UNIFIED RULES: Erreur lors du chargement:", error);
       toast({
         title: "❌ Erreur",
         description: "Impossible de charger les règles",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // 🔄 GENERATE FALLBACKS - Générer les fallbacks depuis la BDD
   const generateFallbacks = async () => {
     try {
-      setGeneratingFallbacks(true)
-      console.log('🔄 Génération des fallbacks...')
+      setGeneratingFallbacks(true);
+      console.log("🔄 Génération des fallbacks...");
 
-      const response = await fetch('/api/admin/generate-fallbacks', {
-        method: 'POST',
+      const response = await fetch("/api/admin/generate-fallbacks", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
         // Afficher un message détaillé avec les statistiques
@@ -221,214 +264,222 @@ export function UnifiedRuleManager() {
           title: "✅ Fallbacks générés",
           description: description,
           variant: "default",
-        })
+        });
       } else {
-        console.error('❌ Erreur de génération:', data)
+        console.error("❌ Erreur de génération:", data);
         toast({
           title: "❌ Erreur de génération",
           description: data.error || "Impossible de générer les fallbacks",
           variant: "destructive",
-        })
+        });
       }
     } catch (error) {
-      console.error('❌ Erreur lors de la génération:', error)
+      console.error("❌ Erreur lors de la génération:", error);
       toast({
         title: "❌ Erreur",
         description: "Impossible de générer les fallbacks",
         variant: "destructive",
-      })
+      });
     } finally {
-      setGeneratingFallbacks(false)
+      setGeneratingFallbacks(false);
     }
-  }
+  };
 
   // ✅ CREATE - Créer une nouvelle règle
   const createRule = async () => {
     try {
       // 🔓 AUTHENTIFICATION DÉSACTIVÉE TEMPORAIREMENT
-      const token = 'bypass-token'
+      const token = "bypass-token";
 
       const ruleData = {
         ...formData,
         value: parseFloat(formData.value) || 0,
-        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : [],
+        tags: formData.tags
+          ? formData.tags.split(",").map((t) => t.trim())
+          : [],
         condition: formData.condition ? JSON.parse(formData.condition) : null,
-        ruleType: 'BUSINESS', // Toutes les règles en BDD sont 'BUSINESS'
-      }
+        ruleType: "BUSINESS", // Toutes les règles en BDD sont 'BUSINESS'
+      };
 
-      const response = await fetch('/api/admin/rules', {
-        method: 'POST',
+      const response = await fetch("/api/admin/rules", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(ruleData)
-      })
+        body: JSON.stringify(ruleData),
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
         toast({
           title: "✅ Règle créée",
           description: `${formData.name} créée avec succès`,
-        })
-        setIsCreateDialogOpen(false)
-        resetForm()
-        loadRules()
+        });
+        setIsCreateDialogOpen(false);
+        resetForm();
+        loadRules();
       } else {
-        throw new Error(data.error || 'Erreur lors de la création')
+        throw new Error(data.error || "Erreur lors de la création");
       }
     } catch (error) {
-      console.error('Erreur lors de la création:', error)
+      console.error("Erreur lors de la création:", error);
       toast({
         title: "❌ Erreur création",
         description: "Impossible de créer la règle",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   // ✅ UPDATE - Mettre à jour une règle
   const updateRule = async () => {
-    if (!selectedRule) return
+    if (!selectedRule) return;
 
     try {
       // 🔓 AUTHENTIFICATION DÉSACTIVÉE TEMPORAIREMENT
-      const token = 'bypass-token'
+      const token = "bypass-token";
 
       const ruleData = {
         ...formData,
         value: parseFloat(formData.value) || 0,
-        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : [],
+        tags: formData.tags
+          ? formData.tags.split(",").map((t) => t.trim())
+          : [],
         condition: formData.condition ? JSON.parse(formData.condition) : null,
-      }
+      };
 
       const response = await fetch(`/api/admin/rules/${selectedRule.id}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(ruleData)
-      })
+        body: JSON.stringify(ruleData),
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
         toast({
           title: "✅ Règle mise à jour",
           description: `${selectedRule.name} modifiée`,
-        })
-        setIsEditDialogOpen(false)
-        resetForm()
-        loadRules()
+        });
+        setIsEditDialogOpen(false);
+        resetForm();
+        loadRules();
       } else {
-        throw new Error(data.error || 'Erreur lors de la mise à jour')
+        throw new Error(data.error || "Erreur lors de la mise à jour");
       }
     } catch (error) {
-      console.error('Erreur lors de la mise à jour:', error)
+      console.error("Erreur lors de la mise à jour:", error);
       toast({
         title: "❌ Erreur mise à jour",
         description: "Impossible de mettre à jour la règle",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   // ✅ DELETE - Supprimer une règle
   const deleteRule = async (rule: Rule) => {
     if (!confirm(`Êtes-vous sûr de vouloir supprimer "${rule.name}" ?`)) {
-      return
+      return;
     }
 
     try {
       // 🔓 AUTHENTIFICATION DÉSACTIVÉE TEMPORAIREMENT
-      const token = 'bypass-token'
+      const token = "bypass-token";
 
       const response = await fetch(`/api/admin/rules/${rule.id}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
         toast({
           title: "✅ Règle supprimée",
           description: `${rule.name} supprimée`,
-        })
-        loadRules()
+        });
+        loadRules();
       } else {
-        throw new Error(data.error || 'Erreur lors de la suppression')
+        throw new Error(data.error || "Erreur lors de la suppression");
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error)
+      console.error("Erreur lors de la suppression:", error);
       toast({
         title: "❌ Erreur suppression",
         description: "Impossible de supprimer la règle",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   // Fonctions utilitaires
   const resetForm = () => {
     setFormData({
-      name: '',
-      description: '',
-      value: '',
+      name: "",
+      description: "",
+      value: "",
       ruleType: activeTab,
-      category: 'SURCHARGE',
-      serviceType: 'MOVING',
+      category: "SURCHARGE",
+      serviceType: "MOVING",
       percentBased: true,
       priority: 100,
-      tags: '',
-      condition: '',
-      configKey: ''
-    })
-    setSelectedRule(null)
-  }
+      tags: "",
+      condition: "",
+      configKey: "",
+    });
+    setSelectedRule(null);
+  };
 
   const openEditDialog = (rule: Rule) => {
-    setSelectedRule(rule)
+    setSelectedRule(rule);
     setFormData({
       name: rule.name,
-      description: rule.description || '',
+      description: rule.description || "",
       value: rule.value.toString(),
-      ruleType: rule.ruleType,
+      ruleType: (rule.ruleType as RuleViewType) || "BUSINESS",
       category: rule.category,
       serviceType: rule.serviceType,
       percentBased: rule.percentBased,
       priority: rule.priority,
-      tags: rule.tags?.join(', ') || '',
-      condition: rule.condition ? JSON.stringify(rule.condition, null, 2) : '',
-      configKey: rule.configKey || ''
-    })
-    setIsEditDialogOpen(true)
-  }
+      tags: rule.tags?.join(", ") || "",
+      condition: rule.condition ? JSON.stringify(rule.condition, null, 2) : "",
+      configKey: rule.configKey || "",
+    });
+    setIsEditDialogOpen(true);
+  };
 
   const openViewDialog = (rule: Rule) => {
-    setSelectedRule(rule)
-    setIsViewDialogOpen(true)
-  }
+    setSelectedRule(rule);
+    setIsViewDialogOpen(true);
+  };
 
   // Filtrage des règles par type d'affichage, service et recherche (basé sur l'analyse)
-  const filteredRules = rules.filter(rule => {
+  const filteredRules = rules.filter((rule) => {
     const ruleViewType = getViewTypeFromRule(rule);
-    const matchesType = ruleViewType === activeTab
-    const matchesService = selectedService === 'all' || rule.serviceType === selectedService
-    const matchesSearch = rule.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         rule.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         rule.configKey?.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesType && matchesService && matchesSearch
-  })
+    const matchesType = ruleViewType === activeTab;
+    const matchesService =
+      selectedService === "all" || rule.serviceType === selectedService;
+    const matchesSearch =
+      rule.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rule.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rule.configKey?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesType && matchesService && matchesSearch;
+  });
 
   const getRuleViewTypeConfig = (viewType: RuleViewType) => {
-    return RULE_VIEW_TYPES.find(rt => rt.value === viewType) || RULE_VIEW_TYPES[0]
-  }
+    return (
+      RULE_VIEW_TYPES.find((rt) => rt.value === viewType) || RULE_VIEW_TYPES[0]
+    );
+  };
 
   return (
     <div className="space-y-2">
@@ -441,24 +492,36 @@ export function UnifiedRuleManager() {
 
         {/* Statistiques inline */}
         <div className="flex items-center gap-3 text-sm">
-          {RULE_VIEW_TYPES.map(viewType => {
-            const count = rules.filter(r => getViewTypeFromRule(r) === viewType.value).length
+          {RULE_VIEW_TYPES.map((viewType) => {
+            const count = rules.filter(
+              (r) => getViewTypeFromRule(r) === viewType.value,
+            ).length;
             return (
-              <div key={viewType.value} className="flex items-center gap-1 text-slate-600">
+              <div
+                key={viewType.value}
+                className="flex items-center gap-1 text-slate-600"
+              >
                 <span className="font-medium">{count}</span>
-                <span className="text-slate-500">{viewType.label.toLowerCase()}</span>
+                <span className="text-slate-500">
+                  {viewType.label.toLowerCase()}
+                </span>
               </div>
-            )
+            );
           })}
         </div>
       </div>
 
       {/* Navigation par onglets simplifiée */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as RuleViewType)}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as RuleViewType)}
+      >
         <TabsList className="bg-slate-100 rounded-lg p-0.5 grid w-full grid-cols-3 h-8">
-          {RULE_VIEW_TYPES.map(viewType => {
-            const Icon = viewType.icon
-            const count = rules.filter(r => getViewTypeFromRule(r) === viewType.value).length
+          {RULE_VIEW_TYPES.map((viewType) => {
+            const Icon = viewType.icon;
+            const count = rules.filter(
+              (r) => getViewTypeFromRule(r) === viewType.value,
+            ).length;
             return (
               <TabsTrigger
                 key={viewType.value}
@@ -471,13 +534,17 @@ export function UnifiedRuleManager() {
                   {count}
                 </span>
               </TabsTrigger>
-            )
+            );
           })}
         </TabsList>
 
         {/* Contenu pour chaque type d'affichage */}
-        {RULE_VIEW_TYPES.map(viewType => (
-          <TabsContent key={viewType.value} value={viewType.value} className="space-y-2 mt-2">
+        {RULE_VIEW_TYPES.map((viewType) => (
+          <TabsContent
+            key={viewType.value}
+            value={viewType.value}
+            className="space-y-2 mt-2"
+          >
             {/* Contrôles épurés */}
             <div className="bg-white border border-slate-200 rounded-lg p-3">
               {/* Filtres et actions */}
@@ -497,23 +564,35 @@ export function UnifiedRuleManager() {
 
                   {/* Filtre par service */}
                   <div className="w-full sm:w-48">
-                    <Select value={selectedService} onValueChange={setSelectedService}>
+                    <Select
+                      value={selectedService}
+                      onValueChange={setSelectedService}
+                    >
                       <SelectTrigger className="h-8">
                         <SelectValue placeholder="Tous" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Tous</SelectItem>
-                        {SERVICE_TYPES.map(serviceType => {
-                          const count = rules.filter(r => getViewTypeFromRule(r) === activeTab && r.serviceType === serviceType).length
+                        {SERVICE_TYPES.map((serviceType) => {
+                          const count = rules.filter(
+                            (r) =>
+                              getViewTypeFromRule(r) === activeTab &&
+                              r.serviceType === serviceType,
+                          ).length;
                           if (count === 0) return null;
                           return (
                             <SelectItem key={serviceType} value={serviceType}>
-                              {serviceType === 'MOVING' ? 'Déménagement' :
-                               serviceType === 'CLEANING' ? 'Ménage' :
-                               serviceType === 'DELIVERY' ? 'Livraison' :
-                               serviceType === 'PACKING' ? 'Emballage' : serviceType}
+                              {serviceType === "MOVING"
+                                ? "Déménagement"
+                                : serviceType === "CLEANING"
+                                  ? "Ménage"
+                                  : serviceType === "DELIVERY"
+                                    ? "Livraison"
+                                    : serviceType === "PACKING"
+                                      ? "Emballage"
+                                      : serviceType}
                             </SelectItem>
-                          )
+                          );
                         })}
                       </SelectContent>
                     </Select>
@@ -534,8 +613,10 @@ export function UnifiedRuleManager() {
                     disabled={generatingFallbacks}
                     className="border-green-300 text-green-700 hover:bg-green-50 h-8"
                   >
-                    <CubeIcon className={`h-4 w-4 mr-1 ${generatingFallbacks ? 'animate-spin' : ''}`} />
-                    {generatingFallbacks ? 'Génération...' : 'Fallbacks'}
+                    <CubeIcon
+                      className={`h-4 w-4 mr-1 ${generatingFallbacks ? "animate-spin" : ""}`}
+                    />
+                    {generatingFallbacks ? "Génération..." : "Fallbacks"}
                   </Button>
                   <Button
                     onClick={loadRules}
@@ -544,12 +625,14 @@ export function UnifiedRuleManager() {
                     disabled={loading}
                     className="h-8"
                   >
-                    <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                    <ArrowPathIcon
+                      className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                    />
                   </Button>
                   <Button
                     onClick={() => {
-                      setFormData({...formData, ruleType: activeTab})
-                      setIsCreateDialogOpen(true)
+                      setFormData({ ...formData, ruleType: activeTab });
+                      setIsCreateDialogOpen(true);
                     }}
                     size="sm"
                     className="bg-slate-700 hover:bg-slate-800 h-8"
@@ -564,99 +647,119 @@ export function UnifiedRuleManager() {
             {/* Tableau des règles compact */}
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
               <Table>
-                  <TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[30%] px-3">Nom</TableHead>
+                    <TableHead className="w-[12%] px-2">Catégorie</TableHead>
+                    <TableHead className="w-[12%] px-2">Service</TableHead>
+                    <TableHead className="w-[10%] px-2">Valeur</TableHead>
+                    <TableHead className="w-[8%] px-2">Priorité</TableHead>
+                    <TableHead className="w-[10%] px-2">Statut</TableHead>
+                    <TableHead className="w-[18%] text-right px-3">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
                     <TableRow>
-                      <TableHead className="w-[30%] px-3">Nom</TableHead>
-                      <TableHead className="w-[12%] px-2">Catégorie</TableHead>
-                      <TableHead className="w-[12%] px-2">Service</TableHead>
-                      <TableHead className="w-[10%] px-2">Valeur</TableHead>
-                      <TableHead className="w-[8%] px-2">Priorité</TableHead>
-                      <TableHead className="w-[10%] px-2">Statut</TableHead>
-                      <TableHead className="w-[18%] text-right px-3">Actions</TableHead>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <ArrowPathIcon className="h-8 w-8 animate-spin mx-auto mb-2 text-indigo-600" />
+                        Chargement des règles...
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8">
-                          <ArrowPathIcon className="h-8 w-8 animate-spin mx-auto mb-2 text-indigo-600" />
-                          Chargement des règles...
+                  ) : filteredRules.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center py-8 text-slate-500"
+                      >
+                        Aucun résultat
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRules.map((rule) => (
+                      <TableRow key={rule.id}>
+                        <TableCell className="px-3 py-2">
+                          <div>
+                            <div className="font-medium text-sm">
+                              {rule.name}
+                            </div>
+                            {rule.description && (
+                              <div className="text-xs text-slate-500 truncate max-w-xs">
+                                {rule.description}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-2 py-2">
+                          <Badge
+                            variant="outline"
+                            className="text-xs px-1 py-0.5"
+                          >
+                            {rule.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-2 py-2">
+                          <Badge
+                            variant="secondary"
+                            className="text-xs px-1 py-0.5 text-white bg-slate-600"
+                          >
+                            {rule.serviceType}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-2 py-2">
+                          <span className="font-mono text-xs">
+                            {rule.value}
+                            {rule.percentBased ? "%" : "€"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-2 py-2">
+                          <span className="text-xs font-medium text-slate-600">
+                            {rule.priority}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-2 py-2">
+                          <div
+                            className={`inline-flex h-2 w-2 rounded-full ${rule.isActive ? "bg-green-500" : "bg-slate-300"}`}
+                          ></div>
+                        </TableCell>
+                        <TableCell className="text-right px-3 py-2">
+                          <div className="flex gap-0.5 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openViewDialog(rule)}
+                              title="Voir détails"
+                              className="h-7 w-7 p-0"
+                            >
+                              <EyeIcon className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDialog(rule)}
+                              title="Modifier"
+                              className="h-7 w-7 p-0"
+                            >
+                              <PencilIcon className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteRule(rule)}
+                              className="text-red-600 hover:text-red-700 h-7 w-7 p-0"
+                              title="Supprimer"
+                            >
+                              <TrashIcon className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ) : filteredRules.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                          Aucun résultat
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredRules.map((rule) => (
-                        <TableRow key={rule.id}>
-                          <TableCell className="px-3 py-2">
-                            <div>
-                              <div className="font-medium text-sm">{rule.name}</div>
-                              {rule.description && (
-                                <div className="text-xs text-slate-500 truncate max-w-xs">
-                                  {rule.description}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-2 py-2">
-                            <Badge variant="outline" className="text-xs px-1 py-0.5">{rule.category}</Badge>
-                          </TableCell>
-                          <TableCell className="px-2 py-2">
-                            <Badge variant="secondary" className="text-xs px-1 py-0.5 text-white bg-slate-600">{rule.serviceType}</Badge>
-                          </TableCell>
-                          <TableCell className="px-2 py-2">
-                            <span className="font-mono text-xs">
-                              {rule.value}{rule.percentBased ? '%' : '€'}
-                            </span>
-                          </TableCell>
-                          <TableCell className="px-2 py-2">
-                            <span className="text-xs font-medium text-slate-600">
-                              {rule.priority}
-                            </span>
-                          </TableCell>
-                          <TableCell className="px-2 py-2">
-                            <div className={`inline-flex h-2 w-2 rounded-full ${rule.isActive ? 'bg-green-500' : 'bg-slate-300'}`}></div>
-                          </TableCell>
-                          <TableCell className="text-right px-3 py-2">
-                            <div className="flex gap-0.5 justify-end">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openViewDialog(rule)}
-                                title="Voir détails"
-                                className="h-7 w-7 p-0"
-                              >
-                                <EyeIcon className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEditDialog(rule)}
-                                title="Modifier"
-                                className="h-7 w-7 p-0"
-                              >
-                                <PencilIcon className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteRule(rule)}
-                                className="text-red-600 hover:text-red-700 h-7 w-7 p-0"
-                                title="Supprimer"
-                              >
-                                <TrashIcon className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </TabsContent>
         ))}
@@ -668,7 +771,8 @@ export function UnifiedRuleManager() {
           <DialogHeader>
             <DialogTitle>Créer une règle</DialogTitle>
             <DialogDescription>
-              Nouvelle règle de type {getRuleViewTypeConfig(activeTab).label.toLowerCase()}
+              Nouvelle règle de type{" "}
+              {getRuleViewTypeConfig(activeTab).label.toLowerCase()}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -679,16 +783,22 @@ export function UnifiedRuleManager() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="Nom descriptif de la règle"
                 />
               </div>
               <div>
-                <Label htmlFor="configKey">Clé de configuration (optionnel)</Label>
+                <Label htmlFor="configKey">
+                  Clé de configuration (optionnel)
+                </Label>
                 <Input
                   id="configKey"
                   value={formData.configKey}
-                  onChange={(e) => setFormData({...formData, configKey: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, configKey: e.target.value })
+                  }
                   placeholder="CONFIG_KEY_MIGRATION"
                 />
               </div>
@@ -698,12 +808,17 @@ export function UnifiedRuleManager() {
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <Label htmlFor="category">Catégorie</Label>
-                <Select value={formData.category} onValueChange={(value: RuleCategory) => setFormData({...formData, category: value})}>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value: RuleCategory) =>
+                    setFormData({ ...formData, category: value })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {RULE_CATEGORIES.map(category => (
+                    {RULE_CATEGORIES.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>
@@ -713,12 +828,17 @@ export function UnifiedRuleManager() {
               </div>
               <div>
                 <Label htmlFor="serviceType">Type de service</Label>
-                <Select value={formData.serviceType} onValueChange={(value: ServiceType) => setFormData({...formData, serviceType: value})}>
+                <Select
+                  value={formData.serviceType}
+                  onValueChange={(value: ServiceType) =>
+                    setFormData({ ...formData, serviceType: value })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {SERVICE_TYPES.map(serviceType => (
+                    {SERVICE_TYPES.map((serviceType) => (
                       <SelectItem key={serviceType} value={serviceType}>
                         {serviceType}
                       </SelectItem>
@@ -733,7 +853,9 @@ export function UnifiedRuleManager() {
                   type="number"
                   step="0.01"
                   value={formData.value}
-                  onChange={(e) => setFormData({...formData, value: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, value: e.target.value })
+                  }
                   placeholder="0.00"
                 />
               </div>
@@ -743,7 +865,12 @@ export function UnifiedRuleManager() {
                   id="priority"
                   type="number"
                   value={formData.priority}
-                  onChange={(e) => setFormData({...formData, priority: parseInt(e.target.value) || 100})}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      priority: parseInt(e.target.value) || 100,
+                    })
+                  }
                   placeholder="100"
                 />
               </div>
@@ -759,7 +886,9 @@ export function UnifiedRuleManager() {
                       type="radio"
                       name="percentBased"
                       checked={formData.percentBased}
-                      onChange={() => setFormData({...formData, percentBased: true})}
+                      onChange={() =>
+                        setFormData({ ...formData, percentBased: true })
+                      }
                       className="mr-2"
                     />
                     Pourcentage (%)
@@ -769,7 +898,9 @@ export function UnifiedRuleManager() {
                       type="radio"
                       name="percentBased"
                       checked={!formData.percentBased}
-                      onChange={() => setFormData({...formData, percentBased: false})}
+                      onChange={() =>
+                        setFormData({ ...formData, percentBased: false })
+                      }
                       className="mr-2"
                     />
                     Montant fixe (€)
@@ -781,7 +912,9 @@ export function UnifiedRuleManager() {
                 <Input
                   id="tags"
                   value={formData.tags}
-                  onChange={(e) => setFormData({...formData, tags: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tags: e.target.value })
+                  }
                   placeholder="tag1, tag2, tag3"
                 />
               </div>
@@ -793,7 +926,9 @@ export function UnifiedRuleManager() {
               <Textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 placeholder="Description détaillée de la règle"
                 rows={2}
               />
@@ -805,7 +940,9 @@ export function UnifiedRuleManager() {
               <Textarea
                 id="condition"
                 value={formData.condition}
-                onChange={(e) => setFormData({...formData, condition: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, condition: e.target.value })
+                }
                 placeholder='{"type": "SIMPLE", "expression": "pickupFloor > 2 && !pickupElevator"}'
                 rows={4}
                 className="font-mono text-sm"
@@ -813,10 +950,19 @@ export function UnifiedRuleManager() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {setIsCreateDialogOpen(false); resetForm()}}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateDialogOpen(false);
+                resetForm();
+              }}
+            >
               Annuler
             </Button>
-            <Button onClick={createRule} className="bg-indigo-600 hover:bg-indigo-700">
+            <Button
+              onClick={createRule}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
               Créer la règle
             </Button>
           </DialogFooter>
@@ -840,7 +986,9 @@ export function UnifiedRuleManager() {
                 <Input
                   id="edit-name"
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -848,7 +996,9 @@ export function UnifiedRuleManager() {
                 <Input
                   id="edit-configKey"
                   value={formData.configKey}
-                  onChange={(e) => setFormData({...formData, configKey: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, configKey: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -856,11 +1006,19 @@ export function UnifiedRuleManager() {
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <Label>Catégorie</Label>
-                <Input value={formData.category} disabled className="bg-gray-50" />
+                <Input
+                  value={formData.category}
+                  disabled
+                  className="bg-gray-50"
+                />
               </div>
               <div>
                 <Label>Service</Label>
-                <Input value={formData.serviceType} disabled className="bg-gray-50" />
+                <Input
+                  value={formData.serviceType}
+                  disabled
+                  className="bg-gray-50"
+                />
               </div>
               <div>
                 <Label htmlFor="edit-value">Valeur</Label>
@@ -869,7 +1027,9 @@ export function UnifiedRuleManager() {
                   type="number"
                   step="0.01"
                   value={formData.value}
-                  onChange={(e) => setFormData({...formData, value: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, value: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -878,7 +1038,12 @@ export function UnifiedRuleManager() {
                   id="edit-priority"
                   type="number"
                   value={formData.priority}
-                  onChange={(e) => setFormData({...formData, priority: parseInt(e.target.value) || 100})}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      priority: parseInt(e.target.value) || 100,
+                    })
+                  }
                 />
               </div>
             </div>
@@ -887,7 +1052,9 @@ export function UnifiedRuleManager() {
               <Textarea
                 id="edit-description"
                 value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 rows={2}
               />
             </div>
@@ -896,17 +1063,28 @@ export function UnifiedRuleManager() {
               <Textarea
                 id="edit-condition"
                 value={formData.condition}
-                onChange={(e) => setFormData({...formData, condition: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, condition: e.target.value })
+                }
                 rows={4}
                 className="font-mono text-sm"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {setIsEditDialogOpen(false); resetForm()}}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                resetForm();
+              }}
+            >
               Annuler
             </Button>
-            <Button onClick={updateRule} className="bg-indigo-600 hover:bg-indigo-700">
+            <Button
+              onClick={updateRule}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
               Mettre à jour
             </Button>
           </DialogFooter>
@@ -927,12 +1105,22 @@ export function UnifiedRuleManager() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>ID</Label>
-                  <code className="block text-xs bg-gray-100 p-2 rounded">{selectedRule.id}</code>
+                  <code className="block text-xs bg-gray-100 p-2 rounded">
+                    {selectedRule.id}
+                  </code>
                 </div>
                 <div>
                   <Label>Type de règle</Label>
-                  <Badge className={getRuleViewTypeConfig(getViewTypeFromRule(selectedRule)).color}>
-                    {getRuleViewTypeConfig(getViewTypeFromRule(selectedRule)).label}
+                  <Badge
+                    className={
+                      getRuleViewTypeConfig(getViewTypeFromRule(selectedRule))
+                        .color
+                    }
+                  >
+                    {
+                      getRuleViewTypeConfig(getViewTypeFromRule(selectedRule))
+                        .label
+                    }
                   </Badge>
                 </div>
               </div>
@@ -943,7 +1131,9 @@ export function UnifiedRuleManager() {
               {selectedRule.description && (
                 <div>
                   <Label>Description</Label>
-                  <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded">{selectedRule.description}</p>
+                  <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded">
+                    {selectedRule.description}
+                  </p>
                 </div>
               )}
               <div className="grid grid-cols-4 gap-4">
@@ -958,7 +1148,8 @@ export function UnifiedRuleManager() {
                 <div>
                   <Label>Valeur</Label>
                   <span className="font-mono">
-                    {selectedRule.value}{selectedRule.percentBased ? '%' : '€'}
+                    {selectedRule.value}
+                    {selectedRule.percentBased ? "%" : "€"}
                   </span>
                 </div>
                 <div>
@@ -978,7 +1169,7 @@ export function UnifiedRuleManager() {
                 <div>
                   <Label>Tags</Label>
                   <div className="flex gap-1 flex-wrap">
-                    {selectedRule.tags.map(tag => (
+                    {selectedRule.tags.map((tag) => (
                       <Badge key={tag} variant="outline" className="text-xs">
                         {tag}
                       </Badge>
@@ -989,24 +1180,26 @@ export function UnifiedRuleManager() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Statut</Label>
-                  <Badge variant={selectedRule.isActive ? "default" : "secondary"}>
+                  <Badge
+                    variant={selectedRule.isActive ? "default" : "secondary"}
+                  >
                     {selectedRule.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
                 <div>
                   <Label>Dernière modification</Label>
-                  <p className="text-sm">{new Date(selectedRule.updatedAt).toLocaleString()}</p>
+                  <p className="text-sm">
+                    {new Date(selectedRule.updatedAt).toLocaleString()}
+                  </p>
                 </div>
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button onClick={() => setIsViewDialogOpen(false)}>
-              Fermer
-            </Button>
+            <Button onClick={() => setIsViewDialogOpen(false)}>Fermer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

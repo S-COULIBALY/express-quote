@@ -12,53 +12,53 @@
  * - API unifiée pour calculateurs et formulaires
  */
 
-import { PrismaClient } from '@prisma/client';
-import { logger } from '../../../lib/logger';
-import { DefaultValues } from '../../domain/configuration/DefaultValues';
+import { PrismaClient } from "@prisma/client";
+import { logger } from "../../../lib/logger";
+import { DefaultValues } from "../../domain/configuration/DefaultValues";
 
 export enum ServiceType {
-  MOVING = 'MOVING',
-  CLEANING = 'CLEANING',
-  PACKING = 'PACKING',
-  DELIVERY = 'DELIVERY',
-  SERVICE = 'SERVICE'
+  MOVING = "MOVING",
+  CLEANING = "CLEANING",
+  PACKING = "PACKING",
+  DELIVERY = "DELIVERY",
+  SERVICE = "SERVICE",
 }
 
 export enum RuleType {
-  CONSTRAINT = 'CONSTRAINT',
-  BUSINESS = 'BUSINESS',
-  PRICING = 'PRICING',
-  TEMPORAL = 'TEMPORAL',
-  GEOGRAPHIC = 'GEOGRAPHIC',
-  VOLUME = 'VOLUME',
-  CUSTOM = 'CUSTOM'
+  CONSTRAINT = "CONSTRAINT",
+  BUSINESS = "BUSINESS",
+  PRICING = "PRICING",
+  TEMPORAL = "TEMPORAL",
+  GEOGRAPHIC = "GEOGRAPHIC",
+  VOLUME = "VOLUME",
+  CUSTOM = "CUSTOM",
 }
 
 export enum RuleCategory {
-  REDUCTION = 'REDUCTION',
-  SURCHARGE = 'SURCHARGE',
-  MINIMUM = 'MINIMUM',
-  MAXIMUM = 'MAXIMUM',
-  FIXED = 'FIXED',
-  PERCENTAGE = 'PERCENTAGE'
+  REDUCTION = "REDUCTION",
+  SURCHARGE = "SURCHARGE",
+  MINIMUM = "MINIMUM",
+  MAXIMUM = "MAXIMUM",
+  FIXED = "FIXED",
+  PERCENTAGE = "PERCENTAGE",
 }
 
 export enum ConfigurationCategory {
-  PRICING = 'PRICING',
-  EMAIL_CONFIG = 'EMAIL_CONFIG',
-  SERVICE_PARAMS = 'SERVICE_PARAMS',
-  TECHNICAL_LIMITS = 'TECHNICAL_LIMITS',
-  TIME_CONFIG = 'TIME_CONFIG',
-  TRANSPORT_CONFIG = 'TRANSPORT_CONFIG',
-  GEOGRAPHIC_CONFIG = 'GEOGRAPHIC_CONFIG',
-  INSURANCE_CONFIG = 'INSURANCE_CONFIG',
-  BUSINESS_RULES = 'BUSINESS_RULES', // Ajouté pour compatibilité avec adminRules.ts
-  LIMITS = 'LIMITS', // Ajouté pour compatibilité avec adminRules.ts
+  PRICING = "PRICING",
+  EMAIL_CONFIG = "EMAIL_CONFIG",
+  SERVICE_PARAMS = "SERVICE_PARAMS",
+  TECHNICAL_LIMITS = "TECHNICAL_LIMITS",
+  TIME_CONFIG = "TIME_CONFIG",
+  TRANSPORT_CONFIG = "TRANSPORT_CONFIG",
+  GEOGRAPHIC_CONFIG = "GEOGRAPHIC_CONFIG",
+  INSURANCE_CONFIG = "INSURANCE_CONFIG",
+  BUSINESS_RULES = "BUSINESS_RULES", // Ajouté pour compatibilité avec adminRules.ts
+  LIMITS = "LIMITS", // Ajouté pour compatibilité avec adminRules.ts
 
   // NOUVELLES CATÉGORIES - Migration des données hardcodées
-  PRICING_FACTORS = 'PRICING_FACTORS',     // Facteurs et multiplicateurs de pricing
-  THRESHOLDS = 'THRESHOLDS',               // Seuils et conditions métier
-  SYSTEM_METRICS = 'SYSTEM_METRICS'        // Coordonnées et métriques système
+  PRICING_FACTORS = "PRICING_FACTORS", // Facteurs et multiplicateurs de pricing
+  THRESHOLDS = "THRESHOLDS", // Seuils et conditions métier
+  SYSTEM_METRICS = "SYSTEM_METRICS", // Coordonnées et métriques système
 }
 
 export interface UnifiedRule {
@@ -138,7 +138,7 @@ export class UnifiedDataService {
   setUnifiedSystemEnabled(enabled: boolean): void {
     this.useUnifiedSystem = enabled;
     this.clearAllCaches();
-    logger.info(`🎛️ Système unifié ${enabled ? 'activé' : 'désactivé'}`);
+    logger.info(`🎛️ Système unifié ${enabled ? "activé" : "désactivé"}`);
   }
 
   // ========================================
@@ -176,10 +176,7 @@ export class UnifiedDataService {
 
       // Filtrage par validité temporelle
       where.validFrom = { lte: new Date() };
-      where.OR = [
-        { validTo: null },
-        { validTo: { gte: new Date() } }
-      ];
+      where.OR = [{ validTo: null }, { validTo: { gte: new Date() } }];
 
       // Filtrage par tags si spécifié
       if (query.tags && query.tags.length > 0) {
@@ -188,10 +185,10 @@ export class UnifiedDataService {
 
       const rules = await this.prisma.rule.findMany({
         where,
-        orderBy: { priority: 'asc' }
+        orderBy: { priority: "asc" },
       });
 
-      const unifiedRules: UnifiedRule[] = rules.map(rule => ({
+      const unifiedRules: UnifiedRule[] = rules.map((rule) => ({
         id: rule.id,
         name: rule.name,
         description: rule.description || undefined,
@@ -207,7 +204,7 @@ export class UnifiedDataService {
         configKey: rule.configKey || undefined,
         metadata: rule.metadata || undefined,
         condition: rule.condition || undefined,
-        isActive: rule.isActive
+        isActive: rule.isActive,
       }));
 
       // Mettre en cache
@@ -216,9 +213,11 @@ export class UnifiedDataService {
 
       logger.info(`✅ ${unifiedRules.length} règles chargées pour ${cacheKey}`);
       return unifiedRules;
-
     } catch (error) {
-      logger.error(error as Error, `❌ Erreur lors du chargement des règles: ${cacheKey}`);
+      logger.error(
+        error as Error,
+        `❌ Erreur lors du chargement des règles: ${cacheKey}`,
+      );
       return this.getFallbackRules(query);
     }
   }
@@ -230,7 +229,7 @@ export class UnifiedDataService {
     return this.getRules({
       serviceType,
       ruleType: RuleType.CONSTRAINT,
-      onlyActive: true
+      onlyActive: true,
     });
   }
 
@@ -241,29 +240,37 @@ export class UnifiedDataService {
     return this.getRules({
       serviceType,
       ruleType: RuleType.BUSINESS,
-      onlyActive: true
+      onlyActive: true,
     });
   }
 
   /**
    * Convertit les règles unifiées en objets Rule pour le RuleEngine
    */
-  async getBusinessRulesForEngine(serviceType?: ServiceType): Promise<import('../../domain/valueObjects/Rule').Rule[]> {
+  async getBusinessRulesForEngine(
+    serviceType?: ServiceType,
+  ): Promise<import("../../domain/valueObjects/Rule").Rule[]> {
     try {
       const unifiedRules = await this.getBusinessRules(serviceType);
-      const { Rule } = await import('../../domain/valueObjects/Rule');
+      const { Rule } = await import("../../domain/valueObjects/Rule");
 
-      return unifiedRules.map(unifiedRule => new Rule(
-        unifiedRule.name,
-        unifiedRule.serviceType,
-        unifiedRule.value,
-        unifiedRule.condition ? JSON.stringify(unifiedRule.condition) : '',
-        unifiedRule.isActive,
-        unifiedRule.id,
-        unifiedRule.percentBased
-      ));
+      return unifiedRules.map(
+        (unifiedRule) =>
+          new Rule(
+            unifiedRule.name,
+            unifiedRule.serviceType,
+            unifiedRule.value,
+            unifiedRule.condition ? JSON.stringify(unifiedRule.condition) : "",
+            unifiedRule.isActive,
+            unifiedRule.id,
+            unifiedRule.percentBased,
+          ),
+      );
     } catch (error) {
-      logger.error(error as Error, `❌ Erreur lors de la conversion des règles pour ${serviceType}`);
+      logger.error(
+        error as Error,
+        `❌ Erreur lors de la conversion des règles pour ${serviceType}`,
+      );
       return [];
     }
   }
@@ -275,7 +282,7 @@ export class UnifiedDataService {
     return this.getRules({
       serviceType,
       ruleType: RuleType.TEMPORAL,
-      onlyActive: true
+      onlyActive: true,
     });
   }
 
@@ -286,7 +293,9 @@ export class UnifiedDataService {
   /**
    * Récupère les configurations depuis la table Configuration
    */
-  async getConfigurations(query: ConfigurationQuery = {}): Promise<UnifiedConfiguration[]> {
+  async getConfigurations(
+    query: ConfigurationQuery = {},
+  ): Promise<UnifiedConfiguration[]> {
     const cacheKey = `config_${JSON.stringify(query)}`;
 
     // Vérifier le cache
@@ -309,29 +318,35 @@ export class UnifiedDataService {
 
       const configurations = await this.prisma.configuration.findMany({
         where,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
       });
 
-      const unifiedConfigs: UnifiedConfiguration[] = configurations.map(config => ({
-        id: config.id,
-        key: config.key,
-        value: config.value,
-        description: config.description || undefined,
-        category: config.category,
-        isActive: config.isActive,
-        createdAt: config.createdAt,
-        updatedAt: config.updatedAt
-      }));
+      const unifiedConfigs: UnifiedConfiguration[] = configurations.map(
+        (config) => ({
+          id: config.id,
+          key: config.key,
+          value: config.value,
+          description: config.description || undefined,
+          category: config.category,
+          isActive: config.isActive,
+          createdAt: config.createdAt,
+          updatedAt: config.updatedAt,
+        }),
+      );
 
       // Mettre en cache
       this.configCache.set(cacheKey, unifiedConfigs);
       this.configTimestamp.set(cacheKey, Date.now());
 
-      logger.info(`✅ ${unifiedConfigs.length} configurations chargées pour ${cacheKey}`);
+      logger.info(
+        `✅ ${unifiedConfigs.length} configurations chargées pour ${cacheKey}`,
+      );
       return unifiedConfigs;
-
     } catch (error) {
-      logger.error(error as Error, `❌ Erreur lors du chargement des configurations: ${cacheKey}`);
+      logger.error(
+        error as Error,
+        `❌ Erreur lors du chargement des configurations: ${cacheKey}`,
+      );
       return [];
     }
   }
@@ -339,23 +354,31 @@ export class UnifiedDataService {
   /**
    * Récupère une configuration spécifique par clé
    */
-  async getConfigurationValue<T>(category: ConfigurationCategory, key: string, defaultValue: T): Promise<T> {
+  async getConfigurationValue<T>(
+    category: ConfigurationCategory,
+    key: string,
+    defaultValue: T,
+  ): Promise<T> {
     try {
       const configurations = await this.getConfigurations({
         category,
         key,
-        onlyActive: true
+        onlyActive: true,
       });
 
       if (configurations.length > 0) {
         return configurations[0].value as T;
       }
 
-      logger.warn(`⚠️ Configuration non trouvée: ${category}.${key}, utilisation de la valeur par défaut`);
+      logger.warn(
+        `⚠️ Configuration non trouvée: ${category}.${key}, utilisation de la valeur par défaut`,
+      );
       return defaultValue;
-
     } catch (error) {
-      logger.error(error as Error, `❌ Erreur lors de la récupération de ${category}.${key}`);
+      logger.error(
+        error as Error,
+        `❌ Erreur lors de la récupération de ${category}.${key}`,
+      );
       return defaultValue;
     }
   }
@@ -367,7 +390,9 @@ export class UnifiedDataService {
   /**
    * Récupère toutes les constantes de pricing (Rule + Configuration)
    */
-  async getAllPricingConstants(serviceType?: ServiceType): Promise<Record<string, number>> {
+  async getAllPricingConstants(
+    serviceType?: ServiceType,
+  ): Promise<Record<string, number>> {
     try {
       const constants: Record<string, number> = {};
 
@@ -375,7 +400,7 @@ export class UnifiedDataService {
       const pricingRules = await this.getRules({
         serviceType,
         ruleType: RuleType.PRICING,
-        onlyActive: true
+        onlyActive: true,
       });
 
       for (const rule of pricingRules) {
@@ -387,24 +412,33 @@ export class UnifiedDataService {
       // 2. Récupérer les configurations de pricing depuis Configuration
       const pricingConfigs = await this.getConfigurations({
         category: ConfigurationCategory.PRICING,
-        onlyActive: true
+        onlyActive: true,
       });
 
       for (const config of pricingConfigs) {
-        constants[config.key] = typeof config.value === 'number' ? config.value : parseFloat(config.value) || 0;
+        constants[config.key] =
+          typeof config.value === "number"
+            ? config.value
+            : parseFloat(config.value) || 0;
       }
 
       // 3. Fallback vers DefaultValues si nécessaire
       if (Object.keys(constants).length === 0) {
-        logger.warn(`⚠️ Aucune constante de pricing trouvée, utilisation du fallback`);
+        logger.warn(
+          `⚠️ Aucune constante de pricing trouvée, utilisation du fallback`,
+        );
         return this.getFallbackPricingConstants(serviceType);
       }
 
-      logger.info(`💰 ${Object.keys(constants).length} constantes de pricing chargées`);
+      logger.info(
+        `💰 ${Object.keys(constants).length} constantes de pricing chargées`,
+      );
       return constants;
-
     } catch (error) {
-      logger.error(error as Error, `❌ Erreur lors du chargement des constantes de pricing`);
+      logger.error(
+        error as Error,
+        `❌ Erreur lors du chargement des constantes de pricing`,
+      );
       return this.getFallbackPricingConstants(serviceType);
     }
   }
@@ -412,7 +446,10 @@ export class UnifiedDataService {
   /**
    * Évalue une règle avec des conditions
    */
-  evaluateRule(rule: UnifiedRule, context: Record<string, any>): { applies: boolean; value: number } {
+  evaluateRule(
+    rule: UnifiedRule,
+    context: Record<string, any>,
+  ): { applies: boolean; value: number } {
     // Si pas de condition, la règle s'applique toujours
     if (!rule.condition) {
       return { applies: true, value: rule.value };
@@ -423,7 +460,9 @@ export class UnifiedDataService {
 
       // Conditions temporelles
       if (condition.when?.dayOfWeek) {
-        const currentDay = new Date().toLocaleDateString('en', { weekday: 'long' }).toLowerCase();
+        const currentDay = new Date()
+          .toLocaleDateString("en", { weekday: "long" })
+          .toLowerCase();
         if (!condition.when.dayOfWeek.includes(currentDay)) {
           return { applies: false, value: 0 };
         }
@@ -439,9 +478,11 @@ export class UnifiedDataService {
       // Autres conditions métier...
 
       return { applies: true, value: rule.value };
-
     } catch (error) {
-      logger.error(error as Error, `❌ Erreur lors de l'évaluation de la règle ${rule.id}`);
+      logger.error(
+        error as Error,
+        `❌ Erreur lors de l'évaluation de la règle ${rule.id}`,
+      );
       return { applies: false, value: 0 };
     }
   }
@@ -458,7 +499,7 @@ export class UnifiedDataService {
     this.configCache.clear();
     this.ruleTimestamp.clear();
     this.configTimestamp.clear();
-    logger.info('🗑️ Tous les caches vidés');
+    logger.info("🗑️ Tous les caches vidés");
   }
 
   /**
@@ -466,8 +507,10 @@ export class UnifiedDataService {
    */
   invalidateCache(serviceType?: ServiceType): void {
     if (serviceType) {
-      const keysToDelete = Array.from(this.ruleCache.keys()).filter(key => key.includes(serviceType));
-      keysToDelete.forEach(key => {
+      const keysToDelete = Array.from(this.ruleCache.keys()).filter((key) =>
+        key.includes(serviceType),
+      );
+      keysToDelete.forEach((key) => {
         this.ruleCache.delete(key);
         this.ruleTimestamp.delete(key);
       });
@@ -484,7 +527,12 @@ export class UnifiedDataService {
   /**
    * Met à jour une configuration et invalide le cache
    */
-  async updateConfiguration(category: ConfigurationCategory, key: string, value: any, description?: string): Promise<void> {
+  async updateConfiguration(
+    category: ConfigurationCategory,
+    key: string,
+    value: any,
+    description?: string,
+  ): Promise<void> {
     try {
       logger.info(`🔧 Mise à jour configuration ${category}.${key} = ${value}`);
 
@@ -493,8 +541,8 @@ export class UnifiedDataService {
         where: {
           category_key: {
             category: category as string,
-            key
-          }
+            key,
+          },
         },
         create: {
           id: `${category}_${key}_${Date.now()}`,
@@ -504,24 +552,28 @@ export class UnifiedDataService {
           description: description || `Configuration ${key}`,
           isActive: true,
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
         update: {
           value,
           description: description || undefined,
           isActive: true,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       // Invalider le cache des configurations
       this.configCache.clear();
       this.configTimestamp.clear();
 
-      logger.info(`✅ Configuration ${category}.${key} mise à jour avec succès`);
-
+      logger.info(
+        `✅ Configuration ${category}.${key} mise à jour avec succès`,
+      );
     } catch (error) {
-      logger.error(error as Error, `❌ Erreur mise à jour configuration ${category}.${key}`);
+      logger.error(
+        error as Error,
+        `❌ Erreur mise à jour configuration ${category}.${key}`,
+      );
       throw error;
     }
   }
@@ -530,21 +582,29 @@ export class UnifiedDataService {
   // MÉTHODES PRIVÉES
   // ========================================
 
-  private isCacheValid(cacheKey: string, timestampMap: Map<string, number>): boolean {
+  private isCacheValid(
+    cacheKey: string,
+    timestampMap: Map<string, number>,
+  ): boolean {
     const timestamp = timestampMap.get(cacheKey);
     if (!timestamp) return false;
     return Date.now() - timestamp < this.CACHE_TTL;
   }
 
   private getFallbackRules(query: RuleQuery): UnifiedRule[] {
-    logger.warn(`🔄 Utilisation des règles de fallback depuis DefaultValues pour ${query.serviceType || 'ALL'}`);
+    logger.warn(
+      `🔄 Utilisation des règles de fallback depuis DefaultValues pour ${query.serviceType || "ALL"}`,
+    );
 
     const fallbackRules: UnifiedRule[] = [];
     const now = new Date();
 
     // 🎯 RÈGLES SPÉCIFIQUES PAR SERVICE TYPE
     if (query.serviceType) {
-      const serviceKey = query.serviceType as 'MOVING' | 'CLEANING' | 'DELIVERY';
+      const serviceKey = query.serviceType as
+        | "MOVING"
+        | "CLEANING"
+        | "DELIVERY";
       const defaultRules = DefaultValues.getDefaultRulesForService(serviceKey);
 
       // Convertir les contraintes en UnifiedRule
@@ -556,13 +616,16 @@ export class UnifiedDataService {
             description: rule.description,
             serviceType: query.serviceType!,
             ruleType: RuleType.BUSINESS,
-            category: rule.category === 'FIXED' ? RuleCategory.FIXED : RuleCategory.SURCHARGE,
+            category:
+              rule.category === "FIXED"
+                ? RuleCategory.FIXED
+                : RuleCategory.SURCHARGE,
             value: rule.value,
-            percentBased: rule.category !== 'FIXED',
+            percentBased: rule.category !== "FIXED",
             priority: 900 + index,
             validFrom: now,
-            tags: ['fallback', 'constraint'],
-            isActive: true
+            tags: ["fallback", "constraint"],
+            isActive: true,
           });
         });
       }
@@ -581,8 +644,8 @@ export class UnifiedDataService {
             percentBased: false,
             priority: 950 + index,
             validFrom: now,
-            tags: ['fallback', 'service'],
-            isActive: true
+            tags: ["fallback", "service"],
+            isActive: true,
           });
         });
       }
@@ -602,13 +665,16 @@ export class UnifiedDataService {
             description: rule.description,
             serviceType,
             ruleType: RuleType.BUSINESS,
-            category: rule.category === 'FIXED' ? RuleCategory.FIXED : RuleCategory.SURCHARGE,
+            category:
+              rule.category === "FIXED"
+                ? RuleCategory.FIXED
+                : RuleCategory.SURCHARGE,
             value: rule.value,
-            percentBased: rule.category !== 'FIXED',
+            percentBased: rule.category !== "FIXED",
             priority: 900 + ruleIndex++,
             validFrom: now,
-            tags: ['fallback', 'constraint'],
-            isActive: true
+            tags: ["fallback", "constraint"],
+            isActive: true,
           });
         });
 
@@ -625,8 +691,8 @@ export class UnifiedDataService {
             percentBased: false,
             priority: 950 + ruleIndex++,
             validFrom: now,
-            tags: ['fallback', 'service'],
-            isActive: true
+            tags: ["fallback", "service"],
+            isActive: true,
           });
         });
       });
@@ -636,66 +702,78 @@ export class UnifiedDataService {
     let filteredRules = fallbackRules;
 
     if (query.ruleType) {
-      filteredRules = filteredRules.filter(rule => rule.ruleType === query.ruleType);
-    }
-
-    if (query.category) {
-      filteredRules = filteredRules.filter(rule => rule.category === query.category);
-    }
-
-    if (query.tags && query.tags.length > 0) {
-      filteredRules = filteredRules.filter(rule =>
-        query.tags!.some(tag => rule.tags.includes(tag))
+      filteredRules = filteredRules.filter(
+        (rule) => rule.ruleType === query.ruleType,
       );
     }
 
-    logger.info(`✅ ${filteredRules.length} règles de fallback générées pour ${query.serviceType || 'ALL'}`);
+    if (query.category) {
+      filteredRules = filteredRules.filter(
+        (rule) => rule.category === query.category,
+      );
+    }
+
+    if (query.tags && query.tags.length > 0) {
+      filteredRules = filteredRules.filter((rule) =>
+        query.tags!.some((tag) => rule.tags.includes(tag)),
+      );
+    }
+
+    logger.info(
+      `✅ ${filteredRules.length} règles de fallback générées pour ${query.serviceType || "ALL"}`,
+    );
     return filteredRules;
   }
 
-  private getFallbackPricingConstants(serviceType?: ServiceType): Record<string, number> {
+  private getFallbackPricingConstants(
+    serviceType?: ServiceType,
+  ): Record<string, number> {
     switch (serviceType) {
       case ServiceType.MOVING:
         return {
-          'MOVING_BASE_PRICE_PER_M3': DefaultValues.MOVING_BASE_PRICE_PER_M3,
-          'MOVING_DISTANCE_PRICE_PER_KM': DefaultValues.UNIT_PRICE_PER_KM,
-          'MOVING_TRUCK_PRICE': DefaultValues.VEHICLE_FLAT_FEE,
-          'SERVICE_WORKER_PRICE_PER_HOUR': DefaultValues.WORKER_HOUR_RATE,
-          'FUEL_PRICE_PER_LITER': DefaultValues.FUEL_PRICE_PER_LITER,
-          'TOLL_COST_PER_KM': DefaultValues.TOLL_COST_PER_KM,
-          'MOVING_FREE_DISTANCE_KM': DefaultValues.INCLUDED_DISTANCE
+          MOVING_BASE_PRICE_PER_M3: DefaultValues.MOVING_BASE_PRICE_PER_M3,
+          MOVING_DISTANCE_PRICE_PER_KM:
+            DefaultValues.MOVING_DISTANCE_PRICE_PER_KM, // ✅ Corrigé
+          MOVING_TRUCK_PRICE: DefaultValues.MOVING_TRUCK_PRICE, // ✅ Corrigé
+          SERVICE_WORKER_PRICE_PER_HOUR:
+            DefaultValues.SERVICE_WORKER_PRICE_PER_HOUR, // ✅ Corrigé
+          FUEL_PRICE_PER_LITER: DefaultValues.FUEL_PRICE_PER_LITER,
+          TOLL_COST_PER_KM: DefaultValues.TOLL_COST_PER_KM,
+          MOVING_FREE_DISTANCE_KM: DefaultValues.MOVING_FREE_DISTANCE_KM, // ✅ Corrigé
         };
       case ServiceType.PACKING:
         return {
-          'PACK_WORKER_PRICE': DefaultValues.PACKING_WORKER_PRICE,
-          'PACK_INCLUDED_DISTANCE': DefaultValues.INCLUDED_DISTANCE,
-          'PACK_EXTRA_KM_PRICE': DefaultValues.EXTRA_KM_PRICE,
-          'SERVICE_WORKER_PRICE_PER_HOUR': DefaultValues.WORKER_HOUR_RATE
+          PACK_WORKER_PRICE: DefaultValues.PACKING_WORKER_PRICE,
+          PACK_INCLUDED_DISTANCE: DefaultValues.INCLUDED_DISTANCE,
+          PACK_EXTRA_KM_PRICE: DefaultValues.UNIT_PRICE_PER_KM, // ✅ Corrigé (utiliser UNIT_PRICE_PER_KM qui existe)
+          SERVICE_WORKER_PRICE_PER_HOUR:
+            DefaultValues.SERVICE_WORKER_PRICE_PER_HOUR, // ✅ Corrigé
         };
       case ServiceType.CLEANING:
         return {
-          'CLEANING_PRICE_PER_M2': DefaultValues.CLEANING_PRICE_PER_M2,
-          'CLEANING_WORKER_PRICE': DefaultValues.CLEANING_WORKER_PRICE,
-          'CLEANING_WORKER_HOUR_RATE': DefaultValues.CLEANING_WORKER_HOUR_RATE,
-          'CLEANING_MINIMUM_PRICE': DefaultValues.CLEANING_MINIMUM_PRICE
+          CLEANING_PRICE_PER_M2: DefaultValues.CLEANING_PRICE_PER_M2,
+          CLEANING_WORKER_PRICE: DefaultValues.CLEANING_WORKER_PRICE,
+          CLEANING_WORKER_HOUR_RATE: DefaultValues.CLEANING_WORKER_HOUR_RATE,
+          CLEANING_MINIMUM_PRICE: DefaultValues.CLEANING_MINIMUM_PRICE,
         };
       case ServiceType.DELIVERY:
         return {
-          'DELIVERY_BASE_PRICE': DefaultValues.DELIVERY_BASE_PRICE,
-          'DELIVERY_PRICE_PER_KM': DefaultValues.DELIVERY_PRICE_PER_KM,
-          'DELIVERY_WORKER_HOUR_RATE': DefaultValues.DELIVERY_WORKER_HOUR_RATE,
-          'DELIVERY_WEIGHT_SURCHARGE': DefaultValues.DELIVERY_WEIGHT_SURCHARGE
+          DELIVERY_BASE_PRICE: DefaultValues.DELIVERY_BASE_PRICE,
+          DELIVERY_PRICE_PER_KM: DefaultValues.DELIVERY_PRICE_PER_KM,
+          DELIVERY_WORKER_HOUR_RATE: DefaultValues.DELIVERY_WORKER_HOUR_RATE,
+          DELIVERY_WEIGHT_SURCHARGE: DefaultValues.DELIVERY_WEIGHT_SURCHARGE,
         };
       case ServiceType.SERVICE:
         return {
-          'SERVICE_WORKER_PRICE_PER_HOUR': DefaultValues.WORKER_HOUR_RATE
+          SERVICE_WORKER_PRICE_PER_HOUR:
+            DefaultValues.SERVICE_WORKER_PRICE_PER_HOUR, // ✅ Corrigé
         };
       default:
-        // Filtrer pour ne retourner que les valeurs numériques
+        // ✅ Filtrer pour ne retourner que les valeurs numériques
         const allValues = DefaultValues.getAllValues();
         const numericValues: Record<string, number> = {};
         for (const [key, value] of Object.entries(allValues)) {
-          if (typeof value === 'number') {
+          if (typeof value === "number") {
             numericValues[key] = value;
           }
         }

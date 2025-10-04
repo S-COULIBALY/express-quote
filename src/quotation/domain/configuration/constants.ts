@@ -4,7 +4,7 @@
  * Les détections automatiques utilisent AutoDetectionService
  */
 
-import { DefaultValues } from './DefaultValues';
+import { DefaultValues } from "./DefaultValues";
 
 export const PRICE_CONSTANTS = {
   DEFAULT_CURRENCY: DefaultValues.DEFAULT_CURRENCY,
@@ -23,9 +23,13 @@ export const CLEANING_CONSTANTS = {
 /**
  * Calcule le surcoût d'étage sans ascenseur
  */
-export const calculateFloorSurcharge = (floor: number, elevator: string, volume?: number): number => {
+export const calculateFloorSurcharge = (
+  floor: number,
+  elevator: string,
+  volume?: number,
+): number => {
   const floorNumber = parseInt(floor.toString()) || 0;
-  const hasElevator = elevator && elevator !== 'no';
+  const hasElevator = elevator && elevator !== "no";
 
   const FLOOR_SURCHARGE_THRESHOLD = 1;
   const FLOOR_SURCHARGE_AMOUNT = 25;
@@ -39,10 +43,10 @@ export const calculateFloorSurcharge = (floor: number, elevator: string, volume?
 };
 
 /**
- * Retourne le prix du monte-meuble depuis DefaultValues
+ * ✅ Retourne le prix du monte-meuble depuis DefaultValues (APRÈS NETTOYAGE)
  */
 export const calculateFurnitureLiftPrice = (): number => {
-  return DefaultValues.LIFT_PRICE;
+  return DefaultValues.MOVING_LIFT_PRICE; // ✅ Corrigé (anciennement LIFT_PRICE)
 };
 
 /**
@@ -57,4 +61,4 @@ export const validateConstraints = (constraints: string[]): string[] => {
  */
 export const validateServices = (services: string[]): string[] => {
   return services;
-}; 
+};
