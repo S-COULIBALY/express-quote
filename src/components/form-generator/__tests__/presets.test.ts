@@ -5,12 +5,6 @@ import {
 } from "../presets/catalogueMovingItem-service/catalogueMovingItemPresets";
 
 import {
-  CatalogueCleaningItemPreset,
-  catalogueCleaningItemSummaryConfig,
-  catalogueCleaningItemDefaultValues,
-} from "../presets/catalogueCleaningItem-service/catalogueCleaningItemPresets";
-
-import {
   DemenagementSurMesurePreset,
   getDemenagementSurMesureServiceConfig,
 } from "../presets/demenagement-sur-mesure-service";
@@ -285,7 +279,6 @@ describe("Presets", () => {
     it("handles missing optional properties", () => {
       const presets = [
         CatalogueMovingItemPreset,
-        CatalogueCleaningItemPreset,
         DemenagementSurMesurePreset,
         MenageSurMesurePreset,
       ];
@@ -305,7 +298,6 @@ describe("Presets", () => {
     it("supports extended configurations", () => {
       const presets = [
         CatalogueMovingItemPreset,
-        CatalogueCleaningItemPreset,
         DemenagementSurMesurePreset,
         MenageSurMesurePreset,
       ];

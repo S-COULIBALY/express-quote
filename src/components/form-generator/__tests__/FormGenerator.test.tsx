@@ -2,7 +2,6 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { FormGenerator } from "../FormGenerator";
 import { CatalogueMovingItemPreset } from "../presets/catalogueMovingItem-service/catalogueMovingItemPresets";
-import { CatalogueCleaningItemPreset } from "../presets/catalogueCleaningItem-service/catalogueCleaningItemPresets";
 
 describe("FormGenerator", () => {
   // Configuration de base pour les tests
