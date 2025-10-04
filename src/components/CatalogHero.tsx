@@ -109,57 +109,59 @@ export const CatalogHero: React.FC<CatalogHeroProps> = ({
         </Link>
 
         {/* Section 1: En-tête avec titre et badges */}
-        <div className="text-center mobile-mb-4 sm:mb-4">
-          <div className="flex items-center justify-center mobile-gap-2 mobile-mb-2 sm:mb-2">
-            <span className="text-2xl sm:text-3xl">{categoryIcon}</span>
-            <span
-              className={`text-xs font-medium mobile-px-3 mobile-py-1 rounded-full ${colors.background} ${colors.text}`}
-            >
-              {catalogSelection.category.toLowerCase().replace("_", " ")}
-              {catalogSelection.subcategory &&
-                ` • ${catalogSelection.subcategory}`}
-            </span>
+        <div className="text-center mobile-mb-6 sm:mb-6">
+          {/* Catégorie et badges */}
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <div className={`p-2 rounded-lg ${colors.background}`}>
+              <span className="text-2xl">{categoryIcon}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {catalogSelection.isFeatured && (
+                <span className="inline-flex items-center gap-1 bg-yellow-500 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                  ⭐ Populaire
+                </span>
+              )}
+              {catalogSelection.isNewOffer && (
+                <span className="inline-flex items-center gap-1 bg-green-500 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                  ✨ Nouveau
+                </span>
+              )}
+              {hasPromotion && (
+                <span className="inline-flex items-center gap-1 bg-red-500 text-white text-xs font-medium px-2 py-0.5 rounded-full">
+                  🔥{" "}
+                  {catalogSelection.promotionType === "PERCENT"
+                    ? `-${discountPercentage}%`
+                    : `-${catalogSelection.promotionValue}€`}
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Badges */}
-          <div className="flex items-center justify-center flex-wrap mobile-gap-2 sm:gap-1.5 mobile-mb-3 sm:mb-3">
-            {catalogSelection.isFeatured && (
-              <span className="bg-yellow-500 text-white text-xs font-bold mobile-px-3 mobile-py-1 rounded-full whitespace-nowrap">
-                ⭐ Populaire
-              </span>
+          {/* Titre et sous-titre */}
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 leading-tight">
+              {catalogSelection.marketingTitle || item.name}
+            </h1>
+
+            {catalogSelection.marketingSubtitle && (
+              <p className="text-sm sm:text-base text-gray-600">
+                {catalogSelection.marketingSubtitle}
+              </p>
             )}
-            {catalogSelection.isNewOffer && (
-              <span className="bg-green-500 text-white text-xs font-bold mobile-px-3 mobile-py-1 rounded-full whitespace-nowrap">
-                ✨ Nouveau
-              </span>
-            )}
-            {catalogSelection.badgeText && (
+          </div>
+
+          {/* Badge supplémentaire */}
+          {catalogSelection.badgeText && (
+            <div className="mt-3">
               <span
-                className="text-white text-xs font-bold mobile-px-3 mobile-py-1 rounded-full whitespace-nowrap"
+                className="inline-flex items-center gap-1 text-white text-xs font-medium px-2 py-0.5 rounded-full"
                 style={{
                   backgroundColor: catalogSelection.badgeColor || "#E67E22",
                 }}
               >
-                {catalogSelection.badgeText}
+                🎯 {catalogSelection.badgeText}
               </span>
-            )}
-            {hasPromotion && (
-              <span className="bg-red-500 text-white text-xs font-bold mobile-px-3 mobile-py-1 rounded-full shadow-lg whitespace-nowrap">
-                {catalogSelection.promotionType === "PERCENT"
-                  ? `-${discountPercentage}%`
-                  : `-${catalogSelection.promotionValue}€`}
-              </span>
-            )}
-          </div>
-
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mobile-mb-2 sm:mb-2 leading-tight">
-            {catalogSelection.marketingTitle || item.name}
-          </h1>
-
-          {catalogSelection.marketingSubtitle && (
-            <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
-              {catalogSelection.marketingSubtitle}
-            </p>
+            </div>
           )}
         </div>
 
