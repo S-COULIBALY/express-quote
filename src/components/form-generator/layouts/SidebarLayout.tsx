@@ -402,9 +402,9 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
           </div>
 
           {/* Sidebar - 40% */}
-          {sidebarContent && (
+          {view && (
             <div className="lg:w-[40%]">
-              <div className="sticky top-6 self-start">{sidebarContent}</div>
+              <div className="sticky top-6 self-start">{view}</div>
             </div>
           )}
         </div>
