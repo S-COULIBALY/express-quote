@@ -22,14 +22,11 @@ export { FormStylesSimplified } from "./styles/FormStylesSimplified";
 // 🛠 Utilitaires
 export * from "./utils";
 
-// 🔄 Utilitaires de migration
-export * from "./utils/migrationHelper";
-
-// 🚀 Exports de convenance pour migration facile
-export type { 
-  FormConfig, 
-  FormField, 
-  FormSection, 
+// 🚀 Exports de convenance
+export type {
+  FormConfig,
+  FormField,
+  FormSection,
   FormGeneratorProps,
   FormSummaryConfig,
   PresetConfig,
@@ -41,5 +38,5 @@ export type {
   GlobalAccessibilityConfig,
   GlobalUIElementsConfig,
   GlobalValidationConfig,
-  GlobalInteractionsConfig
-} from "./types"; 
+  GlobalInteractionsConfig,
+} from "./types";
