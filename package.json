@@ -41,7 +41,8 @@
     "pre-prod-check:fast": "ts-node scripts/pre-production-check.ts --skip-tests --skip-lint",
     "project-status": "ts-node scripts/project-status.ts",
     "clean": "ts-node scripts/clean-project.ts",
-    "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
+    "validate-catalogue": "ts-node scripts/validate-catalogue-build.ts"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"

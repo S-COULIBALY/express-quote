@@ -1,8 +1,4 @@
-// Export all layouts
+// Export des layouts actifs
 export { DefaultLayout } from "./DefaultLayout";
 export { SidebarLayout } from "./SidebarLayout";
-export { AuthLayout } from "./AuthLayout";
-export { PackageLayout } from "./PackageLayout";
-export { PackageEditLayout } from "./PackageEditLayout";
-export { PackageCardLayout } from "./PackageCardLayout";
-export { ServiceSummaryLayout } from "./ServiceSummaryLayout"; 
+export { ServiceSummaryLayout } from "./ServiceSummaryLayout";

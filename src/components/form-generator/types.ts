@@ -1,12 +1,12 @@
 // Réexporter toutes les interfaces du fichier form.ts
-export * from './types/form';
+export * from "./types/form";
 
 // Réexporter les interfaces des presets
-export * from './types/presets';
+export * from "./types/presets";
 
 // Nouvelles interfaces pour la configuration adaptable des services
 export interface PricingRule {
-  type: 'hourly' | 'per_worker' | 'flat_fee' | 'custom';
+  type: "hourly" | "per_worker" | "flat_fee" | "custom";
   rate: number;
   label: string;
   unit?: string;
@@ -56,9 +56,9 @@ export interface ServiceSummaryOptions {
     price: number;
     duration: number;
     workers: number;
-    type?: 'cleaning' | 'moving' | 'package' | 'maintenance' | 'other';
+    type?: "cleaning" | "moving" | "package" | "maintenance" | "other";
   };
-  
+
   // Données du devis
   quoteDetails: {
     id: string;
@@ -69,21 +69,24 @@ export interface ServiceSummaryOptions {
     additionalInfo?: string;
     calculatedPrice: number;
   };
-  
+
   // Configuration adaptable par type de service
   serviceConfig?: ServiceConfig;
-  
-  // Configuration d'affichage (legacy, maintenant dans serviceConfig)
+
+  // Configuration d'affichage
   showInsurance?: boolean;
   insurancePrice?: number;
   vatRate?: number;
-  
+
   // Callbacks
   onEditQuote?: () => void;
-  onConfirmQuote?: (customerData: CustomerFormData, hasInsurance: boolean) => void;
+  onConfirmQuote?: (
+    customerData: CustomerFormData,
+    hasInsurance: boolean,
+  ) => void;
   onInsuranceChange?: (hasInsurance: boolean, newTotal: number) => void;
   onBack?: () => void;
-  
+
   // Customisation
   title?: string;
   description?: string;
@@ -92,31 +95,31 @@ export interface ServiceSummaryOptions {
     showGaranties?: boolean;
     showCustomerForm?: boolean;
   };
-  
+
   // État de chargement
   isLoading?: boolean;
-  saveStatus?: 'saving' | 'saved' | 'error' | null;
+  saveStatus?: "saving" | "saved" | "error" | null;
 }
 
-// Interfaces pour les layouts (définies après l'import de PackageOption)
+// Interfaces pour les layouts
 export interface DefaultLayoutOptions {
   // Options pour le layout par défaut
 }
 
 export interface SidebarLayoutOptions {
-  autoSummary?: "moving" | "pack" | "contact" | React.ComponentType<any>;
-  summaryConfig?: any;
+  autoSummary?: "moving" | "pack" | "contact" | React.ComponentType;
+  summaryConfig?: Record<string, unknown>;
   // Nouvelles fonctionnalités du SidebarLayout amélioré
   showPriceCalculation?: boolean;
   showConstraintsByAddress?: boolean;
   showModificationsSummary?: boolean;
   initialPrice?: number;
-  externalCalculatedPrice?: number; // ✅ Ajouter le prix calculé externe
+  externalCalculatedPrice?: number;
   onPriceCalculated?: (price: number) => void;
   priceModifications?: Array<{
     label: string;
     amount: number;
-    condition?: (formData: any) => boolean;
+    condition?: (formData: Record<string, unknown>) => boolean;
   }>;
   headerActions?: React.ReactNode;
   serviceInfo?: {
@@ -130,60 +133,12 @@ export interface SidebarLayoutOptions {
   };
 }
 
-export interface AuthLayoutOptions {
-  logo?: React.ReactNode | string;
-  showSecurityBadge?: boolean;
-  footerLinks?: Array<{
-    label: string;
-    href?: string;
-    onClick?: () => void;
-  }>;
-  backgroundImage?: string;
-  variant?: "centered" | "split" | "minimal";
-  // Providers de confiance
-  trustedProviders?: {
-    enabled?: boolean;
-    title?: string;
-    providers?: Array<{
-      name: string;
-      label: string;
-      icon?: React.ReactNode;
-      onClick: () => void;
-      bgColor?: string;
-      textColor?: string;
-      borderColor?: string;
-    }>;
-  };
-}
-
-// Import du type PackageOption depuis form.ts
-import type { PackageOption } from './types/form';
-
-export interface PackageLayoutOptions {
-  packages: PackageOption[];
-  selectedPackage?: string;
-  onKeepPackage?: (packageId: string, formData: any) => void;
-  onCustomizePackage?: (packageId: string, formData: any) => void;
-  customizationTitle?: string;
-}
-
-export interface PackageCardLayoutOptions {
-  packages: PackageOption[];
-  onSelectPackage?: (packageId: string, packageData: PackageOption) => void;
-  cardStyle?: "compact" | "detailed";
-  showPricing?: boolean;
-  columns?: 1 | 2 | 3 | 4;
-}
-
-export interface PackageEditLayoutOptions {
-  selectedPackage: PackageOption;
-  initialData?: any;
-  onSave?: (packageData: any, formData: any) => void;
-  onCancel?: () => void;
-  editTitle?: string;
-  showPackageDetails?: boolean;
-  allowPackageModification?: boolean;
-}
-
 // Type pour les presets d'industrie
-export type IndustryPreset = "moving" | "cleaning" | "catalogueMovingItem" | "catalogueCleaningItem" | "catalogueDeliveryItem" | "contact" | "default" | "demenagement-sur-mesure" | "menage-sur-mesure"; 
+export type IndustryPreset =
+  | "catalogueMovingItem"
+  | "catalogueCleaningItem"
+  | "catalogueDeliveryItem"
+  | "demenagement-sur-mesure"
+  | "menage-sur-mesure"
+  | "contact"
+  | "default";
