@@ -1,11 +1,11 @@
-import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
-import { CatalogHero } from '@/components/CatalogHero';
-import { DetailForm } from '@/components/DetailForm';
-import { CatalogData } from '@/hooks/useCatalogPreFill';
-import { FormStylesSimplified } from '@/components/form-generator/styles/FormStylesSimplified';
-import { globalFormPreset } from '@/components/form-generator/presets/_shared/globalPreset';
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { CatalogHero } from "@/components/CatalogHero";
+import { DetailForm } from "@/components/DetailForm";
+import { CatalogData } from "@/hooks/useCatalogPreFill";
+import { FormStylesSimplified } from "@/components/form-generator/styles/FormStylesSimplified";
+import { globalFormPreset } from "@/components/form-generator/presets/_shared/globalPreset";
 
 interface CatalogDetailPageProps {
   params: { catalogId: string };
@@ -13,180 +13,151 @@ interface CatalogDetailPageProps {
 
 // Cache global persistant qui survit aux recompilations
 declare global {
-  var __catalogCache: Map<string, { data: CatalogData | null; timestamp: number }> | undefined;
+  let __catalogCache:
+    | Map<string, { data: CatalogData | null; timestamp: number }>
+    | undefined;
 }
 
-const catalogCache = globalThis.__catalogCache ?? new Map<string, { data: CatalogData | null; timestamp: number }>();
+const catalogCache =
+  globalThis.__catalogCache ??
+  new Map<string, { data: CatalogData | null; timestamp: number }>();
 globalThis.__catalogCache = catalogCache;
 
 const CACHE_DURATION = 300000; // 5 minutes (plus long pour éviter les re-fetches)
 
 // Fonction pour récupérer les données du catalogue avec cache partagé
 async function getCatalogData(catalogId: string): Promise<CatalogData | null> {
-  console.log(`🔍 [CACHE] getCatalogData appelé pour ${catalogId} - Taille cache: ${catalogCache.size}`);
-  
   // Vérifier le cache en premier
   const cached = catalogCache.get(catalogId);
   const now = Date.now();
-  
+
   if (cached) {
     const age = now - cached.timestamp;
-    console.log(`📊 [CACHE] Cache trouvé pour ${catalogId} - Age: ${age}ms, Valid: ${age < CACHE_DURATION}`);
-    
     if (age < CACHE_DURATION) {
-      console.log(`🎯 [CACHE] Cache hit pour ${catalogId} - Retour des données en cache`);
       return cached.data;
-    } else {
-      console.log(`⏰ [CACHE] Cache expiré pour ${catalogId} - Rechargement nécessaire`);
     }
-  } else {
-    console.log(`❌ [CACHE] Aucun cache trouvé pour ${catalogId}`);
   }
 
   const maxRetries = 3;
   const retryDelay = 1000;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`🚀 [API] Tentative ${attempt}/${maxRetries} - Fetch catalogue ${catalogId}`);
-      
-      const url = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/catalogue/${catalogId}`;
-      console.log(`🌐 [API] URL: ${url}`);
-      
+      const url = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/catalogue/${catalogId}`;
       const response = await fetch(url, {
-        next: { 
+        next: {
           revalidate: 3600, // 1 heure
-          tags: [`catalogue-${catalogId}`]
-        }
+          tags: [`catalogue-${catalogId}`],
+        },
       });
-
-      console.log(`📡 [API] Response status: ${response.status} pour ${catalogId}`);
 
       if (!response.ok) {
         if (response.status === 404) {
-          console.log(`❌ [API] Élément catalogue ${catalogId} non trouvé (404)`);
           catalogCache.set(catalogId, { data: null, timestamp: Date.now() });
           return null;
         }
-        throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(
+          `Erreur HTTP ${response.status}: ${response.statusText}`,
+        );
       }
 
       const response_data = await response.json();
-      console.log(`✅ [API] Catalogue ${catalogId} récupéré avec succès - Réponse:`, {
-        hasResponse: !!response_data,
-        success: response_data.success,
-        hasData: !!response_data.data
-      });
-
-      // Extraire les données du format API { success: true, data: { catalogSelection, item } }
       const catalogData = response_data.success ? response_data.data : null;
 
       if (!catalogData || !catalogData.catalogSelection) {
-        console.log(`❌ [API] Format de données invalide pour ${catalogId}`);
         catalogCache.set(catalogId, { data: null, timestamp: Date.now() });
         return null;
       }
-
-      console.log(`✅ [API] Données extraites pour ${catalogId}:`, {
-        catalogSelectionId: catalogData.catalogSelection?.id,
-        itemId: catalogData.item?.id
-      });
 
       // Mettre en cache les données extraites
       const cacheEntry = { data: catalogData, timestamp: Date.now() };
       catalogCache.set(catalogId, cacheEntry);
-      console.log(`💾 [CACHE] Données mises en cache pour ${catalogId} - Nouvelle taille: ${catalogCache.size}`);
 
       return catalogData;
-      
     } catch (error) {
-      console.error(`❌ Tentative ${attempt}/${maxRetries} échouée:`, error);
-      
       if (attempt === maxRetries) {
-        console.error(`💥 Échec définitif après ${maxRetries} tentatives pour ${catalogId}`);
         catalogCache.set(catalogId, { data: null, timestamp: Date.now() });
         return null;
       }
-      
+
       const delay = retryDelay * Math.pow(2, attempt - 1);
-      console.log(`⏳ Attente de ${delay}ms avant nouvelle tentative...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-  
+
   return null;
 }
 
 // Métadonnées dynamiques avec gestion d'erreur améliorée
-export async function generateMetadata({ params }: CatalogDetailPageProps): Promise<Metadata> {
-  const timestamp = new Date().toISOString();
-  console.log(`📋 [METADATA] generateMetadata DÉMARRÉ pour catalogId: ${params.catalogId} à ${timestamp}`);
-  
+export async function generateMetadata({
+  params,
+}: CatalogDetailPageProps): Promise<Metadata> {
   try {
-    console.log(`🔄 [METADATA] Appel getCatalogData pour ${params.catalogId}`);
     // Utiliser le même cache que le composant
     const catalogData = await getCatalogData(params.catalogId);
-    
-    console.log(`📊 [METADATA] Données récupérées pour ${params.catalogId}:`, {
-      hasData: !!catalogData,
-      catalogSelectionId: catalogData?.catalogSelection?.id,
-      itemId: catalogData?.item?.id
-    });
-    
+
     if (!catalogData) {
       return {
-        title: 'Élément non trouvé - Express Quote',
-        description: 'Cet élément du catalogue n\'existe pas ou n\'est plus disponible.',
+        title: "Élément non trouvé - Express Quote",
+        description:
+          "Cet élément du catalogue n'existe pas ou n'est plus disponible.",
       };
     }
 
     const { catalogSelection, item } = catalogData;
     const title = catalogSelection.marketingTitle || item.name;
-    const description = catalogSelection.marketingDescription || item.description || '';
+    const description =
+      catalogSelection.marketingDescription || item.description || "";
     const price = catalogSelection.marketingPrice || item.price;
 
     return {
       title: `${title} - Express Quote`,
-      description: description.length > 160 ? description.substring(0, 157) + '...' : description,
+      description:
+        description.length > 160
+          ? description.substring(0, 157) + "..."
+          : description,
       openGraph: {
         title: `${title} - Express Quote`,
         description: description,
-        images: item.imagePath ? [
-          {
-            url: item.imagePath,
-            width: 1200,
-            height: 630,
-            alt: title,
-          }
-        ] : [],
-        type: 'website',
+        images: item.imagePath
+          ? [
+              {
+                url: item.imagePath,
+                width: 1200,
+                height: 630,
+                alt: title,
+              },
+            ]
+          : [],
+        type: "website",
       },
       twitter: {
-        card: 'summary_large_image',
+        card: "summary_large_image",
         title: `${title} - Express Quote`,
         description: description,
         images: item.imagePath ? [item.imagePath] : [],
       },
       other: {
-        'price:amount': price.toString(),
-        'price:currency': 'EUR',
-        'product:category': catalogSelection.category,
-        'product:availability': 'in stock',
+        "price:amount": price.toString(),
+        "price:currency": "EUR",
+        "product:category": catalogSelection.category,
+        "product:availability": "in stock",
       },
       keywords: [
         catalogSelection.category.toLowerCase(),
-        catalogSelection.subcategory || '',
-        'devis',
-        'réservation',
-        'service',
-        'express quote'
+        catalogSelection.subcategory || "",
+        "devis",
+        "réservation",
+        "service",
+        "express quote",
       ].filter(Boolean),
     };
   } catch (error) {
-    console.error('Erreur lors de la génération des métadonnées:', error);
+    console.error("Erreur lors de la génération des métadonnées:", error);
     return {
-      title: 'Catalogue - Express Quote',
-      description: 'Découvrez nos services de déménagement, ménage et transport.',
+      title: "Catalogue - Express Quote",
+      description:
+        "Découvrez nos services de déménagement, ménage et transport.",
     };
   }
 }
@@ -361,37 +332,15 @@ const DetailFormSkeleton = () => (
 );
 
 // Composant principal avec gestion d'erreur améliorée
-export default async function CatalogDetailPage({ params }: CatalogDetailPageProps) {
-  console.log('🎯 [ÉTAPE 1] Navigation vers /catalogue/[catalogId] - User Click détecté');
-  console.log('📍 [ÉTAPE 1] Route params:', { catalogId: params.catalogId });
-  
-  const timestamp = new Date().toISOString();
-  console.log(`🏠 [ÉTAPE 3] CatalogDetailPage DÉMARRÉ pour catalogId: ${params.catalogId} à ${timestamp}`);
-  
-  console.log(`🔄 [ÉTAPE 3] Appel getCatalogData pour ${params.catalogId}`);
+export default async function CatalogDetailPage({
+  params,
+}: CatalogDetailPageProps) {
   // Utiliser le même cache que generateMetadata
   const catalogData = await getCatalogData(params.catalogId);
 
-  console.log('✅ [ÉTAPE 3] Données catalogue récupérées avec succès:', {
-    catalogId: params.catalogId,
-    hasData: !!catalogData,
-    category: catalogData?.catalogSelection?.category,
-    subcategory: catalogData?.catalogSelection?.subcategory,
-    serviceType: catalogData?.item?.type,
-    serviceName: catalogData?.item?.name,
-    price: catalogData?.item?.price,
-    duration: catalogData?.item?.duration,
-    workers: catalogData?.item?.workers,
-    dataSize: JSON.stringify(catalogData).length + ' bytes'
-  });
-
   if (!catalogData) {
-    console.log(`❌ [COMPONENT] Catalogue data not found pour ${params.catalogId}, calling notFound()`);
     notFound();
   }
-  
-  console.log('🎨 [ÉTAPE 3] Rendu des composants de la page - CatalogHero + DetailForm');
-  console.log('➡️ [FLUX] Passage à ÉTAPE 4 : Initialisation DetailForm');
 
   return (
     <div className="form-generator min-h-screen bg-gray-50 font-ios safe-area">
@@ -418,24 +367,44 @@ export default async function CatalogDetailPage({ params }: CatalogDetailPagePro
               <div className="bg-green-100 rounded-full p-3 w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
                 <span className="text-xl sm:text-2xl">⚡</span>
               </div>
-              <h3 className="text-mobile-lg font-semibold text-gray-900 mb-2 font-ios-semibold">Réservation instantanée</h3>
-              <p className="text-sm sm:text-base text-gray-600 font-ios">Réservez en quelques clics et recevez votre confirmation immédiatement</p>
+              <h3 className="text-mobile-lg font-semibold text-gray-900 mb-2 font-ios-semibold">
+                Réservation instantanée
+              </h3>
+              <p className="text-sm sm:text-base text-gray-600 font-ios">
+                Réservez en quelques clics et recevez votre confirmation
+                immédiatement
+              </p>
             </div>
 
-            <div className="text-center card-ios mobile-py-4 mobile-px-4 animate-fade-in-scale" style={{animationDelay: '0.1s'}}>
+            <div
+              className="text-center card-ios mobile-py-4 mobile-px-4 animate-fade-in-scale"
+              style={{ animationDelay: "0.1s" }}
+            >
               <div className="bg-blue-100 rounded-full p-3 w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
                 <span className="text-xl sm:text-2xl">🛡️</span>
               </div>
-              <h3 className="text-mobile-lg font-semibold text-gray-900 mb-2 font-ios-semibold">Assurance incluse</h3>
-              <p className="text-sm sm:text-base text-gray-600 font-ios">Tous nos services sont couverts par une assurance responsabilité civile</p>
+              <h3 className="text-mobile-lg font-semibold text-gray-900 mb-2 font-ios-semibold">
+                Assurance incluse
+              </h3>
+              <p className="text-sm sm:text-base text-gray-600 font-ios">
+                Tous nos services sont couverts par une assurance responsabilité
+                civile
+              </p>
             </div>
 
-            <div className="text-center card-ios mobile-py-4 mobile-px-4 animate-fade-in-scale" style={{animationDelay: '0.2s'}}>
+            <div
+              className="text-center card-ios mobile-py-4 mobile-px-4 animate-fade-in-scale"
+              style={{ animationDelay: "0.2s" }}
+            >
               <div className="bg-purple-100 rounded-full p-3 w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
                 <span className="text-xl sm:text-2xl">⭐</span>
               </div>
-              <h3 className="text-mobile-lg font-semibold text-gray-900 mb-2 font-ios-semibold">Service premium</h3>
-              <p className="text-sm sm:text-base text-gray-600 font-ios">Équipe professionnelle formée avec matériel de qualité</p>
+              <h3 className="text-mobile-lg font-semibold text-gray-900 mb-2 font-ios-semibold">
+                Service premium
+              </h3>
+              <p className="text-sm sm:text-base text-gray-600 font-ios">
+                Équipe professionnelle formée avec matériel de qualité
+              </p>
             </div>
           </div>
         </div>
@@ -447,25 +416,33 @@ export default async function CatalogDetailPage({ params }: CatalogDetailPagePro
 // Génération des pages statiques pour les éléments populaires avec gestion d'erreur
 export async function generateStaticParams() {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/catalogue/featured`, {
-      next: { 
-        revalidate: 3600, // 1 heure
-        tags: ['catalogue-featured']
-      }
-    });
-    
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/catalogue/featured`,
+      {
+        next: {
+          revalidate: 3600, // 1 heure
+          tags: ["catalogue-featured"],
+        },
+      },
+    );
+
     if (!response.ok) {
-      console.warn('Impossible de récupérer les éléments populaires pour la génération statique');
+      console.warn(
+        "Impossible de récupérer les éléments populaires pour la génération statique",
+      );
       return [];
     }
 
     const featuredItems = await response.json();
-    
-    return featuredItems.map((item: any) => ({
+
+    return featuredItems.map((item: { id: string }) => ({
       catalogId: item.id,
     }));
   } catch (error) {
-    console.warn('Erreur lors de la génération des paramètres statiques:', error);
+    console.warn(
+      "Erreur lors de la génération des paramètres statiques:",
+      error,
+    );
     return [];
   }
-} 
+}
