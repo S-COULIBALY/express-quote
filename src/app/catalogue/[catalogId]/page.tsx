@@ -348,61 +348,84 @@ export default async function CatalogDetailPage({
       <FormStylesSimplified globalConfig={globalFormPreset} />
 
       {/* Section Hero avec les détails du catalogue - Mobile optimized */}
-      <Suspense fallback={<CatalogHeroSkeleton />}>
-        <CatalogHero catalogData={catalogData} />
-      </Suspense>
+      <div className="bg-gradient-to-br from-gray-50 to-white border-b border-gray-100">
+        <Suspense fallback={<CatalogHeroSkeleton />}>
+          <CatalogHero catalogData={catalogData} />
+        </Suspense>
+      </div>
 
       {/* Section Formulaire de réservation - Mobile optimized */}
-      <Suspense fallback={<DetailFormSkeleton />}>
-        <div className="mobile-px-4 mobile-py-3">
-          <DetailForm catalogData={catalogData} />
-        </div>
-      </Suspense>
+      <div className="bg-white py-8">
+        <Suspense fallback={<DetailFormSkeleton />}>
+          <div className="max-w-7xl mx-auto mobile-px-4">
+            <DetailForm catalogData={catalogData} />
+          </div>
+        </Suspense>
+      </div>
 
-      {/* Section informations supplémentaires - Mobile first */}
-      <section className="bg-white mobile-py-4 animate-fade-in-up safe-area-inset-bottom">
+      {/* Section avantages - Mobile first */}
+      <section className="bg-gradient-to-br from-emerald-50 to-green-50 py-12 border-t border-emerald-100 animate-fade-in-up safe-area-inset-bottom">
         <div className="max-w-7xl mx-auto mobile-px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 mobile-gap-4">
-            <div className="text-center card-ios mobile-py-4 mobile-px-4 animate-fade-in-scale">
-              <div className="bg-green-100 rounded-full p-3 w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
-                <span className="text-xl sm:text-2xl">⚡</span>
+          {/* En-tête de la section */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+              <span>✨</span>
+              Nos Garanties
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Une expérience de service exceptionnelle
+            </h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              Profitez d'un service professionnel avec des garanties qui font la
+              différence
+            </p>
+          </div>
+
+          {/* Grille des avantages */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Réservation instantanée */}
+            <div className="card-ios p-6 hover:shadow-xl transition-all duration-300 animate-fade-in-scale bg-white">
+              <div className="bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl p-3 w-14 h-14 mb-6 flex items-center justify-center shadow-lg">
+                <span className="text-2xl text-white">⚡</span>
               </div>
-              <h3 className="text-mobile-lg font-semibold text-gray-900 mb-2 font-ios-semibold">
+              <h3 className="text-xl font-bold text-gray-900 mb-3">
                 Réservation instantanée
               </h3>
-              <p className="text-sm sm:text-base text-gray-600 font-ios">
+              <p className="text-gray-600 leading-relaxed">
                 Réservez en quelques clics et recevez votre confirmation
                 immédiatement
               </p>
             </div>
 
+            {/* Assurance incluse */}
             <div
-              className="text-center card-ios mobile-py-4 mobile-px-4 animate-fade-in-scale"
+              className="card-ios p-6 hover:shadow-xl transition-all duration-300 animate-fade-in-scale bg-white"
               style={{ animationDelay: "0.1s" }}
             >
-              <div className="bg-blue-100 rounded-full p-3 w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
-                <span className="text-xl sm:text-2xl">🛡️</span>
+              <div className="bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl p-3 w-14 h-14 mb-6 flex items-center justify-center shadow-lg">
+                <span className="text-2xl text-white">🛡️</span>
               </div>
-              <h3 className="text-mobile-lg font-semibold text-gray-900 mb-2 font-ios-semibold">
+              <h3 className="text-xl font-bold text-gray-900 mb-3">
                 Assurance incluse
               </h3>
-              <p className="text-sm sm:text-base text-gray-600 font-ios">
+              <p className="text-gray-600 leading-relaxed">
                 Tous nos services sont couverts par une assurance responsabilité
                 civile
               </p>
             </div>
 
+            {/* Service premium */}
             <div
-              className="text-center card-ios mobile-py-4 mobile-px-4 animate-fade-in-scale"
+              className="card-ios p-6 hover:shadow-xl transition-all duration-300 animate-fade-in-scale bg-white"
               style={{ animationDelay: "0.2s" }}
             >
-              <div className="bg-purple-100 rounded-full p-3 w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center">
-                <span className="text-xl sm:text-2xl">⭐</span>
+              <div className="bg-gradient-to-br from-purple-400 to-pink-500 rounded-2xl p-3 w-14 h-14 mb-6 flex items-center justify-center shadow-lg">
+                <span className="text-2xl text-white">⭐</span>
               </div>
-              <h3 className="text-mobile-lg font-semibold text-gray-900 mb-2 font-ios-semibold">
+              <h3 className="text-xl font-bold text-gray-900 mb-3">
                 Service premium
               </h3>
-              <p className="text-sm sm:text-base text-gray-600 font-ios">
+              <p className="text-gray-600 leading-relaxed">
                 Équipe professionnelle formée avec matériel de qualité
               </p>
             </div>
