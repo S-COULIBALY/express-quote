@@ -31,7 +31,7 @@ interface SidebarLayoutProps extends FormLayoutProps {
     features?: string[]; // Caractéristiques du service/pack
     originalPrice?: number; // Prix original pour affichage barré
   };
-  _showConstraintsByAddress?: boolean; // Nouvelle option pour afficher les contraintes par adresse
+  showRulesByAddress?: boolean; // Option pour afficher les règles par adresse
   // 📱 Configuration mobile du globalConfig
   mobileBreakpoint?: string;
   mobileFixedHeader?: boolean;
@@ -60,7 +60,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
   showModificationsSummary = false,
   headerActions,
   serviceInfo,
-  showConstraintsByAddress = false,
+  showRulesByAddress = false,
   // 📱 Configuration mobile du globalConfig
   mobileBreakpoint = "768px",
   mobileFixedHeader = false,

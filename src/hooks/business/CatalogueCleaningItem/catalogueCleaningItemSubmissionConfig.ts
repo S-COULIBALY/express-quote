@@ -1,27 +1,39 @@
-import { SubmissionConfig } from '@/utils/submissionUtils';
-import { CatalogueCleaningItem } from '@/types/booking';
-import { cleaningConstraints } from '@/components/CleaningConstraintsModal';
+import { SubmissionConfig } from "@/utils/submissionUtils";
+import { CatalogueCleaningItem } from "@/types/booking";
+import {
+  UnifiedDataService,
+  ServiceType,
+} from "@/quotation/infrastructure/services/UnifiedDataService";
+import { ConstraintTransformerService } from "@/quotation/domain/configuration";
 
 export interface CatalogueCleaningItemSubmissionExtraData {
   service: CatalogueCleaningItem;
 }
 
-export const createCatalogueCleaningItemSubmissionConfig = (service: CatalogueCleaningItem): SubmissionConfig => ({
-  submissionType: 'SERVICE',
+export const createCatalogueCleaningItemSubmissionConfig = (
+  service: CatalogueCleaningItem,
+): SubmissionConfig => ({
+  submissionType: "SERVICE",
 
-  validateFormData: (formData: any, extraData?: CatalogueCleaningItemSubmissionExtraData) => {
+  validateFormData: (
+    formData: any,
+    extraData?: CatalogueCleaningItemSubmissionExtraData,
+  ) => {
     if (!formData.scheduledDate || !formData.location) {
-      return 'Please fill in all required fields';
+      return "Please fill in all required fields";
     }
-    
+
     if (!service) {
-      return 'Service non disponible.';
+      return "Service non disponible.";
     }
 
     return true;
   },
 
-  prepareRequestData: (formData: any, extraData?: CatalogueCleaningItemSubmissionExtraData) => {
+  prepareRequestData: (
+    formData: any,
+    extraData?: CatalogueCleaningItemSubmissionExtraData,
+  ) => {
     return {
       serviceId: service.id,
       scheduledDate: formData.scheduledDate,
@@ -35,7 +47,7 @@ export const createCatalogueCleaningItemSubmissionConfig = (service: CatalogueCl
       additionalInfo: formData.additionalInfo,
       calculatedPrice: formData.calculatedPrice,
       whatsappOptIn: formData.whatsappOptIn,
-      serviceConstraints: formData.serviceConstraints || []
+      serviceConstraints: formData.serviceConstraints || [],
     };
   },
 
@@ -43,20 +55,52 @@ export const createCatalogueCleaningItemSubmissionConfig = (service: CatalogueCl
     return `/services/summary?quoteRequestId=${encodeURIComponent(responseData.id)}`;
   },
 
-  getNotificationData: (formData: any, responseData: any, extraData?: CatalogueCleaningItemSubmissionExtraData) => {
-    // Préparer le texte des contraintes pour l'email
-    let constraintsText = '';
+  getNotificationData: async (
+    formData: any,
+    responseData: any,
+    extraData?: CatalogueCleaningItemSubmissionExtraData,
+  ) => {
+    // Préparer le texte des contraintes pour l'email en utilisant le nouveau système de règles
+    let constraintsText = "";
     if (formData.serviceConstraints && formData.serviceConstraints.length > 0) {
-      const constraintNames = formData.serviceConstraints.map((id: string) => 
-        cleaningConstraints.find((c: any) => c.id === id)?.name || id
-      );
-      constraintsText = `Contraintes: ${constraintNames.join(', ')}`;
+      try {
+        // Récupérer les règles depuis le service unifié
+        const unifiedService = UnifiedDataService.getInstance();
+        const allBusinessRules = await unifiedService.getBusinessRules(
+          ServiceType.CLEANING,
+        );
+
+        // Transformer les règles pour obtenir les noms des contraintes
+        const transformedRules =
+          ConstraintTransformerService.transformRulesToApiFormat(
+            allBusinessRules,
+            "CLEANING",
+          );
+
+        // Récupérer les noms des contraintes
+        const constraintNames = formData.serviceConstraints.map(
+          (id: string) => {
+            const rule = transformedRules.data.allItems.find(
+              (item: any) => item.id === id,
+            );
+            return rule ? rule.name : id;
+          },
+        );
+
+        constraintsText = `Contraintes: ${constraintNames.join(", ")}`;
+      } catch (error) {
+        console.error(
+          "❌ Erreur lors de la récupération des noms de contraintes:",
+          error,
+        );
+        constraintsText = `Contraintes: ${formData.serviceConstraints.join(", ")}`;
+      }
     }
 
     return {
       serviceDate: formData.scheduledDate,
       serviceAddress: formData.location,
-      additionalDetails: constraintsText
+      additionalDetails: constraintsText,
     };
-  }
-}); 
+  },
+});
