@@ -7,6 +7,8 @@
  */
 
 import { Money } from "../valueObjects/Money";
+// Temporary import for backward compatibility
+import { Discount } from "../valueObjects/Discount";
 
 /**
  * Type de règle appliquée

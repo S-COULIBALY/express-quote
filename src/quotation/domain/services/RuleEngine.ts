@@ -1,15 +1,19 @@
-import { Money } from '../valueObjects/Money';
-import { Rule, RuleApplyResult } from '../valueObjects/Rule';
-import { QuoteContext } from '../valueObjects/QuoteContext';
-import { Discount, DiscountType } from '../valueObjects/Discount';
-import { logger } from '../../../lib/logger';
-import { calculationDebugLogger } from '../../../lib/calculation-debug-logger';
+import { Money } from "../valueObjects/Money";
+import { Rule, RuleApplyResult } from "../valueObjects/Rule";
+import { QuoteContext } from "../valueObjects/QuoteContext";
+import { AppliedRule, RuleValueType } from "../valueObjects/AppliedRule";
+import {
+  RuleExecutionResult,
+  RuleExecutionResultBuilder,
+  AppliedRuleDetail,
+  AppliedRuleType,
+} from "../interfaces/RuleExecutionResult";
+import { logger } from "../../../lib/logger";
+import { calculationDebugLogger } from "../../../lib/calculation-debug-logger";
+import { AutoDetectionService, AddressData } from "./AutoDetectionService";
 
-interface RuleExecutionResult {
-  finalPrice: Money;
-  discounts: Discount[];
-  appliedRules?: string[]; // Pour le logging
-}
+// Temporary compatibility aliases (to be removed after full migration)
+import { Discount, DiscountType } from "../valueObjects/Discount";
 
 /**
  * Moteur d'exécution des règles métier
@@ -20,13 +24,13 @@ export class RuleEngine {
     // Trier les règles par priorité - les règles de tarif minimum doivent être appliquées en dernier
     this.rules.sort((a, b) => {
       // Priorité spéciale pour la règle de tarif minimum
-      if (a.name === 'Tarif minimum') return 1;
-      if (b.name === 'Tarif minimum') return -1;
-      
+      if (a.name === "Tarif minimum") return 1;
+      if (b.name === "Tarif minimum") return -1;
+
       // Priorité pour les règles en pourcentage par rapport aux règles en montant fixe
       if (a.isPercentage() && !b.isPercentage()) return -1;
       if (!a.isPercentage() && b.isPercentage()) return 1;
-      
+
       return 0;
     });
   }
@@ -34,29 +38,123 @@ export class RuleEngine {
   /**
    * Exécute toutes les règles applicables sur le prix
    */
-  execute(
-    context: QuoteContext,
-    basePrice: Money
-  ): RuleExecutionResult {
+  execute(context: QuoteContext, basePrice: Money): RuleExecutionResult {
     console.log("\n==== DÉBUT RULEENGINE.EXECUTE ====");
     console.log("📋 CONTEXTE:", context.getAllData());
     console.log("💰 PRIX DE BASE:", basePrice.getAmount());
     console.log("📋 NOMBRE DE RÈGLES À VÉRIFIER:", this.rules.length);
-    
+
     // Démarrer le logging détaillé du moteur de règles
-    calculationDebugLogger.startRulesEngine(this.rules, basePrice.getAmount(), context.getAllData());
-    
-    // ✨ OPTIMISATION: Analyser les contraintes consommées UNE SEULE FOIS
+    calculationDebugLogger.startRulesEngine(
+      this.rules,
+      basePrice.getAmount(),
+      context.getAllData(),
+    );
+
+    // ✅ UTILISATION D'AUTODETECTIONSERVICE: Analyser les contraintes consommées UNE SEULE FOIS
     const contextData = context.getAllData();
-    const furnitureLiftAnalysis = this.analyzeFurnitureLiftRequirement(contextData);
-    
-    // ✨ AFFICHAGE OPTIMISÉ: Contexte des contraintes consommées (une seule fois)
-    if (furnitureLiftAnalysis.required && furnitureLiftAnalysis.consumedConstraints.size > 0) {
-      console.log('\n🏗️ [CONTEXTE] MONTE-MEUBLE REQUIS');
-      console.log(`   📦 Contraintes consommées: [${Array.from(furnitureLiftAnalysis.consumedConstraints).map(c => `'${c}'`).join(', ')}]`);
-      console.log(`   ℹ️  Les règles liées à ces contraintes seront automatiquement ignorées\n`);
+
+    // Construire les données d'adresse pour pickup et delivery
+    const pickupData: AddressData = {
+      floor:
+        typeof contextData.pickupFloor === "number"
+          ? contextData.pickupFloor
+          : parseInt(String(contextData.pickupFloor || "0"), 10) || 0,
+      elevator: (contextData.pickupElevator || "no") as
+        | "no"
+        | "small"
+        | "medium"
+        | "large",
+      carryDistance: contextData.pickupCarryDistance as
+        | "0-10"
+        | "10-30"
+        | "30+"
+        | undefined,
+      constraints: contextData.pickupLogisticsConstraints || [],
+    };
+
+    const deliveryData: AddressData = {
+      floor:
+        typeof contextData.deliveryFloor === "number"
+          ? contextData.deliveryFloor
+          : parseInt(String(contextData.deliveryFloor || "0"), 10) || 0,
+      elevator: (contextData.deliveryElevator || "no") as
+        | "no"
+        | "small"
+        | "medium"
+        | "large",
+      carryDistance: contextData.deliveryCarryDistance as
+        | "0-10"
+        | "10-30"
+        | "30+"
+        | undefined,
+      constraints: contextData.deliveryLogisticsConstraints || [],
+    };
+
+    // Détecter avec AutoDetectionService
+    const pickupDetection = AutoDetectionService.detectFurnitureLift(
+      pickupData,
+      contextData.volume,
+    );
+    const deliveryDetection = AutoDetectionService.detectFurnitureLift(
+      deliveryData,
+      contextData.volume,
+    );
+
+    // Combiner les contraintes consommées des deux adresses
+    const allConsumedConstraints = new Set<string>([
+      ...(pickupDetection.consumedConstraints || []),
+      ...(deliveryDetection.consumedConstraints || []),
+    ]);
+
+    const furnitureLiftRequired =
+      pickupDetection.furnitureLiftRequired ||
+      deliveryDetection.furnitureLiftRequired;
+
+    // ✅ Enrichir les contraintes logistiques avec furniture_lift_required si nécessaire
+    const enrichedPickupConstraints = [
+      ...(contextData.pickupLogisticsConstraints || []),
+    ];
+    const enrichedDeliveryConstraints = [
+      ...(contextData.deliveryLogisticsConstraints || []),
+    ];
+
+    if (
+      pickupDetection.furnitureLiftRequired &&
+      !enrichedPickupConstraints.includes("furniture_lift_required")
+    ) {
+      enrichedPickupConstraints.push("furniture_lift_required");
     }
-    
+    if (
+      deliveryDetection.furnitureLiftRequired &&
+      !enrichedDeliveryConstraints.includes("furniture_lift_required")
+    ) {
+      enrichedDeliveryConstraints.push("furniture_lift_required");
+    }
+
+    // ✅ Enrichir le context avec les contraintes consommées
+    // Cela sera utilisé par Rule.isApplicable() pour éviter la double facturation
+    const enrichedContextData = {
+      ...contextData,
+      pickupLogisticsConstraints: enrichedPickupConstraints,
+      deliveryLogisticsConstraints: enrichedDeliveryConstraints,
+      monte_meuble_requis: furnitureLiftRequired,
+      consumedConstraints: allConsumedConstraints,
+    };
+
+    // ✨ AFFICHAGE OPTIMISÉ: Contexte des contraintes consommées (une seule fois)
+    if (furnitureLiftRequired && allConsumedConstraints.size > 0) {
+      console.log("\n🏗️ [CONTEXTE] MONTE-MEUBLE REQUIS");
+      console.log(
+        `   📦 Contraintes consommées: [${Array.from(allConsumedConstraints)
+          .map((c) => `'${c}'`)
+          .join(", ")}]`,
+      );
+      console.log(
+        `   ℹ️  Les règles liées à ces contraintes seront automatiquement ignorées\n`,
+      );
+    }
+
     try {
       // Valider le contexte
       try {
@@ -67,44 +165,63 @@ export class RuleEngine {
         console.log("❌ ERREUR DE VALIDATION DU CONTEXTE:", error);
         throw error;
       }
-      
-      // Préparer les variables de résultat
-    const discounts: Discount[] = [];
+
+      // ✅ NOUVEAU: Utiliser le Builder pour construire le résultat
+      const builder = new RuleExecutionResultBuilder(basePrice);
+
+      // Préparer les variables de résultat (pour la logique de calcul)
+      const discounts: Discount[] = []; // Temporary - for backward compatibility
       const basePriceAmount = basePrice.getAmount(); // Prix de base constant
       let totalImpact = 0; // Accumuler tous les impacts
-    const appliedRules: string[] = [];
+      const appliedRules: string[] = [];
       let minimumPrice: number | null = null; // Stocker le prix minimum
-      
+
       console.log("🔄 TRAITEMENT DE CHAQUE RÈGLE...");
-      
+
       // Traiter chaque règle
       try {
         for (const rule of this.rules) {
-          // ✨ OPTIMISATION: Vérification rapide des contraintes consommées
-          if (furnitureLiftAnalysis.required && this.isRuleConstraintConsumed(rule, furnitureLiftAnalysis.consumedConstraints)) {
-            calculationDebugLogger.logRuleSkipped(rule, "Contrainte consommée par le monte-meuble");
+          // ✅ VÉRIFICATION: Contraintes consommées par le monte-meubles
+          if (
+            furnitureLiftRequired &&
+            this.isRuleConstraintConsumed(rule, allConsumedConstraints)
+          ) {
+            calculationDebugLogger.logRuleSkipped(
+              rule,
+              "Contrainte consommée par le monte-meuble",
+            );
             continue;
           }
-          
+
           try {
-            // Vérifier si la règle est applicable
-            const isApplicable = rule.isApplicable(contextData);
-            
+            // ✅ Vérifier si la règle est applicable avec le context enrichi
+            const isApplicable = rule.isApplicable(enrichedContextData);
+
             if (isApplicable) {
               // Application de la règle - les détails sont loggés par calculationDebugLogger
-              
+
               try {
                 // ✅ CORRECTION: Toujours appliquer les règles sur le prix de base
                 const currentPrice = basePriceAmount + totalImpact;
 
                 // Appliquer la règle sur le prix de base (pour les pourcentages)
-                const ruleResult: RuleApplyResult = rule.apply(new Money(currentPrice), contextData, basePrice);
+                const ruleResult: RuleApplyResult = rule.apply(
+                  new Money(currentPrice),
+                  contextData,
+                  basePrice,
+                );
 
                 // Vérifier si la règle définit un prix minimum
                 if (ruleResult.minimumPrice !== undefined) {
-                  console.log("⚠️ RÈGLE DÉFINIT UN PRIX MINIMUM:", ruleResult.minimumPrice);
+                  console.log(
+                    "⚠️ RÈGLE DÉFINIT UN PRIX MINIMUM:",
+                    ruleResult.minimumPrice,
+                  );
                   minimumPrice = ruleResult.minimumPrice;
-                  calculationDebugLogger.logRuleSkipped(rule, `Règle de prix minimum: ${ruleResult.minimumPrice}€`);
+                  calculationDebugLogger.logRuleSkipped(
+                    rule,
+                    `Règle de prix minimum: ${ruleResult.minimumPrice}€`,
+                  );
                   // Ne pas ajouter de réduction pour les règles de prix minimum
                   continue;
                 }
@@ -115,74 +232,116 @@ export class RuleEngine {
                   totalImpact += ruleResult.impact;
 
                   // Logger l'application de la règle (format Option D)
-                  calculationDebugLogger.logRuleApplication(rule, currentPrice, ruleResult, contextData);
-        
+                  calculationDebugLogger.logRuleApplication(
+                    rule,
+                    currentPrice,
+                    ruleResult,
+                    contextData,
+                  );
+
                   // Déterminer le type de réduction
-                  const discountType = rule.isPercentage() ? 
-                    DiscountType.PERCENTAGE : 
-                    DiscountType.FIXED;
-                  
+                  const discountType = rule.isPercentage()
+                    ? DiscountType.PERCENTAGE
+                    : DiscountType.FIXED;
+
                   // Créer un objet Discount avec l'impact absolu
                   try {
                     // Déterminer si c'est une réduction (impact négatif) ou une surcharge (impact positif)
                     const isReduction = ruleResult.impact < 0;
                     const absoluteImpact = Math.abs(ruleResult.impact);
-                    
+
                     // ✅ CORRECTION: Utiliser la valeur originale de la règle directement
                     const discountValue = Math.abs(rule.value);
-                    
+
                     const discount = new Discount(
                       rule.name,
                       discountType,
                       discountValue,
                       undefined, // code
                       undefined, // expirationDate
-                      isReduction // isReductionFlag
+                      isReduction, // isReductionFlag
                     );
-    
-                    // Ajouter la réduction
+
+                    // Ajouter la réduction (backward compatibility)
                     discounts.push(discount);
                     appliedRules.push(rule.name);
+
+                    // ✅ NOUVEAU: Ajouter au Builder avec détails complets
+                    const appliedRuleDetail: AppliedRuleDetail = {
+                      id: rule.id || "unknown",
+                      name: rule.name,
+                      type: this.determineRuleType(rule),
+                      value: Math.abs(rule.value),
+                      isPercentage: rule.isPercentage(),
+                      impact: new Money(absoluteImpact),
+                      description: rule.name,
+                      address: this.determineAddress(rule, contextData),
+                      isConsumed: false,
+                    };
+
+                    builder.addAppliedRule(appliedRuleDetail);
                   } catch (discountError) {
-                    console.log("❌ ERREUR LORS DE LA CRÉATION DU DISCOUNT:", discountError);
+                    console.log(
+                      "❌ ERREUR LORS DE LA CRÉATION DU DISCOUNT:",
+                      discountError,
+                    );
                     throw discountError;
                   }
                 } else {
                   console.log(`ℹ️ RÈGLE "${rule.name}" SANS IMPACT:`, {
                     isApplied: ruleResult.isApplied,
-                    impact: ruleResult.impact
+                    impact: ruleResult.impact,
                   });
-                  calculationDebugLogger.logRuleSkipped(rule, `Règle sans impact: isApplied=${ruleResult.isApplied}, impact=${ruleResult.impact}`);
+                  calculationDebugLogger.logRuleSkipped(
+                    rule,
+                    `Règle sans impact: isApplied=${ruleResult.isApplied}, impact=${ruleResult.impact}`,
+                  );
                 }
               } catch (applyError) {
-                console.log("❌ ERREUR LORS DE L'APPLICATION DE LA RÈGLE:", applyError);
+                console.log(
+                  "❌ ERREUR LORS DE L'APPLICATION DE LA RÈGLE:",
+                  applyError,
+                );
                 if (applyError instanceof Error) {
                   console.log("📋 TYPE D'ERREUR:", applyError.constructor.name);
                   console.log("📋 MESSAGE:", applyError.message);
                   console.log("📋 STACK:", applyError.stack);
                 }
-                
+
                 // Erreur spécifique à vérifier
-                if (applyError instanceof Error && 
-                    (applyError.message.includes('is not a function') || 
-                     applyError.message.includes('is not defined'))) {
-                  console.log("🚨 ERREUR D'OPÉRATION DÉTECTÉE - Opération non supportée");
-                  throw new Error('Opération non supportée');
+                if (
+                  applyError instanceof Error &&
+                  (applyError.message.includes("is not a function") ||
+                    applyError.message.includes("is not defined"))
+                ) {
+                  console.log(
+                    "🚨 ERREUR D'OPÉRATION DÉTECTÉE - Opération non supportée",
+                  );
+                  throw new Error("Opération non supportée");
                 }
-                
+
                 throw applyError;
               }
             } else {
               // Logger l'évaluation pour les règles non applicables seulement
-              calculationDebugLogger.logRuleEvaluation(rule, contextData, false);
+              calculationDebugLogger.logRuleEvaluation(
+                rule,
+                contextData,
+                false,
+              );
             }
           } catch (ruleError) {
             console.log("❌ ERREUR SPÉCIFIQUE À UNE RÈGLE:", ruleError);
-            calculationDebugLogger.logRuleEvaluation(rule, context.getAllData(), false, ruleError);
+            calculationDebugLogger.logRuleEvaluation(
+              rule,
+              context.getAllData(),
+              false,
+              ruleError,
+            );
             throw ruleError;
           }
         }
-        
+
         // Calculer le prix final = prix de base + tous les impacts
         let finalPrice = basePriceAmount + totalImpact;
 
@@ -190,16 +349,26 @@ export class RuleEngine {
         console.log("🔍 VÉRIFICATION DU PRIX FINAL...");
         const priceBeforeMinimumCheck = finalPrice;
         if (minimumPrice !== null && finalPrice < minimumPrice) {
-          console.log(`⚠️ PRIX FINAL (${finalPrice}) INFÉRIEUR AU MINIMUM (${minimumPrice}) - AJUSTEMENT`);
+          console.log(
+            `⚠️ PRIX FINAL (${finalPrice}) INFÉRIEUR AU MINIMUM (${minimumPrice}) - AJUSTEMENT`,
+          );
           finalPrice = minimumPrice;
-          calculationDebugLogger.logMinimumPriceCheck(priceBeforeMinimumCheck, minimumPrice, finalPrice);
+          calculationDebugLogger.logMinimumPriceCheck(
+            priceBeforeMinimumCheck,
+            minimumPrice,
+            finalPrice,
+          );
         }
         // Vérifier que le prix final n'est pas négatif
         else if (finalPrice < 0) {
           console.log("⚠️ PRIX NÉGATIF DÉTECTÉ - Ajustement à 0");
           finalPrice = 0;
-      } else if (minimumPrice !== null) {
-          calculationDebugLogger.logMinimumPriceCheck(priceBeforeMinimumCheck, minimumPrice, finalPrice);
+        } else if (minimumPrice !== null) {
+          calculationDebugLogger.logMinimumPriceCheck(
+            priceBeforeMinimumCheck,
+            minimumPrice,
+            finalPrice,
+          );
         }
 
         console.log("✅ EXECUTION TERMINÉE - Résultat:");
@@ -207,48 +376,89 @@ export class RuleEngine {
         console.log("📋 RÈGLES APPLIQUÉES:", discounts.length);
         if (discounts.length > 0) {
           // Séparer les surcharges des réductions
-          const surcharges = discounts.filter(d => d.getAmount().getAmount() > 0);
-          const reductions = discounts.filter(d => d.getAmount().getAmount() < 0);
-          
+          const surcharges = discounts.filter(
+            (d) => d.getAmount().getAmount() > 0,
+          );
+          const reductions = discounts.filter(
+            (d) => d.getAmount().getAmount() < 0,
+          );
+
           if (surcharges.length > 0) {
             console.log("📈 SURCHARGES APPLIQUÉES:", surcharges.length);
-            console.log("📈 DÉTAIL DES SURCHARGES:", surcharges.map(d => ({
-            nom: d.getName(),
-            type: d.getType() === DiscountType.PERCENTAGE ? 'pourcentage' : 'montant fixe',
-            valeur: d.getAmount().getAmount()
-          })));
+            console.log(
+              "📈 DÉTAIL DES SURCHARGES:",
+              surcharges.map((d) => ({
+                nom: d.getName(),
+                type:
+                  d.getType() === DiscountType.PERCENTAGE
+                    ? "pourcentage"
+                    : "montant fixe",
+                valeur: d.getAmount().getAmount(),
+              })),
+            );
           }
-          
+
           if (reductions.length > 0) {
             console.log("📉 RÉDUCTIONS APPLIQUÉES:", reductions.length);
-            console.log("📉 DÉTAIL DES RÉDUCTIONS:", reductions.map(d => ({
-              nom: d.getName(),
-              type: d.getType() === DiscountType.PERCENTAGE ? 'pourcentage' : 'montant fixe',
-              valeur: Math.abs(d.getAmount().getAmount()) // Afficher en valeur absolue pour les réductions
-            })));
+            console.log(
+              "📉 DÉTAIL DES RÉDUCTIONS:",
+              reductions.map((d) => ({
+                nom: d.getName(),
+                type:
+                  d.getType() === DiscountType.PERCENTAGE
+                    ? "pourcentage"
+                    : "montant fixe",
+                valeur: Math.abs(d.getAmount().getAmount()), // Afficher en valeur absolue pour les réductions
+              })),
+            );
           }
         }
         console.log("==== FIN RULEENGINE.EXECUTE (SUCCÈS) ====\n");
-        
-        return {
-          finalPrice: new Money(finalPrice),
-          discounts,
-          appliedRules
-        };
+
+        // ✅ NOUVEAU: Finaliser le résultat avec le Builder
+        builder.setFinalPrice(new Money(finalPrice));
+
+        // Ajouter les contraintes consommées
+        if (allConsumedConstraints.size > 0) {
+          builder.setConsumedConstraints(
+            Array.from(allConsumedConstraints),
+            "Consommées par le Monte-meuble",
+          );
+        }
+
+        // Ajouter les informations sur le monte-meuble
+        builder.setFurnitureLift(
+          furnitureLiftRequired,
+          pickupDetection.furnitureLiftReason ||
+            deliveryDetection.furnitureLiftReason,
+        );
+
+        // Ajouter le prix minimum si applicable
+        if (minimumPrice !== null && finalPrice >= minimumPrice) {
+          builder.setMinimumPrice(true, new Money(minimumPrice));
+        }
+
+        // Construire le résultat complet
+        const result = builder.build();
+
+        // ✅ COMPATIBILITÉ: Ajouter la propriété discounts pour le code existant
+        (result as any).discounts = discounts;
+
+        return result;
       } catch (rulesError) {
         console.log("❌ ERREUR PENDANT LE TRAITEMENT DES RÈGLES:", rulesError);
         if (rulesError instanceof Error) {
           console.log("📋 TYPE D'ERREUR:", rulesError.constructor.name);
           console.log("📋 MESSAGE:", rulesError.message);
           console.log("📋 STACK:", rulesError.stack);
-        
+
           // Si c'est l'erreur "Opération non supportée", la propager
-          if (rulesError.message.includes('Opération non supportée')) {
+          if (rulesError.message.includes("Opération non supportée")) {
             console.log("🚨 PROPAGATION DE L'ERREUR 'Opération non supportée'");
           }
         }
         throw rulesError;
-        }
+      }
     } catch (error) {
       console.log("❌ ERREUR GÉNÉRALE DANS RULEENGINE.EXECUTE:", error);
       if (error instanceof Error) {
@@ -257,16 +467,10 @@ export class RuleEngine {
         console.log("📋 STACK:", error.stack);
       }
       console.log("==== FIN RULEENGINE.EXECUTE (ERREUR) ====\n");
-      throw new Error(`Impossible d'exécuter les règles: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      throw new Error(
+        `Impossible d'exécuter les règles: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+      );
     }
-  }
-
-  /**
-   * Validation du contexte pour s'assurer que les champs nécessaires sont présents
-   */
-  private validateContext(context: QuoteContext): void {
-    // Utilise la validation intégrée dans QuoteContext
-    context.validate();
   }
 
   /**
@@ -287,142 +491,229 @@ export class RuleEngine {
    * Supprimer une règle
    */
   removeRule(ruleToRemove: Rule): void {
-    this.rules = this.rules.filter(rule => !rule.equals(ruleToRemove));
+    this.rules = this.rules.filter((rule) => !rule.equals(ruleToRemove));
   }
 
   // ============================================================================
-  // MÉTHODES UTILITAIRES POUR L'OPTIMISATION DES LOGS
+  // MÉTHODES UTILITAIRES
   // ============================================================================
-  
+
   /**
-   * Analyse si le monte-meuble est requis et quelles contraintes sont consommées
-   * (Réutilise la logique de Rule.analyzeFurnitureLiftRequirement)
+   * Détermine le type d'une règle appliquée pour le nouveau système
    */
-  private analyzeFurnitureLiftRequirement(context: any): { required: boolean; consumedConstraints: Set<string> } {
-    const consumedConstraints = new Set<string>();
-    let required = false;
-    
-    // Récupérer les données d'étage et d'ascenseur
-    const pickupFloor = parseInt(context.pickupFloor || '0');
-    const deliveryFloor = parseInt(context.deliveryFloor || '0');
-    const pickupElevator = context.pickupElevator;
-    const deliveryElevator = context.deliveryElevator;
-    
-    // Vérifier si le monte-meuble est explicitement requis
-    if (this.hasLogisticsConstraint(context, 'furniture_lift_required')) {
-      required = true;
-      consumedConstraints.add('furniture_lift_required');
+  private determineRuleType(rule: Rule): AppliedRuleType {
+    const name = rule.name.toLowerCase();
+
+    // Vérifier si c'est une réduction
+    if (rule.value < 0) {
+      return AppliedRuleType.REDUCTION;
     }
-    
-    // Logique d'activation automatique du monte-meuble
-    const hasNoElevator = !pickupElevator || pickupElevator === 'no' || !deliveryElevator || deliveryElevator === 'no';
-    const hasSmallElevator = pickupElevator === 'small' || deliveryElevator === 'small';
-    const hasElevatorProblems = this.hasLogisticsConstraint(context, 'elevator_unavailable') ||
-                               this.hasLogisticsConstraint(context, 'elevator_unsuitable_size') ||
-                               this.hasLogisticsConstraint(context, 'elevator_forbidden_moving');
-    
-    const maxFloor = Math.max(pickupFloor, deliveryFloor);
-    
-    // CAS 1: Étage élevé (> 3) sans ascenseur fonctionnel
-    if (maxFloor > 3 && (hasNoElevator || hasElevatorProblems)) {
-      required = true;
-      if (hasElevatorProblems) {
-        if (this.hasLogisticsConstraint(context, 'elevator_unavailable')) consumedConstraints.add('elevator_unavailable');
-        if (this.hasLogisticsConstraint(context, 'elevator_unsuitable_size')) consumedConstraints.add('elevator_unsuitable_size');
-        if (this.hasLogisticsConstraint(context, 'elevator_forbidden_moving')) consumedConstraints.add('elevator_forbidden_moving');
-      }
+
+    // Equipment (Monte-meuble)
+    if (name.includes("monte-meuble") || name.includes("monte meuble")) {
+      return AppliedRuleType.EQUIPMENT;
     }
-    
-    // CAS 2: Contraintes d'accès difficile + objets lourds/encombrants
-    const hasAccessConstraints = this.hasLogisticsConstraint(context, 'difficult_stairs') ||
-                                this.hasLogisticsConstraint(context, 'narrow_corridors') ||
-                                this.hasLogisticsConstraint(context, 'indirect_exit') ||
-                                this.hasLogisticsConstraint(context, 'complex_multilevel_access');
-    
-    const hasHeavyItems = this.hasLogisticsConstraint(context, 'bulky_furniture');
-    
-    if (maxFloor >= 1 && hasAccessConstraints && hasHeavyItems) {
-      required = true;
-      
-      // Marquer les contraintes comme consommées
-      if (this.hasLogisticsConstraint(context, 'difficult_stairs')) consumedConstraints.add('difficult_stairs');
-      if (this.hasLogisticsConstraint(context, 'narrow_corridors')) consumedConstraints.add('narrow_corridors');
-      if (this.hasLogisticsConstraint(context, 'indirect_exit')) consumedConstraints.add('indirect_exit');
-      if (this.hasLogisticsConstraint(context, 'complex_multilevel_access')) consumedConstraints.add('complex_multilevel_access');
-      if (this.hasLogisticsConstraint(context, 'bulky_furniture')) consumedConstraints.add('bulky_furniture');
+
+    // Temporal (Week-end, période spéciale)
+    if (
+      name.includes("weekend") ||
+      name.includes("week-end") ||
+      name.includes("samedi") ||
+      name.includes("dimanche") ||
+      name.includes("férié") ||
+      name.includes("nuit")
+    ) {
+      return AppliedRuleType.TEMPORAL;
     }
-    
-    // CAS 3: Ascenseur small + contraintes + objets lourds
-    if (hasSmallElevator && hasAccessConstraints && hasHeavyItems && maxFloor >= 1) {
-      required = true;
-      
-      // Marquer les contraintes comme consommées (même logique que CAS 2)
-      if (this.hasLogisticsConstraint(context, 'difficult_stairs')) consumedConstraints.add('difficult_stairs');
-      if (this.hasLogisticsConstraint(context, 'narrow_corridors')) consumedConstraints.add('narrow_corridors');
-      if (this.hasLogisticsConstraint(context, 'indirect_exit')) consumedConstraints.add('indirect_exit');
-      if (this.hasLogisticsConstraint(context, 'complex_multilevel_access')) consumedConstraints.add('complex_multilevel_access');
-      if (this.hasLogisticsConstraint(context, 'bulky_furniture')) consumedConstraints.add('bulky_furniture');
+
+    // Constraints (Escaliers, ascenseur, distance)
+    if (
+      name.includes("escalier") ||
+      name.includes("ascenseur") ||
+      name.includes("étage") ||
+      name.includes("distance") ||
+      name.includes("accès") ||
+      name.includes("parking") ||
+      name.includes("zone piétonne")
+    ) {
+      return AppliedRuleType.CONSTRAINT;
     }
-    
-    return { required, consumedConstraints };
+
+    // Additional Services (Emballage, démontage, nettoyage)
+    if (
+      name.includes("emballage") ||
+      name.includes("démontage") ||
+      name.includes("montage") ||
+      name.includes("nettoyage") ||
+      name.includes("stockage") ||
+      name.includes("piano") ||
+      name.includes("assurance")
+    ) {
+      return AppliedRuleType.ADDITIONAL_SERVICE;
+    }
+
+    // Par défaut, c'est une surcharge
+    return AppliedRuleType.SURCHARGE;
   }
-  
+
   /**
-   * Vérifie si une règle doit être ignorée car sa contrainte est consommée par le monte-meuble
+   * Détermine l'adresse concernée par une règle (pickup, delivery, both)
    */
-  private isRuleConstraintConsumed(rule: any, consumedConstraints: Set<string>): boolean {
+  private determineAddress(
+    rule: Rule,
+    contextData: Record<string, unknown>,
+  ): "pickup" | "delivery" | "both" | undefined {
+    const name = rule.name.toLowerCase();
+
+    // Analyse le nom de la règle pour détecter les mentions d'adresse
+    const hasPickupMention =
+      name.includes("départ") ||
+      name.includes("chargement") ||
+      name.includes("pickup");
+    const hasDeliveryMention =
+      name.includes("arrivée") ||
+      name.includes("livraison") ||
+      name.includes("delivery");
+
+    if (hasPickupMention && !hasDeliveryMention) return "pickup";
+    if (hasDeliveryMention && !hasPickupMention) return "delivery";
+    if (hasPickupMention && hasDeliveryMention) return "both";
+
+    // Analyse la condition de la règle si disponible
+    const condition = rule.condition;
+    if (typeof condition === "object" && condition !== null) {
+      const conditionStr = JSON.stringify(condition).toLowerCase();
+      if (conditionStr.includes("pickup") && !conditionStr.includes("delivery"))
+        return "pickup";
+      if (conditionStr.includes("delivery") && !conditionStr.includes("pickup"))
+        return "delivery";
+    }
+
+    return undefined;
+  }
+
+  /**
+   * ✅ Vérifie si une règle doit être ignorée car sa contrainte est consommée par le monte-meuble
+   * Cette logique est conservée car elle ne concerne que l'évaluation des règles,
+   * pas la détection du monte-meubles (gérée par AutoDetectionService)
+   */
+  private isRuleConstraintConsumed(
+    rule: Rule,
+    consumedConstraints: Set<string>,
+  ): boolean {
     // Si cette règle est la règle du monte-meuble elle-même, ne pas l'ignorer
-    if (rule.condition === 'furniture_lift_required' || rule.name === 'Monte-meuble') {
+    if (
+      rule.condition === "furniture_lift_required" ||
+      rule.name === "Monte-meuble" ||
+      rule.name === "Supplément monte-meuble"
+    ) {
       return false;
     }
-    
-    // Vérifier si la condition de cette règle correspond à une contrainte consommée
-    if (consumedConstraints.has(rule.condition)) {
+
+    // ✅ CORRECTION: Gérer les conditions JSON (objet) en les mappant vers des noms de contraintes
+    const constraintName = this.extractConstraintNameFromCondition(
+      rule.condition,
+    );
+
+    if (constraintName && consumedConstraints.has(constraintName)) {
       return true;
     }
-    
-    // Cas spéciaux pour les règles qui vérifient des variables booléennes
-    const constraintMappings: Record<string, string> = {
-      'difficult_stairs': 'difficult_stairs',
-      'narrow_corridors': 'narrow_corridors', 
-      'indirect_exit': 'indirect_exit',
-      'complex_multilevel_access': 'complex_multilevel_access',
-      'bulky_furniture': 'bulky_furniture',
-      'elevator_unavailable': 'elevator_unavailable',
-      'elevator_unsuitable_size': 'elevator_unsuitable_size',
-      'elevator_forbidden_moving': 'elevator_forbidden_moving'
-    };
-    
-    // Vérifier si la condition correspond à une contrainte mappée qui est consommée
-    const mappedConstraint = constraintMappings[rule.condition];
-    if (mappedConstraint && consumedConstraints.has(mappedConstraint)) {
-      return true;
-    }
-    
+
     return false;
-  }
-  
-  /**
-   * Vérifie si une contrainte logistique est présente dans le contexte
-   */
-  private hasLogisticsConstraint(context: any, constraint: string): boolean {
-    const pickupConstraints = context.pickupLogisticsConstraints || [];
-    const deliveryConstraints = context.deliveryLogisticsConstraints || [];
-    
-    return pickupConstraints.includes(constraint) || deliveryConstraints.includes(constraint);
   }
 
   /**
-   * Compte combien de fois une contrainte logistique est présente (pickup + delivery)
+   * ✅ Extrait le nom de contrainte d'une condition de règle (objet JSON ou string)
+   * Utilise la même logique que Rule.mapJsonConditionToConstraintName()
    */
-  private countLogisticsConstraint(context: any, constraint: string): number {
-    const pickupConstraints = context.pickupLogisticsConstraints || [];
-    const deliveryConstraints = context.deliveryLogisticsConstraints || [];
-    
-    let count = 0;
-    if (pickupConstraints.includes(constraint)) count++;
-    if (deliveryConstraints.includes(constraint)) count++;
-    
-    return count;
+  private extractConstraintNameFromCondition(condition: any): string | null {
+    // Si la condition est un string simple, c'est déjà le nom de la contrainte
+    if (typeof condition === "string") {
+      return condition;
+    }
+
+    // Si c'est un objet JSON, le mapper vers le nom de contrainte
+    if (typeof condition === "object" && condition !== null) {
+      const type = condition.type;
+
+      // Vehicle Access
+      if (type === "vehicle_access") {
+        if (condition.zone === "pedestrian") return "pedestrian_zone";
+        if (condition.road === "narrow") return "narrow_inaccessible_street";
+        if (condition.parking === "difficult") return "difficult_parking";
+        if (condition.parking === "limited") return "limited_parking";
+        if (condition.traffic === "complex") return "complex_traffic";
+      }
+
+      // Building
+      if (type === "building") {
+        if (condition.elevator === "unavailable") return "elevator_unavailable";
+        if (condition.elevator === "small") return "elevator_unsuitable_size";
+        if (condition.elevator === "forbidden")
+          return "elevator_forbidden_moving";
+        if (condition.stairs === "difficult") return "difficult_stairs";
+        if (condition.corridors === "narrow") return "narrow_corridors";
+      }
+
+      // Distance
+      if (type === "distance") {
+        if (condition.carrying === "long") return "long_carrying_distance";
+        if (condition.access === "indirect") return "indirect_exit";
+        if (condition.access === "multilevel")
+          return "complex_multilevel_access";
+      }
+
+      // Security
+      if (type === "security") {
+        if (condition.access === "strict") return "access_control";
+        if (condition.permit === "required") return "administrative_permit";
+        if (condition.time === "restricted") return "time_restrictions";
+        if (condition.floor === "fragile") return "fragile_floor";
+      }
+
+      // Equipment
+      if (type === "equipment") {
+        if (condition.lift === "required") return "furniture_lift_required";
+      }
+
+      // Service - Handling
+      if (type === "service") {
+        if (condition.handling === "bulky") return "bulky_furniture";
+        if (condition.handling === "disassembly")
+          return "furniture_disassembly";
+        if (condition.handling === "reassembly") return "furniture_reassembly";
+        if (condition.handling === "piano") return "transport_piano";
+
+        // Service - Packing
+        if (condition.packing === "departure")
+          return "professional_packing_departure";
+        if (condition.packing === "arrival")
+          return "professional_unpacking_arrival";
+        if (condition.packing === "supplies") return "packing_supplies";
+        if (condition.packing === "artwork") return "artwork_packing";
+
+        // Service - Protection
+        if (condition.protection === "fragile") return "fragile_valuable_items";
+        if (condition.protection === "heavy") return "heavy_items";
+        if (condition.protection === "insurance") return "additional_insurance";
+        if (condition.protection === "inventory") return "photo_inventory";
+
+        // Service - Storage
+        if (condition.storage === "temporary")
+          return "temporary_storage_service";
+
+        // Service - Cleaning
+        if (condition.cleaning === "post_move") return "post_move_cleaning";
+
+        // Service - Admin
+        if (condition.admin === "management")
+          return "administrative_management";
+
+        // Service - Transport
+        if (condition.transport === "animals") return "animal_transport";
+      }
+    }
+
+    return null;
   }
-} 
+}
