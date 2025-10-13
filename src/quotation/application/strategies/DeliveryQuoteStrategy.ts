@@ -97,14 +97,37 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       const enrichedContext = await this.enrichContext(context);
       const basePrice = await this.getBasePrice(enrichedContext);
 
-      const { finalPrice, discounts } = this.ruleEngine.execute(
+      // Appliquer les règles métier via le RuleEngine
+      const ruleResult = this.ruleEngine.execute(
         enrichedContext,
         new Money(basePrice),
       );
 
+      console.log(
+        `\n📊 [DELIVERY-STRATEGY] Résultat du RuleEngine (nouvelle architecture):`,
+      );
+      console.log(
+        `   └─ Prix de base: ${ruleResult.basePrice.getAmount().toFixed(2)}€`,
+      );
+      console.log(
+        `   └─ Prix final: ${ruleResult.finalPrice.getAmount().toFixed(2)}€`,
+      );
+      console.log(
+        `   └─ Total réductions: ${ruleResult.totalReductions.getAmount().toFixed(2)}€`,
+      );
+      console.log(
+        `   └─ Total surcharges: ${ruleResult.totalSurcharges.getAmount().toFixed(2)}€`,
+      );
+      console.log(
+        `   └─ Nombre total de règles: ${ruleResult.appliedRules.length}`,
+      );
+
+      // ✅ COMPATIBILITÉ: Récupérer discounts pour le Quote
+      const discounts = (ruleResult as any).discounts || [];
+
       const quote = new Quote(
         new Money(basePrice),
-        finalPrice,
+        ruleResult.finalPrice,
         discounts,
         this.serviceType,
       );

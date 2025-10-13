@@ -169,9 +169,7 @@ export class PackingQuoteStrategy implements QuoteStrategy {
    * Méthode pour calculer le prix de base SANS les règles métier
    * Utilisée par getBasePrice() pour retourner le prix avant règles
    */
-  private async calculateBasePriceOnly(
-    context: QuoteContext,
-  ): Promise<{
+  private async calculateBasePriceOnly(context: QuoteContext): Promise<{
     baseTotal: number;
     details: { label: string; amount: number }[];
   }> {
@@ -446,23 +444,81 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     const ruleResult = this.ruleEngine.execute(context, new Money(baseTotal));
     const finalTotal = ruleResult.finalPrice.getAmount();
 
-    // Ajouter les détails des règles appliquées
-    if (ruleResult.discounts.length > 0) {
-      console.log("📋 [PACKING-STRATEGY] Règles appliquées:");
-      ruleResult.discounts.forEach((discount: any) => {
-        const ruleAmount = discount.getAmount().getAmount();
-        const ruleType = discount.getType();
-        const ruleDescription = discount.getDescription();
+    console.log(
+      `\n📊 [PACKING-STRATEGY] Résultat du RuleEngine (nouvelle architecture):`,
+    );
+    console.log(
+      `   └─ Prix de base: ${ruleResult.basePrice.getAmount().toFixed(2)}€`,
+    );
+    console.log(`   └─ Prix final: ${finalTotal.toFixed(2)}€`);
+    console.log(
+      `   └─ Total réductions: ${ruleResult.totalReductions.getAmount().toFixed(2)}€`,
+    );
+    console.log(
+      `   └─ Total surcharges: ${ruleResult.totalSurcharges.getAmount().toFixed(2)}€`,
+    );
+    console.log(
+      `   └─ Nombre total de règles: ${ruleResult.appliedRules.length}`,
+    );
 
-        details.push({
-          label: `${ruleType === "discount" ? "Réduction" : "Majoration"}: ${ruleDescription}`,
-          amount: ruleAmount,
+    // Ajouter les détails des règles appliquées (par catégorie)
+    if (ruleResult.appliedRules.length > 0) {
+      console.log("\n📋 [PACKING-STRATEGY] RÈGLES APPLIQUÉES EN DÉTAIL:");
+
+      // Réductions
+      if (ruleResult.reductions.length > 0) {
+        console.log("\n  📉 RÉDUCTIONS:");
+        ruleResult.reductions.forEach((rule, index) => {
+          details.push({
+            label: `Réduction: ${rule.description}`,
+            amount: -rule.impact.getAmount(),
+          });
+          console.log(`   ${index + 1}. ${rule.description}`);
+          console.log(
+            `      └─ Montant: -${rule.impact.getAmount().toFixed(2)}€`,
+          );
         });
+      }
 
-        console.log(
-          `   └─ ${ruleDescription}: ${ruleAmount > 0 ? "+" : ""}${ruleAmount.toFixed(2)}€`,
-        );
-      });
+      // Surcharges
+      if (ruleResult.surcharges.length > 0) {
+        console.log("\n  📈 SURCHARGES:");
+        ruleResult.surcharges.forEach((rule, index) => {
+          details.push({
+            label: `Surcharge: ${rule.description}`,
+            amount: rule.impact.getAmount(),
+          });
+          console.log(`   ${index + 1}. ${rule.description}`);
+          console.log(
+            `      └─ Montant: +${rule.impact.getAmount().toFixed(2)}€`,
+          );
+        });
+      }
+
+      // Autres catégories si présentes
+      if (ruleResult.constraints.length > 0) {
+        console.log("\n  🚧 CONTRAINTES:");
+        ruleResult.constraints.forEach((rule, index) => {
+          if (!rule.isConsumed) {
+            details.push({
+              label: `Contrainte: ${rule.description}`,
+              amount: rule.impact.getAmount(),
+            });
+          }
+          console.log(`   ${index + 1}. ${rule.description}`);
+        });
+      }
+
+      if (ruleResult.equipment.length > 0) {
+        console.log("\n  🔧 ÉQUIPEMENTS:");
+        ruleResult.equipment.forEach((rule, index) => {
+          details.push({
+            label: `Équipement: ${rule.description}`,
+            amount: rule.impact.getAmount(),
+          });
+          console.log(`   ${index + 1}. ${rule.description}`);
+        });
+      }
     } else {
       console.log("📋 [PACKING-STRATEGY] Aucune règle applicable");
     }
@@ -474,7 +530,10 @@ export class PackingQuoteStrategy implements QuoteStrategy {
       `📊 [PACKING-STRATEGY] Différence: ${(finalTotal - baseTotal).toFixed(2)}€`,
     );
 
-    return { total: finalTotal, details, discounts: ruleResult.discounts };
+    // ✅ COMPATIBILITÉ: Retourner discounts pour le code existant
+    const discounts = (ruleResult as any).discounts || [];
+
+    return { total: finalTotal, details, discounts };
   }
 
   /**
