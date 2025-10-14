@@ -55,16 +55,68 @@ export interface AppliedRuleDetail {
 }
 
 /**
- * Coûts détaillés par adresse
+ * Coûts détaillés par adresse (pickup, delivery, global)
+ * Chaque adresse dispose de sa propre ventilation complète
  */
 export interface AddressCosts {
-  /** Contraintes logistiques appliquées */
+  // ═══════════════════════════════════════════════════════════════════════
+  // SURCHARGES (contraintes logistiques + services supplémentaires)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /** Surcharges - Contraintes logistiques appliquées */
   constraints: AppliedRuleDetail[];
-  /** Services supplémentaires appliqués */
+
+  /** Surcharges - Services supplémentaires appliqués */
   additionalServices: AppliedRuleDetail[];
-  /** Équipements spéciaux appliqués */
+
+  /** Sous-total des surcharges (constraints + additionalServices) */
+  totalSurcharges: Money;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ÉQUIPEMENTS
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /** Équipements spéciaux appliqués (monte-meuble, diable, etc.) */
   equipment: AppliedRuleDetail[];
-  /** Total des coûts pour cette adresse */
+
+  /** Sous-total des équipements */
+  totalEquipment: Money;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÉDUCTIONS
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /** Réductions appliquées localement à cette adresse */
+  reductions: AppliedRuleDetail[];
+
+  /** Sous-total des réductions */
+  totalReductions: Money;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MONTE-MEUBLE (détection spécifique par adresse)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /** Monte-meuble requis pour cette adresse ? */
+  furnitureLiftRequired: boolean;
+
+  /** Raison de la détection du monte-meuble */
+  furnitureLiftReason?: string;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CONTRAINTES CONSOMMÉES (par adresse)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /** Contraintes absorbées par un équipement (ex: monte-meuble consomme escaliers) */
+  consumedConstraints: string[];
+
+  /** Raison de la consommation */
+  consumptionReason?: string;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // TOTAL FINAL PAR ADRESSE
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /** Total net pour cette adresse (surcharges + équipements - réductions) */
   total: Money;
 }
 
@@ -191,9 +243,28 @@ export class RuleExecutionResultBuilder {
 
   private createEmptyAddressCosts(): AddressCosts {
     return {
+      // Surcharges
       constraints: [],
       additionalServices: [],
+      totalSurcharges: new Money(0),
+
+      // Équipements
       equipment: [],
+      totalEquipment: new Money(0),
+
+      // Réductions
+      reductions: [],
+      totalReductions: new Money(0),
+
+      // Monte-meuble
+      furnitureLiftRequired: false,
+      furnitureLiftReason: undefined,
+
+      // Contraintes consommées
+      consumedConstraints: [],
+      consumptionReason: undefined,
+
+      // Total final
       total: new Money(0),
     };
   }
@@ -214,6 +285,8 @@ export class RuleExecutionResultBuilder {
         this.result.totalReductions = this.result.totalReductions!.add(
           rule.impact,
         );
+        // Ajouter aux réductions par adresse
+        this.addReductionToAddress(rule);
         break;
       case AppliedRuleType.SURCHARGE:
         this.result.surcharges!.push(rule);
@@ -245,21 +318,52 @@ export class RuleExecutionResultBuilder {
     rule: AppliedRuleDetail,
     category: "constraints" | "additionalServices" | "equipment",
   ): void {
-    if (rule.address === "pickup") {
-      this.result.pickupCosts![category].push(rule);
-      this.result.pickupCosts!.total = this.result.pickupCosts!.total.add(
+    const addressCosts = this.getAddressCosts(rule.address);
+
+    // Ajouter la règle à la catégorie appropriée
+    addressCosts[category].push(rule);
+
+    // Mettre à jour les sous-totaux selon la catégorie
+    if (category === "constraints" || category === "additionalServices") {
+      // Surcharges
+      addressCosts.totalSurcharges = addressCosts.totalSurcharges.add(
         rule.impact,
       );
-    } else if (rule.address === "delivery") {
-      this.result.deliveryCosts![category].push(rule);
-      this.result.deliveryCosts!.total = this.result.deliveryCosts!.total.add(
+    } else if (category === "equipment") {
+      // Équipements
+      addressCosts.totalEquipment = addressCosts.totalEquipment.add(
         rule.impact,
       );
+    }
+
+    // Mettre à jour le total général de l'adresse
+    addressCosts.total = addressCosts.total.add(rule.impact);
+  }
+
+  private addReductionToAddress(rule: AppliedRuleDetail): void {
+    const addressCosts = this.getAddressCosts(rule.address);
+
+    // Ajouter aux réductions de l'adresse
+    addressCosts.reductions.push(rule);
+
+    // Mettre à jour les sous-totaux
+    addressCosts.totalReductions = addressCosts.totalReductions.add(
+      rule.impact,
+    );
+
+    // Soustraire du total (car c'est une réduction)
+    addressCosts.total = addressCosts.total.subtract(rule.impact);
+  }
+
+  private getAddressCosts(
+    address: "pickup" | "delivery" | "both" | undefined,
+  ): AddressCosts {
+    if (address === "pickup") {
+      return this.result.pickupCosts!;
+    } else if (address === "delivery") {
+      return this.result.deliveryCosts!;
     } else {
-      this.result.globalCosts![category].push(rule);
-      this.result.globalCosts!.total = this.result.globalCosts!.total.add(
-        rule.impact,
-      );
+      return this.result.globalCosts!;
     }
   }
 
@@ -272,6 +376,34 @@ export class RuleExecutionResultBuilder {
   setFurnitureLift(required: boolean, reason?: string): this {
     this.result.furnitureLiftRequired = required;
     this.result.furnitureLiftReason = reason;
+    return this;
+  }
+
+  /**
+   * Configure le monte-meuble pour une adresse spécifique
+   */
+  setAddressFurnitureLift(
+    address: "pickup" | "delivery",
+    required: boolean,
+    reason?: string,
+  ): this {
+    const addressCosts = this.getAddressCosts(address);
+    addressCosts.furnitureLiftRequired = required;
+    addressCosts.furnitureLiftReason = reason;
+    return this;
+  }
+
+  /**
+   * Configure les contraintes consommées pour une adresse spécifique
+   */
+  setAddressConsumedConstraints(
+    address: "pickup" | "delivery",
+    constraints: string[],
+    reason?: string,
+  ): this {
+    const addressCosts = this.getAddressCosts(address);
+    addressCosts.consumedConstraints = constraints;
+    addressCosts.consumptionReason = reason;
     return this;
   }
 

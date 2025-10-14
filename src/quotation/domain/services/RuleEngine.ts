@@ -418,7 +418,7 @@ export class RuleEngine {
         // ✅ NOUVEAU: Finaliser le résultat avec le Builder
         builder.setFinalPrice(new Money(finalPrice));
 
-        // Ajouter les contraintes consommées
+        // Ajouter les contraintes consommées (global)
         if (allConsumedConstraints.size > 0) {
           builder.setConsumedConstraints(
             Array.from(allConsumedConstraints),
@@ -426,12 +426,39 @@ export class RuleEngine {
           );
         }
 
-        // Ajouter les informations sur le monte-meuble
+        // Ajouter les informations sur le monte-meuble (global)
         builder.setFurnitureLift(
           furnitureLiftRequired,
           pickupDetection.furnitureLiftReason ||
             deliveryDetection.furnitureLiftReason,
         );
+
+        // Ajouter les informations spécifiques par adresse
+        if (pickupDetection.furnitureLiftRequired) {
+          builder.setAddressFurnitureLift(
+            "pickup",
+            true,
+            pickupDetection.furnitureLiftReason,
+          );
+          builder.setAddressConsumedConstraints(
+            "pickup",
+            pickupDetection.consumedConstraints || [],
+            "Consommées par le Monte-meuble (départ)",
+          );
+        }
+
+        if (deliveryDetection.furnitureLiftRequired) {
+          builder.setAddressFurnitureLift(
+            "delivery",
+            true,
+            deliveryDetection.furnitureLiftReason,
+          );
+          builder.setAddressConsumedConstraints(
+            "delivery",
+            deliveryDetection.consumedConstraints || [],
+            "Consommées par le Monte-meuble (arrivée)",
+          );
+        }
 
         // Ajouter le prix minimum si applicable
         if (minimumPrice !== null && finalPrice >= minimumPrice) {

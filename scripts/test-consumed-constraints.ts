@@ -515,26 +515,96 @@ async function runTests() {
         const basePrice = new Money(100); // Prix de base de 100€ pour les tests
         const result = ruleEngine.execute(context, basePrice);
 
-        console.log(`\n📊 Résultats:`);
-        console.log(`   Prix de base: ${basePrice.getAmount()}€`);
+        console.log(`\n📊 Résultats (nouvelle architecture):`);
+        console.log(`   Prix de base: ${result.basePrice.getAmount()}€`);
         console.log(`   Prix final: ${result.finalPrice.getAmount()}€`);
         console.log(
-          `   Nombre de règles appliquées: ${result.discounts.length}`,
+          `   Total réductions: ${result.totalReductions.getAmount()}€`,
         );
-        console.log(`   Règles appliquées:`);
+        console.log(
+          `   Total surcharges: ${result.totalSurcharges.getAmount()}€`,
+        );
+        console.log(
+          `   Nombre de règles appliquées: ${result.appliedRules.length}`,
+        );
 
-        result.discounts.forEach((d) => {
-          const sign = d.isReduction() ? "-" : "+";
+        console.log(`\n📋 Règles appliquées par catégorie:`);
+
+        if (result.reductions && result.reductions.length > 0) {
+          console.log(`   📉 Réductions (${result.reductions.length}):`);
+          result.reductions.forEach((rule) => {
+            console.log(`      - ${rule.name} (-${rule.impact.getAmount()}€)`);
+          });
+        }
+
+        if (result.surcharges && result.surcharges.length > 0) {
+          console.log(`   📈 Surcharges (${result.surcharges.length}):`);
+          result.surcharges.forEach((rule) => {
+            console.log(`      + ${rule.name} (+${rule.impact.getAmount()}€)`);
+          });
+        }
+
+        if (result.constraints && result.constraints.length > 0) {
+          console.log(`   🚧 Contraintes (${result.constraints.length}):`);
+          result.constraints.forEach((rule) => {
+            const consumed = rule.isConsumed ? " [CONSOMMÉE]" : "";
+            console.log(
+              `      • ${rule.name} (${rule.impact.getAmount()}€)${consumed}`,
+            );
+          });
+        }
+
+        if (result.equipment && result.equipment.length > 0) {
+          console.log(`   🔧 Équipements (${result.equipment.length}):`);
+          result.equipment.forEach((rule) => {
+            console.log(`      • ${rule.name} (+${rule.impact.getAmount()}€)`);
+          });
+        }
+
+        // Afficher les contraintes consommées
+        if (
+          result.consumedConstraints &&
+          result.consumedConstraints.length > 0
+        ) {
+          console.log(`\n🔒 Contraintes consommées par le système:`);
+          console.log(`   ${result.consumptionReason || "Consommées"}`);
+          result.consumedConstraints.forEach((constraint) => {
+            console.log(`   • ${constraint}`);
+          });
+        }
+
+        // Afficher les coûts par adresse
+        if (result.pickupCosts && result.deliveryCosts && result.globalCosts) {
+          console.log(`\n📍 Coûts par adresse:`);
+          const pickupRulesCount =
+            result.pickupCosts.constraints.length +
+            result.pickupCosts.additionalServices.length +
+            result.pickupCosts.equipment.length;
+          const deliveryRulesCount =
+            result.deliveryCosts.constraints.length +
+            result.deliveryCosts.additionalServices.length +
+            result.deliveryCosts.equipment.length;
+          const globalRulesCount =
+            result.globalCosts.constraints.length +
+            result.globalCosts.additionalServices.length +
+            result.globalCosts.equipment.length;
+
           console.log(
-            `      ${sign} ${d.getName()} (${d.getValue()}${d.getType() === "PERCENTAGE" ? "%" : "€"})`,
+            `   Départ: ${result.pickupCosts.total.getAmount()}€ (${pickupRulesCount} règles)`,
           );
-        });
+          console.log(
+            `   Arrivée: ${result.deliveryCosts.total.getAmount()}€ (${deliveryRulesCount} règles)`,
+          );
+          console.log(
+            `   Global: ${result.globalCosts.total.getAmount()}€ (${globalRulesCount} règles)`,
+          );
+        }
 
         // Vérification 3: Règles qui devraient être appliquées
         console.log("\n✅ Vérification des règles attendues:");
         for (const expectedRule of scenario.shouldApplyRules) {
-          const isApplied = result.discounts.some((d) =>
-            d.getName().includes(expectedRule),
+          const isApplied = result.appliedRules.some((rule) =>
+            rule.name.includes(expectedRule),
           );
           if (isApplied) {
             console.log(`   ✅ "${expectedRule}" appliquée`);
@@ -549,8 +619,8 @@ async function runTests() {
         );
         let hasError = false;
         for (const bannedRule of scenario.shouldNotApplyRules) {
-          const isApplied = result.discounts.some((d) =>
-            d.getName().includes(bannedRule),
+          const isApplied = result.appliedRules.some((rule) =>
+            rule.name.includes(bannedRule),
           );
           if (!isApplied) {
             console.log(
