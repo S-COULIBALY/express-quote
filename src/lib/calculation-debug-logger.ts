@@ -211,13 +211,21 @@ class CalculationDebugLogger {
       console.log(`   ❌ Erreur: ${error.message}`);
       console.log(`   📋 Stack: ${error.stack?.split('\n').slice(0, 2).join(' → ')}`);
     } else if (isApplicable) {
+      const conditionDisplay = typeof rule.condition === 'object'
+        ? JSON.stringify(rule.condition)
+        : (rule.condition || 'Fonction personnalisée');
+
       console.log(`🔍 RÈGLE "${rule.name}" → ✅ ÉVALUÉE APPLICABLE`);
-      console.log(`   📝 Condition vérifiée: ${rule.condition || 'Fonction personnalisée'} ${conditionLocation}`);
+      console.log(`   📝 Condition vérifiée: ${conditionDisplay} ${conditionLocation}`);
       console.log(`   ⚙️ Paramètres: Type=${isPercentage ? 'Pourcentage' : 'Montant fixe'}, Valeur=${displayValue}${isPercentage ? '%' : '€'}`);
       console.log(`   ✅ Statut: Conditions remplies → Application en cours...`);
     } else {
+      const conditionDisplay = typeof rule.condition === 'object'
+        ? JSON.stringify(rule.condition)
+        : (rule.condition || 'Fonction personnalisée');
+
       console.log(`🔍 RÈGLE "${rule.name}" → ❌ NON APPLICABLE`);
-      console.log(`   📝 Condition: ${rule.condition || 'Fonction personnalisée'} ${conditionLocation}`);
+      console.log(`   📝 Condition: ${conditionDisplay} ${conditionLocation}`);
       console.log(`   ⚙️ Paramètres: Type=${isPercentage ? 'Pourcentage' : 'Montant fixe'}, Valeur=${displayValue}${isPercentage ? '%' : '€'}`);
       console.log(`   ❌ Statut: Conditions non remplies → Règle ignorée`);
     }
@@ -252,8 +260,12 @@ class CalculationDebugLogger {
     // Calculer le pourcentage effectif appliqué (avec multiplicateur)
     const effectivePercentage = isPercentage ? ((detail.impact / priceBeforeRule) * 100).toFixed(1) : null;
     
+    const conditionDisplay = typeof rule.condition === 'object'
+      ? JSON.stringify(rule.condition)
+      : rule.condition;
+
     console.log(`🔍 RÈGLE "${rule.name}" → ✅ APPLICABLE`);
-    console.log(`   📝 Condition vérifiée: ${rule.condition} ${conditionLocation}`);
+    console.log(`   📝 Condition vérifiée: ${conditionDisplay} ${conditionLocation}`);
     console.log(`   ⚙️ Paramètres: Type=${isPercentage ? 'Pourcentage' : 'Montant fixe'}, Valeur=${displayValue}${isPercentage ? '%' : '€'}`);
     
     if (isPercentage) {
@@ -501,26 +513,29 @@ class CalculationDebugLogger {
 
   private extractRelevantContext(rule: any, context: any): any {
     const relevant: any = {};
-    
+
     // Analyser la condition de la règle pour extraire les variables utilisées
     const condition = rule.condition || '';
     const contextKeys = Object.keys(context);
-    
+
+    // Convertir condition en string si c'est un objet
+    const conditionStr = typeof condition === 'string' ? condition : JSON.stringify(condition);
+
     // Variables communes dans les conditions
     const commonVars = [
       'volume', 'distance', 'workers', 'duration', 'isReturningCustomer',
       'scheduledDate', 'day', 'hour', 'pickupFloor', 'deliveryFloor',
       'pickupElevator', 'deliveryElevator', 'hasElevator'
     ];
-    
+
     commonVars.forEach(key => {
-      if (condition.includes(key) && context[key] !== undefined) {
+      if (conditionStr.includes(key) && context[key] !== undefined) {
         relevant[key] = context[key];
       }
     });
-    
+
     // Ajouter les contraintes logistiques si mentionnées
-    if (condition.includes('Constraint') || condition.includes('logistics')) {
+    if (conditionStr.includes('Constraint') || conditionStr.includes('logistics')) {
       if (context.pickupLogisticsConstraints) {
         relevant.pickupLogisticsConstraints = context.pickupLogisticsConstraints;
       }
@@ -528,16 +543,19 @@ class CalculationDebugLogger {
         relevant.deliveryLogisticsConstraints = context.deliveryLogisticsConstraints;
       }
     }
-    
+
     return relevant;
   }
 
-  private findConditionLocation(condition: string, contextData: any): string {
+  private findConditionLocation(condition: any, contextData: any): string {
     // Analyser où la condition a été trouvée
     if (!condition) return '';
-    
+
+    // Si c'est un objet, convertir en string pour analyse
+    const conditionStr = typeof condition === 'string' ? condition : JSON.stringify(condition);
+
     // ✅ CORRECTION: Traitement spécial pour long_carrying_distance
-    if (condition.includes('long_carrying_distance')) {
+    if (conditionStr.includes('long_carrying_distance')) {
       const pickupDistance = contextData.pickupCarryDistance;
       const deliveryDistance = contextData.deliveryCarryDistance;
       
@@ -557,7 +575,7 @@ class CalculationDebugLogger {
     ];
     
     for (const constraint of constraintVars) {
-      if (condition.includes(constraint)) {
+      if (conditionStr.includes(constraint)) {
         if (contextData.pickupLogisticsConstraints?.includes(constraint)) {
           return '∈ pickupLogisticsConstraints';
         }
@@ -566,18 +584,18 @@ class CalculationDebugLogger {
         }
       }
     }
-    
+
     // Vérifier les variables simples
-    if (condition.includes('pickupFloor') || condition.includes('deliveryFloor')) {
+    if (conditionStr.includes('pickupFloor') || conditionStr.includes('deliveryFloor')) {
       return `(pickup: ${contextData.pickupFloor}, delivery: ${contextData.deliveryFloor})`;
     }
-    
-    if (condition.includes('volume')) {
+
+    if (conditionStr.includes('volume')) {
       return `(${contextData.volume}m³)`;
     }
-    
+
     // ✅ CORRECTION: Distance principale (déménagement) vs distance de portage
-    if (condition.includes('distance') && !condition.includes('carrying')) {
+    if (conditionStr.includes('distance') && !conditionStr.includes('carrying')) {
       return `(${contextData.distance}km)`;
     }
     
