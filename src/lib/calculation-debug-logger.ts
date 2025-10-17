@@ -272,7 +272,12 @@ class CalculationDebugLogger {
     
     if (isPercentage) {
       // 🔧 CORRECTION: Afficher le calcul avec le prix de base pour les pourcentages
-      console.log(`   🧮 Application: ${priceBeforeRule}€ + (${this.basePrice}€ × ${effectivePercentage}%) = ${priceBeforeRule}€ + ${detail.impact}€ = ${detail.priceAfterRule}€`);
+      // ✅ Formater les montants avec 2 décimales maximum pour l'affichage propre
+      const impactDisplay = this.formatAmount(detail.impact);
+      const priceBeforeDisplay = this.formatAmount(priceBeforeRule);
+      const priceAfterDisplay = this.formatAmount(detail.priceAfterRule);
+      const basePriceDisplay = this.formatAmount(this.basePrice);
+      console.log(`   🧮 Application: ${priceBeforeDisplay}€ + (${basePriceDisplay}€ × ${effectivePercentage}%) = ${priceBeforeDisplay}€ + ${impactDisplay}€ = ${priceAfterDisplay}€`);
     } else {
       // Pour les montants fixes, afficher le montant effectif (avec multiplicateur)
       const effectiveAmount = Math.abs(detail.impact);
@@ -290,7 +295,9 @@ class CalculationDebugLogger {
       }
     }
     
-    console.log(`   📊 Impact final: ${sign}${Math.abs(detail.impact)}€ soit ${sign}${percentageReal}% | Prix final: ${detail.priceAfterRule}€`);
+    const impactFinalDisplay = this.formatAmount(Math.abs(detail.impact));
+    const priceFinalDisplay = this.formatAmount(detail.priceAfterRule);
+    console.log(`   📊 Impact final: ${sign}${impactFinalDisplay}€ soit ${sign}${percentageReal}% | Prix final: ${priceFinalDisplay}€`);
     console.log('');
   }
 
@@ -647,6 +654,24 @@ class CalculationDebugLogger {
       },
       hasErrors: this.steps.some(s => s.step === 'CALCULATION_ERROR')
     };
+  }
+
+  /**
+   * Formate un montant pour l'affichage en supprimant les décimales inutiles
+   * @param amount Montant à formater
+   * @returns Montant formaté (entier si pas de décimales significatives, sinon 2 décimales max)
+   */
+  private formatAmount(amount: number): string {
+    // Arrondir à 2 décimales pour éviter les erreurs de précision floating point
+    const rounded = Math.round(amount * 100) / 100;
+
+    // Si c'est un entier, afficher sans décimales
+    if (rounded === Math.floor(rounded)) {
+      return rounded.toString();
+    }
+
+    // Sinon afficher avec 1 ou 2 décimales selon le besoin
+    return rounded.toFixed(2).replace(/\.?0+$/, '');
   }
 
   // Méthode pour sauvegarder en fichier (optionnel)

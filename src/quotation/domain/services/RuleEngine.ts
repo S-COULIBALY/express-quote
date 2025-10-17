@@ -242,10 +242,13 @@ export class RuleEngine {
                   // Logger l'application de la règle (format Option D)
                   // Si la règle s'applique aux deux adresses, logger une seule fois avec l'impact total
                   if (impactMultiplier === 2) {
-                    // Créer un ruleResult avec l'impact doublé pour le log
+                    // ✅ CORRECTION: Doubler l'impact ET ajuster le nouveau prix en conséquence
+                    const doubledImpact = ruleResult.impact * 2;
                     const doubledResult = {
                       ...ruleResult,
-                      impact: ruleResult.impact * 2,
+                      impact: doubledImpact,
+                      price: currentPrice + doubledImpact,
+                      newPrice: new Money(currentPrice + doubledImpact),
                     };
                     calculationDebugLogger.logRuleApplication(
                       rule,

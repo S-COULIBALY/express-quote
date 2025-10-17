@@ -241,11 +241,13 @@ export class Rule {
     if (this.isPercentage()) {
       // 🔧 CORRECTION: Pour les pourcentages, utiliser le prix de base initial si fourni
       const basePriceAmount = basePrice ? basePrice.getAmount() : priceAmount;
-      const percentageImpact = Math.round(basePriceAmount * this.value / 100);
+      // ✅ IMPORTANT: Ne PAS arrondir ici pour éviter les erreurs cumulées
+      // L'arrondi sera fait au moment du prix final uniquement
+      const percentageImpact = (basePriceAmount * this.value / 100);
       newPrice = priceAmount + percentageImpact;
     } else {
-      // Si la valeur est un montant fixe
-      newPrice = Math.round(priceAmount + this.value);
+      // Si la valeur est un montant fixe, pas d'arrondi non plus
+      newPrice = priceAmount + this.value;
     }
     
     const impact = newPrice - priceAmount;
