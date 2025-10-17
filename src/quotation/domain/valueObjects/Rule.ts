@@ -16,13 +16,28 @@ export interface RuleApplyResult {
 }
 
 /**
+ * Structure des metadata d'une règle (venant de la BDD)
+ */
+export interface RuleMetadata {
+  category_frontend?: 'constraint' | 'service';
+  impact?: string;
+  source?: string;
+  display?: {
+    icon?: string;
+    group?: string;
+    priority?: number;
+    description_short?: string;
+  };
+}
+
+/**
  * Classe représentant une règle de tarification
  * Une règle peut être un discount (réduction) ou une surcharge (majoration)
  */
 export class Rule {
   // Fonction optionnelle qui peut être utilisée à la place de la condition en chaîne
   private applyFunction?: ((context: any) => RuleApplyResult);
-  
+
   constructor(
     public readonly name: string,
     public readonly serviceType: string,
@@ -30,7 +45,8 @@ export class Rule {
     public readonly condition: string = '',
     public readonly isActive: boolean = true,
     public readonly id?: string,
-    public readonly percentBased?: boolean
+    public readonly percentBased?: boolean,
+    public readonly metadata?: RuleMetadata
   ) {}
 
   /**

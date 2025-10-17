@@ -570,21 +570,27 @@ export class RuleEngine {
 
   /**
    * Détermine le type d'une règle appliquée pour le nouveau système
+   *
+   * ✅ LOGIQUE BASÉE SUR metadata DE LA BDD:
+   * - metadata.category_frontend: "constraint" → CONSTRAINT (contraintes logistiques)
+   * - metadata.display.group: "equipment" → EQUIPMENT
+   * - metadata.category_frontend: "service" → ADDITIONAL_SERVICE
+   *
+   * Fallback si pas de metadata:
+   * - percentBased: true → CONSTRAINT
+   * - Nom contient "monte-meuble" → EQUIPMENT
+   * - Par défaut → ADDITIONAL_SERVICE
    */
   private determineRuleType(rule: Rule): AppliedRuleType {
     const name = rule.name.toLowerCase();
 
-    // Vérifier si c'est une réduction
+    // Vérifier si c'est une réduction (valeur négative)
     if (rule.value < 0) {
       return AppliedRuleType.REDUCTION;
     }
 
-    // Equipment (Monte-meuble)
-    if (name.includes("monte-meuble") || name.includes("monte meuble")) {
-      return AppliedRuleType.EQUIPMENT;
-    }
-
-    // Temporal (Week-end, période spéciale)
+    // ✅ RÈGLE TEMPORELLE: Week-end, nuit, jours fériés
+    // (Ces règles peuvent être en pourcentage mais restent temporelles)
     if (
       name.includes("weekend") ||
       name.includes("week-end") ||
@@ -596,34 +602,34 @@ export class RuleEngine {
       return AppliedRuleType.TEMPORAL;
     }
 
-    // Constraints (Escaliers, ascenseur, distance)
-    if (
-      name.includes("escalier") ||
-      name.includes("ascenseur") ||
-      name.includes("étage") ||
-      name.includes("distance") ||
-      name.includes("accès") ||
-      name.includes("parking") ||
-      name.includes("zone piétonne")
-    ) {
+    // ✅ LOGIQUE BASÉE SUR METADATA (prioritaire)
+    if (rule.metadata) {
+      // Équipement (Monte-meuble)
+      if (rule.metadata.display?.group === "equipment") {
+        return AppliedRuleType.EQUIPMENT;
+      }
+
+      // Contraintes logistiques
+      if (rule.metadata.category_frontend === "constraint") {
+        return AppliedRuleType.CONSTRAINT;
+      }
+
+      // Services supplémentaires
+      if (rule.metadata.category_frontend === "service") {
+        return AppliedRuleType.ADDITIONAL_SERVICE;
+      }
+    }
+
+    // ⚠️ FALLBACK si pas de metadata (pour compatibilité)
+    if (rule.isPercentage()) {
       return AppliedRuleType.CONSTRAINT;
     }
 
-    // Additional Services (Emballage, démontage, nettoyage)
-    if (
-      name.includes("emballage") ||
-      name.includes("démontage") ||
-      name.includes("montage") ||
-      name.includes("nettoyage") ||
-      name.includes("stockage") ||
-      name.includes("piano") ||
-      name.includes("assurance")
-    ) {
-      return AppliedRuleType.ADDITIONAL_SERVICE;
+    if (name.includes("monte-meuble") || name.includes("monte meuble")) {
+      return AppliedRuleType.EQUIPMENT;
     }
 
-    // Par défaut, c'est une surcharge
-    return AppliedRuleType.SURCHARGE;
+    return AppliedRuleType.ADDITIONAL_SERVICE;
   }
 
   /**

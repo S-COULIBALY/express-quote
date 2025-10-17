@@ -24,8 +24,8 @@ export class PrismaRuleRepository {
    * ce qui correspond au champ serviceType dans la base de données.
    */
   private mapToDomain(record: any): Rule {
-    console.log(`Mapping rule from DB: ${record.name}, serviceType=${record.serviceType}, percentBased=${record.percentBased}`);
-    
+    console.log(`Mapping rule from DB: ${record.name}, serviceType=${record.serviceType}, percentBased=${record.percentBased}, metadata=${JSON.stringify(record.metadata)}`);
+
     return new Rule(
       record.name,
       record.serviceType,  // Le champ serviceType de la BD est passé au paramètre correspondant de la Rule
@@ -33,7 +33,8 @@ export class PrismaRuleRepository {
       record.condition,
       record.isActive,
       record.id,
-      record.percentBased
+      record.percentBased,
+      record.metadata as any // ✅ NOUVEAU: Passer les metadata de la BDD
     );
   }
 
@@ -42,12 +43,12 @@ export class PrismaRuleRepository {
    */
   async findAllActive(): Promise<Rule[]> {
     try {
-      const rules = await this.prisma.rule.findMany({
+      const rules = await this.prisma.rules.findMany({
         where: {
           isActive: true
         }
       });
-      
+
       return rules.map(rule => this.mapToDomain(rule));
     } catch (error) {
       logger.error('Error fetching active rules', error as Error);
@@ -60,10 +61,10 @@ export class PrismaRuleRepository {
    */
   async findById(id: string): Promise<Rule | null> {
     try {
-      const rule = await this.prisma.rule.findUnique({
+      const rule = await this.prisma.rules.findUnique({
         where: { id }
       });
-      
+
       return rule ? this.mapToDomain(rule) : null;
     } catch (error) {
       logger.error(`Error fetching rule with ID ${id}`, error as Error);
@@ -78,7 +79,7 @@ export class PrismaRuleRepository {
     console.log(`Finding rules for service type: ${serviceType}`);
     try {
       // Utiliser serviceType dans la requête et non type
-      const ruleRecords = await this.prisma.rule.findMany({
+      const ruleRecords = await this.prisma.rules.findMany({
         where: {
           serviceType: serviceType,
           isActive: true,
