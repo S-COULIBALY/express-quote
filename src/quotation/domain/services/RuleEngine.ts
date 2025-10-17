@@ -239,12 +239,27 @@ export class RuleEngine {
                   totalImpact += ruleResult.impact * impactMultiplier;
 
                   // Logger l'application de la règle (format Option D)
-                  calculationDebugLogger.logRuleApplication(
-                    rule,
-                    currentPrice,
-                    ruleResult,
-                    contextData,
-                  );
+                  // Si la règle s'applique aux deux adresses, logger une seule fois avec l'impact total
+                  if (impactMultiplier === 2) {
+                    // Créer un ruleResult avec l'impact doublé pour le log
+                    const doubledResult = {
+                      ...ruleResult,
+                      impact: ruleResult.impact * 2,
+                    };
+                    calculationDebugLogger.logRuleApplication(
+                      rule,
+                      currentPrice,
+                      doubledResult,
+                      contextData,
+                    );
+                  } else {
+                    calculationDebugLogger.logRuleApplication(
+                      rule,
+                      currentPrice,
+                      ruleResult,
+                      contextData,
+                    );
+                  }
 
                   // Déterminer le type de réduction
                   const discountType = rule.isPercentage()
