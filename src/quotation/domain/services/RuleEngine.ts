@@ -228,8 +228,14 @@ export class RuleEngine {
 
                 // Pour les règles normales avec un impact
                 if (ruleResult.isApplied && ruleResult.impact !== 0) {
-                  // Accumuler l'impact au lieu de remplacer le prix
-                  totalImpact += ruleResult.impact;
+                  // ✅ CORRECTION BUG: Déterminer l'adresse AVANT d'accumuler l'impact
+                  const ruleAddress = this.determineAddress(rule, contextData);
+
+                  // Si la règle s'applique aux deux adresses, doubler l'impact
+                  const impactMultiplier = ruleAddress === "both" ? 2 : 1;
+
+                  // Accumuler l'impact (doublé si les deux adresses)
+                  totalImpact += ruleResult.impact * impactMultiplier;
 
                   // Logger l'application de la règle (format Option D)
                   calculationDebugLogger.logRuleApplication(
@@ -275,11 +281,24 @@ export class RuleEngine {
                       isPercentage: rule.isPercentage(),
                       impact: new Money(absoluteImpact),
                       description: rule.name,
-                      address: this.determineAddress(rule, contextData),
+                      address: ruleAddress, // Utiliser ruleAddress déjà calculé
                       isConsumed: false,
                     };
 
-                    builder.addAppliedRule(appliedRuleDetail);
+                    // ✅ CORRECTION BUG: Si la règle s'applique aux deux adresses,
+                    // l'ajouter deux fois (une pour pickup, une pour delivery)
+                    if (ruleAddress === "both") {
+                      builder.addAppliedRule({
+                        ...appliedRuleDetail,
+                        address: "pickup",
+                      });
+                      builder.addAppliedRule({
+                        ...appliedRuleDetail,
+                        address: "delivery",
+                      });
+                    } else {
+                      builder.addAppliedRule(appliedRuleDetail);
+                    }
                   } catch (discountError) {
                     console.log(
                       "❌ ERREUR LORS DE LA CRÉATION DU DISCOUNT:",
@@ -614,6 +633,27 @@ export class RuleEngine {
         return "pickup";
       if (conditionStr.includes("delivery") && !conditionStr.includes("pickup"))
         return "delivery";
+    }
+
+    // ✅ NOUVEAU: Vérifier si la contrainte est présente dans le contexte
+    // Extraire le nom de la contrainte depuis la condition de la règle
+    const constraintName = this.extractConstraintNameFromCondition(
+      rule.condition,
+    );
+
+    if (constraintName) {
+      const pickupConstraints =
+        (contextData.pickupLogisticsConstraints as string[]) || [];
+      const deliveryConstraints =
+        (contextData.deliveryLogisticsConstraints as string[]) || [];
+
+      const isInPickup = pickupConstraints.includes(constraintName);
+      const isInDelivery = deliveryConstraints.includes(constraintName);
+
+      // Si la contrainte est présente aux deux adresses, retourner "both"
+      if (isInPickup && isInDelivery) return "both";
+      if (isInPickup) return "pickup";
+      if (isInDelivery) return "delivery";
     }
 
     return undefined;

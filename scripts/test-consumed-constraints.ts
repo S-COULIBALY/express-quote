@@ -573,30 +573,81 @@ async function runTests() {
           });
         }
 
-        // Afficher les coûts par adresse
+        // Afficher les coûts par adresse (STRUCTURE ENRICHIE)
         if (result.pickupCosts && result.deliveryCosts && result.globalCosts) {
-          console.log(`\n📍 Coûts par adresse:`);
-          const pickupRulesCount =
-            result.pickupCosts.constraints.length +
-            result.pickupCosts.additionalServices.length +
-            result.pickupCosts.equipment.length;
-          const deliveryRulesCount =
-            result.deliveryCosts.constraints.length +
-            result.deliveryCosts.additionalServices.length +
-            result.deliveryCosts.equipment.length;
-          const globalRulesCount =
-            result.globalCosts.constraints.length +
-            result.globalCosts.additionalServices.length +
-            result.globalCosts.equipment.length;
+          console.log(`\n📍 Coûts détaillés par adresse (nouvelle structure):`);
 
+          // DÉPART
+          console.log(`\n   🔵 DÉPART:`);
+          console.log(`      Total: ${result.pickupCosts.total.getAmount()}€`);
           console.log(
-            `   Départ: ${result.pickupCosts.total.getAmount()}€ (${pickupRulesCount} règles)`,
+            `      Surcharges: ${result.pickupCosts.totalSurcharges.getAmount()}€ (${result.pickupCosts.constraints.length + result.pickupCosts.additionalServices.length} règles)`,
           );
           console.log(
-            `   Arrivée: ${result.deliveryCosts.total.getAmount()}€ (${deliveryRulesCount} règles)`,
+            `      Équipements: ${result.pickupCosts.totalEquipment.getAmount()}€ (${result.pickupCosts.equipment.length} règles)`,
           );
           console.log(
-            `   Global: ${result.globalCosts.total.getAmount()}€ (${globalRulesCount} règles)`,
+            `      Réductions: ${result.pickupCosts.totalReductions.getAmount()}€ (${result.pickupCosts.reductions.length} règles)`,
+          );
+          console.log(
+            `      Monte-meuble requis: ${result.pickupCosts.furnitureLiftRequired ? "✅ OUI" : "❌ NON"}`,
+          );
+          if (result.pickupCosts.furnitureLiftReason) {
+            console.log(
+              `      Raison: ${result.pickupCosts.furnitureLiftReason}`,
+            );
+          }
+          if (result.pickupCosts.consumedConstraints.length > 0) {
+            console.log(
+              `      Contraintes consommées: [${result.pickupCosts.consumedConstraints.join(", ")}]`,
+            );
+            if (result.pickupCosts.consumptionReason) {
+              console.log(`      ${result.pickupCosts.consumptionReason}`);
+            }
+          }
+
+          // ARRIVÉE
+          console.log(`\n   🟢 ARRIVÉE:`);
+          console.log(
+            `      Total: ${result.deliveryCosts.total.getAmount()}€`,
+          );
+          console.log(
+            `      Surcharges: ${result.deliveryCosts.totalSurcharges.getAmount()}€ (${result.deliveryCosts.constraints.length + result.deliveryCosts.additionalServices.length} règles)`,
+          );
+          console.log(
+            `      Équipements: ${result.deliveryCosts.totalEquipment.getAmount()}€ (${result.deliveryCosts.equipment.length} règles)`,
+          );
+          console.log(
+            `      Réductions: ${result.deliveryCosts.totalReductions.getAmount()}€ (${result.deliveryCosts.reductions.length} règles)`,
+          );
+          console.log(
+            `      Monte-meuble requis: ${result.deliveryCosts.furnitureLiftRequired ? "✅ OUI" : "❌ NON"}`,
+          );
+          if (result.deliveryCosts.furnitureLiftReason) {
+            console.log(
+              `      Raison: ${result.deliveryCosts.furnitureLiftReason}`,
+            );
+          }
+          if (result.deliveryCosts.consumedConstraints.length > 0) {
+            console.log(
+              `      Contraintes consommées: [${result.deliveryCosts.consumedConstraints.join(", ")}]`,
+            );
+            if (result.deliveryCosts.consumptionReason) {
+              console.log(`      ${result.deliveryCosts.consumptionReason}`);
+            }
+          }
+
+          // GLOBAL
+          console.log(`\n   🟡 GLOBAL:`);
+          console.log(`      Total: ${result.globalCosts.total.getAmount()}€`);
+          console.log(
+            `      Surcharges: ${result.globalCosts.totalSurcharges.getAmount()}€ (${result.globalCosts.constraints.length + result.globalCosts.additionalServices.length} règles)`,
+          );
+          console.log(
+            `      Équipements: ${result.globalCosts.totalEquipment.getAmount()}€ (${result.globalCosts.equipment.length} règles)`,
+          );
+          console.log(
+            `      Réductions: ${result.globalCosts.totalReductions.getAmount()}€ (${result.globalCosts.reductions.length} règles)`,
           );
         }
 
