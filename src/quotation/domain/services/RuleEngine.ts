@@ -205,9 +205,10 @@ export class RuleEngine {
                 const currentPrice = basePriceAmount + totalImpact;
 
                 // Appliquer la règle sur le prix de base (pour les pourcentages)
+                // ✅ CORRECTION: Passer enrichedContextData pour que rule.apply() ait accès à furniture_lift_required
                 const ruleResult: RuleApplyResult = rule.apply(
                   new Money(currentPrice),
-                  contextData,
+                  enrichedContextData,
                   basePrice,
                 );
 

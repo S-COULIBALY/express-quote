@@ -45,7 +45,12 @@ export class Rule {
     }
 
     // Si aucune condition n'est spécifiée, la règle est toujours applicable
-    if (!this.condition || this.condition.trim() === '') {
+    if (!this.condition) {
+      return true;
+    }
+
+    // Gérer le cas où condition est une string vide
+    if (typeof this.condition === 'string' && this.condition.trim() === '') {
       return true;
     }
 
@@ -70,11 +75,9 @@ export class Rule {
       }
       
       const now = new Date();
-      
-      // 🏗️ DÉTECTION ET GESTION DU MONTE-MEUBLE OBLIGATOIRE
-      const furnitureLiftAnalysis = this.analyzeFurnitureLiftRequirement(context);
-      
-      // Créer un contexte enrichi pour l'évaluation
+
+      // ✅ Créer un contexte enrichi pour l'évaluation
+      // Note: monte_meuble_requis et consumedConstraints sont déjà fournis par RuleEngine via AutoDetectionService
       const evalContext = {
         ...context,
         // Ajouter la valeur de la règle au contexte
@@ -91,10 +94,6 @@ export class Rule {
         duration: context.duration || 1,
         // Informations client
         isReturningCustomer: context.isReturningCustomer || false,
-        
-        // 🏗️ GESTION DU MONTE-MEUBLE ET CONTRAINTES CONSOMMÉES
-        monte_meuble_requis: furnitureLiftAnalysis.required,
-        consumedConstraints: furnitureLiftAnalysis.consumedConstraints,
         
         // ✅ VARIABLES DE BASE POUR LES CALCULS
         volume: parseFloat(context.volume || '0'),
@@ -157,36 +156,43 @@ export class Rule {
         pickupNarrowStairs: context.pickupNarrowStairs || false,
         deliveryNarrowStairs: context.deliveryNarrowStairs || false
       };
-      
-      // 🚫 FILTRAGE DES CONTRAINTES CONSOMMÉES PAR LE MONTE-MEUBLE
-      if (this.isConstraintConsumedByFurnitureLift(evalContext)) {
-        console.log(`🚫 Règle "${this.name}" ignorée - contrainte consommée par le monte-meuble`);
-        return false;
-      }
 
-      // ✅ CORRECTION: Gérer les conditions JSON ET les expressions JavaScript
+      // ✅ FILTRAGE DES CONTRAINTES CONSOMMÉES: Géré par RuleEngine avant l'appel à isApplicable()
+      // Pas besoin de vérifier ici car RuleEngine.isRuleConstraintConsumed() fait déjà le travail
+
+      // ✅ CORRECTION: Gérer les conditions JSON (objet ou string) ET les expressions JavaScript
       let result: boolean;
 
-      // Détecter si c'est un objet JSON ou une expression JS
-      const conditionStr = this.condition.trim();
-      if (conditionStr.startsWith('{') || conditionStr.startsWith('[')) {
-        // C'est un objet JSON - parser et évaluer intelligemment
-        try {
-          const conditionObj = JSON.parse(conditionStr);
-          result = this.evaluateJsonCondition(conditionObj, evalContext);
-        } catch (parseError) {
-          console.error(`❌ Erreur parsing JSON condition pour "${this.name}":`, parseError);
-          return false;
+      // Si la condition est déjà un objet (Prisma peut retourner du JSON parsé)
+      if (typeof this.condition === 'object' && this.condition !== null) {
+        result = this.evaluateJsonCondition(this.condition, evalContext);
+      }
+      // Si c'est une string, détecter le type
+      else if (typeof this.condition === 'string') {
+        const conditionStr = this.condition.trim();
+
+        if (conditionStr.startsWith('{') || conditionStr.startsWith('[')) {
+          // C'est un objet JSON stringifié - parser et évaluer
+          try {
+            const conditionObj = JSON.parse(conditionStr);
+            result = this.evaluateJsonCondition(conditionObj, evalContext);
+          } catch (parseError) {
+            console.error(`❌ Erreur parsing JSON condition pour "${this.name}":`, parseError);
+            return false;
+          }
+        } else {
+          // C'est une expression JavaScript - évaluer avec Function
+          try {
+            const evalFunction = new Function(...Object.keys(evalContext), `return (${this.condition});`);
+            result = evalFunction(...Object.values(evalContext));
+          } catch (evalError) {
+            console.error(`❌ Erreur évaluation JS condition pour "${this.name}":`, evalError);
+            return false;
+          }
         }
       } else {
-        // C'est une expression JavaScript - évaluer avec Function
-        try {
-          const evalFunction = new Function(...Object.keys(evalContext), `return (${this.condition});`);
-          result = evalFunction(...Object.values(evalContext));
-        } catch (evalError) {
-          console.error(`❌ Erreur évaluation JS condition pour "${this.name}":`, evalError);
-          return false;
-        }
+        console.error(`❌ Type de condition invalide pour "${this.name}":`, typeof this.condition);
+        return false;
       }
 
       // 🔍 LOGS DE DÉBOGAGE POUR LA RÈGLE MONTE-MEUBLE
@@ -228,53 +234,18 @@ export class Rule {
 
     const priceAmount = price.getAmount();
     let newPrice = priceAmount;
-    let multiplier = 1;
 
-    // 🔄 LOGIQUE DE MULTIPLICATION POUR CONTRAINTES LOGISTIQUES
-    // ✅ JUSTIFICATION: TOUTES les contraintes logistiques se multiplient par adresse (départ + arrivée)
-    // Exemple: stationnement difficile au départ ET à l'arrivée = 2x le coût
-    if (context && this.condition) {
-      // Toutes les contraintes logistiques se multiplient par nombre d'adresses concernées
-      const logisticsConstraints = [
-        'furniture_lift_required', 'pedestrian_zone', 'narrow_inaccessible_street',
-        'difficult_parking', 'complex_traffic', 'elevator_unavailable',
-        'elevator_unsuitable_size', 'elevator_forbidden_moving', 'difficult_stairs',
-        'narrow_corridors', 'long_carrying_distance', 'indirect_exit',
-        'complex_multilevel_access', 'access_control', 'administrative_permit',
-        'time_restrictions', 'fragile_floor', 'bulky_furniture',
-        'furniture_disassembly', 'furniture_reassembly', 'professional_packing_departure',
-        'professional_unpacking_arrival', 'packing_supplies', 'fragile_valuable_items',
-        'heavy_items', 'additional_insurance', 'temporary_storage_service'
-      ];
-
-      // Si la condition correspond à une contrainte logistique
-      if (logisticsConstraints.includes(this.condition)) {
-        multiplier = this.countLogisticsConstraint(context, this.condition);
-        console.log(`📍 [RÈGLE-LOGISTIQUE] "${this.name}" appliquée ${multiplier}x (${multiplier === 2 ? 'départ+arrivée' : multiplier === 1 ? 'une adresse' : 'aucune adresse'})`);
-        
-        // Si la contrainte n'est présente nulle part, ne pas appliquer la règle
-        if (multiplier === 0) {
-          return {
-            success: true,
-            modified: false,
-            price: priceAmount,
-            isApplied: false,
-            impact: 0,
-            newPrice: new Money(priceAmount)
-          };
-        }
-      }
-    }
+    // ✅ CORRECTION: La multiplication par adresse est maintenant gérée par RuleEngine.determineAddress()
+    // Cette logique évite la double multiplication (Rule.apply × RuleEngine.impactMultiplier)
 
     if (this.isPercentage()) {
       // 🔧 CORRECTION: Pour les pourcentages, utiliser le prix de base initial si fourni
       const basePriceAmount = basePrice ? basePrice.getAmount() : priceAmount;
-      const percentageValue = this.value * multiplier;
-      const percentageImpact = Math.round(basePriceAmount * percentageValue / 100);
+      const percentageImpact = Math.round(basePriceAmount * this.value / 100);
       newPrice = priceAmount + percentageImpact;
     } else {
-      // Si la valeur est un montant fixe, multiplier par le nombre d'occurrences
-      newPrice = Math.round(priceAmount + (this.value * multiplier));
+      // Si la valeur est un montant fixe
+      newPrice = Math.round(priceAmount + this.value);
     }
     
     const impact = newPrice - priceAmount;
@@ -317,162 +288,8 @@ export class Rule {
   private hasLogisticsConstraint(context: any, constraint: string): boolean {
     const pickupConstraints = context.pickupLogisticsConstraints || [];
     const deliveryConstraints = context.deliveryLogisticsConstraints || [];
-    
+
     return pickupConstraints.includes(constraint) || deliveryConstraints.includes(constraint);
-  }
-
-  /**
-   * Compte combien de fois une contrainte logistique est présente (pickup + delivery)
-   * @param context Contexte contenant les contraintes logistiques
-   * @param constraint Nom de la contrainte à compter
-   * @returns Nombre d'occurrences (0, 1 ou 2)
-   */
-  private countLogisticsConstraint(context: any, constraint: string): number {
-    const pickupConstraints = context.pickupLogisticsConstraints || [];
-    const deliveryConstraints = context.deliveryLogisticsConstraints || [];
-    
-    let count = 0;
-    if (pickupConstraints.includes(constraint)) count++;
-    if (deliveryConstraints.includes(constraint)) count++;
-    
-    return count;
-  }
-
-  /**
-   * Analyse si le monte-meuble est requis et quelles contraintes sont consommées
-   * @param context Contexte contenant toutes les données
-   * @returns Analyse du monte-meuble requis et contraintes consommées
-   */
-  private analyzeFurnitureLiftRequirement(context: any): { required: boolean; consumedConstraints: Set<string> } {
-    const consumedConstraints = new Set<string>();
-    let required = false;
-    
-    // Récupérer les données d'étage et d'ascenseur
-    const pickupFloor = parseInt(context.pickupFloor || '0');
-    const deliveryFloor = parseInt(context.deliveryFloor || '0');
-    const pickupElevator = context.pickupElevator;
-    const deliveryElevator = context.deliveryElevator;
-    const volume = parseFloat(context.volume || '0');
-    
-    // Contraintes qui peuvent déclencher le monte-meuble
-    const triggerConstraints = [
-      'elevator_unavailable',
-      'elevator_unsuitable_size', 
-      'elevator_forbidden_moving',
-      'difficult_stairs',
-      'narrow_corridors',
-      'indirect_exit',
-      'complex_multilevel_access',
-      'bulky_furniture'
-    ];
-    
-    // Vérifier si le monte-meuble est explicitement requis
-    if (this.hasLogisticsConstraint(context, 'furniture_lift_required')) {
-      required = true;
-      consumedConstraints.add('furniture_lift_required');
-    }
-    
-    // Logique d'activation automatique du monte-meuble
-    const hasNoElevator = !pickupElevator || pickupElevator === 'no' || !deliveryElevator || deliveryElevator === 'no';
-    const hasSmallElevator = pickupElevator === 'small' || deliveryElevator === 'small';
-    const hasElevatorProblems = this.hasLogisticsConstraint(context, 'elevator_unavailable') ||
-                               this.hasLogisticsConstraint(context, 'elevator_unsuitable_size') ||
-                               this.hasLogisticsConstraint(context, 'elevator_forbidden_moving');
-    
-    const maxFloor = Math.max(pickupFloor, deliveryFloor);
-    
-    // CAS 1: Étage élevé (> 3) sans ascenseur fonctionnel
-    if (maxFloor > 3 && (hasNoElevator || hasElevatorProblems)) {
-      required = true;
-      if (hasElevatorProblems) {
-        if (this.hasLogisticsConstraint(context, 'elevator_unavailable')) consumedConstraints.add('elevator_unavailable');
-        if (this.hasLogisticsConstraint(context, 'elevator_unsuitable_size')) consumedConstraints.add('elevator_unsuitable_size');
-        if (this.hasLogisticsConstraint(context, 'elevator_forbidden_moving')) consumedConstraints.add('elevator_forbidden_moving');
-      }
-    }
-    
-    // CAS 2: Contraintes d'accès difficile + objets lourds/encombrants
-    const hasAccessConstraints = this.hasLogisticsConstraint(context, 'difficult_stairs') ||
-                                this.hasLogisticsConstraint(context, 'narrow_corridors') ||
-                                this.hasLogisticsConstraint(context, 'indirect_exit') ||
-                                this.hasLogisticsConstraint(context, 'complex_multilevel_access');
-    
-    const hasHeavyItems = this.hasLogisticsConstraint(context, 'bulky_furniture');
-    
-    if (maxFloor >= 1 && hasAccessConstraints && hasHeavyItems) {
-      required = true;
-      
-      // Marquer les contraintes comme consommées
-      if (this.hasLogisticsConstraint(context, 'difficult_stairs')) consumedConstraints.add('difficult_stairs');
-      if (this.hasLogisticsConstraint(context, 'narrow_corridors')) consumedConstraints.add('narrow_corridors');
-      if (this.hasLogisticsConstraint(context, 'indirect_exit')) consumedConstraints.add('indirect_exit');
-      if (this.hasLogisticsConstraint(context, 'complex_multilevel_access')) consumedConstraints.add('complex_multilevel_access');
-      if (this.hasLogisticsConstraint(context, 'bulky_furniture')) consumedConstraints.add('bulky_furniture');
-    }
-    
-    // CAS 3: Ascenseur small + contraintes + objets lourds
-    if (hasSmallElevator && hasAccessConstraints && hasHeavyItems && maxFloor >= 1) {
-      required = true;
-      
-      // Marquer les contraintes comme consommées (même logique que CAS 2)
-      if (this.hasLogisticsConstraint(context, 'difficult_stairs')) consumedConstraints.add('difficult_stairs');
-      if (this.hasLogisticsConstraint(context, 'narrow_corridors')) consumedConstraints.add('narrow_corridors');
-      if (this.hasLogisticsConstraint(context, 'indirect_exit')) consumedConstraints.add('indirect_exit');
-      if (this.hasLogisticsConstraint(context, 'complex_multilevel_access')) consumedConstraints.add('complex_multilevel_access');
-      if (this.hasLogisticsConstraint(context, 'bulky_furniture')) consumedConstraints.add('bulky_furniture');
-    }
-    
-    if (required && consumedConstraints.size > 0) {
-      // ✨ OPTIMISATION: Ce log est maintenant géré de façon centralisée dans RuleEngine
-      // console.log(`🏗️ Monte-meuble requis - Contraintes consommées:`, Array.from(consumedConstraints));
-    }
-    
-    return { required, consumedConstraints };
-  }
-
-  /**
-   * Vérifie si cette règle doit être ignorée car sa contrainte est consommée par le monte-meuble
-   * @param evalContext Contexte d'évaluation enrichi
-   * @returns True si la règle doit être ignorée
-   */
-  private isConstraintConsumedByFurnitureLift(evalContext: any): boolean {
-    // Si le monte-meuble n'est pas requis, aucune contrainte n'est consommée
-    if (!evalContext.monte_meuble_requis) {
-      return false;
-    }
-    
-    // Si cette règle est la règle du monte-meuble elle-même, ne pas l'ignorer
-    if (this.condition === 'furniture_lift_required' || this.name === 'Monte-meuble') {
-      return false;
-    }
-    
-    // Vérifier si la condition de cette règle correspond à une contrainte consommée
-    const consumedConstraints = evalContext.consumedConstraints || new Set();
-    
-    // Si la condition de la règle est directement dans les contraintes consommées
-    if (consumedConstraints.has(this.condition)) {
-      return true;
-    }
-    
-    // Cas spéciaux pour les règles qui vérifient des variables booléennes
-    const constraintMappings: Record<string, string> = {
-      'difficult_stairs': 'difficult_stairs',
-      'narrow_corridors': 'narrow_corridors', 
-      'indirect_exit': 'indirect_exit',
-      'complex_multilevel_access': 'complex_multilevel_access',
-      'bulky_furniture': 'bulky_furniture',
-      'elevator_unavailable': 'elevator_unavailable',
-      'elevator_unsuitable_size': 'elevator_unsuitable_size',
-      'elevator_forbidden_moving': 'elevator_forbidden_moving'
-    };
-    
-    // Vérifier si la condition correspond à une contrainte mappée qui est consommée
-    const mappedConstraint = constraintMappings[this.condition];
-    if (mappedConstraint && consumedConstraints.has(mappedConstraint)) {
-      return true;
-    }
-    
-    return false;
   }
 
   /**

@@ -257,8 +257,10 @@ class CalculationDebugLogger {
     // ✅ CORRECTION: rule.value est déjà en pourcentage (15, 40, 50), ne pas multiplier par 100
     const displayValue = isPercentage ? rule.value.toFixed(1) : rule.value;
 
-    // Calculer le pourcentage effectif appliqué sur le prix de base (cohérent avec displayValue)
-    const effectivePercentage = isPercentage ? ((detail.impact / this.basePrice) * 100).toFixed(1) : null;
+    // ✅ CORRECTION: Ne PAS recalculer le pourcentage depuis l'impact arrondi
+    // Utiliser directement rule.value car l'arrondi Math.round() dans Rule.apply()
+    // peut transformer 8.5% (8.5€) en 9€, donnant un faux pourcentage de 9%
+    const effectivePercentage = isPercentage ? rule.value.toFixed(1) : null;
     
     const conditionDisplay = typeof rule.condition === 'object'
       ? JSON.stringify(rule.condition)
@@ -516,7 +518,6 @@ class CalculationDebugLogger {
 
     // Analyser la condition de la règle pour extraire les variables utilisées
     const condition = rule.condition || '';
-    const contextKeys = Object.keys(context);
 
     // Convertir condition en string si c'est un objet
     const conditionStr = typeof condition === 'string' ? condition : JSON.stringify(condition);
@@ -652,7 +653,9 @@ class CalculationDebugLogger {
   saveToFile(filename?: string): void {
     if (typeof window === 'undefined') {
       // Node.js environment
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const fs = require('fs');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const path = require('path');
       
       const fileName = filename || `calc-debug-${this.sessionId}.json`;
