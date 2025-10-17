@@ -202,7 +202,8 @@ export class RuleEngine {
 
               try {
                 // ✅ CORRECTION: Toujours appliquer les règles sur le prix de base
-                const currentPrice = basePriceAmount + totalImpact;
+                // Arrondir à 2 décimales pour éviter les erreurs de précision
+                const currentPrice = Math.round((basePriceAmount + totalImpact) * 100) / 100;
 
                 // Appliquer la règle sur le prix de base (pour les pourcentages)
                 // ✅ CORRECTION: Passer enrichedContextData pour que rule.apply() ait accès à furniture_lift_required
@@ -237,18 +238,20 @@ export class RuleEngine {
                   const impactMultiplier = ruleAddress === "both" ? 2 : 1;
 
                   // Accumuler l'impact (doublé si les deux adresses)
-                  totalImpact += ruleResult.impact * impactMultiplier;
+                  // ✅ Arrondir à 2 décimales pour éviter les erreurs de précision floating point
+                  totalImpact = Math.round((totalImpact + ruleResult.impact * impactMultiplier) * 100) / 100;
 
                   // Logger l'application de la règle (format Option D)
                   // Si la règle s'applique aux deux adresses, logger une seule fois avec l'impact total
                   if (impactMultiplier === 2) {
                     // ✅ CORRECTION: Doubler l'impact ET ajuster le nouveau prix en conséquence
-                    const doubledImpact = ruleResult.impact * 2;
+                    const doubledImpact = Math.round(ruleResult.impact * 2 * 100) / 100;
+                    const newPriceValue = Math.round((currentPrice + doubledImpact) * 100) / 100;
                     const doubledResult = {
                       ...ruleResult,
                       impact: doubledImpact,
-                      price: currentPrice + doubledImpact,
-                      newPrice: new Money(currentPrice + doubledImpact),
+                      price: newPriceValue,
+                      newPrice: new Money(newPriceValue),
                     };
                     calculationDebugLogger.logRuleApplication(
                       rule,
@@ -382,7 +385,8 @@ export class RuleEngine {
         }
 
         // Calculer le prix final = prix de base + tous les impacts
-        let finalPrice = basePriceAmount + totalImpact;
+        // ✅ Arrondir à 2 décimales pour éviter les erreurs de précision floating point
+        let finalPrice = Math.round((basePriceAmount + totalImpact) * 100) / 100;
 
         // Vérifier que le prix final n'est pas inférieur au prix minimum
         console.log("🔍 VÉRIFICATION DU PRIX FINAL...");
