@@ -380,20 +380,14 @@ async function runTests() {
 
     // Convertir en objets Rule
     const rules = rulesData.map(
-      (r: {
-        name: string;
-        serviceType: string;
-        value: number;
-        condition: Record<string, unknown>;
-        isActive: boolean;
-        id: string;
-        percentBased: boolean;
-      }) =>
+      (r) =>
         new Rule(
           r.name,
           r.serviceType,
           r.value,
-          r.condition || "",
+          (typeof r.condition === "string"
+            ? r.condition
+            : (r.condition as any)) || "",
           r.isActive,
           r.id,
           r.percentBased,
@@ -416,7 +410,7 @@ async function runTests() {
 
       try {
         // Créer le contexte simplement avec new QuoteContext()
-        const context = new QuoteContext("MOVING" as ServiceType);
+        const context = new QuoteContext("MOVING" as any);
         // Ajouter toutes les données du scénario
         Object.keys(scenario.contextData).forEach((key) => {
           context.setValue(
@@ -433,32 +427,34 @@ async function runTests() {
         // Vérifier la détection du monte-meubles avec AutoDetectionService
         console.log("🔍 Vérification AutoDetectionService...");
         const pickupData = {
-          floor: parseInt(scenario.contextData.pickupFloor || "0"),
+          floor: parseInt(String(scenario.contextData.pickupFloor || "0")),
           elevator: scenario.contextData.pickupElevator as
             | "no"
             | "small"
             | "medium"
             | "large",
-          constraints: scenario.contextData.pickupLogisticsConstraints || [],
+          constraints: (scenario.contextData.pickupLogisticsConstraints ||
+            []) as string[],
         };
 
         const deliveryData = {
-          floor: parseInt(scenario.contextData.deliveryFloor || "0"),
+          floor: parseInt(String(scenario.contextData.deliveryFloor || "0")),
           elevator: scenario.contextData.deliveryElevator as
             | "no"
             | "small"
             | "medium"
             | "large",
-          constraints: scenario.contextData.deliveryLogisticsConstraints || [],
+          constraints: (scenario.contextData.deliveryLogisticsConstraints ||
+            []) as string[],
         };
 
         const pickupDetection = AutoDetectionService.detectFurnitureLift(
           pickupData,
-          scenario.contextData.volume,
+          scenario.contextData.volume as number,
         );
         const deliveryDetection = AutoDetectionService.detectFurnitureLift(
           deliveryData,
-          scenario.contextData.volume,
+          scenario.contextData.volume as number,
         );
 
         const monteMenubleDetected =

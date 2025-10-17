@@ -65,12 +65,12 @@ export class RuleEngine {
         | "small"
         | "medium"
         | "large",
-      carryDistance: contextData.pickupCarryDistance as
+      carryDistance: contextData.pickupCarryDistance as any as
         | "0-10"
         | "10-30"
         | "30+"
         | undefined,
-      constraints: contextData.pickupLogisticsConstraints || [],
+      constraints: (contextData.pickupLogisticsConstraints || []) as string[],
     };
 
     const deliveryData: AddressData = {
@@ -83,12 +83,12 @@ export class RuleEngine {
         | "small"
         | "medium"
         | "large",
-      carryDistance: contextData.deliveryCarryDistance as
+      carryDistance: contextData.deliveryCarryDistance as any as
         | "0-10"
         | "10-30"
         | "30+"
         | undefined,
-      constraints: contextData.deliveryLogisticsConstraints || [],
+      constraints: (contextData.deliveryLogisticsConstraints || []) as string[],
     };
 
     // Détecter avec AutoDetectionService

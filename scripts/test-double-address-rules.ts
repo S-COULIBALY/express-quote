@@ -151,7 +151,9 @@ async function runTests() {
           r.name,
           r.serviceType,
           r.value,
-          r.condition || "",
+          (typeof r.condition === "string"
+            ? r.condition
+            : (r.condition as any)) || "",
           r.isActive,
           r.id,
           r.percentBased,
@@ -172,7 +174,7 @@ async function runTests() {
       console.log(`📝 ${testCase.description}\n`);
 
       try {
-        const context = new QuoteContext("MOVING" as ServiceType);
+        const context = new QuoteContext("MOVING" as any);
         Object.keys(testCase.contextData).forEach((key) => {
           context.setValue(
             key,
