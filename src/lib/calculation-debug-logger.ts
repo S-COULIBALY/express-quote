@@ -256,9 +256,9 @@ class CalculationDebugLogger {
 
     // ✅ CORRECTION: rule.value est déjà en pourcentage (15, 40, 50), ne pas multiplier par 100
     const displayValue = isPercentage ? rule.value.toFixed(1) : rule.value;
-    
-    // Calculer le pourcentage effectif appliqué (avec multiplicateur)
-    const effectivePercentage = isPercentage ? ((detail.impact / priceBeforeRule) * 100).toFixed(1) : null;
+
+    // Calculer le pourcentage effectif appliqué sur le prix de base (cohérent avec displayValue)
+    const effectivePercentage = isPercentage ? ((detail.impact / this.basePrice) * 100).toFixed(1) : null;
     
     const conditionDisplay = typeof rule.condition === 'object'
       ? JSON.stringify(rule.condition)

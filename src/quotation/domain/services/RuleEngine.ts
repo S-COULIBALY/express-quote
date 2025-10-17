@@ -229,7 +229,8 @@ export class RuleEngine {
                 // Pour les règles normales avec un impact
                 if (ruleResult.isApplied && ruleResult.impact !== 0) {
                   // ✅ CORRECTION BUG: Déterminer l'adresse AVANT d'accumuler l'impact
-                  const ruleAddress = this.determineAddress(rule, contextData);
+                  // Utiliser enrichedContextData pour voir furniture_lift_required
+                  const ruleAddress = this.determineAddress(rule, enrichedContextData);
 
                   // Si la règle s'applique aux deux adresses, doubler l'impact
                   const impactMultiplier = ruleAddress === "both" ? 2 : 1;
