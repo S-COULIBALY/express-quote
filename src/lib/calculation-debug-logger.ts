@@ -286,6 +286,20 @@ class CalculationDebugLogger {
     console.log('');
   }
 
+  finishRulesEngine(finalPrice: number, rulesAppliedCount: number) {
+    const duration = Date.now() - this.startTime;
+
+    console.log('✅ [CALC-DEBUG] MOTEUR RÈGLES TERMINÉ');
+    console.log(`   💰 Prix final: ${finalPrice.toFixed(2)}€`);
+    console.log(`   ⚡ Règles appliquées: ${rulesAppliedCount}`);
+    console.log(`   ⏱️ Durée: ${duration}ms`);
+    console.log('');
+  }
+
+  logError(error: Error, context: any) {
+    this.logCalculationError(error, 'RULES_ENGINE', context);
+  }
+
   logRuleSkipped(rule: any, reason: string) {
     // 🔧 CORRECTION: Ajouter les règles ignorées au tracking pour le résumé final
     const detail: RuleApplicationDetail = {
