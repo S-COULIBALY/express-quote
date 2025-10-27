@@ -146,7 +146,7 @@ class CalculationDebugLogger {
   startRulesEngine(rules: any[], basePrice: number, context: any) {
     // Stocker le prix de base pour les calculs de pourcentage
     this.basePrice = basePrice;
-    
+
     const step: CalculationStep = {
       step: 'RULES_ENGINE_START',
       timestamp: Date.now(),
@@ -160,7 +160,30 @@ class CalculationDebugLogger {
 
     this.steps.push(step);
 
-    console.log('⚙️ [CALC-DEBUG] RÈGLES: ' + rules.length + ' à vérifier | Prix base: ' + basePrice.toFixed(2) + '€');
+    console.log('\n⚙️ [CALC-DEBUG] ═══ MOTEUR DE RÈGLES ═══');
+    console.log(`📋 Règles à vérifier: ${rules.length}`);
+    console.log(`💰 Prix de base: ${basePrice.toFixed(2)}€`);
+
+    // LOG DÉTAILLÉ des contraintes par adresse
+    console.log('\n🏠 CONTRAINTES PAR ADRESSE:');
+    const pickupConstraints = context.pickupLogisticsConstraints || [];
+    const deliveryConstraints = context.deliveryLogisticsConstraints || [];
+
+    if (pickupConstraints.length > 0) {
+      console.log(`   📍 DÉPART (${pickupConstraints.length} contraintes):`);
+      pickupConstraints.forEach((c: string) => console.log(`      • ${c}`));
+    } else {
+      console.log(`   📍 DÉPART: Aucune contrainte`);
+    }
+
+    if (deliveryConstraints.length > 0) {
+      console.log(`   📦 ARRIVÉE (${deliveryConstraints.length} contraintes):`);
+      deliveryConstraints.forEach((c: string) => console.log(`      • ${c}`));
+    } else {
+      console.log(`   📦 ARRIVÉE: Aucune contrainte`);
+    }
+
+    console.log('═══════════════════════════════════════════════\n');
   }
 
   logRuleEvaluation(rule: any, context: any, isApplicable: boolean, error?: any) {

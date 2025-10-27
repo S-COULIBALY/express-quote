@@ -25,20 +25,30 @@ export class PriceController extends BaseApiController {
         return this.handleRequest(request, async (data) => {
             logger.info('💰 POST /api/price/calculate - Calcul prix complet');
 
-            devLog.debug('PriceController', '📥 ÉTAPE 1: Données reçues du frontend:', {
-                serviceType: data.serviceType,
-                hasPickupAddress: !!data.pickupAddress,
-                hasDeliveryAddress: !!data.deliveryAddress,
-                pickupLogisticsConstraints: data.pickupLogisticsConstraints,
-                deliveryLogisticsConstraints: data.deliveryLogisticsConstraints,
-                additionalServices: data.additionalServices,
-                pickupLogisticsConstraintsType: typeof data.pickupLogisticsConstraints,
-                deliveryLogisticsConstraintsType: typeof data.deliveryLogisticsConstraints,
-                additionalServicesType: typeof data.additionalServices,
-                pickupLogisticsConstraintsKeys: data.pickupLogisticsConstraints ? Object.keys(data.pickupLogisticsConstraints) : [],
-                deliveryLogisticsConstraintsKeys: data.deliveryLogisticsConstraints ? Object.keys(data.deliveryLogisticsConstraints) : [],
-                additionalServicesKeys: data.additionalServices ? Object.keys(data.additionalServices) : []
-            });
+            // ✅ LOG DÉTAILLÉ: FormData complet du frontend
+            logger.info('📥 ═══ DONNÉES FRONTEND (formData) ═══');
+            logger.info(`🎯 Service: ${data.serviceType}`);
+            logger.info(`📍 Adresses:`);
+            logger.info(`   🏠 Départ: ${data.pickupAddress || 'Non spécifié'}`);
+            logger.info(`   📦 Arrivée: ${data.deliveryAddress || 'Non spécifié'}`);
+
+            if (data.pickupLogisticsConstraints && data.pickupLogisticsConstraints.length > 0) {
+                logger.info(`   🚧 Contraintes départ (${data.pickupLogisticsConstraints.length}): ${data.pickupLogisticsConstraints.join(', ')}`);
+            }
+            if (data.deliveryLogisticsConstraints && data.deliveryLogisticsConstraints.length > 0) {
+                logger.info(`   🚧 Contraintes arrivée (${data.deliveryLogisticsConstraints.length}): ${data.deliveryLogisticsConstraints.join(', ')}`);
+            }
+
+            if (data.additionalServices && data.additionalServices.length > 0) {
+                logger.info(`   ➕ Services additionnels (${data.additionalServices.length}): ${data.additionalServices.join(', ')}`);
+            }
+
+            logger.info(`📊 Paramètres calcul:`);
+            logger.info(`   📦 Volume: ${data.volume || 'N/A'} m³`);
+            logger.info(`   👷 Déménageurs: ${data.workers || 'N/A'}`);
+            logger.info(`   ⏱️ Durée estimée: ${data.duration || 'N/A'} h`);
+            logger.info(`   📏 Distance: ${data.distance || 'N/A'} km`);
+            logger.info('═══════════════════════════════════════════════\n');
 
             // Validation des données d'entrée
             if (!data || Object.keys(data).length === 0) {
