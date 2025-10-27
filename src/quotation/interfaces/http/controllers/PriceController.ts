@@ -88,15 +88,13 @@ export class PriceController extends BaseApiController {
         if (!uuids || uuids.length === 0) return [];
 
         try {
-            const { PrismaClient } = await import('@prisma/client');
-            const prisma = new PrismaClient();
+            const prisma = await import('@/lib/prisma').then(m => m.default);
 
             const rules = await prisma.rule.findMany({
                 where: { id: { in: uuids }, isActive: true },
                 select: { name: true }
             });
 
-            await prisma.$disconnect();
             return rules.map(r => r.name);
         } catch (error) {
             logger.error('Erreur récupération noms contraintes:', error);
@@ -111,15 +109,13 @@ export class PriceController extends BaseApiController {
         if (!uuids || uuids.length === 0) return [];
 
         try {
-            const { PrismaClient } = await import('@prisma/client');
-            const prisma = new PrismaClient();
+            const prisma = await import('@/lib/prisma').then(m => m.default);
 
             const rules = await prisma.rule.findMany({
                 where: { id: { in: uuids }, isActive: true },
                 select: { name: true }
             });
 
-            await prisma.$disconnect();
             return rules.map(r => r.name);
         } catch (error) {
             logger.error('Erreur récupération noms services:', error);
