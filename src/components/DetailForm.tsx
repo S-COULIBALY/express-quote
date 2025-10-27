@@ -8,7 +8,7 @@
  * - useFormBusinessLogic: Logique métier (distance, fusion contraintes)
  */
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { CatalogData } from '@/hooks/useCatalogPreFill';
 import { FormGenerator, FormGeneratorRef } from '@/components/form-generator';
