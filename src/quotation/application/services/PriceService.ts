@@ -4,6 +4,8 @@ import { Quote } from '../../domain/valueObjects/Quote';
 import { ServiceType } from '../../domain/enums/ServiceType';
 import { ValidationError } from '../../domain/errors/ValidationError';
 import { logger } from '@/lib/logger';
+import { devLog } from '@/lib/conditional-logger';
+import { PrismaClient } from '@prisma/client';
 
 interface PriceCalculationRequest {
     serviceType: ServiceType;
@@ -47,6 +49,19 @@ interface PriceCalculationRequest {
         supplies?: boolean;
     };
     logisticsConstraints?: Record<string, any>;
+    // ✅ CORRECTION: Ajouter les champs de contraintes logistiques par adresse
+    // ⚠️ Peut être soit un tableau (format attendu) soit un objet {constraint: true} (format actuel du formulaire)
+    pickupLogisticsConstraints?: string[] | Record<string, boolean>;
+    deliveryLogisticsConstraints?: string[] | Record<string, boolean>;
+    // ✅ NOUVEAU: Services par adresse (monte-meuble, emballage départ, déballage arrivée, etc.)
+    pickupServices?: string[] | Record<string, boolean>;
+    deliveryServices?: string[] | Record<string, boolean>;
+    // ✅ NOUVEAU: Services supplémentaires globaux (piano, stockage, etc.)
+    // Format: soit tableau de noms, soit objet {id_ou_nom: true} comme les contraintes
+    additionalServices?: string[] | Record<string, boolean>;
+    // ✅ CORRECTION: Ajouter les adresses
+    pickupAddress?: string;
+    deliveryAddress?: string;
     [key: string]: any;
 }
 
@@ -55,9 +70,13 @@ interface PriceCalculationRequest {
  * OBJECTIF : Seulement le calcul de prix, rien d'autre
  */
 export class PriceService {
+    private readonly prisma: PrismaClient;
+
     constructor(
         private readonly quoteCalculator: QuoteCalculator = QuoteCalculator.getInstance()
-    ) {}
+    ) {
+        this.prisma = new PrismaClient();
+    }
 
     /**
      * POST /api/price/calculate
@@ -74,12 +93,26 @@ export class PriceService {
     }> {
         logger.info(`💰 Calcul de prix complet - Service: ${request.serviceType}`);
 
+        devLog.debug('PriceService', '📋 [PriceService] ÉTAPE 2: Request reçu:', {
+            pickupLogisticsConstraints: request.pickupLogisticsConstraints,
+            deliveryLogisticsConstraints: request.deliveryLogisticsConstraints,
+            additionalServices: request.additionalServices,
+            pickupAddress: request.pickupAddress?.substring(0, 50),
+            deliveryAddress: request.deliveryAddress?.substring(0, 50)
+        });
+
         try {
             // Validation des données d'entrée
             this.validateCalculationRequest(request);
 
             // Créer le contexte de calcul
-            const context = this.createQuoteContext(request);
+            const context = await this.createQuoteContext(request);
+
+            devLog.debug('PriceService', '🎯 [PriceService] ÉTAPE 3: Context créé, données dans le context:', {
+                pickupLogisticsConstraints: context.getValue('pickupLogisticsConstraints'),
+                deliveryLogisticsConstraints: context.getValue('deliveryLogisticsConstraints'),
+                additionalServices: context.getValue('additionalServices')
+            });
 
                     // Calculer le prix avec le QuoteCalculator
             const quote = await this.quoteCalculator.calculateQuote(request.serviceType, context);
@@ -127,7 +160,71 @@ export class PriceService {
         // Le calculateur se charge de déterminer les valeurs appropriées selon le type de service
     }
 
-    private createQuoteContext(request: PriceCalculationRequest): QuoteContext {
+    private async createQuoteContext(request: PriceCalculationRequest): Promise<QuoteContext> {
+        devLog.debug('PriceService', '🔍 [PriceService] createQuoteContext - request reçue:', {
+            serviceType: request.serviceType,
+            hasPickup: !!(request as any).pickup,
+            hasDelivery: !!(request as any).delivery,
+            hasGlobalServices: !!(request as any).globalServices,
+            pickupLogisticsConstraints: request.pickupLogisticsConstraints,
+            deliveryLogisticsConstraints: request.deliveryLogisticsConstraints
+        });
+
+        // ✅ SUPPORT STRUCTURE GROUPÉE: Détecter et extraire depuis la structure groupée
+        if ((request as any).pickup || (request as any).delivery || (request as any).globalServices) {
+            devLog.debug('PriceService', '📦 [PriceService] Structure groupée détectée, extraction des données...');
+
+            // Extraire pickup
+            if ((request as any).pickup) {
+                const pickup = (request as any).pickup;
+                request.pickupAddress = pickup.address;
+                request.pickupFloor = pickup.floor;
+                request.pickupElevator = pickup.elevator;
+                request.pickupCarryDistance = pickup.carryDistance;
+
+                // Extraire juste les UUIDs depuis les rules
+                if (pickup.rules && Array.isArray(pickup.rules)) {
+                    request.pickupLogisticsConstraints = pickup.rules.reduce((acc: Record<string, boolean>, rule: any) => {
+                        acc[rule.id] = true;
+                        return acc;
+                    }, {});
+                }
+            }
+
+            // Extraire delivery
+            if ((request as any).delivery) {
+                const delivery = (request as any).delivery;
+                request.deliveryAddress = delivery.address;
+                request.deliveryFloor = delivery.floor;
+                request.deliveryElevator = delivery.elevator;
+                request.deliveryCarryDistance = delivery.carryDistance;
+
+                // Extraire juste les UUIDs depuis les rules
+                if (delivery.rules && Array.isArray(delivery.rules)) {
+                    request.deliveryLogisticsConstraints = delivery.rules.reduce((acc: Record<string, boolean>, rule: any) => {
+                        acc[rule.id] = true;
+                        return acc;
+                    }, {});
+                }
+            }
+
+            // Extraire global services
+            if ((request as any).globalServices && Array.isArray((request as any).globalServices)) {
+                request.additionalServices = (request as any).globalServices.reduce((acc: Record<string, boolean>, service: any) => {
+                    acc[service.id] = true;
+                    return acc;
+                }, {});
+            }
+
+            devLog.debug('PriceService', '✅ [PriceService] Données extraites de la structure groupée:', {
+                pickupAddress: request.pickupAddress,
+                deliveryAddress: request.deliveryAddress,
+                pickupConstraintsCount: Object.keys(request.pickupLogisticsConstraints || {}).length,
+                deliveryConstraintsCount: Object.keys(request.deliveryLogisticsConstraints || {}).length,
+                additionalServicesCount: Object.keys(request.additionalServices || {}).length
+            });
+        }
+
         const context = new QuoteContext(request.serviceType);
 
         // Champs communs
@@ -197,6 +294,57 @@ export class PriceService {
             });
         }
 
+        // ✅ CORRECTION CRITIQUE: Ajouter pickupLogisticsConstraints et deliveryLogisticsConstraints
+        // Ces champs sont envoyés par le formulaire mais n'étaient pas mappés dans le contexte
+        // ⚠️ IMPORTANT: Le formulaire envoie un OBJET {constraint: true, uuid: true}, il faut le convertir en TABLEAU ['constraint']
+        // ✅ NOUVELLE VERSION: Mapping asynchrone des UUIDs vers les noms de contraintes
+        if (request.pickupLogisticsConstraints !== undefined) {
+            const pickupConstraints = await this.normalizeConstraintsAsync(request.pickupLogisticsConstraints, request.serviceType);
+            context.setValue('pickupLogisticsConstraints', pickupConstraints);
+        }
+        if (request.deliveryLogisticsConstraints !== undefined) {
+            const deliveryConstraints = await this.normalizeConstraintsAsync(request.deliveryLogisticsConstraints, request.serviceType);
+            context.setValue('deliveryLogisticsConstraints', deliveryConstraints);
+        }
+
+        // ✅ NOUVEAU: Services par adresse (monte-meuble pickup/delivery, emballage départ, déballage arrivée, etc.)
+        if (request.pickupServices !== undefined) {
+            const pickupSvcs = await this.normalizeServicesAsync(request.pickupServices, request.serviceType);
+            context.setValue('pickupServices', pickupSvcs);
+            devLog.debug('PriceService', '✅ [PriceService] Services pickup ajoutés au contexte:', pickupSvcs);
+        }
+        if (request.deliveryServices !== undefined) {
+            const deliverySvcs = await this.normalizeServicesAsync(request.deliveryServices, request.serviceType);
+            context.setValue('deliveryServices', deliverySvcs);
+            devLog.debug('PriceService', '✅ [PriceService] Services delivery ajoutés au contexte:', deliverySvcs);
+        }
+
+        // ✅ NOUVEAU: Services supplémentaires globaux (piano, stockage, etc.)
+        // Utilise la même logique de normalisation pour mapper les UUIDs vers les noms de services
+        if (request.additionalServices !== undefined) {
+            const services = await this.normalizeServicesAsync(request.additionalServices, request.serviceType);
+            context.setValue('additionalServices', services);
+            devLog.debug('PriceService', '✅ [PriceService] Services globaux ajoutés au contexte:', services);
+        }
+
+        // ✅ CORRECTION: Ajouter aussi les autres champs du formulaire qui peuvent être présents
+        // Adresses (nécessaires pour certaines règles géographiques)
+        if (request.pickupAddress !== undefined) context.setValue('pickupAddress', request.pickupAddress);
+        if (request.deliveryAddress !== undefined) context.setValue('deliveryAddress', request.deliveryAddress);
+
+        // ✅ LOG: Vérifier que les contraintes ont bien été ajoutées au contexte
+        const contextData = context.getAllData();
+        devLog.debug('PriceService', '🔍 [PriceService] Context créé avec:', {
+            hasPickupConstraints: !!contextData.pickupLogisticsConstraints,
+            pickupConstraintsCount: Array.isArray(contextData.pickupLogisticsConstraints) ? contextData.pickupLogisticsConstraints.length : 0,
+            hasDeliveryConstraints: !!contextData.deliveryLogisticsConstraints,
+            deliveryConstraintsCount: Array.isArray(contextData.deliveryLogisticsConstraints) ? contextData.deliveryLogisticsConstraints.length : 0,
+            pickupFloor: contextData.pickupFloor,
+            pickupElevator: contextData.pickupElevator,
+            deliveryFloor: contextData.deliveryFloor,
+            deliveryElevator: contextData.deliveryElevator
+        });
+
         return context;
     }
 
@@ -256,6 +404,83 @@ export class PriceService {
 
     private generateCalculationId(): string {
         return `calc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    }
+
+    /**
+     * ✅ NOUVELLE VERSION ASYNCHRONE: Normalise les contraintes logistiques ET mappe les UUIDs
+     * Le formulaire peut envoyer soit:
+     * - Un tableau: ['constraint1', 'constraint2'] ✅ Format attendu
+     * - Un objet: {constraint1: true, constraint2: true, uuid: true} ❌ Format actuel du frontend
+     *
+     * Cette méthode:
+     * 1. Extrait les noms de contraintes (snake_case)
+     * 2. Extrait les UUIDs de règles sélectionnées dans le modal
+     * 3. Charge les règles depuis la BDD par UUID
+     * 4. Extrait le nom de contrainte depuis la condition JSON de chaque règle
+     * 5. Retourne la liste complète des noms de contraintes
+     */
+    private async normalizeConstraintsAsync(constraints: any, serviceType: ServiceType): Promise<string[]> {
+        // Si c'est déjà un tableau, le retourner tel quel (déjà des UUIDs)
+        if (Array.isArray(constraints)) {
+            return constraints;
+        }
+
+        // Si c'est un objet, extraire les clés avec valeur true (ce sont des UUIDs)
+        if (typeof constraints === 'object' && constraints !== null) {
+            const selectedIds = Object.keys(constraints).filter(key => constraints[key] === true);
+
+            devLog.debug('PriceService', '🔧 [PriceService] Normalisation des contraintes (UUIDs directs):', {
+                avant: constraints,
+                uuidsExtraits: selectedIds
+            });
+
+            return selectedIds;
+        }
+
+        // Si c'est ni un tableau ni un objet, retourner un tableau vide
+        devLog.warn('PriceService', '⚠️ [PriceService] Format de contraintes invalide:', constraints);
+        return [];
+    }
+
+    /**
+     * ✅ NORMALISATION DES SERVICES SUPPLÉMENTAIRES
+     * Même logique que normalizeConstraintsAsync, mais pour les services (piano, fragile, etc.)
+     * Les services ne sont PAS liés à une adresse spécifique, ils sont globaux
+     */
+    private async normalizeServicesAsync(services: any, serviceType: ServiceType): Promise<string[]> {
+        // Si c'est déjà un tableau, le retourner tel quel (déjà des UUIDs)
+        if (Array.isArray(services)) {
+            return services;
+        }
+
+        // Si c'est un objet, extraire les clés avec valeur true (ce sont des UUIDs)
+        if (typeof services === 'object' && services !== null) {
+            const selectedIds = Object.keys(services).filter(key => services[key] === true);
+
+            devLog.debug('PriceService', '🔧 [PriceService] Normalisation des services (UUIDs directs):', {
+                avant: services,
+                uuidsExtraits: selectedIds
+            });
+
+            return selectedIds;
+        }
+
+        return [];
+    }
+
+    /**
+     * Mappe les types de services étendus vers les types de base utilisés en BDD
+     * MOVING_PREMIUM → MOVING, CLEANING_PREMIUM → CLEANING, etc.
+     * Note: Cette méthode est conservée car encore utilisée ailleurs
+     */
+    private mapToBaseServiceType(serviceType: ServiceType): string {
+        if (serviceType === ServiceType.MOVING_PREMIUM || serviceType === ServiceType.PACKING) {
+            return 'MOVING';
+        }
+        if (serviceType === ServiceType.CLEANING_PREMIUM) {
+            return 'CLEANING';
+        }
+        return serviceType; // MOVING, CLEANING, DELIVERY restent inchangés
     }
 
 } 

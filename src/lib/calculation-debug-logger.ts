@@ -82,11 +82,8 @@ class CalculationDebugLogger {
 
     this.steps.push(step);
     
-    console.log('\n🔥 [CALC-DEBUG] ═══════════════════════════════════════');
-    console.log(`🎯 DÉBUT CALCUL PRIX | ${serviceType} | Session: ${this.sessionId.slice(-8)}`);
-    console.log('📊 Contexte:', JSON.stringify(step.input.contextData, null, 2));
-    console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log('═══════════════════════════════════════════════════════\n');
+    // Log minimal - seulement les métriques clés
+    console.log('\n🔥 [CALC-DEBUG] ' + serviceType + ' | Dist=' + (step.input.contextData.distance || 0) + 'km, Workers=' + (step.input.contextData.workers || 0) + ', Durée=' + (step.input.contextData.duration || 0) + 'h');
   }
 
   logPriceComponent(component: string, value: number, calculation: string, configUsed: any, formula: string) {
@@ -163,19 +160,7 @@ class CalculationDebugLogger {
 
     this.steps.push(step);
 
-    console.log('⚙️ [CALC-DEBUG] ═══ MOTEUR DE RÈGLES ═══');
-    console.log(`💰 Prix de base: ${basePrice}€`);
-    console.log(`📋 Nombre de règles à vérifier: ${rules.length}`);
-    console.log(`🔍 Contexte disponible: ${Object.keys(context).join(', ')}`);
-    
-    console.log('\n📋 LISTE DES RÈGLES:');
-    rules.forEach((rule, index) => {
-      const isPercentage = rule.isPercentage?.();
-      // ✅ CORRECTION: rule.value est déjà en pourcentage (15, 40, 50), ne pas multiplier par 100
-      const displayValue = isPercentage ? rule.value.toFixed(1) : rule.value;
-      console.log(`   ${index + 1}. "${rule.name}" (${displayValue}${isPercentage ? '%' : '€'})`);
-    });
-    console.log('═══════════════════════════════════════════\n');
+    console.log('⚙️ [CALC-DEBUG] RÈGLES: ' + rules.length + ' à vérifier | Prix base: ' + basePrice.toFixed(2) + '€');
   }
 
   logRuleEvaluation(rule: any, context: any, isApplicable: boolean, error?: any) {
@@ -662,16 +647,8 @@ class CalculationDebugLogger {
    * @returns Montant formaté (entier si pas de décimales significatives, sinon 2 décimales max)
    */
   private formatAmount(amount: number): string {
-    // Arrondir à 2 décimales pour éviter les erreurs de précision floating point
-    const rounded = Math.round(amount * 100) / 100;
-
-    // Si c'est un entier, afficher sans décimales
-    if (rounded === Math.floor(rounded)) {
-      return rounded.toString();
-    }
-
-    // Sinon afficher avec 1 ou 2 décimales selon le besoin
-    return rounded.toFixed(2).replace(/\.?0+$/, '');
+    // ✅ TOUJOURS afficher avec 2 décimales pour la cohérence
+    return amount.toFixed(2);
   }
 
   // Méthode pour sauvegarder en fichier (optionnel)

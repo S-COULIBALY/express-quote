@@ -1,5 +1,5 @@
 import { Money } from './Money';
-import { Discount } from './Discount';
+import { AppliedRule } from './AppliedRule';
 import { ServiceType } from '../enums/ServiceType';
 
 export class Quote {
@@ -8,7 +8,7 @@ export class Quote {
   constructor(
     private readonly basePrice: Money,
     private readonly totalPrice: Money,
-    private readonly discounts: Discount[],
+    private readonly discounts: AppliedRule[],
     private readonly serviceType: ServiceType,
     private readonly details?: { label: string; amount: number }[]
   ) {
@@ -17,13 +17,13 @@ export class Quote {
 
   getBasePrice(): Money { return this.basePrice; }
   getTotalPrice(): Money { return this.totalPrice; }
-  getDiscounts(): Discount[] { return [...this.discounts]; }
+  getDiscounts(): AppliedRule[] { return [...this.discounts]; }
   getServiceType(): ServiceType { return this.serviceType; }
   getCalculationDate(): Date { return new Date(this.calculatedAt); }
   getDetails(): { label: string; amount: number }[] { return this.details ? [...this.details] : []; }
 
   getTotalDiscount(): Money {
-    return Discount.combine(this.discounts);
+    return AppliedRule.combine(this.discounts);
   }
 
   hasDiscounts(): boolean {

@@ -7,8 +7,7 @@
  */
 
 import { Money } from "../valueObjects/Money";
-// Temporary import for backward compatibility
-import { Discount } from "../valueObjects/Discount";
+import { AppliedRule } from "../valueObjects/AppliedRule";
 
 /**
  * Type de règle appliquée
@@ -16,8 +15,6 @@ import { Discount } from "../valueObjects/Discount";
 export enum AppliedRuleType {
   /** Réduction (diminue le prix) */
   REDUCTION = "REDUCTION",
-  /** Surcharge/Majoration (augmente le prix) */
-  SURCHARGE = "SURCHARGE",
   /** Contrainte logistique */
   CONSTRAINT = "CONSTRAINT",
   /** Service supplémentaire */
@@ -137,8 +134,14 @@ export interface RuleExecutionResult {
   /** Montant total des réductions */
   totalReductions: Money;
 
-  /** Montant total des surcharges */
+  /** Montant total des surcharges (legacy - équivalent à totalConstraints + totalAdditionalServices) */
   totalSurcharges: Money;
+
+  /** Montant total des contraintes logistiques */
+  totalConstraints: Money;
+
+  /** Montant total des services supplémentaires */
+  totalAdditionalServices: Money;
 
   // ═══════════════════════════════════════════════════════════════════════
   // RÈGLES APPLIQUÉES (PAR CATÉGORIE)
@@ -149,9 +152,6 @@ export interface RuleExecutionResult {
 
   /** Réductions appliquées */
   reductions: AppliedRuleDetail[];
-
-  /** Surcharges/Majorations appliquées */
-  surcharges: AppliedRuleDetail[];
 
   /** Contraintes logistiques appliquées */
   constraints: AppliedRuleDetail[];
@@ -223,9 +223,10 @@ export class RuleExecutionResultBuilder {
       finalPrice: basePrice,
       totalReductions: new Money(0),
       totalSurcharges: new Money(0),
+      totalConstraints: new Money(0),
+      totalAdditionalServices: new Money(0),
       appliedRules: [],
       reductions: [],
-      surcharges: [],
       constraints: [],
       additionalServices: [],
       equipment: [],
@@ -288,18 +289,16 @@ export class RuleExecutionResultBuilder {
         // Ajouter aux réductions par adresse
         this.addReductionToAddress(rule);
         break;
-      case AppliedRuleType.SURCHARGE:
-        this.result.surcharges!.push(rule);
-        this.result.totalSurcharges = this.result.totalSurcharges!.add(
-          rule.impact,
-        );
-        break;
       case AppliedRuleType.CONSTRAINT:
         this.result.constraints!.push(rule);
+        this.result.totalConstraints = this.result.totalConstraints!.add(rule.impact);
+        this.result.totalSurcharges = this.result.totalSurcharges!.add(rule.impact); // Legacy
         this.addToAddressCosts(rule, "constraints");
         break;
       case AppliedRuleType.ADDITIONAL_SERVICE:
         this.result.additionalServices!.push(rule);
+        this.result.totalAdditionalServices = this.result.totalAdditionalServices!.add(rule.impact);
+        this.result.totalSurcharges = this.result.totalSurcharges!.add(rule.impact); // Legacy
         this.addToAddressCosts(rule, "additionalServices");
         break;
       case AppliedRuleType.EQUIPMENT:

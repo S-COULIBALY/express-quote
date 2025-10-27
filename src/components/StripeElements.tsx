@@ -82,29 +82,17 @@ async function getSuccessPageUrl() {
     const { getCurrentBooking } = await import('@/actions/bookingManager');
     const booking = await getCurrentBooking();
     
-    // Si pas de réservation ou pas d'éléments, utiliser la page de succès par défaut
-    if (!booking || !booking.items || booking.items.length === 0) {
-      return `${window.location.origin}/services/success`;
+    // Si pas de réservation, rediriger vers le catalogue
+    if (!booking || !booking.id) {
+      return `${window.location.origin}/catalogue`;
     }
     
-    // Déterminer le type du premier élément
-    const firstItem = booking.items[0];
-    const itemType = firstItem.type.toLowerCase();
-    
-    if (itemType === 'service') {
-      return `${window.location.origin}/services/success`;
-    } else if (itemType === 'pack') {
-      return `${window.location.origin}/packs/success`;
-    } else if (itemType === 'moving' || itemType === 'moving_quote') {
-      return `${window.location.origin}/moving/success`;
-    }
-    
-    // Par défaut, utiliser la page de succès des services
-    return `${window.location.origin}/services/success`;
+    // Utiliser la page de succès unifiée avec l'ID de réservation
+    return `${window.location.origin}/success/${booking.id}`;
   } catch (error) {
     console.error('Error getting success page URL:', error);
-    // En cas d'erreur, utiliser la page de succès par défaut
-    return `${window.location.origin}/services/success`;
+    // En cas d'erreur, rediriger vers le catalogue
+    return `${window.location.origin}/catalogue`;
   }
 }
 

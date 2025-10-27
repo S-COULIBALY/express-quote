@@ -25,23 +25,40 @@
  * - Source unique de vérité
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, ServiceType, RuleType, RuleCategory } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 
 const prisma = new PrismaClient();
 
 // Types
-interface GeneratedConstraint {
+interface GeneratedRule {
   id: string;
   name: string;
   description?: string;
-  category?: string;
-  icon?: string;
-  type: 'constraint' | 'service';
-  value?: number;
-  impact?: string;
-  autoDetection?: boolean;
+  value: number;
+  isActive: boolean;
+  category: RuleCategory;
+  condition?: any;
+  percentBased: boolean;
+  serviceType: ServiceType;
+  ruleType: RuleType;
+  priority: number;
+  validFrom?: Date;
+  validTo?: Date | null;
+  tags: string[];
+  configKey?: string;
+  metadata?: {
+    source?: string;
+    impact?: string;
+    category_frontend?: "constraint" | "service";
+    display?: {
+      icon?: string;
+      priority?: number;
+      group?: string;
+      description_short?: string;
+    };
+  };
 }
 
 // ============================================================================
@@ -54,7 +71,7 @@ interface GeneratedConstraint {
 async function fetchRulesFromDatabase(serviceType: 'MOVING' | 'CLEANING') {
   console.log(`📥 Récupération des règles ${serviceType} depuis la BDD...`);
 
-  const businessRules = await prisma.rule.findMany({
+  const businessRules = await prisma.rules.findMany({
     where: {
       serviceType,
       isActive: true
@@ -72,98 +89,67 @@ async function fetchRulesFromDatabase(serviceType: 'MOVING' | 'CLEANING') {
 /**
  * Classifier une règle (constraint vs service)
  */
-function classifyRule(ruleName: string, ruleCategory: string): 'constraint' | 'service' {
-  const name = ruleName.toLowerCase();
-  const category = ruleCategory.toLowerCase();
-
-  if (category === 'surcharge' || category === 'contrainte' || category === 'difficulte') {
-    return 'constraint';
+function determineRuleType(rule: any): RuleType {
+  // Utiliser metadata.category_frontend pour déterminer le type
+  const categoryFrontend = rule.metadata?.category_frontend;
+  
+  if (categoryFrontend === 'constraint') {
+    return RuleType.CONSTRAINT;
   }
-  if (category === 'fixed' || category === 'service' || category === 'prestation') {
-    return 'service';
-  }
-
-  const constraintKeywords = ['contrainte', 'difficulté', 'majoration', 'surcharge'];
-  for (const keyword of constraintKeywords) {
-    if (name.includes(keyword)) return 'constraint';
+  
+  if (categoryFrontend === 'service') {
+    return RuleType.BUSINESS;
   }
 
-  return 'service';
+  // Fallback sur l'ancienne logique si metadata n'est pas disponible
+  const name = rule.name.toLowerCase();
+  const category = rule.category.toLowerCase();
+
+  if (category === 'surcharge') {
+    return RuleType.CONSTRAINT;
+  }
+
+  if (category === 'fixed') {
+    return RuleType.BUSINESS;
+  }
+
+  return RuleType.CUSTOM;
 }
 
-/**
- * Obtenir l'icône pour une règle
- */
-function getIconForRule(ruleName: string, serviceType: 'MOVING' | 'CLEANING', itemType: 'constraint' | 'service'): string {
-  const name = ruleName.toLowerCase();
-
-  if (serviceType === 'MOVING') {
-    if (itemType === 'constraint') {
-      if (name.includes('monte-meuble')) return '🏗️';
-      if (name.includes('distance') && name.includes('portage')) return '📏';
-      if (name.includes('zone piétonne')) return '🚶';
-      if (name.includes('rue') && name.includes('étroite')) return '🚧';
-      if (name.includes('stationnement')) return '🅿️';
-      if (name.includes('circulation')) return '🚦';
-      if (name.includes('ascenseur')) return '🏢';
-      if (name.includes('escalier')) return '🪜';
-      return '⚠️';
-    } else {
-      if (name.includes('démontage')) return '🔧';
-      if (name.includes('remontage')) return '🔨';
-      if (name.includes('piano')) return '🎹';
-      if (name.includes('emballage')) return '📦';
-      if (name.includes('déballage')) return '📭';
-      if (name.includes('stockage')) return '🏪';
-      if (name.includes('nettoyage')) return '🧹';
-      return '🔧';
-    }
-  } else {
-    if (itemType === 'constraint') {
-      if (name.includes('animaux')) return '🐕';
-      if (name.includes('urgence')) return '🚨';
-      if (name.includes('stationnement')) return '🅿️';
-      if (name.includes('ascenseur')) return '🏢';
-      if (name.includes('allergie')) return '🤧';
-      return '⚠️';
-    } else {
-      if (name.includes('grand nettoyage') || name.includes('printemps')) return '🌸';
-      if (name.includes('vitres')) return '🪟';
-      if (name.includes('nettoyage')) return '🧽';
-      if (name.includes('tapis')) return '🏠';
-      if (name.includes('désinfection')) return '🦠';
-      return '🧽';
-    }
-  }
-}
 
 /**
  * Transformer les règles BDD en format fallback
  */
 function transformToFallback(
   businessRules: any[],
-  serviceType: 'MOVING' | 'CLEANING'
-): { constraints: GeneratedConstraint[]; services: GeneratedConstraint[] } {
-  const constraints: GeneratedConstraint[] = [];
-  const services: GeneratedConstraint[] = [];
+  serviceType: ServiceType
+): { constraints: GeneratedRule[]; services: GeneratedRule[] } {
+  const constraints: GeneratedRule[] = [];
+  const services: GeneratedRule[] = [];
 
   for (const rule of businessRules) {
-    const itemType = classifyRule(rule.name, rule.category);
-    const icon = getIconForRule(rule.name, serviceType, itemType);
+    const ruleType = determineRuleType(rule);
 
-    const item: GeneratedConstraint = {
-      id: rule.configKey || `rule_${rule.id}`,
+    const item: GeneratedRule = {
+      id: rule.id, // ✅ CORRECTION: Utiliser directement l'ID de la BDD au lieu de rule_${id}
       name: rule.name,
       description: rule.description || undefined,
-      category: rule.category.toLowerCase(),
-      icon,
-      type: itemType,
-      value: rule.value || undefined,
-      impact: rule.value > 0 ? `+${rule.value}€` : undefined,
-      autoDetection: rule.condition?.autoDetection || false
+      value: rule.value || 0,
+      isActive: rule.isActive !== false,
+      category: rule.category,
+      condition: rule.condition || null,
+      percentBased: rule.percentBased !== false,
+      serviceType: serviceType,
+      ruleType: ruleType,
+      priority: rule.priority || 100,
+      validFrom: rule.validFrom ? new Date(rule.validFrom) : new Date(),
+      validTo: rule.validTo ? new Date(rule.validTo) : null,
+      tags: rule.tags || [],
+      configKey: rule.configKey || undefined,
+      metadata: rule.metadata || {}
     };
 
-    if (itemType === 'constraint') {
+    if (ruleType === RuleType.CONSTRAINT) {
       constraints.push(item);
     } else {
       services.push(item);
@@ -177,8 +163,8 @@ function transformToFallback(
  * Générer le code TypeScript pour un fichier fallback
  */
 function generateTypeScriptFile(
-  constraints: GeneratedConstraint[],
-  services: GeneratedConstraint[],
+  constraints: GeneratedRule[],
+  services: GeneratedRule[],
   serviceType: 'MOVING' | 'CLEANING'
 ): string {
   const serviceName = serviceType === 'MOVING' ? 'Déménagement' : 'Nettoyage';
@@ -189,14 +175,50 @@ function generateTypeScriptFile(
     return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   };
 
-  // Générer le code avec des template literals pour éviter les problèmes d'apostrophes
-  const constraintsCode = JSON.stringify(constraints, null, 2)
-    .replace(/"([^"]+)":/g, '$1:'); // Remove quotes from keys only
+  // Fonction pour formater les dates en constructeur Date
+  const formatDate = (obj: any): any => {
+    if (Array.isArray(obj)) {
+      return obj.map(item => formatDate(item));
+    }
+    if (obj instanceof Date) {
+      return obj.toISOString();
+    }
+    if (obj && typeof obj === 'object') {
+      const newObj: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        newObj[key] = formatDate(value);
+      }
+      return newObj;
+    }
+    return obj;
+  };
 
-  const servicesCode = JSON.stringify(services, null, 2)
-    .replace(/"([^"]+)":/g, '$1:'); // Remove quotes from keys only
+  // Formater les dates et générer le code
+  const formattedConstraints = formatDate(constraints);
+  const formattedServices = formatDate(services);
 
-  return `/**
+  // Convertir en string et enlever les quotes des clés et des constructeurs Date
+  const constraintsCode = JSON.stringify(formattedConstraints, null, 2)
+    .replace(/"([^"]+)":/g, '$1:') // Remove quotes from keys
+    .replace(/"([^"]+)"/g, (match, p1) => {
+      if (p1.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+        return `new Date("${p1}")`;
+      }
+      return `"${p1}"`;
+    }); // Convert ISO dates to Date constructors
+
+  const servicesCode = JSON.stringify(formattedServices, null, 2)
+    .replace(/"([^"]+)":/g, '$1:') // Remove quotes from keys
+    .replace(/"([^"]+)"/g, (match, p1) => {
+      if (p1.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+        return `new Date("${p1}")`;
+      }
+      return `"${p1}"`;
+    }); // Convert ISO dates to Date constructors
+
+  return `import { ServiceType, RuleType, RuleCategory } from '@prisma/client';
+
+/**
  * ============================================================================
  * FALLBACK ${serviceType} - Données générées automatiquement
  * ============================================================================
@@ -215,12 +237,29 @@ export interface Constraint {
   id: string;
   name: string;
   description?: string;
-  category?: string;
-  icon?: string;
-  type: 'constraint' | 'service';
-  value?: number;
-  impact?: string;
-  autoDetection?: boolean;
+  value: number;
+  isActive: boolean;
+  category: RuleCategory;
+  condition?: any;
+  percentBased: boolean;
+  serviceType: ServiceType;
+  ruleType: RuleType;
+  priority: number;
+  validFrom?: Date;
+  validTo?: Date | null;
+  tags: string[];
+  configKey?: string;
+  metadata?: {
+    source?: string;
+    impact?: string;
+    category_frontend?: "constraint" | "service";
+    display?: {
+      icon?: string;
+      priority?: number;
+      group?: string;
+      description_short?: string;
+    };
+  };
 }
 
 /**

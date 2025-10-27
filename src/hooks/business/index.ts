@@ -1,8 +1,12 @@
-// Hooks pour les services du catalogue
-export { useCatalogueMovingItemSubmission } from './CatalogueMovingItem/useCatalogueMovingItemSubmission';
-export { useCatalogueCleaningItemSubmission } from './CatalogueCleaningItem/useCatalogueCleaningItemSubmission';
-export { useCatalogueDeliveryItemSubmission } from './CatalogueDeliveryItem/useCatalogueDeliveryItemSubmission';
+// ✅ REFACTOR PHASE 1: Export des configurations au lieu des hooks
+// Les hooks business ont été remplacés par useUnifiedSubmission
+// On garde uniquement les configurations qui contiennent la logique métier
 
-// Hooks pour les services sur mesure
-export { useDemenagementSurMesureSubmission, type DemenagementSurMesureData } from './DemenagementSurMesure';
-export { useMenageSurMesureSubmission, type MenageSurMesureData } from './MenageSurMesure';
+// Configurations pour les services du catalogue
+export { createCatalogueMovingItemSubmissionConfig } from './CatalogueMovingItem/catalogueMovingItemSubmissionConfig';
+export { createCatalogueCleaningItemSubmissionConfig } from './CatalogueCleaningItem/catalogueCleaningItemSubmissionConfig';
+export { createCatalogueDeliveryItemSubmissionConfig } from './CatalogueDeliveryItem/catalogueDeliveryItemSubmissionConfig';
+
+// Configurations pour les services sur mesure
+export { createDemenagementSurMesureSubmissionConfig, type DemenagementSurMesureData } from './DemenagementSurMesure/demenagementSurMesureSubmissionConfig';
+export { createMenageSurMesureSubmissionConfig, type MenageSurMesureData } from './MenageSurMesure/menageSurMesureSubmissionConfig';

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
-    const criteria = {
+    const criteria: any = {
       documentId: searchParams.get('documentId') || undefined,
       templateId: searchParams.get('templateId') || undefined,
       status: (searchParams.get('status') as any) || undefined,

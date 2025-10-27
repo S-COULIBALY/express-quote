@@ -44,8 +44,9 @@ ActionButton.displayName = 'ActionButton';
 export default function Navbar() {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [hasItemInBasket, setHasItemInBasket] = useState(false)
+  const [hasItemInBasket, setHasItemInBasket] = useState(true) // ✅ TEST: Afficher le panier pour test
   const [lastCheckTime, setLastCheckTime] = useState(0)
+  const [isMounted, setIsMounted] = useState(false)
 
   const isActive = useCallback((path: string) => {
     return pathname === path
@@ -56,47 +57,54 @@ export default function Navbar() {
   }, [])
   
   useEffect(() => {
-    // Vérifier si des données de réservation existent
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    
+    // ✅ Vérification simplifiée du panier
     const checkBasket = async () => {
-      // Vérifier uniquement si 60 secondes se sont écoulées
-      const now = Date.now()
-      if (now - lastCheckTime < 60000 && lastCheckTime > 0) return
-      
       try {
-        // Appel API avec timestamp pour éviter le cache
-        const response = await fetch(`/api/bookings/current?t=${now}`, {
+        // Vérifier le localStorage d'abord (plus rapide)
+        const localBasket = localStorage.getItem('currentBooking');
+        if (localBasket) {
+          const booking = JSON.parse(localBasket);
+          const hasItems = !!(booking && 
+                            booking.details && 
+                            booking.details.items && 
+                            booking.details.items.length > 0);
+          setHasItemInBasket(hasItems);
+          return;
+        }
+
+        // Sinon, vérifier l'API
+        const response = await fetch('/api/bookings/current', {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-store'
-        })
+        });
         
         if (response.ok) {
-          const currentBooking = await response.json()
-          // Adapter à la structure de l'API qui a les items dans details.items
+          const currentBooking = await response.json();
           const hasItems = !!(currentBooking && 
                             currentBooking.details && 
                             currentBooking.details.items && 
                             currentBooking.details.items.length > 0);
           setHasItemInBasket(hasItems);
-          setLastCheckTime(now)
         } else {
-          setHasItemInBasket(false)
+          setHasItemInBasket(false);
         }
       } catch (error) {
-        console.error("Erreur lors de la vérification du panier:", error)
-        setHasItemInBasket(false)
+        console.error("Erreur lors de la vérification du panier:", error);
+        // ✅ En cas d'erreur, garder l'état actuel plutôt que de le mettre à false
+        // setHasItemInBasket(false);
       }
-    }
+    };
     
     // Vérifier au chargement de la page
-    checkBasket()
-    
-    // Suppression de l'intervalle de rafraîchissement périodique
-    // const interval = setInterval(checkBasket, 60000)
-    
-    // La fonction de nettoyage n'est plus nécessaire car il n'y a plus d'intervalle à nettoyer
-    // return () => clearInterval(interval)
-  }, [lastCheckTime])
+    checkBasket();
+  }, [isMounted]);
 
   // Fermer le menu mobile lors des changements de route
   useEffect(() => {
@@ -116,7 +124,7 @@ export default function Navbar() {
             <div className="hidden sm:flex sm:ml-6 sm:space-x-8 items-center">
               
               <NavLink href="/catalogue" isActive={isActive('/catalogue')} onClick={closeMobileMenu}>
-                Catalogue
+                Nos Forfaits
               </NavLink>
               
 
@@ -135,17 +143,13 @@ export default function Navbar() {
               <NavLink href="/contact" isActive={isActive('/contact')} onClick={closeMobileMenu}>
                 Contact
               </NavLink>
-              
-              <ActionButton href="/catalogue">
-                Demander un devis
-              </ActionButton>
             </div>
           </div>
 
           {/* Boutons de connexion desktop */}
           <div className="hidden sm:flex sm:items-center sm:space-x-3">
             {/* Indicateur de panier */}
-            {hasItemInBasket && (
+            {isMounted && hasItemInBasket && (
               <Link
                 href="/checkout/summary"
                 className="relative px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 focus:ring-0 focus:outline-none rounded-lg mr-2 transition-colors duration-200 ease-in-out"
@@ -170,12 +174,21 @@ export default function Navbar() {
             >
               S'inscrire
             </Link>
+            
+            {/* ✅ Bouton de test pour le panier */}
+            <button
+              onClick={() => setHasItemInBasket(!hasItemInBasket)}
+              className="px-2 py-1 text-xs bg-blue-500 text-white rounded"
+              title="Toggle panier (test)"
+            >
+              🛒 {hasItemInBasket ? 'ON' : 'OFF'}
+            </button>
           </div>
 
           {/* Bouton menu mobile */}
           <div className="flex items-center sm:hidden">
             {/* Indicateur de panier mobile */}
-            {hasItemInBasket && (
+            {isMounted && hasItemInBasket && (
               <Link
                 href="/checkout/summary"
                 className="relative mr-3 px-2 py-2 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-0 transition-colors duration-200 ease-in-out"
@@ -226,7 +239,7 @@ export default function Navbar() {
           </NavLink>
           
           {/* Panier dans le menu mobile */}
-          {hasItemInBasket && (
+          {isMounted && hasItemInBasket && (
             <NavLink href="/checkout/summary" isActive={isActive('/checkout/summary')} onClick={closeMobileMenu}>
               <div className="flex items-center">
                 <ShoppingBagIcon className="h-5 w-5 text-emerald-600 mr-2" />

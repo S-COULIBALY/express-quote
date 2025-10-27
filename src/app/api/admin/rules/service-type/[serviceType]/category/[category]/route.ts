@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { serviceType: ServiceType; category: RuleCategory } }
 ) {
   try {
-    const rules = await prisma.rule.findMany({
+    const rules = await prisma.rules.findMany({
       where: {
         serviceType: params.serviceType,
         category: params.category,

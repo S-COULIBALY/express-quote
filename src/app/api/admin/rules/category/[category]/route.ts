@@ -8,11 +8,11 @@ export async function GET(
   { params }: { params: { category: RuleCategory } }
 ) {
   try {
-    const rules = await prisma.rule.findMany({
+    const rules = await prisma.rules.findMany({
       where: {
         category: params.category,
         isActive: true
-      } as Prisma.RuleWhereInput,
+      } as Prisma.rulesWhereInput,
       orderBy: {
         createdAt: 'desc'
       }
@@ -34,7 +34,7 @@ export async function POST(
 ) {
   try {
     const body = await request.json()
-    const rule = await prisma.rule.create({
+    const rule = await prisma.rules.create({
       data: {
         name: body.name,
         description: body.description,
@@ -44,7 +44,7 @@ export async function POST(
         percentBased: body.percentBased,
         condition: body.condition,
         isActive: body.isActive
-      }
+      } as any
     })
 
     return NextResponse.json(rule)

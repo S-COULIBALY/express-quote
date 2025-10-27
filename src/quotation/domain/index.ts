@@ -19,7 +19,6 @@ export * from './enums/ServiceType'
 export * from './valueObjects/Quote'
 export * from './valueObjects/QuoteContext'
 export * from './valueObjects/Money'
-export * from './valueObjects/Discount'
 export * from './valueObjects/Rule'
 
 // Rules

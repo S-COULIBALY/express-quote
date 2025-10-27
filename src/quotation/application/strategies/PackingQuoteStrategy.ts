@@ -1,3 +1,4 @@
+import { devLog } from '../../../lib/conditional-logger';
 import { injectable, inject } from "inversify";
 import { QuoteStrategy } from "../../domain/interfaces/QuoteStrategy";
 import { QuoteContext } from "../../domain/valueObjects/QuoteContext";
@@ -47,18 +48,18 @@ export class PackingQuoteStrategy implements QuoteStrategy {
           UnifiedServiceType.PACKING,
         );
       if (businessRules.length > 0) {
-        console.log(
+        devLog.debug('Strategy', 
           `✅ [PACKING-STRATEGY] ${businessRules.length} règles métier chargées depuis UnifiedDataService`,
         );
         // Remplacer le RuleEngine avec les nouvelles règles
         this.ruleEngine = new RuleEngine(businessRules);
       } else {
-        console.log(
+        devLog.debug('Strategy', 
           "⚠️ [PACKING-STRATEGY] Aucune règle métier trouvée, utilisation des règles par défaut",
         );
       }
     } catch (error) {
-      console.warn(
+      devLog.warn('Strategy', 
         "⚠️ [PACKING-STRATEGY] Erreur lors du chargement des règles métier:",
         error,
       );
@@ -86,7 +87,7 @@ export class PackingQuoteStrategy implements QuoteStrategy {
         const defaultPrice =
           data.defaultPrice || data.calculatedPrice || data.totalPrice;
 
-        console.log(
+        devLog.debug('Strategy', 
           `🎯 [PACKING-STRATEGY] PACKING inchangé détecté - Prix par défaut SANS promotions: ${defaultPrice}€`,
         );
 
@@ -175,16 +176,16 @@ export class PackingQuoteStrategy implements QuoteStrategy {
   }> {
     const data = context.getAllData();
 
-    console.log(
+    devLog.debug('Strategy', 
       "\n📦 [PACKING-STRATEGY] ═══════════════════════════════════════════════════",
     );
-    console.log(
+    devLog.debug('Strategy', 
       "📦 [PACKING-STRATEGY] ═══ DÉBUT CALCUL PRIX DE BASE PACKING ═══",
     );
-    console.log(
+    devLog.debug('Strategy', 
       "📦 [PACKING-STRATEGY] ═══════════════════════════════════════════════════",
     );
-    console.log(
+    devLog.debug('Strategy', 
       "📊 [PACKING-STRATEGY] Type de service:",
       context.getServiceType(),
     );
@@ -209,13 +210,13 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     const workers = data.workers || 1;
     const duration = data.duration || 1;
 
-    console.log("📋 [PACKING-STRATEGY] Données d'entrée:", {
+    devLog.debug('Strategy', "📋 [PACKING-STRATEGY] Données d'entrée:", {
       volume,
       distance,
       workers,
       duration,
     });
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    devLog.debug('Strategy', "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // 🚚 Application de la règle : km inclus
     const freeDistanceKm = await configAccessService.get<number>(
@@ -227,73 +228,73 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     const details: { label: string; amount: number }[] = [];
 
     // ✅ AMÉLIORATION: Détails volume
-    console.log("\n📏 [PACKING-STRATEGY] ─── Calcul Volume d'emballage ───");
+    devLog.debug('Strategy', "\n📏 [PACKING-STRATEGY] ─── Calcul Volume d'emballage ───");
     const volumeCost = volume * volumeRate;
     if (volume > 0) {
-      console.log(`   📦 Volume à emballer: ${volume}m³`);
-      console.log(`   💶 Tarif par m³: ${volumeRate.toFixed(2)}€/m³`);
-      console.log(
+      devLog.debug('Strategy', `   📦 Volume à emballer: ${volume}m³`);
+      devLog.debug('Strategy', `   💶 Tarif par m³: ${volumeRate.toFixed(2)}€/m³`);
+      devLog.debug('Strategy', 
         `   └─ Coût volume: ${volume}m³ × ${volumeRate.toFixed(2)}€ = ${volumeCost.toFixed(2)}€`,
       );
       baseTotal += volumeCost;
-      console.log(`   ✅ Sous-total après volume: ${baseTotal.toFixed(2)}€`);
+      devLog.debug('Strategy', `   ✅ Sous-total après volume: ${baseTotal.toFixed(2)}€`);
     } else {
-      console.log("   ℹ️  Aucun volume spécifié");
+      devLog.debug('Strategy', "   ℹ️  Aucun volume spécifié");
     }
     details.push({ label: "Volume d'emballage", amount: volumeCost });
 
     // ✅ AMÉLIORATION: Détails matériel
-    console.log("\n📦 [PACKING-STRATEGY] ─── Calcul Matériel d'emballage ───");
+    devLog.debug('Strategy', "\n📦 [PACKING-STRATEGY] ─── Calcul Matériel d'emballage ───");
     const materialCost = volume * materialCostRate;
     if (volume > 0) {
-      console.log(`   📦 Volume nécessitant du matériel: ${volume}m³`);
-      console.log(
+      devLog.debug('Strategy', `   📦 Volume nécessitant du matériel: ${volume}m³`);
+      devLog.debug('Strategy', 
         `   💶 Coût matériel par m³: ${materialCostRate.toFixed(2)}€/m³`,
       );
-      console.log(
+      devLog.debug('Strategy', 
         `   └─ Coût matériel: ${volume}m³ × ${materialCostRate.toFixed(2)}€ = ${materialCost.toFixed(2)}€`,
       );
       baseTotal += materialCost;
-      console.log(`   ✅ Sous-total après matériel: ${baseTotal.toFixed(2)}€`);
+      devLog.debug('Strategy', `   ✅ Sous-total après matériel: ${baseTotal.toFixed(2)}€`);
     } else {
-      console.log("   ℹ️  Aucun matériel nécessaire");
+      devLog.debug('Strategy', "   ℹ️  Aucun matériel nécessaire");
     }
     details.push({ label: "Matériel d'emballage", amount: materialCost });
 
     // ✅ AMÉLIORATION: Détails main d'œuvre
-    console.log("\n👥 [PACKING-STRATEGY] ─── Calcul Main d'œuvre ───");
+    devLog.debug('Strategy', "\n👥 [PACKING-STRATEGY] ─── Calcul Main d'œuvre ───");
     const laborCost = workers * duration * laborRate;
-    console.log(`   👤 Nombre de travailleurs: ${workers}`);
-    console.log(`   🕐 Durée de la prestation: ${duration}h`);
-    console.log(`   💶 Taux horaire: ${laborRate.toFixed(2)}€/h`);
-    console.log(
+    devLog.debug('Strategy', `   👤 Nombre de travailleurs: ${workers}`);
+    devLog.debug('Strategy', `   🕐 Durée de la prestation: ${duration}h`);
+    devLog.debug('Strategy', `   💶 Taux horaire: ${laborRate.toFixed(2)}€/h`);
+    devLog.debug('Strategy', 
       `   └─ Coût main d'œuvre: ${workers} × ${duration}h × ${laborRate.toFixed(2)}€ = ${laborCost.toFixed(2)}€`,
     );
     baseTotal += laborCost;
-    console.log(
+    devLog.debug('Strategy', 
       `   ✅ Sous-total après main d'œuvre: ${baseTotal.toFixed(2)}€`,
     );
     details.push({ label: "Main d'œuvre", amount: laborCost });
 
     // ✅ AMÉLIORATION: Détails distance
-    console.log("\n🚚 [PACKING-STRATEGY] ─── Calcul Distance ───");
-    console.log(`   🛣️  Distance totale: ${distance}km`);
-    console.log(`   🎁 Distance incluse (offerte): ${freeDistanceKm}km`);
-    console.log(`   💶 Distance facturable: ${chargeableKm}km`);
+    devLog.debug('Strategy', "\n🚚 [PACKING-STRATEGY] ─── Calcul Distance ───");
+    devLog.debug('Strategy', `   🛣️  Distance totale: ${distance}km`);
+    devLog.debug('Strategy', `   🎁 Distance incluse (offerte): ${freeDistanceKm}km`);
+    devLog.debug('Strategy', `   💶 Distance facturable: ${chargeableKm}km`);
     details.push({ label: `${freeDistanceKm} km inclus (offerts)`, amount: 0 });
 
     const distanceCost = chargeableKm * distanceRate;
     if (chargeableKm > 0) {
-      console.log(
+      devLog.debug('Strategy', 
         `   💶 Tarif par km supplémentaire: ${distanceRate.toFixed(2)}€/km`,
       );
-      console.log(
+      devLog.debug('Strategy', 
         `   └─ Coût distance: ${chargeableKm}km × ${distanceRate.toFixed(2)}€ = ${distanceCost.toFixed(2)}€`,
       );
       baseTotal += distanceCost;
-      console.log(`   ✅ Sous-total après distance: ${baseTotal.toFixed(2)}€`);
+      devLog.debug('Strategy', `   ✅ Sous-total après distance: ${baseTotal.toFixed(2)}€`);
     } else {
-      console.log("   ℹ️  Pas de supplément distance (dans les km inclus)");
+      devLog.debug('Strategy', "   ℹ️  Pas de supplément distance (dans les km inclus)");
     }
     details.push({
       label: `Distance (au-delà de ${freeDistanceKm} km)`,
@@ -301,29 +302,29 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     });
 
     // ✅ AMÉLIORATION: Résumé avant promotions
-    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("💰 [PACKING-STRATEGY] ═══ PRIX DE BASE AVANT PROMOTIONS ═══");
-    console.log(`   📊 Prix total: ${baseTotal.toFixed(2)}€`);
-    console.log("\n   📝 Détail:");
-    console.log(`      • Volume: ${volumeCost.toFixed(2)}€ (${volume}m³)`);
-    console.log(`      • Matériel: ${materialCost.toFixed(2)}€ (${volume}m³)`);
-    console.log(
+    devLog.debug('Strategy', "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    devLog.debug('Strategy', "💰 [PACKING-STRATEGY] ═══ PRIX DE BASE AVANT PROMOTIONS ═══");
+    devLog.debug('Strategy', `   📊 Prix total: ${baseTotal.toFixed(2)}€`);
+    devLog.debug('Strategy', "\n   📝 Détail:");
+    devLog.debug('Strategy', `      • Volume: ${volumeCost.toFixed(2)}€ (${volume}m³)`);
+    devLog.debug('Strategy', `      • Matériel: ${materialCost.toFixed(2)}€ (${volume}m³)`);
+    devLog.debug('Strategy', 
       `      • Main d'œuvre: ${laborCost.toFixed(2)}€ (${workers} × ${duration}h)`,
     );
-    console.log(
+    devLog.debug('Strategy', 
       `      • Distance: ${distanceCost.toFixed(2)}€ (${chargeableKm}km au-delà de ${freeDistanceKm}km)`,
     );
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    devLog.debug('Strategy', "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // ✅ APPLICATION DES PROMOTIONS SUR LE PRIX DE BASE
     const promotionResult = this.applyPromotionCodes(context, baseTotal);
     baseTotal = promotionResult.finalPrice;
     details.push(...promotionResult.details);
 
-    console.log(
+    devLog.debug('Strategy', 
       `\n💰 [PACKING-STRATEGY] ═══ PRIX DE BASE FINAL (après promotions): ${baseTotal.toFixed(2)}€ ═══`,
     );
-    console.log(
+    devLog.debug('Strategy', 
       "📦 [PACKING-STRATEGY] ═══════════════════════════════════════════════════\n",
     );
 
@@ -358,13 +359,13 @@ export class PackingQuoteStrategy implements QuoteStrategy {
           : isPromotionActive;
     }
 
-    console.log("🎯 [PACKING-STRATEGY] ═══ APPLICATION DES PROMOTIONS ═══");
-    console.log(`📊 [PACKING-STRATEGY] Promotion active: ${isPromotionActive}`);
-    console.log(`📊 [PACKING-STRATEGY] Code promo: ${promotionCode}`);
-    console.log(
+    devLog.debug('Strategy', "🎯 [PACKING-STRATEGY] ═══ APPLICATION DES PROMOTIONS ═══");
+    devLog.debug('Strategy', `📊 [PACKING-STRATEGY] Promotion active: ${isPromotionActive}`);
+    devLog.debug('Strategy', `📊 [PACKING-STRATEGY] Code promo: ${promotionCode}`);
+    devLog.debug('Strategy', 
       `📊 [PACKING-STRATEGY] Type: ${promotionType}, Valeur: ${promotionValue}`,
     );
-    console.log(
+    devLog.debug('Strategy', 
       `💰 [PACKING-STRATEGY] Prix de base avant promotion: ${basePrice.toFixed(2)}€`,
     );
 
@@ -378,7 +379,7 @@ export class PackingQuoteStrategy implements QuoteStrategy {
       !promotionValue ||
       !promotionType
     ) {
-      console.log("❌ [PACKING-STRATEGY] Aucune promotion active");
+      devLog.debug('Strategy', "❌ [PACKING-STRATEGY] Aucune promotion active");
       return { finalPrice, details };
     }
 
@@ -390,7 +391,7 @@ export class PackingQuoteStrategy implements QuoteStrategy {
         label: `Promotion ${promotionCode} (-${promotionValue}%)`,
         amount: -discountAmount,
       });
-      console.log(
+      devLog.debug('Strategy', 
         `✅ [PACKING-STRATEGY] Promotion pourcentage appliquée: -${promotionValue}% = -${discountAmount.toFixed(2)}€`,
       );
     } else if (promotionType === "FIXED") {
@@ -399,16 +400,16 @@ export class PackingQuoteStrategy implements QuoteStrategy {
         label: `Promotion ${promotionCode} (-${promotionValue}€)`,
         amount: -promotionValue,
       });
-      console.log(
+      devLog.debug('Strategy', 
         `✅ [PACKING-STRATEGY] Promotion fixe appliquée: -${promotionValue}€`,
       );
     } else {
-      console.log(
+      devLog.debug('Strategy', 
         `⚠️ [PACKING-STRATEGY] Type de promotion non reconnu: ${promotionType}`,
       );
     }
 
-    console.log(
+    devLog.debug('Strategy', 
       `💰 [PACKING-STRATEGY] Prix final après promotion: ${finalPrice.toFixed(2)}€`,
     );
     return { finalPrice, details };
@@ -429,14 +430,14 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     // Utiliser le prix de base fourni (qui inclut déjà les promotions)
     const details: { label: string; amount: number }[] = [];
 
-    console.log("🏗️ [PACKING-STRATEGY] ═══ CALCUL AVEC RÈGLES MÉTIER ═══");
-    console.log(
+    devLog.debug('Strategy', "🏗️ [PACKING-STRATEGY] ═══ CALCUL AVEC RÈGLES MÉTIER ═══");
+    devLog.debug('Strategy', 
       `💰 [PACKING-STRATEGY] Prix de base calculé: ${baseTotal.toFixed(2)}€`,
     );
 
     // ✅ APPLICATION DES RÈGLES MÉTIER
-    console.log("🔧 [PACKING-STRATEGY] ═══ APPLICATION DES RÈGLES MÉTIER ═══");
-    console.log(
+    devLog.debug('Strategy', "🔧 [PACKING-STRATEGY] ═══ APPLICATION DES RÈGLES MÉTIER ═══");
+    devLog.debug('Strategy', 
       `💰 [PACKING-STRATEGY] Prix de base avant règles: ${baseTotal.toFixed(2)}€`,
     );
 
@@ -444,37 +445,43 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     const ruleResult = this.ruleEngine.execute(context, new Money(baseTotal));
     const finalTotal = ruleResult.finalPrice.getAmount();
 
-    console.log(
+    devLog.debug('Strategy', 
       `\n📊 [PACKING-STRATEGY] Résultat du RuleEngine (nouvelle architecture):`,
     );
-    console.log(
+    devLog.debug('Strategy', 
       `   └─ Prix de base: ${ruleResult.basePrice.getAmount().toFixed(2)}€`,
     );
-    console.log(`   └─ Prix final: ${finalTotal.toFixed(2)}€`);
-    console.log(
+    devLog.debug('Strategy', `   └─ Prix final: ${finalTotal.toFixed(2)}€`);
+    devLog.debug('Strategy', 
       `   └─ Total réductions: ${ruleResult.totalReductions.getAmount().toFixed(2)}€`,
     );
-    console.log(
+    devLog.debug('Strategy', 
       `   └─ Total surcharges: ${ruleResult.totalSurcharges.getAmount().toFixed(2)}€`,
     );
-    console.log(
+    devLog.debug('Strategy', 
+      `      → Contraintes logistiques: ${ruleResult.totalConstraints.getAmount().toFixed(2)}€`,
+    );
+    devLog.debug('Strategy', 
+      `      → Services supplémentaires: ${ruleResult.totalAdditionalServices.getAmount().toFixed(2)}€`,
+    );
+    devLog.debug('Strategy', 
       `   └─ Nombre total de règles: ${ruleResult.appliedRules.length}`,
     );
 
     // Ajouter les détails des règles appliquées (par catégorie)
     if (ruleResult.appliedRules.length > 0) {
-      console.log("\n📋 [PACKING-STRATEGY] RÈGLES APPLIQUÉES EN DÉTAIL:");
+      devLog.debug('Strategy', "\n📋 [PACKING-STRATEGY] RÈGLES APPLIQUÉES EN DÉTAIL:");
 
       // Réductions
       if (ruleResult.reductions.length > 0) {
-        console.log("\n  📉 RÉDUCTIONS:");
+        devLog.debug('Strategy', "\n  📉 RÉDUCTIONS:");
         ruleResult.reductions.forEach((rule, index) => {
           details.push({
             label: `Réduction: ${rule.description}`,
             amount: -rule.impact.getAmount(),
           });
-          console.log(`   ${index + 1}. ${rule.description}`);
-          console.log(
+          devLog.debug('Strategy', `   ${index + 1}. ${rule.description}`);
+          devLog.debug('Strategy', 
             `      └─ Montant: -${rule.impact.getAmount().toFixed(2)}€`,
           );
         });
@@ -482,14 +489,14 @@ export class PackingQuoteStrategy implements QuoteStrategy {
 
       // Surcharges
       if (ruleResult.surcharges.length > 0) {
-        console.log("\n  📈 SURCHARGES:");
+        devLog.debug('Strategy', "\n  📈 SURCHARGES:");
         ruleResult.surcharges.forEach((rule, index) => {
           details.push({
             label: `Surcharge: ${rule.description}`,
             amount: rule.impact.getAmount(),
           });
-          console.log(`   ${index + 1}. ${rule.description}`);
-          console.log(
+          devLog.debug('Strategy', `   ${index + 1}. ${rule.description}`);
+          devLog.debug('Strategy', 
             `      └─ Montant: +${rule.impact.getAmount().toFixed(2)}€`,
           );
         });
@@ -497,7 +504,7 @@ export class PackingQuoteStrategy implements QuoteStrategy {
 
       // Autres catégories si présentes
       if (ruleResult.constraints.length > 0) {
-        console.log("\n  🚧 CONTRAINTES:");
+        devLog.debug('Strategy', "\n  🚧 CONTRAINTES:");
         ruleResult.constraints.forEach((rule, index) => {
           if (!rule.isConsumed) {
             details.push({
@@ -505,32 +512,31 @@ export class PackingQuoteStrategy implements QuoteStrategy {
               amount: rule.impact.getAmount(),
             });
           }
-          console.log(`   ${index + 1}. ${rule.description}`);
+          devLog.debug('Strategy', `   ${index + 1}. ${rule.description}`);
         });
       }
 
       if (ruleResult.equipment.length > 0) {
-        console.log("\n  🔧 ÉQUIPEMENTS:");
+        devLog.debug('Strategy', "\n  🔧 ÉQUIPEMENTS:");
         ruleResult.equipment.forEach((rule, index) => {
           details.push({
             label: `Équipement: ${rule.description}`,
             amount: rule.impact.getAmount(),
           });
-          console.log(`   ${index + 1}. ${rule.description}`);
+          devLog.debug('Strategy', `   ${index + 1}. ${rule.description}`);
         });
       }
     } else {
-      console.log("📋 [PACKING-STRATEGY] Aucune règle applicable");
+      devLog.debug('Strategy', "📋 [PACKING-STRATEGY] Aucune règle applicable");
     }
 
-    console.log(
+    devLog.debug('Strategy', 
       `💰 [PACKING-STRATEGY] Prix final après règles: ${finalTotal.toFixed(2)}€`,
     );
-    console.log(
+    devLog.debug('Strategy', 
       `📊 [PACKING-STRATEGY] Différence: ${(finalTotal - baseTotal).toFixed(2)}€`,
     );
 
-    // ✅ COMPATIBILITÉ: Retourner discounts pour le code existant
     const discounts = (ruleResult as any).discounts || [];
 
     return { total: finalTotal, details, discounts };
@@ -548,11 +554,11 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     const baseline =
       context.getValue("__presetSnapshot") || data.__presetSnapshot;
 
-    console.log(
+    devLog.debug('Strategy', 
       "🔍 [PACKING-STRATEGY] ═══ VÉRIFICATION isPackingUnchanged ═══",
     );
-    console.log("📊 [PACKING-STRATEGY] ServiceType:", context.getServiceType());
-    console.log("📋 [PACKING-STRATEGY] Données actuelles:", {
+    devLog.debug('Strategy', "📊 [PACKING-STRATEGY] ServiceType:", context.getServiceType());
+    devLog.debug('Strategy', "📋 [PACKING-STRATEGY] Données actuelles:", {
       distance: data.distance,
       workers: data.workers,
       duration: data.duration,
@@ -562,13 +568,13 @@ export class PackingQuoteStrategy implements QuoteStrategy {
       promotionType: data.promotionType,
       isPromotionActive: data.isPromotionActive,
     });
-    console.log("📋 [PACKING-STRATEGY] Baseline (__presetSnapshot):", baseline);
+    devLog.debug('Strategy', "📋 [PACKING-STRATEGY] Baseline (__presetSnapshot):", baseline);
 
     if (!baseline) {
-      console.log(
+      devLog.debug('Strategy', 
         "❌ [PACKING-STRATEGY] Pas de baseline trouvé, PACKING considéré comme modifié",
       );
-      console.log(
+      devLog.debug('Strategy', 
         "🔍 [PACKING-STRATEGY] Raison: __presetSnapshot est undefined/null",
       );
       return false;
@@ -592,7 +598,7 @@ export class PackingQuoteStrategy implements QuoteStrategy {
       return Math.abs(a - b) <= eps;
     };
 
-    console.log("🔍 [PACKING-STRATEGY] Comparaison détaillée des valeurs:");
+    devLog.debug('Strategy', "🔍 [PACKING-STRATEGY] Comparaison détaillée des valeurs:");
     for (const k of KEYS) {
       const av = data[k as string];
       const bv = baseline[k];
@@ -601,24 +607,24 @@ export class PackingQuoteStrategy implements QuoteStrategy {
           ? nearlyEqual(av as number, bv as number)
           : av === bv;
 
-      console.log(
+      devLog.debug('Strategy', 
         `  ${String(k)}: ${av} (${typeof av}) vs ${bv} (${typeof bv}) = ${equal ? "✅ Égal" : "❌ Différent"}`,
       );
 
       if (!equal) {
-        console.log(
+        devLog.debug('Strategy', 
           `❌ [PACKING-STRATEGY] Différence détectée sur ${String(k)}, PACKING modifié`,
         );
-        console.log(`   └─ Valeur actuelle: ${av} (${typeof av})`);
-        console.log(`   └─ Valeur baseline: ${bv} (${typeof bv})`);
+        devLog.debug('Strategy', `   └─ Valeur actuelle: ${av} (${typeof av})`);
+        devLog.debug('Strategy', `   └─ Valeur baseline: ${bv} (${typeof bv})`);
         return false; // une différence = PACKING modifié
       }
     }
 
-    console.log(
+    devLog.debug('Strategy', 
       "✅ [PACKING-STRATEGY] Aucune différence détectée, PACKING inchangé",
     );
-    console.log("✅ [PACKING-STRATEGY] Le prix par défaut sera utilisé");
+    devLog.debug('Strategy', "✅ [PACKING-STRATEGY] Le prix par défaut sera utilisé");
     return true; // tout identique au preset
   }
 }

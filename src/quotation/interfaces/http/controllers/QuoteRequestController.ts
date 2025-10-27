@@ -18,7 +18,7 @@ export class QuoteRequestController {
      */
     async createQuoteRequest(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
         logger.info('📬 POST /api/quotesRequest/ - Création demande de devis');
-        
+
         try {
             // Valider les données d'entrée
             if (!req.body || Object.keys(req.body).length === 0) {
@@ -26,6 +26,24 @@ export class QuoteRequestController {
                     error: 'Les données de la demande de devis sont requises'
                 });
             }
+
+            // ✅ LOG DÉTAILLÉ: Données reçues du frontend (soumission)
+            const quoteData = req.body.quoteData || {};
+            logger.info('📥 ÉTAPE 1 (SOUMISSION): Données reçues du frontend:', {
+                serviceType: req.body.serviceType,
+                hasPickupAddress: !!quoteData.pickupAddress,
+                hasDeliveryAddress: !!quoteData.deliveryAddress,
+                pickupLogisticsConstraints: quoteData.pickupLogisticsConstraints,
+                deliveryLogisticsConstraints: quoteData.deliveryLogisticsConstraints,
+                additionalServices: quoteData.additionalServices,
+                pickupLogisticsConstraintsType: typeof quoteData.pickupLogisticsConstraints,
+                deliveryLogisticsConstraintsType: typeof quoteData.deliveryLogisticsConstraints,
+                additionalServicesType: typeof quoteData.additionalServices,
+                calculatedPrice: quoteData.calculatedPrice,
+                totalPrice: quoteData.totalPrice,
+                catalogId: quoteData.catalogId,
+                hasPresetSnapshot: !!quoteData.__presetSnapshot
+            });
 
             // Créer la demande via le service
             const quoteRequest = await this.quoteRequestService.createQuoteRequest(req.body);

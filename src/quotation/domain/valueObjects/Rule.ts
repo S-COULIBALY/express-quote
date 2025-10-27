@@ -317,39 +317,38 @@ export class Rule {
    * @returns True si la condition est remplie
    */
   private evaluateJsonCondition(conditionObj: any, context: any): boolean {
-    // ✅ CORRECTION IMPORTANTE: Mapper la condition JSON complète vers LE BON nom de contrainte
-    // Utiliser toutes les propriétés de la condition, pas juste le type
+    // ✅ NOUVELLE APPROCHE: Vérifier directement si l'UUID de cette règle est dans les contraintes/services
+    // Les contraintes sont maintenant des UUIDs, pas des noms
 
-    // Mapper les conditions JSON complètes vers les noms de contraintes
-    const constraintName = this.mapJsonConditionToConstraintName(conditionObj);
-
-    if (!constraintName) {
-      console.warn(`⚠️ Impossible de mapper la condition JSON pour règle "${this.name}":`, conditionObj);
-      return false;
-    }
-
-    // ✅ AMÉLIORATION: Vérifier si la contrainte est présente dans le contexte
-    // Support de plusieurs formats:
-    // 1. Format complet: pickupLogisticsConstraints / deliveryLogisticsConstraints
-    // 2. Format simple: constraints (pour les tests et certains formulaires)
-    // 3. Format services: services (pour les services additionnels)
-
+    // Récupérer tous les tableaux de contraintes et services du contexte
     const pickupConstraints = context.pickupLogisticsConstraints || [];
     const deliveryConstraints = context.deliveryLogisticsConstraints || [];
-    const simpleConstraints = context.constraints || [];
-    const simpleServices = context.services || [];
+    const additionalServices = context.additionalServices || [];
+    const simpleConstraints = context.constraints || []; // Pour rétrocompatibilité
+    const simpleServices = context.services || []; // Pour rétrocompatibilité
 
-    // Combiner toutes les sources de contraintes
-    const allConstraints = [
+    // Combiner toutes les sources d'IDs (UUIDs ou noms pour rétrocompatibilité)
+    const allSelectedIds = [
       ...pickupConstraints,
       ...deliveryConstraints,
+      ...additionalServices,
       ...simpleConstraints,
       ...simpleServices
     ];
 
-    const hasConstraint = allConstraints.includes(constraintName);
+    // Vérifier si l'UUID de cette règle est dans la liste des IDs sélectionnés
+    const isSelected = allSelectedIds.includes(this.id);
 
-    return hasConstraint;
+    // ✅ FALLBACK pour rétrocompatibilité: si la règle n'est pas trouvée par UUID,
+    // essayer avec l'ancien système de mapping par nom
+    if (!isSelected && this.id) {
+      const constraintName = this.mapJsonConditionToConstraintName(conditionObj);
+      if (constraintName) {
+        return allSelectedIds.includes(constraintName);
+      }
+    }
+
+    return isSelected;
   }
 
   /**

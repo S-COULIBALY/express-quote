@@ -21,7 +21,7 @@ export interface CatalogData {
     isFeatured: boolean
     isNewOffer: boolean
   }
-  item: {
+  item?: {
     id: string
     type: string
     name: string

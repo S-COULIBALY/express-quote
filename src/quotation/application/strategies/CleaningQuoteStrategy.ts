@@ -1,3 +1,4 @@
+import { devLog } from '../../../lib/conditional-logger';
 import { injectable, inject } from "inversify";
 import { QuoteStrategy } from "../../domain/interfaces/QuoteStrategy";
 import { QuoteContext } from "../../domain/valueObjects/QuoteContext";
@@ -49,18 +50,18 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
           UnifiedServiceType.CLEANING,
         );
       if (businessRules.length > 0) {
-        console.log(
+        devLog.debug('Strategy', 
           `✅ [CLEANING-STRATEGY] ${businessRules.length} règles métier chargées depuis UnifiedDataService`,
         );
         // Remplacer le RuleEngine avec les nouvelles règles
         this.ruleEngine = new RuleEngine(businessRules);
       } else {
-        console.log(
+        devLog.debug('Strategy', 
           "⚠️ [CLEANING-STRATEGY] Aucune règle métier trouvée, utilisation des règles par défaut",
         );
       }
     } catch (error) {
-      console.warn(
+      devLog.warn('Strategy', 
         "⚠️ [CLEANING-STRATEGY] Erreur lors du chargement des règles métier:",
         error,
       );
@@ -108,26 +109,31 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
         new Money(basePrice),
       );
 
-      console.log(
+      devLog.debug('Strategy', 
         `\n📊 [CLEANING-STRATEGY] Résultat du RuleEngine (nouvelle architecture):`,
       );
-      console.log(
+      devLog.debug('Strategy', 
         `   └─ Prix de base: ${ruleResult.basePrice.getAmount().toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('Strategy', 
         `   └─ Prix final: ${ruleResult.finalPrice.getAmount().toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('Strategy', 
         `   └─ Total réductions: ${ruleResult.totalReductions.getAmount().toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('Strategy', 
         `   └─ Total surcharges: ${ruleResult.totalSurcharges.getAmount().toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('Strategy', 
+        `      → Contraintes logistiques: ${ruleResult.totalConstraints.getAmount().toFixed(2)}€`,
+      );
+      devLog.debug('Strategy', 
+        `      → Services supplémentaires: ${ruleResult.totalAdditionalServices.getAmount().toFixed(2)}€`,
+      );
+      devLog.debug('Strategy', 
         `   └─ Nombre total de règles: ${ruleResult.appliedRules.length}`,
       );
 
-      // ✅ COMPATIBILITÉ: Récupérer discounts pour le Quote
       const discounts = (ruleResult as any).discounts || [];
 
       const quote = new Quote(
@@ -157,17 +163,17 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
     const duration = data.duration || 1;
     const rooms = data.rooms || 1;
 
-    console.log(
+    devLog.debug('Strategy', 
       "\n🧽 [CLEANING-STRATEGY] ═══════════════════════════════════════════════════",
     );
-    console.log(
+    devLog.debug('Strategy', 
       "🧽 [CLEANING-STRATEGY] ═══ DÉBUT CALCUL PRIX DE BASE CLEANING ═══",
     );
-    console.log(
+    devLog.debug('Strategy', 
       "🧽 [CLEANING-STRATEGY] ═══════════════════════════════════════════════════",
     );
-    console.log("📊 [CLEANING-STRATEGY] Type de service:", serviceType);
-    console.log("📋 [CLEANING-STRATEGY] Données d'entrée:", {
+    devLog.debug('Strategy', "📊 [CLEANING-STRATEGY] Type de service:", serviceType);
+    devLog.debug('Strategy', "📋 [CLEANING-STRATEGY] Données d'entrée:", {
       defaultPrice: data.defaultPrice,
       surface,
       workers,
@@ -197,10 +203,10 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
         );
       }
 
-      console.log(
+      devLog.debug('Strategy', 
         "\n✨ [CLEANING-STRATEGY] MODE: MÉNAGE SUR MESURE (SURFACE UNIQUEMENT)",
       );
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      devLog.debug('Strategy', "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       // Calcul basé sur la surface
       const pricePerM2 = await configAccessService.get<number>(
@@ -208,10 +214,10 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
       );
       surfaceCost = surface * pricePerM2;
 
-      console.log(`\n📏 [CLEANING-STRATEGY] ─── Calcul Surface ───`);
-      console.log(`   📐 Surface à nettoyer: ${surface}m²`);
-      console.log(`   💶 Tarif au m²: ${pricePerM2.toFixed(2)}€/m²`);
-      console.log(
+      devLog.debug('Strategy', `\n📏 [CLEANING-STRATEGY] ─── Calcul Surface ───`);
+      devLog.debug('Strategy', `   📐 Surface à nettoyer: ${surface}m²`);
+      devLog.debug('Strategy', `   💶 Tarif au m²: ${pricePerM2.toFixed(2)}€/m²`);
+      devLog.debug('Strategy', 
         `   └─ Coût total: ${surface}m² × ${pricePerM2.toFixed(2)}€ = ${surfaceCost.toFixed(2)}€`,
       );
 
@@ -220,21 +226,21 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
         // Calcul direct sans méthode intermédiaire
         const roomSurcharge = 10; // Valeur par défaut, peut être configurée si nécessaire
         roomsCost = (rooms - 1) * roomSurcharge;
-        console.log(`\n🏠 [CLEANING-STRATEGY] ─── Supplément Pièces ───`);
-        console.log(`   🚪 Pièces supplémentaires: ${rooms - 1}`);
-        console.log(`   └─ Supplément: ${roomsCost.toFixed(2)}€`);
+        devLog.debug('Strategy', `\n🏠 [CLEANING-STRATEGY] ─── Supplément Pièces ───`);
+        devLog.debug('Strategy', `   🚪 Pièces supplémentaires: ${rooms - 1}`);
+        devLog.debug('Strategy', `   └─ Supplément: ${roomsCost.toFixed(2)}€`);
       }
 
       basePrice = Math.max(surfaceCost + roomsCost, minimumPrice);
 
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("💰 [CLEANING-STRATEGY] RÉSUMÉ (SUR MESURE):");
-      console.log(`   • Surface: ${surfaceCost.toFixed(2)}€ (${surface}m²)`);
-      console.log(
+      devLog.debug('Strategy', "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      devLog.debug('Strategy', "💰 [CLEANING-STRATEGY] RÉSUMÉ (SUR MESURE):");
+      devLog.debug('Strategy', `   • Surface: ${surfaceCost.toFixed(2)}€ (${surface}m²)`);
+      devLog.debug('Strategy', 
         `   • Pièces: ${roomsCost.toFixed(2)}€ (${rooms > 1 ? rooms - 1 : 0} extra)`,
       );
-      console.log(`   • Minimum: ${minimumPrice.toFixed(2)}€`);
-      console.log(`   = ${basePrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   • Minimum: ${minimumPrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   = ${basePrice.toFixed(2)}€`);
     }
 
     // ✅ CAS 2 : CLEANING (catalogue) → MAIN D'ŒUVRE UNIQUEMENT
@@ -246,34 +252,34 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
         );
       }
 
-      console.log(
+      devLog.debug('Strategy', 
         "\n📦 [CLEANING-STRATEGY] MODE: PACK CATALOGUE (MAIN D'ŒUVRE UNIQUEMENT)",
       );
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      devLog.debug('Strategy', "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       // Calcul basé sur main d'œuvre
       laborCost = workers * duration * laborRate;
 
-      console.log(`\n👥 [CLEANING-STRATEGY] ─── Calcul Main d'œuvre ───`);
-      console.log(`   👤 Travailleurs: ${workers}`);
-      console.log(`   ⏱️  Durée: ${duration}h`);
-      console.log(`   💶 Tarif horaire: ${laborRate.toFixed(2)}€/h`);
-      console.log(
+      devLog.debug('Strategy', `\n👥 [CLEANING-STRATEGY] ─── Calcul Main d'œuvre ───`);
+      devLog.debug('Strategy', `   👤 Travailleurs: ${workers}`);
+      devLog.debug('Strategy', `   ⏱️  Durée: ${duration}h`);
+      devLog.debug('Strategy', `   💶 Tarif horaire: ${laborRate.toFixed(2)}€/h`);
+      devLog.debug('Strategy', 
         `   └─ Coût total: ${workers} × ${duration}h × ${laborRate.toFixed(2)}€ = ${laborCost.toFixed(2)}€`,
       );
 
       basePrice = Math.max(laborCost, minimumPrice);
 
-      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("💰 [CLEANING-STRATEGY] RÉSUMÉ (PACK CATALOGUE):");
-      console.log(
+      devLog.debug('Strategy', "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      devLog.debug('Strategy', "💰 [CLEANING-STRATEGY] RÉSUMÉ (PACK CATALOGUE):");
+      devLog.debug('Strategy', 
         `   • Main d'œuvre: ${laborCost.toFixed(2)}€ (${workers} × ${duration}h)`,
       );
-      console.log(`   • Minimum: ${minimumPrice.toFixed(2)}€`);
-      console.log(`   = ${basePrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   • Minimum: ${minimumPrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   = ${basePrice.toFixed(2)}€`);
     }
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    devLog.debug('Strategy', "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // ✅ NOUVEAU: APPLICATION DES PROMOTIONS
     const priceBeforePromotion = basePrice;
@@ -281,16 +287,16 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
     basePrice = promotionResult.finalPrice;
 
     if (promotionResult.discountAmount > 0) {
-      console.log(
+      devLog.debug('Strategy', 
         `\n🎁 [CLEANING-STRATEGY] Promotion appliquée: -${promotionResult.discountAmount.toFixed(2)}€`,
       );
-      console.log(`   📊 Prix final après promotion: ${basePrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   📊 Prix final après promotion: ${basePrice.toFixed(2)}€`);
     }
 
-    console.log(
+    devLog.debug('Strategy', 
       `\n💰 [CLEANING-STRATEGY] ═══ PRIX DE BASE FINAL: ${basePrice.toFixed(2)}€ ═══`,
     );
-    console.log(
+    devLog.debug('Strategy', 
       "🧽 [CLEANING-STRATEGY] ═══════════════════════════════════════════════════\n",
     );
 
@@ -334,7 +340,7 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
       );
       return Math.ceil(surface / m2PerHour);
     } catch (error) {
-      console.warn(
+      devLog.warn('Strategy', 
         "⚠️ [CLEANING-STRATEGY] Erreur récupération m2 par heure, utilisation fallback:",
         error,
       );
@@ -361,7 +367,7 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
       if (surface <= threshold2) return 2;
       return 3;
     } catch (error) {
-      console.warn(
+      devLog.warn('Strategy', 
         "⚠️ [CLEANING-STRATEGY] Erreur récupération seuils surface, utilisation fallback:",
         error,
       );
@@ -398,15 +404,15 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
           : isPromotionActive;
     }
 
-    console.log("🎁 [CLEANING-STRATEGY] ═══ APPLICATION DES PROMOTIONS ═══");
-    console.log(
+    devLog.debug('Strategy', "🎁 [CLEANING-STRATEGY] ═══ APPLICATION DES PROMOTIONS ═══");
+    devLog.debug('Strategy', 
       `📊 [CLEANING-STRATEGY] Promotion active: ${isPromotionActive}`,
     );
-    console.log(`📊 [CLEANING-STRATEGY] Code promo: ${promotionCode}`);
-    console.log(
+    devLog.debug('Strategy', `📊 [CLEANING-STRATEGY] Code promo: ${promotionCode}`);
+    devLog.debug('Strategy', 
       `📊 [CLEANING-STRATEGY] Type: ${promotionType}, Valeur: ${promotionValue}`,
     );
-    console.log(
+    devLog.debug('Strategy', 
       `💰 [CLEANING-STRATEGY] Prix de base avant promotion: ${basePrice.toFixed(2)}€`,
     );
 
@@ -420,7 +426,7 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
       !promotionValue ||
       !promotionType
     ) {
-      console.log("❌ [CLEANING-STRATEGY] Aucune promotion active");
+      devLog.debug('Strategy', "❌ [CLEANING-STRATEGY] Aucune promotion active");
       return { finalPrice, discountAmount };
     }
 
@@ -428,22 +434,22 @@ export class CleaningQuoteStrategy implements QuoteStrategy {
     if (promotionType === "PERCENT") {
       discountAmount = (basePrice * promotionValue) / 100;
       finalPrice = basePrice - discountAmount;
-      console.log(
+      devLog.debug('Strategy', 
         `✅ [CLEANING-STRATEGY] Promotion pourcentage appliquée: -${promotionValue}% = -${discountAmount.toFixed(2)}€`,
       );
     } else if (promotionType === "FIXED") {
       discountAmount = promotionValue;
       finalPrice = Math.max(0, basePrice - promotionValue); // Éviter les prix négatifs
-      console.log(
+      devLog.debug('Strategy', 
         `✅ [CLEANING-STRATEGY] Promotion fixe appliquée: -${promotionValue}€`,
       );
     } else {
-      console.log(
+      devLog.debug('Strategy', 
         `⚠️ [CLEANING-STRATEGY] Type de promotion non reconnu: ${promotionType}`,
       );
     }
 
-    console.log(
+    devLog.debug('Strategy', 
       `💰 [CLEANING-STRATEGY] Prix final après promotion: ${finalPrice.toFixed(2)}€`,
     );
     return { finalPrice, discountAmount };

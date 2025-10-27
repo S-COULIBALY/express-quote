@@ -266,76 +266,96 @@ export function createDefaultConfigurations(): Configuration[] {
 
   // Configurations TARIFS PAR TYPE DE SERVICE MÉTIER - Tarification différenciée
   // DÉMÉNAGEMENT
+  // ✅ CORRECTION: Utiliser PRICING au lieu de BUSINESS_TYPE_PRICING pour compatibilité
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_BASE_PRICE_PER_M3,
       DefaultValues.MOVING_BASE_PRICE_PER_M3,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_WORKER_PRICE,
       DefaultValues.MOVING_WORKER_PRICE,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_WORKER_HOUR_RATE,
       DefaultValues.MOVING_WORKER_HOUR_RATE,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_EXTRA_HOUR_RATE,
       DefaultValues.MOVING_EXTRA_HOUR_RATE,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_LIFT_PRICE,
       DefaultValues.MOVING_LIFT_PRICE,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_VEHICLE_FLAT_FEE,
       DefaultValues.MOVING_VEHICLE_FLAT_FEE,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_BOXES_PER_M3,
       DefaultValues.MOVING_BOXES_PER_M3,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_BOX_PRICE,
       DefaultValues.MOVING_BOX_PRICE,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_WORKERS_PER_M3_THRESHOLD,
       DefaultValues.MOVING_WORKERS_PER_M3_THRESHOLD,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_PREMIUM_WORKER_PRICE_PER_HOUR,
       DefaultValues.MOVING_PREMIUM_WORKER_PRICE_PER_HOUR,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.MOVING_PREMIUM_SUPPLIES_MULTIPLIER,
       DefaultValues.MOVING_PREMIUM_SUPPLIES_MULTIPLIER,
     ),
   );
   configurations.push(
-    createBusinessTypePricingConfig(
+    createPricingConfig(
       BusinessTypePricingConfigKey.HOURS_PER_DAY,
       DefaultValues.HOURS_PER_DAY,
+    ),
+  );
+  // ✅ AJOUT: Configurations manquantes recherchées par MovingQuoteStrategy
+  configurations.push(
+    createPricingConfig(
+      BusinessTypePricingConfigKey.MOVING_TRUCK_PRICE,
+      DefaultValues.MOVING_TRUCK_PRICE,
+    ),
+  );
+  configurations.push(
+    createPricingConfig(
+      BusinessTypePricingConfigKey.MOVING_DISTANCE_PRICE_PER_KM,
+      DefaultValues.MOVING_DISTANCE_PRICE_PER_KM,
+    ),
+  );
+  configurations.push(
+    createPricingConfig(
+      BusinessTypePricingConfigKey.MOVING_FREE_DISTANCE_KM,
+      DefaultValues.MOVING_FREE_DISTANCE_KM,
     ),
   );
 

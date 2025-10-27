@@ -20,10 +20,27 @@ export default function PaymentRedirect() {
       return;
     }
 
-    // Pour l'instant, rediriger vers la page de succès
-    // En production, il faudrait récupérer le temporaryId depuis l'API
-    // et rediriger vers /summary/quote/[temporaryId]
-    router.replace(`/success/${bookingId}`);
+    // Récupérer le temporaryId depuis l'API et rediriger vers /booking/[temporaryId]
+    const fetchTemporaryId = async () => {
+      try {
+        const response = await fetch(`/api/bookings/${bookingId}`);
+        if (response.ok) {
+          const bookingData = await response.json();
+          if (bookingData.success && bookingData.data.temporaryId) {
+            router.replace(`/booking/${bookingData.data.temporaryId}`);
+            return;
+          }
+        }
+        // Fallback vers la page de succès si pas de temporaryId
+        router.replace(`/success/${bookingId}`);
+      } catch (error) {
+        console.error('Erreur lors de la récupération du temporaryId:', error);
+        // Fallback vers la page de succès en cas d'erreur
+        router.replace(`/success/${bookingId}`);
+      }
+    };
+
+    fetchTemporaryId();
   }, [bookingId, router]);
 
   return (

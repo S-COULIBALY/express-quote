@@ -1,7 +1,7 @@
 import { QuoteRequest } from '../entities/QuoteRequest';
 import { QuoteRequestStatus } from '../entities/QuoteRequest';
 
-export interface IQuoteRequestRepository {
+export default interface IQuoteRequestRepository {
     save(quoteRequest: QuoteRequest): Promise<QuoteRequest>;
     findByTemporaryId(temporaryId: string): Promise<QuoteRequest | null>;
     findById(id: string): Promise<QuoteRequest | null>;
@@ -9,4 +9,6 @@ export interface IQuoteRequestRepository {
     findExpired(): Promise<QuoteRequest[]>;
     findAll(): Promise<QuoteRequest[]>;
     delete(id: string): Promise<void>;
-} 
+}
+
+export type { IQuoteRequestRepository }; 

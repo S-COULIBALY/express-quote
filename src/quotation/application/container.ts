@@ -248,19 +248,16 @@ async function loadStrategyClass(
     allServiceTypes.forEach(serviceType => {
       try {
         if (container.isBound(serviceType)) {
-          logger.debug(`🔄 Unbinding existing strategy: ${serviceType}`);
           container.unbind(serviceType);
         }
       } catch { /* ignorer */ }
 
-      logger.debug(`🎯 Binding strategy ${exportName} to serviceType: ${serviceType}`);
       container.bind<QuoteStrategy>(serviceType).toConstantValue(instance);
       loadedStrategies.add(serviceType);
-      logger.debug(`✅ Successfully bound ${serviceType} to ${exportName}`);
     });
 
     logger.info(
-      `✅ Stratégie chargée : ${exportName} pour [${allServiceTypes.join(', ')}] (${modulePath})`
+      `✅ Stratégie chargée : ${exportName} pour [${allServiceTypes.join(', ')}]`
     );
     
   } catch (err: any) {
@@ -310,27 +307,19 @@ export function getStrategy(serviceType: string): QuoteStrategy {
 
     // Log des stratégies disponibles dans le container
     try {
-      const availableBindings = container.getAllNamed ?
-        `Bindings disponibles dans le container (si getAll supporté)` :
-        `Container initialisé mais getAll non disponible`;
-      logger.info(`📋 Container état: ${availableBindings}`);
-
-      // Vérifier si le binding existe
       const isBound = container.isBound(serviceType);
-      logger.info(`🔍 Binding existe pour ${serviceType}: ${isBound}`);
+      if (!isBound) {
+        throw new Error(`Aucun binding trouvé pour: ${serviceType}`);
+      }
     } catch (bindingCheckError) {
       logger.warn(`⚠️ Impossible de vérifier les bindings: ${bindingCheckError}`);
     }
 
-    // Essayer de récupérer la stratégie
-    logger.info(`🎯 Tentative de récupération de la stratégie: ${serviceType}`);
     const strategy = container.get<QuoteStrategy>(serviceType);
-    
+
     if (!strategy) {
       throw new Error(`Stratégie trouvée mais nulle pour: ${serviceType}`);
     }
-
-    logger.info(`✅ Stratégie trouvée: ${strategy.constructor.name}`);
     return strategy;
   } catch (error: any) {
     logger.error(`❌ Erreur getStrategy pour "${serviceType}":`, error.message);

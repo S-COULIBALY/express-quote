@@ -1,6 +1,7 @@
 // Import et export des presets complets pour le déménagement sur mesure
 import { FormConfig } from '../../types';
 import { CatalogueMovingItem } from '@/types/booking';
+import { ServiceType } from '@/quotation/domain/enums/ServiceType';
 
 export interface DemenagementSurMesureServicePresetOptions {
   service: CatalogueMovingItem;
@@ -11,8 +12,15 @@ export interface DemenagementSurMesureServicePresetOptions {
   sessionStorageKey?: string;
 }
 
-export const getDemenagementSurMesureServiceConfig = (options: DemenagementSurMesureServicePresetOptions): FormConfig => {
-  const { service, onPriceCalculated, onSubmitSuccess, onError, editMode, sessionStorageKey } = options;
+export const getDemenagementSurMesureServiceConfig = (serviceOrOptions: CatalogueMovingItem | DemenagementSurMesureServicePresetOptions): FormConfig => {
+  // Support pour les deux signatures : ancien (objet options) et nouveau (service direct)
+  const isOptions = 'service' in serviceOrOptions || 'onPriceCalculated' in serviceOrOptions;
+  const service = isOptions ? (serviceOrOptions as DemenagementSurMesureServicePresetOptions).service : (serviceOrOptions as CatalogueMovingItem);
+  const onPriceCalculated = isOptions ? (serviceOrOptions as DemenagementSurMesureServicePresetOptions).onPriceCalculated : undefined;
+  const onSubmitSuccess = isOptions ? (serviceOrOptions as DemenagementSurMesureServicePresetOptions).onSubmitSuccess : undefined;
+  const onError = isOptions ? (serviceOrOptions as DemenagementSurMesureServicePresetOptions).onError : undefined;
+  const editMode = isOptions ? (serviceOrOptions as DemenagementSurMesureServicePresetOptions).editMode : undefined;
+  const sessionStorageKey = isOptions ? (serviceOrOptions as DemenagementSurMesureServicePresetOptions).sessionStorageKey : undefined;
 
   // Auto-détection des valeurs par défaut depuis sessionStorage si en mode édition
   const getDefaultValues = () => {
@@ -30,44 +38,45 @@ export const getDemenagementSurMesureServiceConfig = (options: DemenagementSurMe
     }
     
     return {
+      // Planification
+      dateSouhaitee: '',
+      flexibilite: '',
+      horaire: '',
+
+      // Adresses
+      adresseDepart: '',
+      pickupFloor: '0',
+      pickupElevator: 'no',
+      pickupCarryDistance: '',
+      adresseArrivee: '',
+      deliveryFloor: '0',
+      deliveryElevator: 'no',
+      deliveryCarryDistance: '',
+
       // Informations générales
       typeDemenagement: '',
       surface: '',
       nombrePieces: '',
-      etageDepart: '0',
-      etageArrivee: '0',
-      ascenseurDepart: false,
-      ascenseurArrivee: false,
-      
-      // Adresses
-      adresseDepart: '',
-      adresseArrivee: '',
-      distanceEstimee: '',
-      
+      volumeEstime: '',
+
       // Mobilier
       meubles: [],
       electromenager: [],
       objetsFragiles: [],
-      volumeEstime: '',
-      
+
       // Services optionnels
       emballage: false,
       montage: false,
       nettoyage: false,
       stockage: false,
       assurance: false,
-      
-      // Planification
-      dateSouhaitee: '',
-      flexibilite: '',
-      horaire: '',
-      
+
       // Contact
       nom: '',
       email: '',
       telephone: '',
       commentaires: '',
-      
+
       // Ajouter les données du service au contexte
       serviceName: service.name,
       serviceDescription: service.description,
@@ -77,8 +86,8 @@ export const getDemenagementSurMesureServiceConfig = (options: DemenagementSurMe
   };
 
   const config: FormConfig = {
-    title: `Réserver votre déménagement sur mesure ${service.name}`,
-    description: "Personnalisez votre déménagement selon vos besoins",
+    //title: `Réserver votre déménagement sur mesure ${service.name}`,
+    //description: "Personnalisez votre déménagement selon vos besoins",
     serviceType: "moving",
     customDefaults: getDefaultValues(),
     
@@ -177,6 +186,194 @@ export const getDemenagementSurMesureServiceConfig = (options: DemenagementSurMe
 
     sections: [
       {
+        title: "📅 Planification",
+        columns: 2,
+        fields: [
+          {
+            name: "dateSouhaitee",
+            type: "date",
+            label: "Date souhaitée",
+            required: true,
+            validation: {
+              custom: (value: any) => {
+                if (!value) return "La date est requise";
+                const selectedDate = new Date(value);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                return selectedDate >= today || "La date ne peut pas être dans le passé";
+              }
+            }
+          },
+          
+          {
+            name: "horaire",
+            type: "select",
+            label: "Horaire de RDV",
+            required: true,
+            options: [
+              { value: "matin", label: "Matin - 6h" },
+              { value: "matin", label: "Matin - 8h" },
+              { value: "apres-midi", label: "Après-midi - 13h" },
+              { value: "soirée", label: "soirée - 18h" },
+              { value: "flexible", label: "Flexible - selon disponibilité" }
+            ]
+          }
+        ]
+      },
+      {
+        title: "🗺️ Adresses",
+        columns: 2,
+        fields: [
+          {
+            name: "adresseDepart",
+            type: "address-pickup",
+            label: "📍 Adresse de départ",
+            required: true,
+            columnSpan: 2,
+            className: "pickup-section",
+            validation: {
+              custom: (value: any) => value?.trim() || "L'adresse de départ est requise"
+            },
+            componentProps: {
+              iconColor: "#10b981"
+            }
+          },
+          {
+            name: "pickupFloor",
+            type: "select",
+            label: "Étage départ",
+            className: "pickup-field",
+            options: [
+              { value: '-1', label: 'Sous-sol' },
+              { value: '0', label: 'RDC' },
+              { value: '1', label: '1er étage' },
+              { value: '2', label: '2ème étage' },
+              { value: '3', label: '3ème étage' },
+              { value: '4', label: '4ème étage' },
+              { value: '5', label: '5ème étage' },
+              { value: '6', label: '6ème étage' },
+              { value: '7', label: '7ème étage' },
+              { value: '8', label: '8ème étage' },
+              { value: '9', label: '9ème étage' },
+              { value: '10', label: '10ème étage' }
+            ]
+          },
+          {
+            name: "pickupElevator",
+            type: "select",
+            label: "Ascenseur départ",
+            className: "pickup-field",
+            options: [
+              { value: 'no', label: 'Aucun' },
+              { value: 'small', label: 'Petit (1-3 pers)' },
+              { value: 'medium', label: 'Moyen (3-6 pers)' },
+              { value: 'large', label: 'Grand (+6 pers)' }
+            ]
+          },
+          {
+            name: "pickupCarryDistance",
+            type: "select",
+            label: "Distance de portage départ",
+            className: "pickup-field",
+            options: [
+              { value: '', label: '-- Sélectionnez une option --' },
+              { value: '0-10', label: '0-10m' },
+              { value: '10-30', label: '10-30m' },
+              { value: '30+', label: '30m+' }
+            ]
+          },
+          {
+            name: "pickupLogisticsConstraints",
+            type: "access-constraints",
+            label: "Spécificités Départ",
+            className: "pickup-field",
+            componentProps: {
+              type: "pickup",
+              buttonLabel: "🎯Contraintes & Spécificités",
+              modalTitle: "Contraintes d'accès & Services Supplémentaires - Départ",
+              showServices: true,
+              serviceType: ServiceType.MOVING
+            }
+          },
+          {
+            name: "address-separator",
+            type: "separator",
+            columnSpan: 2
+          },
+          {
+            name: "adresseArrivee",
+            type: "address-delivery",
+            label: "📍 Adresse d'arrivée",
+            required: true,
+            columnSpan: 2,
+            className: "delivery-section",
+            validation: {
+              custom: (value: any) => value?.trim() || "L'adresse d'arrivée est requise"
+            },
+            componentProps: {
+              iconColor: "#ef4444"
+            }
+          },
+          {
+            name: "deliveryFloor",
+            type: "select",
+            label: "Étage arrivée",
+            className: "delivery-field",
+            options: [
+              { value: '-1', label: 'Sous-sol' },
+              { value: '0', label: 'RDC' },
+              { value: '1', label: '1er étage' },
+              { value: '2', label: '2ème étage' },
+              { value: '3', label: '3ème étage' },
+              { value: '4', label: '4ème étage' },
+              { value: '5', label: '5ème étage' },
+              { value: '6', label: '6ème étage' },
+              { value: '7', label: '7ème étage' },
+              { value: '8', label: '8ème étage' },
+              { value: '9', label: '9ème étage' },
+              { value: '10', label: '10ème étage' }
+            ]
+          },
+          {
+            name: "deliveryElevator",
+            type: "select",
+            label: "Ascenseur arrivée",
+            className: "delivery-field",
+            options: [
+              { value: 'no', label: 'Aucun' },
+              { value: 'small', label: 'Petit (1-3 pers)' },
+              { value: 'medium', label: 'Moyen (3-6 pers)' },
+              { value: 'large', label: 'Grand (+6 pers)' }
+            ]
+          },
+          {
+            name: "deliveryCarryDistance",
+            type: "select",
+            label: "Distance de portage arrivée",
+            className: "delivery-field",
+            options: [
+              { value: '', label: '-- Sélectionnez une option --' },
+              { value: '0-10', label: '0-10m' },
+              { value: '10-30', label: '10-30m' },
+              { value: '30+', label: '30m+' }
+            ]
+          },
+          {
+            name: "deliveryLogisticsConstraints",
+            type: "access-constraints",
+            label: "Spécificités Arrivée",
+            className: "delivery-field",
+            componentProps: {
+              type: "delivery",
+              buttonLabel: "🎯Contraintes & Spécificités",
+              modalTitle: "Contraintes d'accès & Services Supplémentaires - Arrivée",
+              showServices: true,
+              serviceType: ServiceType.MOVING
+            }
+          }
+        ]
+      },
+      {
         title: "🏠 Informations générales",
         columns: 2,
         fields: [
@@ -247,298 +444,7 @@ export const getDemenagementSurMesureServiceConfig = (options: DemenagementSurMe
           }
         ]
       },
-      {
-        title: "📍 Adresses",
-        columns: 2,
-        fields: [
-          {
-            name: "adresseDepart",
-            type: "address-pickup",
-            label: "Adresse de départ",
-            required: true,
-            columnSpan: 2,
-            validation: {
-              custom: (value: any) => value?.trim() || "L'adresse de départ est requise"
-            }
-          },
-          {
-            name: "adresseArrivee",
-            type: "address-delivery",
-            label: "Adresse d'arrivée",
-            required: true,
-            columnSpan: 2,
-            validation: {
-              custom: (value: any) => value?.trim() || "L'adresse d'arrivée est requise"
-            }
-          },
-          {
-            name: "distanceEstimee",
-            type: "number",
-            label: "Distance estimée (km)",
-            required: false,
-            validation: {
-              min: 0,
-              max: 1000
-            },
-            componentProps: {
-              min: 0,
-              max: 1000,
-              placeholder: "Distance approximative"
-            }
-          }
-        ]
-      },
-      {
-        title: "🏢 Détails des étages",
-        columns: 2,
-        fields: [
-          {
-            name: "etageDepart",
-            type: "select",
-            label: "Étage de départ",
-            options: [
-              { value: "0", label: "Rez-de-chaussée" },
-              { value: "1", label: "1er étage" },
-              { value: "2", label: "2ème étage" },
-              { value: "3", label: "3ème étage" },
-              { value: "4", label: "4ème étage" },
-              { value: "5+", label: "5ème étage et plus" }
-            ]
-          },
-          {
-            name: "etageArrivee",
-            type: "select",
-            label: "Étage d'arrivée",
-            options: [
-              { value: "0", label: "Rez-de-chaussée" },
-              { value: "1", label: "1er étage" },
-              { value: "2", label: "2ème étage" },
-              { value: "3", label: "3ème étage" },
-              { value: "4", label: "4ème étage" },
-              { value: "5+", label: "5ème étage et plus" }
-            ]
-          },
-          {
-            name: "ascenseurDepart",
-            type: "checkbox",
-            label: "Ascenseur au départ",
-            columnSpan: 2
-          },
-          {
-            name: "ascenseurArrivee",
-            type: "checkbox",
-            label: "Ascenseur à l'arrivée",
-            columnSpan: 2
-          }
-        ]
-      },
-      {
-        title: "🪑 Mobilier et objets",
-        columns: 2,
-        fields: [
-          {
-            name: "meubles",
-            type: "custom",
-            label: "Types de meubles",
-            required: true,
-            columnSpan: 2,
-            componentProps: {
-              type: "checkbox-group",
-              options: [
-                { value: "canape", label: "Canapé" },
-                { value: "lit", label: "Lit" },
-                { value: "armoire", label: "Armoire" },
-                { value: "commode", label: "Commode" },
-                { value: "table", label: "Table" },
-                { value: "chaise", label: "Chaises" },
-                { value: "bureau", label: "Bureau" },
-                { value: "etagere", label: "Étagère" },
-                { value: "autre", label: "Autre" }
-              ]
-            }
-          },
-          {
-            name: "electromenager",
-            type: "custom",
-            label: "Électroménager",
-            required: false,
-            columnSpan: 2,
-            componentProps: {
-              type: "checkbox-group",
-              options: [
-                { value: "refrigerateur", label: "Réfrigérateur" },
-                { value: "lave-vaisselle", label: "Lave-vaisselle" },
-                { value: "machine-a-laver", label: "Machine à laver" },
-                { value: "seche-linge", label: "Sèche-linge" },
-                { value: "four", label: "Four" },
-                { value: "micro-ondes", label: "Micro-ondes" },
-                { value: "autre", label: "Autre" }
-              ]
-            }
-          },
-          {
-            name: "objetsFragiles",
-            type: "custom",
-            label: "Objets fragiles",
-            required: false,
-            columnSpan: 2,
-            componentProps: {
-              type: "checkbox-group",
-              options: [
-                { value: "tableaux", label: "Tableaux" },
-                { value: "miroirs", label: "Miroirs" },
-                { value: "vases", label: "Vases" },
-                { value: "livres", label: "Livres" },
-                { value: "vaisselle", label: "Vaisselle" },
-                { value: "autre", label: "Autre" }
-              ]
-            }
-          }
-        ]
-      },
-      {
-        title: "🔧 Services optionnels",
-        columns: 2,
-        fields: [
-          {
-            name: "emballage",
-            type: "checkbox",
-            label: "Service d'emballage",
-            componentProps: {
-              helpText: "Emballage professionnel de vos objets"
-            }
-          },
-          {
-            name: "montage",
-            type: "checkbox",
-            label: "Montage/Démontage de meubles",
-            componentProps: {
-              helpText: "Démontage et remontage de vos meubles"
-            }
-          },
-          {
-            name: "nettoyage",
-            type: "checkbox",
-            label: "Nettoyage après déménagement",
-            componentProps: {
-              helpText: "Nettoyage des locaux après le déménagement"
-            }
-          },
-          {
-            name: "stockage",
-            type: "checkbox",
-            label: "Stockage temporaire",
-            componentProps: {
-              helpText: "Stockage temporaire si nécessaire"
-            }
-          },
-          {
-            name: "assurance",
-            type: "checkbox",
-            label: "Assurance déménagement",
-            columnSpan: 2,
-            componentProps: {
-              helpText: "Assurance complète de vos biens"
-            }
-          }
-        ]
-      },
-      {
-        title: "📅 Planification",
-        columns: 2,
-        fields: [
-          {
-            name: "dateSouhaitee",
-            type: "date",
-            label: "Date souhaitée",
-            required: true,
-            validation: {
-              custom: (value: any) => {
-                if (!value) return "La date est requise";
-                const selectedDate = new Date(value);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                return selectedDate >= today || "La date ne peut pas être dans le passé";
-              }
-            }
-          },
-          {
-            name: "flexibilite",
-            type: "select",
-            label: "Flexibilité sur la date",
-            required: true,
-            options: [
-              { value: "exacte", label: "Date exacte" },
-              { value: "semaine", label: "Dans la semaine" },
-              { value: "mois", label: "Dans le mois" },
-              { value: "flexible", label: "Flexible" }
-            ]
-          },
-          {
-            name: "horaire",
-            type: "select",
-            label: "Horaire préféré",
-            required: true,
-            options: [
-              { value: "matin", label: "Matin (8h-12h)" },
-              { value: "apres-midi", label: "Après-midi (13h-17h)" },
-              { value: "journee", label: "Journée complète" },
-              { value: "flexible", label: "Flexible" }
-            ]
-          }
-        ]
-      },
-      {
-        title: "📞 Contact",
-        columns: 2,
-        fields: [
-          {
-            name: "nom",
-            type: "text",
-            label: "Nom complet",
-            required: true,
-            validation: {
-              custom: (value: any) => value?.trim() || "Le nom est requis"
-            }
-          },
-          {
-            name: "email",
-            type: "email",
-            label: "Email",
-            required: true,
-            validation: {
-              custom: (value: any) => {
-                if (!value) return "L'email est requis";
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                return emailRegex.test(value) || "Format d'email invalide";
-              }
-            }
-          },
-          {
-            name: "telephone",
-            type: "text",
-            label: "Téléphone",
-            required: true,
-            validation: {
-              custom: (value: any) => value?.trim() || "Le téléphone est requis"
-            },
-            componentProps: {
-              type: "tel",
-              placeholder: "06 12 34 56 78"
-            }
-          },
-          {
-            name: "commentaires",
-            type: "textarea",
-            label: "Commentaires supplémentaires",
-            columnSpan: 2,
-            componentProps: {
-              rows: 3,
-              placeholder: "Informations complémentaires sur votre projet..."
-            }
-          }
-        ]
-      },
+      
       {
         title: "📱 Notifications",
         fields: [

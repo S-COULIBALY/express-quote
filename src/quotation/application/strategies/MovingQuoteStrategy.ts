@@ -17,6 +17,7 @@ import {
   UnifiedDataService,
   ServiceType as UnifiedServiceType,
 } from "../../infrastructure/services/UnifiedDataService";
+import { devLog } from "../../../lib/conditional-logger";
 
 @injectable()
 export class MovingQuoteStrategy implements QuoteStrategy {
@@ -52,20 +53,19 @@ export class MovingQuoteStrategy implements QuoteStrategy {
           UnifiedServiceType.MOVING,
         );
       if (businessRules.length > 0) {
-        console.log(
-          `✅ [MOVING-STRATEGY] ${businessRules.length} règles métier chargées depuis UnifiedDataService`,
+        devLog.debug('MovingStrategy',
+          `✅ ${businessRules.length} règles métier chargées depuis UnifiedDataService`
         );
         // Remplacer le RuleEngine avec les nouvelles règles
         this.ruleEngine = new RuleEngine(businessRules);
       } else {
-        console.log(
-          "⚠️ [MOVING-STRATEGY] Aucune règle métier trouvée, utilisation des règles par défaut",
+        devLog.debug('MovingStrategy',
+          "⚠️ Aucune règle métier trouvée, utilisation des règles par défaut"
         );
       }
     } catch (error) {
-      console.warn(
-        "⚠️ [MOVING-STRATEGY] Erreur lors du chargement des règles métier:",
-        error,
+      devLog.warn('MovingStrategy',
+        "⚠️ Erreur lors du chargement des règles métier:", error
       );
       // Garder le RuleEngine existant en cas d'erreur
     }
@@ -87,18 +87,7 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     const data = context.getAllData();
     const serviceType = context.getServiceType();
 
-    console.log(
-      "\n🎯 ═══════════════════════════════════════════════════════════════",
-    );
-    console.log("🎯 DÉBUT CALCUL PRIX | MOVING STRATEGY | Détails complets");
-    console.log(
-      "🎯 ═══════════════════════════════════════════════════════════════",
-    );
-    console.log("📅 Timestamp:", new Date().toISOString());
-    console.log("🔧 ServiceType demandé:", serviceType);
-    console.log("📋 Données reçues (complet):", JSON.stringify(data, null, 2));
-    console.log("🏷️ Stratégie utilisée: MovingQuoteStrategy");
-    console.log("🕐 Temps de début:", startTime);
+    devLog.debug('MovingStrategy', "\n🎯 DÉBUT CALCUL | " + serviceType + " | MovingQuoteStrategy");
 
     calculationDebugLogger.startPriceCalculation(this.serviceType, data);
 
@@ -111,9 +100,7 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         const defaultPrice =
           data.defaultPrice || data.calculatedPrice || data.totalPrice;
 
-        console.log(
-          `🎯 [MOVING-STRATEGY] PACKING inchangé détecté - Prix par défaut SANS promotions: ${defaultPrice}€`,
-        );
+        devLog.debug('MovingStrategy', "🎯 PACKING inchangé - Prix par défaut: " + defaultPrice.toFixed(2) + "€");
 
         const defaultQuote = new Quote(
           new Money(defaultPrice),
@@ -164,49 +151,11 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         Date.now() - startTime,
       );
 
-      console.log(
-        "\n🎯 ═══════════════════════════════════════════════════════════════",
-      );
-      console.log("🎯 FIN CALCUL PRIX | MOVING STRATEGY | Résultat final");
-      console.log(
-        "🎯 ═══════════════════════════════════════════════════════════════",
-      );
-      console.log(
-        "💰 Prix de base:",
-        finalQuote.getBasePrice().getAmount(),
-        "€",
-      );
-      console.log(
-        "💰 Prix final:",
-        finalQuote.getTotalPrice().getAmount(),
-        "€",
-      );
-      console.log(
-        "📋 Nombre de règles appliquées:",
-        finalQuote.getDiscounts().length,
-      );
-      console.log("🕐 Temps total de calcul:", Date.now() - startTime, "ms");
-      console.log("📅 Timestamp fin:", new Date().toISOString());
-      console.log(
-        "🎯 ═══════════════════════════════════════════════════════════════\n",
-      );
+      devLog.debug('MovingStrategy', "\n✅ FIN CALCUL: Base=" + finalQuote.getBasePrice().getAmount().toFixed(2) + "€ | Final=" + finalQuote.getTotalPrice().getAmount().toFixed(2) + "€ | Règles=" + finalQuote.getDiscounts().length + " | " + (Date.now() - startTime) + "ms\n");
 
       return finalQuote;
     } catch (error) {
-      console.log(
-        "\n❌ ═══════════════════════════════════════════════════════════════",
-      );
-      console.log("❌ ERREUR CALCUL PRIX | MOVING STRATEGY");
-      console.log(
-        "❌ ═══════════════════════════════════════════════════════════════",
-      );
-      console.log("🚨 Erreur:", error);
-      console.log("📋 Données à l'erreur:", JSON.stringify(data, null, 2));
-      console.log("🕐 Temps avant erreur:", Date.now() - startTime, "ms");
-      console.log(
-        "❌ ═══════════════════════════════════════════════════════════════\n",
-      );
-
+      devLog.debug('MovingStrategy', "\n❌ ERREUR CALCUL PRIX | " + serviceType + " | " + (error as Error).message + " | " + (Date.now() - startTime) + "ms");
       calculationDebugLogger.logCalculationError(
         error,
         "MOVING_STRATEGY",
@@ -265,32 +214,13 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     let workers = data.workers || 1;
     const duration = data.duration || 1;
 
-    console.log(
-      "\n🏗️ ═══════════════════════════════════════════════════════════════",
-    );
-    console.log("🏗️ CALCUL PRIX DE BASE SEULEMENT | ÉTAPE 1");
-    console.log(
-      "🏗️ ═══════════════════════════════════════════════════════════════",
-    );
-    console.log("📊 Type de service:", serviceType);
-    console.log("📋 Données extraites:");
-    console.log("   📦 Volume:", volume, "m³");
-    console.log("   📏 Distance:", distance, "km");
-    console.log("   👥 Travailleurs:", workers);
-    console.log("   ⏱️ Durée:", duration, "h");
+    devLog.debug('MovingStrategy', "\n🏗️ CALCUL PRIX DE BASE | " + serviceType + " | Vol:" + volume + "m³, Dist:" + distance + "km, Workers:" + workers + ", Durée:" + duration + "h");
     // 🚚 Application de la règle : km inclus
     const freeDistanceKm = await configAccessService.get<number>(
       "MOVING_FREE_DISTANCE_KM",
     );
 
-    console.log("💰 Constants de pricing récupérées:");
-    console.log("   baseRate (€/m³):", baseRate);
-    console.log("   laborRate (€/h):", laborRate);
-    console.log("   truckRate (€):", truckRate);
-    console.log("   distanceRate (€/km):", distanceRate);
-    console.log("   fuelRate (€/km):", fuelRate);
-    console.log("   tollRate (€/km):", tollRate);
-    console.log("   freeDistanceKm:", freeDistanceKm, "km");
+    devLog.debug('MovingStrategy', "💰 Tarifs: " + baseRate + "€/m³, " + laborRate + "€/h, camion=" + truckRate + "€, distance=" + distanceRate + "€/km, carburant=" + fuelRate + "€/km, péages=" + tollRate + "€/km, gratuit=" + freeDistanceKm + "km");
     const chargeableKm = Math.max(0, distance - freeDistanceKm);
 
     let baseTotal = 0;
@@ -349,28 +279,28 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         },
       ];
 
-      console.log(
+      devLog.debug('MovingStrategy', 
         `🏠 [MOVING-STRATEGY] CALCUL MOVING SUR MESURE (PRIX DE BASE - VOLUME UNIQUEMENT):`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Volume: ${volume}m³ × ${baseRate}€ = ${volumeCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Déménageurs recommandés (info): ${recommendedWorkers} (calculé: ${volume}m³ ÷ ${workersPerM3Threshold}m³/worker)`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Camion: ${truckRate}€ × ${numberOfDays} jour${numberOfDays > 1 ? "s" : ""} = ${truckCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Distance: ${chargeableKm}km × ${distanceRate}€ = ${distanceCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Carburant: ${chargeableKm}km × ${fuelRate}€ = ${fuelCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Péages: ${chargeableKm}km × ${tollRate}€ = ${tollCost.toFixed(2)}€`,
       );
-      console.log(`   └─ PRIX DE BASE MOVING: ${baseTotal.toFixed(2)}€`);
+      devLog.debug('MovingStrategy', `   └─ PRIX DE BASE MOVING: ${baseTotal.toFixed(2)}€`);
     }
 
     // ✅ Cas 2 : PACKING catalogue (MAIN D'ŒUVRE UNIQUEMENT + transport)
@@ -413,25 +343,25 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         { label: `Péages (au-delà de ${freeDistanceKm} km)`, amount: tollCost },
       ];
 
-      console.log(
+      devLog.debug('MovingStrategy', 
         `📦 [MOVING-STRATEGY] CALCUL PACKING CATALOGUE (PRIX DE BASE - MAIN D'ŒUVRE UNIQUEMENT):`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Main d'œuvre: ${workers} × ${duration}h × ${laborRate}€ = ${laborCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Camion: ${truckRate}€ × ${numberOfDays} jour${numberOfDays > 1 ? "s" : ""} = ${truckCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Distance: ${chargeableKm}km × ${distanceRate}€ = ${distanceCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Carburant: ${chargeableKm}km × ${fuelRate}€ = ${fuelCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Péages: ${chargeableKm}km × ${tollRate}€ = ${tollCost.toFixed(2)}€`,
       );
-      console.log(`   └─ PRIX DE BASE PACKING: ${baseTotal.toFixed(2)}€`);
+      devLog.debug('MovingStrategy', `   └─ PRIX DE BASE PACKING: ${baseTotal.toFixed(2)}€`);
     }
 
     // ✅ Cas 3 : MOVING-PREMIUM (volume + cartons + fournitures + taux horaire premium, workers auto-calculés à titre informatif)
@@ -513,34 +443,34 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         { label: "Nb déménageurs (info)", amount: workers },
       ];
 
-      console.log(
+      devLog.debug('MovingStrategy', 
         `🏠 [MOVING-STRATEGY] CALCUL MOVING_PREMIUM (PRIX DE BASE - TOUT INCLUS):`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Volume: ${volume}m³ × ${baseRate}€ = ${volumeCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Cartons: ${numberOfBoxes.toFixed(1)} × ${boxPrice}€ = ${boxesCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Fournitures premium: ${boxesCost.toFixed(2)}€ × ${suppliesMultiplier} = ${suppliesCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Main d'œuvre premium: ${workers} déménageurs × ${duration}h × ${premiumLaborRate}€ = ${laborCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Camion: ${truckRate}€ × ${numberOfDays} jour${numberOfDays > 1 ? "s" : ""} (${duration}h ÷ ${hoursPerDay}h/jour) = ${truckCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Distance: ${chargeableKm}km × ${distanceRate}€ = ${distanceCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Carburant: ${chargeableKm}km × ${fuelRate}€ = ${fuelCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ Péages: ${chargeableKm}km × ${tollRate}€ = ${tollCost.toFixed(2)}€`,
       );
-      console.log(
+      devLog.debug('MovingStrategy', 
         `   └─ PRIX DE BASE MOVING_PREMIUM: ${baseTotal.toFixed(2)}€`,
       );
     }
@@ -550,7 +480,7 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     baseTotal = promotionResult.finalPrice;
     details.push(...promotionResult.details);
 
-    console.log(
+    devLog.debug('MovingStrategy', 
       `💰 [MOVING-STRATEGY] Prix de base après promotions: ${baseTotal.toFixed(2)}€`,
     );
 
@@ -585,16 +515,6 @@ export class MovingQuoteStrategy implements QuoteStrategy {
           : isPromotionActive;
     }
 
-    console.log("🎯 [MOVING-STRATEGY] ═══ APPLICATION DES PROMOTIONS ═══");
-    console.log(`📊 [MOVING-STRATEGY] Promotion active: ${isPromotionActive}`);
-    console.log(`📊 [MOVING-STRATEGY] Code promo: ${promotionCode}`);
-    console.log(
-      `📊 [MOVING-STRATEGY] Type: ${promotionType}, Valeur: ${promotionValue}`,
-    );
-    console.log(
-      `💰 [MOVING-STRATEGY] Prix de base avant promotion: ${basePrice.toFixed(2)}€`,
-    );
-
     let finalPrice = basePrice;
     const details: { label: string; amount: number }[] = [];
 
@@ -605,7 +525,7 @@ export class MovingQuoteStrategy implements QuoteStrategy {
       !promotionValue ||
       !promotionType
     ) {
-      console.log("❌ [MOVING-STRATEGY] Aucune promotion active");
+      devLog.debug('MovingStrategy', "💰 Prix base: " + basePrice.toFixed(2) + "€ (aucune promotion)");
       return { finalPrice, details };
     }
 
@@ -617,27 +537,17 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         label: `Promotion ${promotionCode} (-${promotionValue}%)`,
         amount: -discountAmount,
       });
-      console.log(
-        `✅ [MOVING-STRATEGY] Promotion pourcentage appliquée: -${promotionValue}% = -${discountAmount.toFixed(2)}€`,
-      );
+      devLog.debug('MovingStrategy', "💰 Promotion: " + promotionCode + " -" + promotionValue + "% = -" + discountAmount.toFixed(2) + "€ → " + finalPrice.toFixed(2) + "€");
     } else if (promotionType === "FIXED") {
       finalPrice = Math.max(0, basePrice - promotionValue); // Éviter les prix négatifs
       details.push({
         label: `Promotion ${promotionCode} (-${promotionValue}€)`,
         amount: -promotionValue,
       });
-      console.log(
-        `✅ [MOVING-STRATEGY] Promotion fixe appliquée: -${promotionValue}€`,
-      );
+      devLog.debug('MovingStrategy', "💰 Promotion: " + promotionCode + " -" + promotionValue + "€ → " + finalPrice.toFixed(2) + "€");
     } else {
-      console.log(
-        `⚠️ [MOVING-STRATEGY] Type de promotion non reconnu: ${promotionType}`,
-      );
+      devLog.debug('MovingStrategy', "⚠️ Type de promotion non reconnu: " + promotionType);
     }
-
-    console.log(
-      `💰 [MOVING-STRATEGY] Prix final après promotion: ${finalPrice.toFixed(2)}€`,
-    );
     return { finalPrice, details };
   }
 
@@ -656,107 +566,62 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     // Utiliser le prix de base fourni (qui inclut déjà les promotions)
     const details: { label: string; amount: number }[] = [];
 
-    console.log(
-      "\n🔧 ═══════════════════════════════════════════════════════════════",
-    );
-    console.log("🔧 CALCUL AVEC RÈGLES MÉTIER | ÉTAPE 2");
-    console.log(
-      "🔧 ═══════════════════════════════════════════════════════════════",
-    );
-    console.log(
-      `💰 Prix de base reçu (après promotions): ${baseTotal.toFixed(2)}€`,
-    );
-    console.log("🎯 ServiceType:", context.getServiceType());
-    console.log(
-      "📋 Données contexte pour règles:",
-      JSON.stringify(context.getAllData(), null, 2),
-    );
-
     // Vérifier les règles disponibles dans le RuleEngine
     const availableRules = this.ruleEngine.getRules();
-    console.log(
-      `📚 Nombre de règles disponibles dans RuleEngine: ${availableRules.length}`,
-    );
-
-    if (availableRules.length > 0) {
-      console.log("📋 Détail des règles disponibles:");
-      availableRules.forEach((rule: any, index: number) => {
-        console.log(
-          `   ${index + 1}. "${rule.name}" - Type: ${rule.serviceType} - Valeur: ${rule.value} - PercentBased: ${rule.percentBased} - Active: ${rule.isActive}`,
-        );
-      });
-    } else {
-      console.log("⚠️ Aucune règle disponible dans le RuleEngine");
-    }
-
-    // ✅ APPLICATION DES RÈGLES MÉTIER
-    console.log("\n🔧 [MOVING-STRATEGY] ═══ EXÉCUTION DU RULENGINE ═══");
-    console.log(
-      `💰 [MOVING-STRATEGY] Prix de base avant règles: ${baseTotal.toFixed(2)}€`,
-    );
-    console.log("⚙️ [MOVING-STRATEGY] Appel ruleEngine.execute()...");
+    devLog.debug('MovingStrategy', "\n🔧 RÈGLES: " + availableRules.length + " disponibles | Prix base: " + baseTotal.toFixed(2) + "€");
 
     // Créer l'objet Money pour le RuleEngine
     const baseMoneyAmount = new Money(baseTotal);
-    console.log(
-      `💰 [MOVING-STRATEGY] Money object créé avec montant: ${baseMoneyAmount.getAmount()}€`,
-    );
 
     // Appliquer les règles métier via le RuleEngine
     const ruleResult = this.ruleEngine.execute(context, baseMoneyAmount);
     const finalTotal = ruleResult.finalPrice.getAmount();
 
-    console.log(
-      `📊 [MOVING-STRATEGY] Résultat du RuleEngine (nouvelle architecture):`,
-    );
-    console.log(
-      `   └─ Prix de base: ${ruleResult.basePrice.getAmount().toFixed(2)}€`,
-    );
-    console.log(`   └─ Prix final: ${finalTotal.toFixed(2)}€`);
-    console.log(
-      `   └─ Total réductions: ${ruleResult.totalReductions.getAmount().toFixed(2)}€`,
-    );
-    console.log(
-      `   └─ Total surcharges: ${ruleResult.totalSurcharges.getAmount().toFixed(2)}€`,
-    );
-    console.log(
+    devLog.debug('MovingStrategy', "📊 RÉSULTAT: Base=" + ruleResult.basePrice.getAmount().toFixed(2) + "€ | " +
+      "Réductions=" + ruleResult.totalReductions.getAmount().toFixed(2) + "€ | " +
+      "Surcharges=" + ruleResult.totalSurcharges.getAmount().toFixed(2) + "€ (Contraintes=" +
+      ruleResult.totalConstraints.getAmount().toFixed(2) + "€, Services=" +
+      ruleResult.totalAdditionalServices.getAmount().toFixed(2) + "€) | " +
+      "Final=" + finalTotal.toFixed(2) + "€");
+    devLog.debug('MovingStrategy', 
       `   └─ Nombre total de règles: ${ruleResult.appliedRules.length}`,
     );
-    console.log(`   └─ Contraintes: ${ruleResult.constraints.length}`);
-    console.log(
+    devLog.debug('MovingStrategy', `   └─ Contraintes: ${ruleResult.constraints.length}`);
+    devLog.debug('MovingStrategy', 
       `   └─ Services additionnels: ${ruleResult.additionalServices.length}`,
     );
-    console.log(`   └─ Équipements: ${ruleResult.equipment.length}`);
+    devLog.debug('MovingStrategy', `   └─ Équipements: ${ruleResult.equipment.length}`);
 
     // Ajouter les détails des règles appliquées (par catégorie)
     if (ruleResult.appliedRules.length > 0) {
-      console.log("\n📋 [MOVING-STRATEGY] RÈGLES APPLIQUÉES EN DÉTAIL:");
+      devLog.debug('MovingStrategy', "\n📋 [MOVING-STRATEGY] RÈGLES APPLIQUÉES EN DÉTAIL:");
 
       // Réductions
       if (ruleResult.reductions.length > 0) {
-        console.log("\n  📉 RÉDUCTIONS:");
+        devLog.debug('MovingStrategy', "\n  📉 RÉDUCTIONS:");
         ruleResult.reductions.forEach((rule, index) => {
           details.push({
             label: `Réduction: ${rule.description}`,
             amount: -rule.impact.getAmount(),
           });
-          console.log(`   ${index + 1}. ${rule.description}`);
-          console.log(
+          devLog.debug('MovingStrategy', `   ${index + 1}. ${rule.description}`);
+          devLog.debug('MovingStrategy', 
             `      └─ Montant: -${rule.impact.getAmount().toFixed(2)}€`,
           );
         });
       }
 
-      // Surcharges
-      if (ruleResult.surcharges.length > 0) {
-        console.log("\n  📈 SURCHARGES:");
-        ruleResult.surcharges.forEach((rule, index) => {
+      // Surcharges (contraintes + services supplémentaires)
+      const allSurcharges = [...(ruleResult.constraints || []), ...(ruleResult.additionalServices || [])];
+      if (allSurcharges.length > 0) {
+        devLog.debug('MovingStrategy', "\n  📈 SURCHARGES:");
+        allSurcharges.forEach((rule, index) => {
           details.push({
             label: `Surcharge: ${rule.description}`,
             amount: rule.impact.getAmount(),
           });
-          console.log(`   ${index + 1}. ${rule.description}`);
-          console.log(
+          devLog.debug('MovingStrategy', `   ${index + 1}. ${rule.description}`);
+          devLog.debug('MovingStrategy', 
             `      └─ Montant: +${rule.impact.getAmount().toFixed(2)}€`,
           );
         });
@@ -764,7 +629,7 @@ export class MovingQuoteStrategy implements QuoteStrategy {
 
       // Contraintes
       if (ruleResult.constraints.length > 0) {
-        console.log("\n  🚧 CONTRAINTES LOGISTIQUES:");
+        devLog.debug('MovingStrategy', "\n  🚧 CONTRAINTES LOGISTIQUES:");
         ruleResult.constraints.forEach((rule, index) => {
           if (!rule.isConsumed) {
             details.push({
@@ -772,25 +637,25 @@ export class MovingQuoteStrategy implements QuoteStrategy {
               amount: rule.impact.getAmount(),
             });
           }
-          console.log(`   ${index + 1}. ${rule.description}`);
-          console.log(
+          devLog.debug('MovingStrategy', `   ${index + 1}. ${rule.description}`);
+          devLog.debug('MovingStrategy', 
             `      └─ Montant: ${rule.impact.getAmount().toFixed(2)}€`,
           );
-          console.log(`      └─ Adresse: ${rule.address || "global"}`);
-          console.log(`      └─ Consommée: ${rule.isConsumed ? "Oui" : "Non"}`);
+          devLog.debug('MovingStrategy', `      └─ Adresse: ${rule.address || "global"}`);
+          devLog.debug('MovingStrategy', `      └─ Consommée: ${rule.isConsumed ? "Oui" : "Non"}`);
         });
       }
 
       // Services additionnels
       if (ruleResult.additionalServices.length > 0) {
-        console.log("\n  ➕ SERVICES ADDITIONNELS:");
+        devLog.debug('MovingStrategy', "\n  ➕ SERVICES ADDITIONNELS:");
         ruleResult.additionalServices.forEach((rule, index) => {
           details.push({
             label: `Service: ${rule.description}`,
             amount: rule.impact.getAmount(),
           });
-          console.log(`   ${index + 1}. ${rule.description}`);
-          console.log(
+          devLog.debug('MovingStrategy', `   ${index + 1}. ${rule.description}`);
+          devLog.debug('MovingStrategy', 
             `      └─ Montant: ${rule.impact.getAmount().toFixed(2)}€`,
           );
         });
@@ -798,14 +663,14 @@ export class MovingQuoteStrategy implements QuoteStrategy {
 
       // Équipements
       if (ruleResult.equipment.length > 0) {
-        console.log("\n  🔧 ÉQUIPEMENTS SPÉCIAUX:");
+        devLog.debug('MovingStrategy', "\n  🔧 ÉQUIPEMENTS SPÉCIAUX:");
         ruleResult.equipment.forEach((rule, index) => {
           details.push({
             label: `Équipement: ${rule.description}`,
             amount: rule.impact.getAmount(),
           });
-          console.log(`   ${index + 1}. ${rule.description}`);
-          console.log(
+          devLog.debug('MovingStrategy', `   ${index + 1}. ${rule.description}`);
+          devLog.debug('MovingStrategy', 
             `      └─ Montant: ${rule.impact.getAmount().toFixed(2)}€`,
           );
         });
@@ -813,47 +678,46 @@ export class MovingQuoteStrategy implements QuoteStrategy {
 
       // Règles temporelles
       if (ruleResult.temporalRules.length > 0) {
-        console.log("\n  📅 RÈGLES TEMPORELLES:");
+        devLog.debug('MovingStrategy', "\n  📅 RÈGLES TEMPORELLES:");
         ruleResult.temporalRules.forEach((rule, index) => {
           details.push({
             label: `Temporel: ${rule.description}`,
             amount: rule.impact.getAmount(),
           });
-          console.log(`   ${index + 1}. ${rule.description}`);
-          console.log(
+          devLog.debug('MovingStrategy', `   ${index + 1}. ${rule.description}`);
+          devLog.debug('MovingStrategy', 
             `      └─ Montant: ${rule.impact.getAmount().toFixed(2)}€`,
           );
         });
       }
     } else {
-      console.log("\n📋 [MOVING-STRATEGY] AUCUNE RÈGLE APPLICABLE");
-      console.log("🔍 Raisons possibles:");
-      console.log("   - Aucune règle active pour ce service type");
-      console.log("   - Conditions des règles non remplies");
-      console.log("   - Erreur dans le RuleEngine");
+      devLog.debug('MovingStrategy', "\n📋 [MOVING-STRATEGY] AUCUNE RÈGLE APPLICABLE");
+      devLog.debug('MovingStrategy', "🔍 Raisons possibles:");
+      devLog.debug('MovingStrategy', "   - Aucune règle active pour ce service type");
+      devLog.debug('MovingStrategy', "   - Conditions des règles non remplies");
+      devLog.debug('MovingStrategy', "   - Erreur dans le RuleEngine");
     }
 
     // Afficher les coûts par adresse
-    console.log("\n📍 [MOVING-STRATEGY] COÛTS PAR ADRESSE:");
-    console.log(
+    devLog.debug('MovingStrategy', "\n📍 [MOVING-STRATEGY] COÛTS PAR ADRESSE:");
+    devLog.debug('MovingStrategy', 
       `   └─ Départ: ${ruleResult.pickupCosts.total.getAmount().toFixed(2)}€`,
     );
-    console.log(
+    devLog.debug('MovingStrategy', 
       `   └─ Arrivée: ${ruleResult.deliveryCosts.total.getAmount().toFixed(2)}€`,
     );
-    console.log(
+    devLog.debug('MovingStrategy', 
       `   └─ Global: ${ruleResult.globalCosts.total.getAmount().toFixed(2)}€`,
     );
 
-    console.log(`\n💰 [MOVING-STRATEGY] RÉSUMÉ CALCUL RÈGLES:`);
-    console.log(`   └─ Prix de base: ${baseTotal.toFixed(2)}€`);
-    console.log(`   └─ Prix final: ${finalTotal.toFixed(2)}€`);
-    console.log(`   └─ Différence: ${(finalTotal - baseTotal).toFixed(2)}€`);
-    console.log(
+    devLog.debug('MovingStrategy', `\n💰 [MOVING-STRATEGY] RÉSUMÉ CALCUL RÈGLES:`);
+    devLog.debug('MovingStrategy', `   └─ Prix de base: ${baseTotal.toFixed(2)}€`);
+    devLog.debug('MovingStrategy', `   └─ Prix final: ${finalTotal.toFixed(2)}€`);
+    devLog.debug('MovingStrategy', `   └─ Différence: ${(finalTotal - baseTotal).toFixed(2)}€`);
+    devLog.debug('MovingStrategy', 
       `   └─ Pourcentage de changement: ${(((finalTotal - baseTotal) / baseTotal) * 100).toFixed(2)}%`,
     );
 
-    // ✅ COMPATIBILITÉ: Retourner discounts pour le code existant
     const discounts = (ruleResult as any).discounts || [];
 
     return { total: finalTotal, details, discounts };
@@ -871,33 +735,7 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     const baseline =
       context.getValue("__presetSnapshot") || data.__presetSnapshot;
 
-    console.log(
-      "\n🔍 ═══════════════════════════════════════════════════════════════",
-    );
-    console.log("🔍 VÉRIFICATION PACKING UNCHANGED | ÉTAPE 0");
-    console.log(
-      "🔍 ═══════════════════════════════════════════════════════════════",
-    );
-    console.log("📊 ServiceType demandé:", context.getServiceType());
-    console.log(
-      "📋 Données reçues dans le contexte:",
-      JSON.stringify(data, null, 2),
-    );
-    console.log(
-      "📋 Baseline récupérée (__presetSnapshot):",
-      JSON.stringify(baseline, null, 2),
-    );
-    console.log(
-      "🔍 Objectif: Déterminer si PACKING est inchangé pour utiliser defaultPrice",
-    );
-
     if (!baseline) {
-      console.log(
-        "❌ [MOVING-STRATEGY] Pas de baseline trouvé, PACKING considéré comme modifié",
-      );
-      console.log(
-        "🔍 [MOVING-STRATEGY] Raison: __presetSnapshot est undefined/null",
-      );
       return false;
     }
 
@@ -919,7 +757,6 @@ export class MovingQuoteStrategy implements QuoteStrategy {
       return Math.abs(a - b) <= eps;
     };
 
-    console.log("🔍 [MOVING-STRATEGY] Comparaison détaillée des valeurs:");
     for (const k of KEYS) {
       const av = data[k as string];
       const bv = baseline[k];
@@ -928,24 +765,13 @@ export class MovingQuoteStrategy implements QuoteStrategy {
           ? nearlyEqual(av as number, bv as number)
           : av === bv;
 
-      console.log(
-        `  ${String(k)}: ${av} (${typeof av}) vs ${bv} (${typeof bv}) = ${equal ? "✅ Égal" : "❌ Différent"}`,
-      );
-
       if (!equal) {
-        console.log(
-          `❌ [MOVING-STRATEGY] Différence détectée sur ${String(k)}, PACKING modifié`,
-        );
-        console.log(`   └─ Valeur actuelle: ${av} (${typeof av})`);
-        console.log(`   └─ Valeur baseline: ${bv} (${typeof bv})`);
-        return false; // une différence = PACKING modifié
+        devLog.debug('MovingStrategy', `❌ PACKING modifié: ${String(k)} ${av} ≠ ${bv}`);
+        return false;
       }
     }
 
-    console.log(
-      "✅ [MOVING-STRATEGY] Aucune différence détectée, PACKING inchangé",
-    );
-    console.log("✅ [MOVING-STRATEGY] Le prix par défaut sera utilisé");
-    return true; // tout identique au preset
+    devLog.debug('MovingStrategy', "✅ PACKING inchangé → Prix par défaut");
+    return true;
   }
 }

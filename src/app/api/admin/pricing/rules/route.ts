@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Récupérer les règles depuis la base de données
-        const rules = await prisma.rule.findMany({
+        const rules = await prisma.rules.findMany({
             where: whereClause,
             orderBy: [
                 { serviceType: 'asc' },
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Transformer les données du format centralisé vers le format admin
-        const ruleData = {
+        const ruleData: any = {
             name: body.name,
             description: body.description || body.name,
             serviceType: body.serviceType,
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         };
 
         // Créer la règle en base
-        const rule = await prisma.rule.create({
+        const rule = await prisma.rules.create({
             data: ruleData
         });
 
@@ -244,7 +244,7 @@ export async function PUT(request: NextRequest) {
         }
 
         // Transformer les données du format centralisé vers le format admin
-        const updateData = {
+        const updateData: any = {
             name: body.name,
             description: body.description || body.name,
             serviceType: body.serviceType,
@@ -256,7 +256,7 @@ export async function PUT(request: NextRequest) {
         };
 
         // Mettre à jour la règle
-        const rule = await prisma.rule.update({
+        const rule = await prisma.rules.update({
             where: { id: body.id },
             data: updateData
         });
@@ -337,7 +337,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         // Supprimer la règle
-        await prisma.rule.delete({
+        await prisma.rules.delete({
             where: { id }
         });
 

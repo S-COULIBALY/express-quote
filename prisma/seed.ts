@@ -20,7 +20,7 @@ async function main() {
   await prisma.pack.deleteMany({});
   await prisma.customer.deleteMany({});
   await prisma.professional.deleteMany({});
-  await prisma.rule.deleteMany({});
+  await prisma.rules.deleteMany({});
   await prisma.category.deleteMany({});
   await prisma.configuration.deleteMany({});
 

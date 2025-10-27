@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { ServiceType } from '@/quotation/domain/enums/ServiceType';
+import { devLog } from '@/lib/conditional-logger';
 
 export interface CentralizedPricingRequest {
   serviceType: ServiceType;
@@ -16,6 +17,11 @@ export interface CentralizedPricingRequest {
   deliveryElevator?: boolean;
   pickupCarryDistance?: number;
   deliveryCarryDistance?: number;
+  // ✅ NOUVEAU: Contraintes logistiques par adresse (UUIDs ou noms de contraintes)
+  pickupLogisticsConstraints?: string[] | Record<string, boolean>;
+  deliveryLogisticsConstraints?: string[] | Record<string, boolean>;
+  // ✅ NOUVEAU: Services supplémentaires globaux (UUIDs ou noms de services)
+  additionalServices?: string[] | Record<string, boolean>;
   location?: string;
   options?: Record<string, any>;
   // ✅ Ajout du __presetSnapshot pour la comparaison PACKING non modifié
@@ -51,7 +57,6 @@ export interface CentralizedPricingResult {
  * Tous les calculs se font côté serveur maintenant
  */
 export const useCentralizedPricing = () => {
-  console.log('🔍 [TRACE] useCentralizedPricing HOOK CALLED');
   const [isLoading, setIsLoading] = useState(false);
   const [lastResult, setLastResult] = useState<CentralizedPricingResult | null>(null);
 
@@ -60,10 +65,18 @@ export const useCentralizedPricing = () => {
    */
   const calculatePrice = useCallback(async (request: CentralizedPricingRequest): Promise<CentralizedPricingResult> => {
     setIsLoading(true);
-    
+
     try {
-      console.log('💰 Calcul prix centralisé:', request);
-      
+      devLog.debug('useCentralizedPricing', '💰 ÉTAPE C: Calcul prix centralisé - Request avant envoi API:', {
+        serviceType: request.serviceType,
+        pickupLogisticsConstraints: request.pickupLogisticsConstraints,
+        deliveryLogisticsConstraints: request.deliveryLogisticsConstraints,
+        additionalServices: request.additionalServices,
+        pickupLogisticsConstraintsKeys: request.pickupLogisticsConstraints ? Object.keys(request.pickupLogisticsConstraints) : [],
+        deliveryLogisticsConstraintsKeys: request.deliveryLogisticsConstraints ? Object.keys(request.deliveryLogisticsConstraints) : [],
+        additionalServicesKeys: request.additionalServices ? Object.keys(request.additionalServices) : []
+      });
+
       const response = await fetch('/api/price/calculate', {
         method: 'POST',
         headers: {
@@ -95,12 +108,12 @@ export const useCentralizedPricing = () => {
       };
 
       setLastResult(result);
-      console.log('✅ Prix calculé côté serveur:', result);
-      
+      devLog.debug('useCentralizedPricing', '✅ Prix calculé côté serveur:', result);
+
       return result;
 
     } catch (error) {
-      console.error('❌ Erreur calcul prix:', error);
+      devLog.error('❌ Erreur calcul prix:', error);
       
       const errorResult: CentralizedPricingResult = {
         calculatedPrice: 0,
@@ -148,16 +161,16 @@ export const useCentralizedPricing = () => {
       
       // L'API admin/pricing/rules retourne toujours le format centralisé
       if (data.success && data.data) {
-        console.log('📋 Règles récupérées via API admin/pricing:', data.data);
+        devLog.debug('useCentralizedPricing', '📋 Règles récupérées via API admin/pricing:', data.data);
         return data.data;
       }
-      
+
       // Fallback en cas de réponse inattendue
-      console.warn('⚠️ Format de réponse inattendu:', data);
+      devLog.warn('useCentralizedPricing', '⚠️ Format de réponse inattendu:', data);
       return { rules: [], totalCount: 0 };
 
     } catch (error) {
-      console.error('❌ Erreur récupération règles:', error);
+      devLog.error('❌ Erreur récupération règles:', error);
       throw error;
     }
   }, []);
@@ -183,15 +196,17 @@ export const useCentralizedPricing = () => {
  * Tous les calculs se font côté serveur
  */
 export const useRealTimePricing = (serviceType: ServiceType, basePrice: number = 0, presetSnapshot?: any) => {
-  console.log('🔍 [TRACE] useRealTimePricing HOOK CALLED - serviceType:', serviceType, 'basePrice:', basePrice, 'presetSnapshot:', presetSnapshot);
   const { calculatePrice, isLoading, lastResult } = useCentralizedPricing();
-  
+
   const calculatePriceFromFormData = useCallback(async (formData: any) => {
-    console.log('🔍 [useRealTimePricing] calculatePriceFromFormData appelé avec:', {
+    devLog.debug('useRealTimePricing', '🔍 ÉTAPE D: calculatePriceFromFormData appelé avec:', {
       serviceType,
       basePrice,
       presetSnapshot,
       formDataKeys: Object.keys(formData),
+      pickupLogisticsConstraints: formData.pickupLogisticsConstraints,
+      deliveryLogisticsConstraints: formData.deliveryLogisticsConstraints,
+      additionalServices: formData.additionalServices,
       formDataSample: {
         duration: formData.duration,
         workers: formData.workers,
@@ -199,7 +214,7 @@ export const useRealTimePricing = (serviceType: ServiceType, basePrice: number =
         scheduledDate: formData.scheduledDate
       }
     });
-    
+
     // ✅ CORRECTION : Extraire les données de promotion du presetSnapshot
     const promotionData = presetSnapshot ? {
       promotionCode: presetSnapshot.promotionCode,
@@ -207,24 +222,42 @@ export const useRealTimePricing = (serviceType: ServiceType, basePrice: number =
       promotionType: presetSnapshot.promotionType,
       isPromotionActive: presetSnapshot.isPromotionActive
     } : {};
-    
-    // Transformer les données du formulaire en request standardisé
+
+    // ✅ CORRECTION CRITIQUE: NE PAS transformer en structure groupée !
+    // Le backend (PriceService.createQuoteContext) attend la structure PLATE avec:
+    // - pickupLogisticsConstraints: {uuid: true}
+    // - deliveryLogisticsConstraints: {uuid: true}
+    // - additionalServices: {uuid: true}
+    //
+    // Ancienne version (BUGGUÉE):
+    // const groupedData = transformToGroupedStructure(formData);
+    // const request: GroupedPricingData = { ...groupedData, serviceType, ... };
+    //
+    // Nouvelle version (CORRECTE): Envoyer directement les données plates
     const request: CentralizedPricingRequest = {
+      ...formData,
       serviceType,
-      defaultPrice: basePrice, // ✅ Ajouter le prix de base du pack/service
-      __presetSnapshot: presetSnapshot, // ✅ Ajouter le snapshot pour la comparaison
-      ...promotionData, // ✅ AJOUT : Données de promotion
-      ...formData
+      defaultPrice: basePrice,
+      __presetSnapshot: presetSnapshot,
+      ...promotionData
     };
-    
-    console.log('📤 [useRealTimePricing] Request final:', request);
-    
-    return await calculatePrice(request);
+
+    devLog.debug('useRealTimePricing', '📤 ÉTAPE E: Request final (structure PLATE - pas de transformation):', {
+      serviceType: request.serviceType,
+      pickupLogisticsConstraints: request.pickupLogisticsConstraints,
+      deliveryLogisticsConstraints: request.deliveryLogisticsConstraints,
+      additionalServices: request.additionalServices,
+      pickupLogisticsConstraintsKeys: request.pickupLogisticsConstraints ? Object.keys(request.pickupLogisticsConstraints) : [],
+      deliveryLogisticsConstraintsKeys: request.deliveryLogisticsConstraints ? Object.keys(request.deliveryLogisticsConstraints) : [],
+      additionalServicesKeys: request.additionalServices ? Object.keys(request.additionalServices) : []
+    });
+
+    return await calculatePrice(request as any);
   }, [calculatePrice, serviceType, basePrice, presetSnapshot]);
 
   const finalCalculatedPrice = lastResult?.calculatedPrice || basePrice;
-  
-  console.log('🔍 [useRealTimePricing DEBUG]', {
+
+  devLog.debug('useRealTimePricing', '🔍 DEBUG:', {
     serviceType,
     basePrice,
     hasLastResult: !!lastResult,

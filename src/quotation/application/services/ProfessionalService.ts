@@ -1,15 +1,16 @@
-import { IProfessionalRepository } from "../../domain/repositories/IProfessionalRepository";
+import { IProfessionalRepository } from "@/quotation/domain/repositories/IProfessionalRepository";
 import { Professional, ProfessionalType } from "../../domain/entities/Professional";
-import { 
-  ProfessionalDTO, 
-  CreateProfessionalDTO, 
+import {
+  ProfessionalDTO,
+  CreateProfessionalDTO,
   UpdateProfessionalDTO,
   UpdateProfessionalEmailDTO,
   ProfessionalSummaryDTO
 } from "../dtos/ProfessionalDTO";
 import { ContactInfo } from "../../domain/valueObjects/ContactInfo";
 import { inject, injectable } from "tsyringe";
-import { ILogger } from "@/lib/logger";
+import { Logger } from "@/lib/logger";
+import { ILogger } from "@/notifications/core/interfaces/ILogger";
 
 /**
  * Service pour la gestion des professionnels

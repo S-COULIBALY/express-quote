@@ -2,7 +2,7 @@ import { ServiceType } from "@/quotation/domain/enums/ServiceType";
 import { logger } from "@/lib/logger";
 import { Quote } from "@/quotation/domain/valueObjects/Quote";
 import { Money } from "@/quotation/domain/valueObjects/Money";
-import { Discount } from "@/quotation/domain/valueObjects/Discount";
+import { AppliedRule } from "@/quotation/domain/valueObjects/AppliedRule";
 import {
   UnifiedDataService,
   ConfigurationCategory,
@@ -265,7 +265,7 @@ export class FallbackCalculatorService {
     // Créer les objets de domaine
     const baseMoneyPrice = new Money(defaultPrice);
     const finalMoneyPrice = new Money(finalPrice);
-    const discounts: Discount[] = [];
+    const discounts: AppliedRule[] = [];
 
     // Créer un objet Quote
     const quote = new Quote(
@@ -435,7 +435,7 @@ export class FallbackCalculatorService {
     // Créer les objets de domaine
     const baseMoneyPrice = new Money(defaultPrice);
     const finalMoneyPrice = new Money(finalPrice);
-    const discounts: Discount[] = [];
+    const discounts: AppliedRule[] = [];
 
     // Créer un objet Quote
     const quote = new Quote(
@@ -567,7 +567,7 @@ export class FallbackCalculatorService {
     // Créer les objets de domaine
     const baseMoneyPrice = new Money(defaultPrice);
     const finalMoneyPrice = new Money(finalPrice);
-    const discounts: Discount[] = [];
+    const discounts: AppliedRule[] = [];
 
     // Créer un objet Quote
     const quote = new Quote(
@@ -709,7 +709,7 @@ export class FallbackCalculatorService {
     // Créer les objets de domaine
     const baseMoneyPrice = new Money(defaultPrice);
     const finalMoneyPrice = new Money(finalPrice);
-    const discounts: Discount[] = [];
+    const discounts: AppliedRule[] = [];
 
     // Créer un objet Quote
     const quote = new Quote(

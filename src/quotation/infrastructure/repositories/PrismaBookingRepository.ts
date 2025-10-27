@@ -8,7 +8,7 @@ import { Database } from '../config/database';
 import { Quote } from '../../domain/entities/Quote';
 import { QuoteType, QuoteStatus } from '../../domain/enums/QuoteType';
 import { QuoteContext } from '../../domain/valueObjects/QuoteContext';
-import { Discount } from '../../domain/valueObjects/Discount';
+import { AppliedRule } from '../../domain/valueObjects/AppliedRule';
 import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
 import { BookingSearchCriteriaVO } from '../../domain/valueObjects/BookingSearchCriteria';
 

@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { serviceType: ServiceType } }
 ) {
   try {
-    const rules = await prisma.rule.findMany({
+    const rules = await prisma.rules.findMany({
       where: {
         serviceType: params.serviceType,
         isActive: true

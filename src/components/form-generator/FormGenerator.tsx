@@ -1,13 +1,19 @@
 "use client";
 
-import React, { useMemo, useCallback } from "react";
+import { devLog } from '@/lib/conditional-logger';
+
+import React, { useMemo, useCallback, useImperativeHandle, forwardRef } from "react";
 import { useForm } from "react-hook-form";
 import { FormGeneratorProps, FormSection as FormSectionType } from "./types";
-import { DefaultLayout } from "./layouts/DefaultLayout";
 import { SidebarLayout } from "./layouts/SidebarLayout";
 import { ServiceSummaryLayout } from "./layouts/ServiceSummaryLayout";
 import { FormStylesSimplified } from "./styles/FormStylesSimplified";
 import { FormSection } from "./components/FormSection";
+
+export interface FormGeneratorRef {
+  getFormData: () => Record<string, unknown>;
+  submitForm: () => Promise<void>;
+}
 
 /**
  * 🎨 FormGenerator - Générateur de formulaires dynamiques
@@ -20,8 +26,9 @@ import { FormSection } from "./components/FormSection";
  * - Utilisation de FormStylesSimplified pour de meilleures performances
  * - Gestion des fallbacks pour tous les layouts
  * - Validation des données requises
+ * - Exposition des méthodes via ref pour soumission externe
  */
-export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
+export const FormGenerator = forwardRef<FormGeneratorRef, FormGeneratorProps>(({ config }, ref) => {
   // Hooks React
   const hasInitialized = React.useRef(false);
 
@@ -43,10 +50,10 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
   // Callbacks
   const handleFieldChange = useCallback(
     (fieldName: string, value: unknown) => {
-      console.log(
+      devLog.debug('FormGenerator', 
         "🔄 [ÉTAPE 10] Interaction utilisateur - Changement de champ",
       );
-      console.log(
+      devLog.debug('FormGenerator', 
         "🎯 [ÉTAPE 10] Field change:",
         fieldName,
         "=",
@@ -55,8 +62,8 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
       );
       setValue(fieldName, value, { shouldValidate: true, shouldDirty: true });
       const current = getValues();
-      console.log("📊 [ÉTAPE 10] Données complètes après changement:", current);
-      console.log("🔗 [ÉTAPE 10] Synchronisation avec DetailForm...");
+      devLog.debug('FormGenerator', "📊 [ÉTAPE 10] Données complètes après changement:", current);
+      devLog.debug('FormGenerator', "🔗 [ÉTAPE 10] Synchronisation avec DetailForm...");
       config?.onChange?.(fieldName, value, current);
     },
     [config, setValue, getValues],
@@ -75,6 +82,14 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
     },
     [config],
   );
+
+  // Exposer les méthodes via ref
+  useImperativeHandle(ref, () => ({
+    getFormData: () => getValues(),
+    submitForm: async () => {
+      await handleSubmit(onSubmit, onError)();
+    }
+  }), [getValues, handleSubmit, onSubmit, onError]);
 
   // Rendu d'une section
   const renderSection = useCallback(
@@ -95,10 +110,10 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
   // Effets
   React.useEffect(() => {
     if (config?.customDefaults && !hasInitialized.current) {
-      console.log(
+      devLog.debug('FormGenerator', 
         "🔄 [ÉTAPE 8.1] Reset initial du formulaire avec valeurs par défaut",
       );
-      console.log("📊 [ÉTAPE 8.1] CustomDefaults appliqués:", {
+      devLog.debug('FormGenerator', "📊 [ÉTAPE 8.1] CustomDefaults appliqués:", {
         totalValues: Object.keys(config.customDefaults).length,
         hasImportantValues: !!(
           config.customDefaults.duration || config.customDefaults.workers
@@ -109,16 +124,16 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
       });
       reset(config.customDefaults);
       hasInitialized.current = true;
-      console.log("✅ [ÉTAPE 8.1] Formulaire initialisé avec succès");
+      devLog.debug('FormGenerator', "✅ [ÉTAPE 8.1] Formulaire initialisé avec succès");
     }
   }, [config?.customDefaults, reset]);
 
   React.useEffect(() => {
-    console.log(
+    devLog.debug('FormGenerator', 
       "📊 [ÉTAPE 11] Surveillance état formulaire - watch() déclenché",
     );
-    console.log("📋 [SURVEILLANCE] État actuel du formulaire:", formData);
-    console.log(
+    devLog.debug('FormGenerator', "📋 [SURVEILLANCE] État actuel du formulaire:", formData);
+    devLog.debug('FormGenerator', 
       "🎯 [SURVEILLANCE] Champs avec valeurs:",
       Object.entries(formData).filter(
         ([_, value]) => value !== "" && value !== null && value !== undefined,
@@ -132,7 +147,7 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
         value !== undefined &&
         value !== false,
     ).length;
-    console.log("📈 [SURVEILLANCE] Statistiques:", {
+    devLog.debug('FormGenerator', "📈 [SURVEILLANCE] Statistiques:", {
       totalFields: Object.keys(formData).length,
       filledFields: filledFieldsCount,
       completionPercentage:
@@ -170,7 +185,7 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
         )}
 
         {/* Actions par défaut si pas gérées par le layout */}
-        {config.layout?.type !== "sidebar" && (
+        {config.layout?.type !== "sidebar" && !config.hideDefaultSubmit && (
           <div className="pt-2">
             <button
               type="submit"
@@ -201,7 +216,8 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
   // 🎨 Props communes pour tous les layouts
   const layoutProps = useMemo(
     () => ({
-      title: config?.title || "Formulaire",
+      //title: config?.title || "Formulaire",
+      title: config?.title,
       description: config?.description,
       className: config?.className,
       formData,
@@ -231,8 +247,8 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
     );
   }
 
-  console.log("🎨 [ÉTAPE 8] FormGenerator - Initialisation React Hook Form");
-  console.log("📋 [ÉTAPE 8] Configuration reçue:", {
+  devLog.debug('FormGenerator', "🎨 [ÉTAPE 8] FormGenerator - Initialisation React Hook Form");
+  devLog.debug('FormGenerator', "📋 [ÉTAPE 8] Configuration reçue:", {
     title: config.title,
     hasFields: !!config.fields,
     hasSections: !!config.sections,
@@ -243,16 +259,16 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
     defaultValuesCount: Object.keys(config.customDefaults || {}).length,
   });
 
-  console.log("⚙️ [ÉTAPE 8] React Hook Form setup avec mode: onChange");
+  devLog.debug('FormGenerator', "⚙️ [ÉTAPE 8] React Hook Form setup avec mode: onChange");
 
   // 🎨 Rendu du layout approprié
   const renderLayout = () => {
-    const layoutType = config.layout?.type || "default";
+    const layoutType = config.layout?.type || "sidebar";
 
     switch (layoutType) {
       case "sidebar": {
         // ✅ Créer les actions pour le sidebar
-        const sidebarActions = (
+        const sidebarActions = !config.hideDefaultSubmit ? (
           <div className="space-y-2">
             <button
               type="button"
@@ -288,7 +304,7 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
               </button>
             )}
           </div>
-        );
+        ) : null;
 
         const sidebarProps = {
           ...layoutProps,
@@ -305,7 +321,7 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
           !serviceSummaryOptions?.serviceDetails ||
           !serviceSummaryOptions?.quoteDetails
         ) {
-          return <DefaultLayout {...layoutProps}>{formElement}</DefaultLayout>;
+          return <SidebarLayout {...layoutProps}>{formElement}</SidebarLayout>;
         }
         const enhancedServiceDetails = {
           ...serviceSummaryOptions.serviceDetails,
@@ -327,11 +343,11 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
           const CustomLayout = config.layout.component;
           return <CustomLayout {...layoutProps}>{formElement}</CustomLayout>;
         }
-        return <DefaultLayout {...layoutProps}>{formElement}</DefaultLayout>;
+        return <SidebarLayout {...layoutProps}>{formElement}</SidebarLayout>;
       }
 
       default:
-        return <DefaultLayout {...layoutProps}>{formElement}</DefaultLayout>;
+        return <SidebarLayout {...layoutProps}>{formElement}</SidebarLayout>;
     }
   };
 
@@ -344,4 +360,6 @@ export const FormGenerator: React.FC<FormGeneratorProps> = ({ config }) => {
       {renderLayout()}
     </div>
   );
-};
+});
+
+FormGenerator.displayName = 'FormGenerator';

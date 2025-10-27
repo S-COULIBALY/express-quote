@@ -35,6 +35,17 @@
  */
 
 import { DefaultValues } from '../configuration/DefaultValues';
+import {
+  RULE_UUID_ESCALIER_DIFFICILE,
+  RULE_UUID_COULOIRS_ETROITS,
+  RULE_UUID_MEUBLES_ENCOMBRANTS,
+  RULE_UUID_OBJETS_LOURDS,
+  RULE_UUID_DISTANCE_PORTAGE,
+  RULE_UUID_PASSAGE_INDIRECT,
+  RULE_UUID_ACCES_MULTINIVEAU,
+  CONSUMED_BY_FURNITURE_LIFT,
+  CRITICAL_CONSTRAINTS_REQUIRING_LIFT
+} from '../constants/RuleUUIDs';
 
 /**
  * 📋 INTERFACES
@@ -71,6 +82,12 @@ export interface AddressDetectionResult {
   furnitureLiftReason?: string;
   longCarryingDistance: boolean;
   carryingDistanceReason?: string;
+  /**
+   * 🎯 Contraintes consommées par le monte-meubles
+   * Ces contraintes ne doivent PAS être facturées séparément
+   * car le monte-meubles résout déjà ces problèmes
+   */
+  consumedConstraints?: string[];
 }
 
 /**
@@ -99,7 +116,7 @@ export class AutoDetectionService {
    * CONSTANTES DE CONFIGURATION
    */
   private static readonly FURNITURE_LIFT_FLOOR_THRESHOLD = 3; // Étage à partir duquel le monte-meuble est requis
-  private static readonly FURNITURE_LIFT_SURCHARGE = 200; // Surcharge pour monte-meuble (en €)
+  private static readonly FURNITURE_LIFT_SURCHARGE = 300; // Surcharge pour monte-meuble (en €)
   private static readonly LONG_CARRYING_DISTANCE_THRESHOLD = '30+'; // Seuil distance de portage
   private static readonly LONG_CARRYING_DISTANCE_SURCHARGE = 50; // Surcharge distance portage (en €)
 
@@ -222,6 +239,10 @@ export class AutoDetectionService {
     const elevatorUnavailable = addressData.elevatorUnavailable || false;
     const elevatorUnsuitable = addressData.elevatorUnsuitable || false;
     const elevatorForbiddenMoving = addressData.elevatorForbiddenMoving || false;
+    const constraints = addressData.constraints || [];
+
+    // 🎯 Liste des contraintes potentiellement consommées par le monte-meubles
+    const consumedConstraints: string[] = [];
 
     // CAS 1: Ascenseur medium/large fonctionnel → PAS de monte-meuble
     if (
@@ -232,23 +253,33 @@ export class AutoDetectionService {
     ) {
       return {
         furnitureLiftRequired: false,
-        longCarryingDistance: false
+        longCarryingDistance: false,
+        consumedConstraints: []
       };
     }
 
     // CAS 2: Aucun ascenseur - Logique harmonisée
     if (elevator === 'no') {
       if (floor > this.FURNITURE_LIFT_FLOOR_THRESHOLD) {
+        // ✅ CONSOMMATION: Utilise les UUIDs des règles consommables
+        CONSUMED_BY_FURNITURE_LIFT.forEach(ruleUuid => {
+          if (constraints.includes(ruleUuid)) {
+            consumedConstraints.push(ruleUuid);
+          }
+        });
+
         return {
           furnitureLiftRequired: true,
           furnitureLiftReason: `Étage ${floor} sans ascenseur (seuil: ${this.FURNITURE_LIFT_FLOOR_THRESHOLD})`,
-          longCarryingDistance: false
+          longCarryingDistance: false,
+          consumedConstraints
         };
       }
       // Étage <= seuil → pas de monte-meuble
       return {
         furnitureLiftRequired: false,
-        longCarryingDistance: false
+        longCarryingDistance: false,
+        consumedConstraints: []
       };
     }
 
@@ -262,28 +293,54 @@ export class AutoDetectionService {
       // Étage > seuil → monte-meuble requis
       if (floor > this.FURNITURE_LIFT_FLOOR_THRESHOLD) {
         let reason = `Étage ${floor} avec ascenseur ${elevator}`;
-        if (elevatorUnavailable) reason += ' (indisponible)';
-        if (elevatorUnsuitable) reason += ' (inadapté)';
-        if (elevatorForbiddenMoving) reason += ' (interdit déménagement)';
+
+        // ✅ CONSOMMATION: Problèmes d'ascenseur
+        // Si elevator === 'small', c'est implicitement inadapté pour les meubles
+        if (elevator === 'small' && constraints.includes('elevator_unsuitable_size')) {
+          consumedConstraints.push('elevator_unsuitable_size');
+        }
+
+        if (elevatorUnavailable) {
+          reason += ' (indisponible)';
+          if (constraints.includes('elevator_unavailable')) consumedConstraints.push('elevator_unavailable');
+        }
+        if (elevatorUnsuitable) {
+          reason += ' (inadapté)';
+          if (constraints.includes('elevator_unsuitable_size')) consumedConstraints.push('elevator_unsuitable_size');
+        }
+        if (elevatorForbiddenMoving) {
+          reason += ' (interdit déménagement)';
+          if (constraints.includes('elevator_forbidden_moving')) consumedConstraints.push('elevator_forbidden_moving');
+        }
+
+        // ✅ CONSOMMATION: Utilise les UUIDs des règles consommables
+        CONSUMED_BY_FURNITURE_LIFT.forEach(ruleUuid => {
+          if (constraints.includes(ruleUuid)) {
+            consumedConstraints.push(ruleUuid);
+          }
+        });
 
         return {
           furnitureLiftRequired: true,
           furnitureLiftReason: reason,
-          longCarryingDistance: false
+          longCarryingDistance: false,
+          consumedConstraints
         };
       }
 
       // Étage <= seuil → pas de monte-meuble (même avec petit ascenseur)
       return {
         furnitureLiftRequired: false,
-        longCarryingDistance: false
+        longCarryingDistance: false,
+        consumedConstraints: []
       };
     }
 
     // Par défaut : pas de monte-meuble
     return {
       furnitureLiftRequired: false,
-      longCarryingDistance: false
+      longCarryingDistance: false,
+      consumedConstraints: []
     };
   }
 
@@ -463,34 +520,22 @@ export class AutoDetectionService {
     const reasons: string[] = [];
     const constraints = addressData.constraints || [];
 
-    // Raisons liées à l'ascenseur
-    if (constraints.includes('elevator_unavailable')) {
-      reasons.push('ascenseur indisponible');
-    }
-    if (constraints.includes('difficult_stairs')) {
+    // Raisons liées à l'ascenseur et contraintes (utilise les UUIDs)
+    if (constraints.includes(RULE_UUID_ESCALIER_DIFFICILE)) {
       reasons.push('escalier difficile');
     }
-    if (constraints.includes('narrow_corridors')) {
+    if (constraints.includes(RULE_UUID_COULOIRS_ETROITS)) {
       reasons.push('couloirs étroits');
     }
-    if (constraints.includes('elevator_unsuitable_size')) {
-      reasons.push('ascenseur trop petit');
-    }
-    if (constraints.includes('elevator_forbidden_moving')) {
-      reasons.push('ascenseur interdit déménagement');
-    }
-    if (constraints.includes('indirect_exit')) {
+    if (constraints.includes(RULE_UUID_PASSAGE_INDIRECT)) {
       reasons.push('sortie indirecte');
     }
 
-    // Raisons liées aux objets
-    if (constraints.includes('bulky_furniture')) {
+    // Raisons liées aux objets (utilise les UUIDs)
+    if (constraints.includes(RULE_UUID_MEUBLES_ENCOMBRANTS)) {
       reasons.push('meubles encombrants');
     }
-    if (constraints.includes('fragile_valuable_items')) {
-      reasons.push('objets fragiles/précieux');
-    }
-    if (constraints.includes('heavy_items')) {
+    if (constraints.includes(RULE_UUID_OBJETS_LOURDS)) {
       reasons.push('objets très lourds');
     }
 
@@ -528,16 +573,8 @@ export class AutoDetectionService {
       return true;
     }
 
-    // Avertir si contraintes critiques détectées
-    const criticalConstraints = [
-      'elevator_unavailable',
-      'elevator_unsuitable_size',
-      'difficult_stairs',
-      'heavy_items',
-      'bulky_furniture'
-    ];
-
-    return constraints.some(c => criticalConstraints.includes(c));
+    // Avertir si contraintes critiques détectées (utilise les UUIDs)
+    return constraints.some(c => CRITICAL_CONSTRAINTS_REQUIRING_LIFT.includes(c));
   }
 
   /**

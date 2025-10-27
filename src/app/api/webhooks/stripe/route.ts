@@ -95,30 +95,34 @@ export async function POST(req: NextRequest) {
 
     // Traitement selon le type d'événement
     switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(event);
+        break;
+
       case 'payment_intent.payment_failed':
         await handlePaymentFailed(event);
         break;
-      
+
       case 'payment_intent.canceled':
         await handlePaymentCanceled(event);
         break;
-      
+
       case 'checkout.session.expired':
         await handleCheckoutExpired(event);
         break;
-      
+
       case 'payment_intent.succeeded':
         await handlePaymentSucceeded(event);
         break;
-      
+
       case 'payment_method.attached':
         await handlePaymentMethodAttached(event);
         break;
-      
+
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event);
         break;
-      
+
       default:
         logger.info(`Type d'événement non traité: ${event.type}`);
     }
@@ -128,6 +132,91 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     logger.error('Erreur webhook Stripe:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+  }
+}
+
+/**
+ * Gérer la finalisation du checkout (paiement réussi)
+ * 🎯 C'est ici que le Booking est créé APRÈS confirmation du paiement
+ */
+async function handleCheckoutCompleted(event: any): Promise<void> {
+  try {
+    const session = event.data.object;
+
+    logger.info('💳 Checkout completed:', {
+      sessionId: session.id,
+      paymentStatus: session.payment_status,
+      amount: session.amount_total / 100,
+      metadata: session.metadata
+    });
+
+    // Récupérer les métadonnées
+    const {
+      temporaryId,
+      customerFirstName,
+      customerLastName,
+      customerEmail,
+      customerPhone,
+      quoteType,
+      amount
+    } = session.metadata;
+
+    // Validation: vérifier que le paiement est bien réussi
+    if (session.payment_status !== 'paid') {
+      logger.warn(`⚠️ Paiement non confirmé (status: ${session.payment_status})`);
+      return;
+    }
+
+    // Validation: temporaryId requis
+    if (!temporaryId) {
+      logger.error('❌ temporaryId manquant dans les métadonnées Stripe');
+      return;
+    }
+
+    // Appeler /api/bookings/finalize pour créer le Booking
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/bookings/finalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: session.id,
+        temporaryId,
+        paymentIntentId: session.payment_intent,
+        paymentStatus: session.payment_status,
+        amount: session.amount_total / 100,
+        customerData: {
+          firstName: customerFirstName,
+          lastName: customerLastName,
+          email: customerEmail,
+          phone: customerPhone
+        },
+        quoteType,
+        metadata: session.metadata
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      logger.error('❌ Erreur création Booking:', errorData);
+      throw new Error(`Échec création Booking: ${errorData.error}`);
+    }
+
+    const bookingData = await response.json();
+
+    logger.info('✅ Booking créé avec succès:', {
+      bookingId: bookingData.data?.id,
+      temporaryId,
+      sessionId: session.id
+    });
+
+    // 📧 Les notifications sont envoyées dans createBookingAfterPayment:
+    // - Email client (confirmation + reçu)
+    // - Email professionnel (nouvelle mission)
+    // - Notification admin (monitoring)
+
+  } catch (error) {
+    logger.error('❌ Erreur handleCheckoutCompleted:', error);
+    throw error;
   }
 }
 

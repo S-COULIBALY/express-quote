@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { NotificationController } from '@/notifications/interfaces/http/NotificationController';
-import { container } from '@/quotation/application/container';
+import { container } from '@/config/dependency-injection';
 
 const notificationController = container.resolve(NotificationController);
 

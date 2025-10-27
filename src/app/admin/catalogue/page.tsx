@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { toast } from 'react-hot-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -391,7 +392,7 @@ export default function AdminCataloguePage() {
         fetchStats(true)
       ])
 
-      alert(`${result.data?.count || 'Plusieurs'} catalogues par défaut créés avec succès !`)
+      toast.success(`${result.data?.count || 'Plusieurs'} catalogues par défaut créés avec succès !`)
     } catch (err: any) {
       console.error('Erreur lors de la création des catalogues par défaut:', err)
       setError(err.message || 'Erreur lors de la création des catalogues par défaut')

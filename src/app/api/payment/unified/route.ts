@@ -131,22 +131,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 // Fonction pour générer l'URL de redirection de succès
 function getSuccessRedirectUrl(serviceType: string, bookingId: string, paymentIntentId: string): string {
-  const baseParams = `?id=${bookingId}&payment_intent=${paymentIntentId}`
-  
-  switch (serviceType) {
-    case 'moving':
-      return `/moving/success${baseParams}`
-    case 'cleaning':
-      return `/cleaning/success${baseParams}`
-    case 'catalog':
-    case 'transport':
-    case 'delivery':
-    case 'pack':
-    case 'service':
-      return `/success/${bookingId}${baseParams}`
-    default:
-      return `/success/${bookingId}${baseParams}`
-  }
+  // Toutes les redirections utilisent maintenant la page unifiée /success/[id]
+  return `/success/${bookingId}?payment_intent=${paymentIntentId}`
 }
 
 // Fonction pour mettre à jour le statut de réservation (simulation)

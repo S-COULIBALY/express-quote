@@ -8,11 +8,9 @@ export type { UseSubmissionResult } from './generic/useSubmission';
 
 // Export des hooks métier - PACK
 export { useCatalogueMovingItemPriceCalculator } from './business/CatalogueMovingItem/useCatalogueMovingItemPriceCalculator';
-export { useCatalogueMovingItemSubmission } from './business/CatalogueMovingItem/useCatalogueMovingItemSubmission';
 
 // Export des hooks métier - SERVICE
 export { useCatalogueCleaningItemPriceCalculator } from './business/CatalogueCleaningItem/useCatalogueCleaningItemPriceCalculator';
-export { useCatalogueCleaningItemSubmission } from './business/CatalogueCleaningItem/useCatalogueCleaningItemSubmission';
 
 // Export des configurations de calcul de prix
 
@@ -29,15 +27,6 @@ export type { CatalogueMovingItemSubmissionExtraData } from './business/Catalogu
 
 export { createCatalogueCleaningItemSubmissionConfig } from './business/CatalogueCleaningItem/catalogueCleaningItemSubmissionConfig';
 export type { CatalogueCleaningItemSubmissionExtraData } from './business/CatalogueCleaningItem/catalogueCleaningItemSubmissionConfig';
-
-// Export des utilitaires de calcul de prix
-export { 
-  calculateVAT, 
-  callPriceAPI, 
-  handlePriceError, 
-  logPriceCalculation 
-} from '../utils/priceCalculatorUtils';
-export type { PriceCalculatorConfig } from '../utils/priceCalculatorUtils';
 
 // Export des utilitaires de submission
 export { 

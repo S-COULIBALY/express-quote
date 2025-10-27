@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  SubmissionConfig, 
-  callSubmissionAPI, 
+import { toast } from 'react-hot-toast';
+import {
+  SubmissionConfig,
+  callSubmissionAPI,
   sendSubmissionNotification,
   handleSuccessRedirect,
   validateSubmissionData,
@@ -70,9 +71,9 @@ export const useSubmission = (
       
     } catch (error) {
       logSubmission.error(config.submissionType, error);
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue';
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

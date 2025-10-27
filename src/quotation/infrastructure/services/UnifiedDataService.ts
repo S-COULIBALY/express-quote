@@ -165,8 +165,6 @@ export class UnifiedDataService {
     }
 
     try {
-      logger.debug(`🔍 Recherche des règles: ${JSON.stringify(query)}`);
-
       const where: any = {};
 
       if (query.serviceType) where.serviceType = query.serviceType;
@@ -183,7 +181,7 @@ export class UnifiedDataService {
         where.tags = { hasSome: query.tags };
       }
 
-      const rules = await this.prisma.rule.findMany({
+      const rules = await this.prisma.rules.findMany({
         where,
         orderBy: { priority: "asc" },
       });
@@ -308,8 +306,6 @@ export class UnifiedDataService {
     }
 
     try {
-      logger.debug(`🔍 Recherche des configurations: ${JSON.stringify(query)}`);
-
       const where: any = {};
 
       if (query.category) where.category = query.category;

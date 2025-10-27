@@ -187,13 +187,13 @@ async function getMetrics(timeframe: string, category?: string | null, serviceTy
       catalog: Math.floor(Math.random() * 300)
     },
     top_pages: [
-      { page: '/summary/quote', views: Math.floor(Math.random() * 100) },
+      { page: '/booking', views: Math.floor(Math.random() * 100) },
       { page: '/catalogue', views: Math.floor(Math.random() * 80) },
       { page: '/catalogue', views: Math.floor(Math.random() * 120) }
     ],
     conversion_funnel: {
       quote_created: Math.floor(Math.random() * 100),
-      summary_viewed: Math.floor(Math.random() * 80),
+      booking_viewed: Math.floor(Math.random() * 80),
       payment_initiated: Math.floor(Math.random() * 60),
       booking_completed: Math.floor(Math.random() * 50)
     },

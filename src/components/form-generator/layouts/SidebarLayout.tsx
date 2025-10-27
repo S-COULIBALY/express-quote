@@ -65,7 +65,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
   mobileBreakpoint = "768px",
   mobileFixedHeader = false,
   modalRecap = false,
-  mobileConfig = { singleColumn: true, optionDisplay: "list" },
+  _mobileConfig = { singleColumn: true, optionDisplay: "list" },
 }) => {
   // 📱 Hook pour détecter la taille d'écran mobile
   const [isMobile, setIsMobile] = useState(false);
@@ -138,6 +138,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
 
   // Rendu du sidebar automatique ou personnalisé
   const renderSidebar = () => {
+
     // Si un sidebar personnalisé est fourni, l'utiliser
     if (sidebar) {
       return sidebar;
@@ -155,7 +156,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
                   <span className="text-2xl">{serviceInfo.icon}</span>
                 )}
                 <h2 className="text-xl font-bold text-gray-900">
-                  {serviceInfo.name}
+                  {formData?.serviceName || serviceInfo.name}
                 </h2>
               </div>
 
@@ -171,44 +172,43 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
                 </span>
               )}
 
-              {serviceInfo.description && (
-                <p className="text-sm text-gray-600 mt-2">
-                  {serviceInfo.description}
-                </p>
-              )}
+              <p className="text-sm text-gray-600 mt-2">
+                {formData?.serviceDescription || serviceInfo.description}
+              </p>
             </div>
           )}
 
           {/* Calcul de prix amélioré - Style de la capture d'écran */}
           {showPriceCalculation && (
             <div className="text-center mb-6">
-              {/* Affichage comme dans la capture */}
-              {activeModifications.length > 0 ||
-              (serviceInfo?.originalPrice &&
-                serviceInfo.originalPrice > initialPrice) ? (
+              {/* Affichage avec prix barré si différent du prix initial */}
+              {calculatedPrice !== initialPrice ? (
                 <>
                   {/* Label "Prix de base" */}
                   <div className="text-sm text-gray-500 mb-1">Prix de base</div>
 
-                  {/* Prix barré - plus gros et plus visible */}
+                  {/* Prix barré - prix initial */}
                   <div className="text-xl text-gray-400 line-through mb-2 font-medium">
-                    {formatPrice(serviceInfo?.originalPrice || initialPrice)}
+                    {formatPrice(initialPrice)}
                   </div>
 
-                  {/* Prix final - très gros et en vert */}
-                  <div className="text-4xl font-bold text-emerald-600 mb-2">
+                  {/* Prix final - même taille que le prix barré */}
+                  <div className="text-xl font-bold text-gray-700 mb-2">
                     {formatPrice(calculatedPrice)}
                   </div>
 
-                  {/* Montant des options */}
+                  {/* Différence de prix */}
                   <div className="text-sm text-emerald-600 font-medium">
-                    +{formatPrice(calculatedPrice - initialPrice)} d'options
+                    {calculatedPrice > initialPrice 
+                      ? `+${formatPrice(calculatedPrice - initialPrice)} d'options`
+                      : `-${formatPrice(initialPrice - calculatedPrice)} de réduction`
+                    }
                   </div>
                 </>
               ) : (
                 <>
                   <div className="text-sm text-gray-500 mb-1">Prix</div>
-                  <div className="text-4xl font-bold text-emerald-600">
+                  <div className="text-xl font-bold text-gray-400">
                     {formatPrice(calculatedPrice)}
                   </div>
                 </>
@@ -266,7 +266,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
           {/* {renderConstraintsByAddress()} */}
 
           {/* FormSummary original */}
-          <FormSummary formData={formData} config={summaryConfig} />
+          <FormSummary formData={formData} config={summaryConfig as any} />
         </div>
       );
     }
@@ -288,6 +288,55 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
         const CustomSummary = autoSummary;
         return <CustomSummary formData={formData} config={summaryConfig} />;
       }
+    }
+
+    // Fallback: Afficher serviceInfo même sans summaryConfig
+    if (serviceInfo) {
+      return (
+        <div className="bg-white rounded-xl shadow-lg p-6 sticky top-6">
+          {/* Informations sur le service/pack */}
+          <div className="text-center mb-6">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              {serviceInfo.icon && (
+                <span className="text-2xl">{serviceInfo.icon}</span>
+              )}
+              <h2 className="text-xl font-bold text-gray-900">
+                {formData?.serviceName || serviceInfo.name}
+              </h2>
+            </div>
+
+            {serviceInfo.badge && (
+              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                {serviceInfo.badge}
+              </span>
+            )}
+
+            {serviceInfo.popular && (
+              <span className="inline-block bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded-full ml-2">
+                ⭐ Populaire
+              </span>
+            )}
+
+            <p className="text-sm text-gray-600 mt-2">
+              {formData?.serviceDescription || serviceInfo.description}
+            </p>
+            
+            {/* Liste des éléments du pack */}
+            {serviceInfo?.features && serviceInfo.features.length > 0 && (
+              <div className="mt-4">
+                <ul className="space-y-2 text-sm text-gray-700">
+                  {serviceInfo.features.map((feature, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-emerald-600 mt-0.5">•</span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      );
     }
 
     return null;
@@ -312,10 +361,10 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
   // Éviter l'hydration mismatch en attendant que le client soit prêt
   if (!isClient) {
     return (
-      <div className={`bg-gray-50 min-h-screen py-1 sm:py-8 ${className}`}>
+      <div className={`bg-gray-50 min-h-screen py-0 ${className}`}>
         {/* Layout par défaut pendant l'hydration */}
-        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-2xl shadow-md p-2 sm:p-6 border border-emerald-600">
+        <div className="max-w-7xl mx-auto px-2 sm:px-2">
+          <div className="bg-white rounded-2xl shadow-md p-2 sm:p-1 border border-transparent">
             {children}
           </div>
         </div>
@@ -325,7 +374,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
 
   return (
     <div
-      className={`bg-gray-50 min-h-screen ${isMobile ? "py-0" : "py-8"} ${className}`}
+      className={`bg-gray-50 min-h-screen py-0 ${className}`}
     >
       {/* 📱 En-tête mobile fixe amélioré */}
       {isMobile && mobileFixedHeader && (
@@ -345,7 +394,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
                 </div>
               )}
             </div>
-            {modalRecap && sidebarContent && (
+            {modalRecap && view && (
               <button
                 onClick={() => setShowMobileSummary(true)}
                 className="ml-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold shadow-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
@@ -361,7 +410,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
       {/* En-tête desktop normal */}
       {(!isMobile || !mobileFixedHeader) &&
         (title || description || headerActions) && (
-          <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 mb-1 sm:mb-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="flex items-center justify-between">
               <div>
                 {title && (
@@ -382,46 +431,46 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
           </div>
         )}
 
-      {/* 🖥️ Layout Desktop */}
+      {/* 🖥️ Layout Desktop - Conteneur principal optimisé */}
       <div
-        className={`max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 ${responsiveClasses.desktop}`}
+        className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${responsiveClasses.desktop}`}
       >
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Formulaire principal - 60% */}
-          <div className="lg:w-[60%]">
-            <div className="bg-white rounded-2xl shadow-md p-2 sm:p-6 border border-emerald-600">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Formulaire principal - 65% */}
+          <div className="lg:w-[65%]">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 lg:p-8">
               {children}
 
               {/* Actions dans le formulaire */}
               {actions && (
-                <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
+                <div className="flex justify-end space-x-4 pt-8 mt-8 border-t border-gray-200">
                   {actions}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Sidebar - 40% */}
-          {sidebarContent && (
-            <div className="lg:w-[40%]">
-              <div className="sticky top-6 self-start">{sidebarContent}</div>
+          {/* Sidebar - 35% */}
+          {view && (
+            <div className="lg:w-[35%]">
+              <div className="sticky top-8 self-start">{view}</div>
             </div>
           )}
         </div>
       </div>
 
-      {/* 📱 Layout Mobile - Plein écran */}
+      {/* 📱 Layout Mobile - Plein écran optimisé */}
       <div
         className={`w-full ${responsiveClasses.mobile} ${responsiveClasses.mobileContent}`}
       >
         <div className="min-h-screen flex flex-col">
           {/* Formulaire en pleine largeur */}
-          <div className="flex-1 bg-white p-4">{children}</div>
+          <div className="flex-1 bg-white p-6">{children}</div>
 
           {/* Actions mobiles + Bouton récap fixe */}
-          <div className="bg-white border-t border-gray-200 p-4 space-y-3">
+          <div className="bg-white border-t border-gray-200 p-6 space-y-4">
             {/* Bouton pour ouvrir le modal récap */}
-            {modalRecap && sidebarContent && (
+            {modalRecap && view && (
               <button
                 onClick={() => setShowMobileSummary(true)}
                 className="w-full bg-emerald-600 text-white font-semibold py-4 px-6 rounded-xl hover:bg-emerald-700 transition-colors shadow-lg flex items-center justify-between"
@@ -438,14 +487,14 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
 
             {/* Actions du formulaire */}
             {actions && (
-              <div className="flex justify-center space-x-3">{actions}</div>
+              <div className="flex justify-center space-x-4">{actions}</div>
             )}
           </div>
         </div>
       </div>
 
       {/* 📱 Modal récapitulatif mobile amélioré */}
-      {isMobile && modalRecap && showMobileSummary && sidebarContent && (
+      {isMobile && modalRecap && showMobileSummary && view && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-t-3xl w-full max-h-[85vh] overflow-hidden shadow-2xl">
             {/* En-tête du modal */}
@@ -470,7 +519,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({
 
             {/* Contenu du modal */}
             <div className="overflow-y-auto max-h-[calc(85vh-80px)]">
-              <div className="p-6">{sidebarContent}</div>
+              <div className="p-6">{view}</div>
             </div>
 
             {/* Barre d'action en bas */}

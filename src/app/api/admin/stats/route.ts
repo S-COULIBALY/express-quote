@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
             select: {
               items: {
                 where: {
-                  booking: {
+                  Booking: {
                     createdAt: {
                       gte: startDate,
                       lte: endDate
@@ -241,7 +241,7 @@ export async function GET(request: NextRequest) {
           }
         },
         include: {
-          customer: {
+          Customer: {
             select: { id: true, firstName: true, lastName: true }
           }
         },
@@ -378,17 +378,17 @@ export async function GET(request: NextRequest) {
         type: template.type,
         price: template.price,
         bookingsCount: template._count.items,
-        isActive: template.isActive,
+        isActive: template.is_active,
         isPopular: template.popular
       })),
 
       recentActivity: recentActivity.map(booking => ({
         id: booking.id,
-        serviceType: booking.serviceType,
+        type: booking.type,
         totalAmount: booking.totalAmount,
         status: booking.status,
         createdAt: booking.createdAt,
-        customer: booking.customer
+        customer: booking.Customer
       })),
       
       trends: {

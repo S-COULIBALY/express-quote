@@ -1,12 +1,11 @@
 import { PresetConfig, FormSummaryConfig } from "../../types";
 import { mergeWithGlobalPreset } from "../_shared/globalPreset";
-import { commonFieldCollections, contactFields, dateField, timeField } from "../_shared/sharedFields";
-import { createServiceValidation } from "../_shared/sharedValidation";
 
 // 📝 Valeurs par défaut pour les formulaires de services
 export const catalogueCleaningItemDefaultValues = {
   // Planification
   scheduledDate: '',
+  horaire: '',
   location: '',
   
   // Configuration du service

@@ -16,6 +16,9 @@ module.exports = {
       },
     },
     extend: {
+      spacing: {
+        '20': '4rem', // Override pt-20 from 5rem to 4rem
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

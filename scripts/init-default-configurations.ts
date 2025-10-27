@@ -58,9 +58,13 @@ async function initializeDefaultConfigurations() {
           skipped++;
         }
       } else {
+        // ✅ CORRECTION: Générer un ID unique
+        const id = `${config.category}_${config.key}_${Date.now()}`;
+
         // Créer la nouvelle configuration
         await prisma.configuration.create({
           data: {
+            id, // ✅ ID requis par le schéma
             category: config.category,
             key: config.key,
             value: config.value,
@@ -69,7 +73,12 @@ async function initializeDefaultConfigurations() {
             validFrom: config.validFrom,
             validTo: config.validTo,
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
+            // Champs requis
+            environment: 'production',
+            created_by: 'init-script', // ✅ CORRECTION: snake_case
+            tags: [],
+            priority: 100
           }
         });
         
@@ -126,6 +135,7 @@ async function forceUpdateConfigurations() {
           updatedAt: new Date()
         },
         create: {
+          id: `${config.category}_${config.key}_${Date.now()}`, // ✅ ID requis
           category: config.category,
           key: config.key,
           value: config.value,
@@ -134,7 +144,11 @@ async function forceUpdateConfigurations() {
           validFrom: config.validFrom,
           validTo: config.validTo,
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          environment: 'production',
+          created_by: 'init-script', // ✅ CORRECTION: snake_case
+          tags: [],
+          priority: 100
         }
       });
       

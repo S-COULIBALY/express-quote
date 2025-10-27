@@ -49,7 +49,7 @@ export const createGardeningSubmissionConfig = (areaSize: number = 0): Submissio
   },
 
   getSuccessRedirectUrl: (responseData: any) => {
-    return `/gardening/summary?quoteRequestId=${responseData.id}`;
+    return `/booking/${responseData.temporaryId || responseData.id}`;
   },
 
   getNotificationData: (formData: any, responseData: any, extraData?: GardeningSubmissionExtraData) => {

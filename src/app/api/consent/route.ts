@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ConsentController } from '@/quotation/infrastructure/adapters/controllers/ConsentController';
-import { container } from '@/quotation/application/container';
+import { container } from '@/config/dependency-injection';
 
 const consentController = container.resolve(ConsentController);
 

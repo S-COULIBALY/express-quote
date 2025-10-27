@@ -251,7 +251,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 </body>
 </html>`;
       
-      return new Response(html, {
+      return new NextResponse(html, {
         headers: { 'Content-Type': 'text/html' }
       });
     }

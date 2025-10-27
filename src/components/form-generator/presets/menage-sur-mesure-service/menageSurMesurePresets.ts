@@ -1,61 +1,35 @@
 import { PresetConfig, FormSummaryConfig } from "../../types";
 import { mergeWithGlobalPreset } from "../_shared/globalPreset";
-import { 
-  createSizeFieldForService, 
-  addressFields, 
-  dateField, 
-  timeField,
-  contactFields,
-  housingFields,
-  commentsField,
-  commonFieldCollections 
-} from "../_shared/sharedFields";
-import { createServiceValidation } from "../_shared/sharedValidation";
 
 // 📝 Valeurs par défaut pour les formulaires de ménage sur mesure
 export const menageSurMesureDefaultValues = {
-  // Informations générales
-  typeLieu: "",
+  // Planification
+  scheduledDate: "",
+  location: "",
+  horaire: "",
+
+  // Lieu d'intervention
+  floor: "",
+  elevator: "",
+
+  // Surface & Dimensions
   surface: "",
-  nombrePieces: "",
-  etage: "0",
-  ascenseur: false,
-  
-  // Types de nettoyage
-  nettoyageGeneral: false,
-  nettoyageProfond: false,
-  nettoyageVitres: false,
-  nettoyageSols: false,
-  nettoyageSalleBain: false,
-  nettoyageCuisine: false,
-  nettoyageMeubles: false,
-  nettoyageElectromenager: false,
-  nettoyageExterieur: false,
-  
-  // Fréquence et planification
-  typeFrequence: "",
-  datePremierNettoyage: "",
-  horaireSouhaite: "",
-  dureeEstimee: "",
-  
-  // Produits et équipements
-  produitsFournis: false,
-  produitsEcologiques: false,
-  equipementsSpecifiques: [],
-  preferencesProduits: "",
-  
-  // Contraintes et accès
-  acces: "",
-  parking: false,
-  contraintesHoraires: "",
-  presenceRequise: false,
-  
-  // Contact
-  nom: "",
-  email: "",
-  telephone: "",
-  adresse: "",
-  commentaires: ""
+  roomCount: "",
+  housingType: "",
+  ceilingHeight: "",
+
+  // Type de Nettoyage
+  cleaningType: "",
+  frequency: "",
+  cleaningLevel: "",
+  accessConstraints: [],
+
+  // Configuration
+  duration: "",
+  workers: "",
+
+  // Spécificités
+  additionalInfo: ""
 };
 
 // 🎨 Styles CSS
@@ -64,254 +38,184 @@ export const menageSurMesureStyles = "";
 // 📋 Configuration du formulaire
 export const menageSurMesureForm = {
   fields: [
-    // Étape 1: Informations générales
+    // Planification
     {
-      name: "typeLieu",
-      type: "select",
-      label: "Type de lieu",
-      required: true,
-      options: [
-        { value: "appartement", label: "Appartement" },
-        { value: "maison", label: "Maison" },
-        { value: "bureau", label: "Bureau" },
-        { value: "commerce", label: "Commerce" },
-        { value: "entrepot", label: "Entrepôt/Local" },
-        { value: "autre", label: "Autre" }
-      ]
-    },
-    {
-      name: "surface",
-      type: "number",
-      label: "Surface à nettoyer (m²)",
-      required: true,
-      min: 1,
-      max: 2000
-    },
-    {
-      name: "nombrePieces",
-      type: "number",
-      label: "Nombre de pièces",
-      required: true,
-      min: 1,
-      max: 50
-    },
-    {
-      name: "etage",
-      type: "number",
-      label: "Étage",
-      required: false,
-      min: 0,
-      max: 50
-    },
-    {
-      name: "ascenseur",
-      type: "checkbox",
-      label: "Ascenseur disponible",
-      required: false
-    },
-    
-    // Étape 2: Types de nettoyage
-    {
-      name: "nettoyageGeneral",
-      type: "checkbox",
-      label: "Nettoyage général",
-      required: false
-    },
-    {
-      name: "nettoyageProfond",
-      type: "checkbox",
-      label: "Nettoyage en profondeur",
-      required: false
-    },
-    {
-      name: "nettoyageVitres",
-      type: "checkbox",
-      label: "Nettoyage des vitres",
-      required: false
-    },
-    {
-      name: "nettoyageSols",
-      type: "checkbox",
-      label: "Nettoyage des sols",
-      required: false
-    },
-    {
-      name: "nettoyageSalleBain",
-      type: "checkbox",
-      label: "Nettoyage salle de bain",
-      required: false
-    },
-    {
-      name: "nettoyageCuisine",
-      type: "checkbox",
-      label: "Nettoyage cuisine",
-      required: false
-    },
-    {
-      name: "nettoyageMeubles",
-      type: "checkbox",
-      label: "Nettoyage des meubles",
-      required: false
-    },
-    {
-      name: "nettoyageElectromenager",
-      type: "checkbox",
-      label: "Nettoyage électroménager",
-      required: false
-    },
-    {
-      name: "nettoyageExterieur",
-      type: "checkbox",
-      label: "Nettoyage extérieur",
-      required: false
-    },
-    
-    // Étape 3: Fréquence et planification
-    {
-      name: "typeFrequence",
-      type: "select",
-      label: "Type de fréquence",
-      required: true,
-      options: [
-        { value: "ponctuel", label: "Ponctuel (une fois)" },
-        { value: "hebdomadaire", label: "Hebdomadaire" },
-        { value: "bi-hebdomadaire", label: "Bi-hebdomadaire" },
-        { value: "mensuel", label: "Mensuel" },
-        { value: "personnalise", label: "Personnalisé" }
-      ]
-    },
-    {
-      name: "datePremierNettoyage",
+      name: "scheduledDate",
       type: "date",
-      label: "Date du premier nettoyage",
+      label: "Date souhaitée",
       required: true,
       min: new Date().toISOString().split('T')[0]
     },
     {
-      name: "horaireSouhaite",
+      name: "horaire",
       type: "select",
-      label: "Horaire souhaité",
+      label: "Horaire de RDV",
       required: true,
       options: [
-        { value: "matin", label: "Matin (8h-12h)" },
-        { value: "apres-midi", label: "Après-midi (13h-17h)" },
-        { value: "soir", label: "Soir (18h-22h)" },
-        { value: "flexible", label: "Flexible" }
+        { value: "matin", label: "Matin - 6h" },
+        { value: "matin", label: "Matin - 8h" },
+        { value: "apres-midi", label: "Après-midi - 13h" },
+        { value: "soirée", label: "soirée - 18h" },
+        { value: "flexible", label: "Flexible - selon disponibilité" }
       ]
     },
     {
-      name: "dureeEstimee",
+      name: "location",
+      type: "address-pickup",
+      label: "Adresse",
+      required: true
+    },
+
+    // Lieu d'intervention
+    {
+      name: "floor",
       type: "select",
-      label: "Durée estimée",
+      label: "Étage",
       required: true,
       options: [
-        { value: "1-2h", label: "1-2 heures" },
-        { value: "2-4h", label: "2-4 heures" },
-        { value: "4-6h", label: "4-6 heures" },
-        { value: "6-8h", label: "6-8 heures" },
-        { value: "plus-8h", label: "Plus de 8 heures" }
-      ]
-    },
-    
-    // Étape 4: Produits et équipements
-    {
-      name: "produitsFournis",
-      type: "checkbox",
-      label: "Produits fournis par le prestataire",
-      required: false
-    },
-    {
-      name: "produitsEcologiques",
-      type: "checkbox",
-      label: "Produits écologiques",
-      required: false
-    },
-    {
-      name: "equipementsSpecifiques",
-      type: "checkbox-group",
-      label: "Équipements spécifiques",
-      required: false,
-      options: [
-        { value: "aspirateur", label: "Aspirateur" },
-        { value: "balai-vapeur", label: "Balai vapeur" },
-        { value: "monte-charge", label: "Monte-charge" },
-        { value: "echelle", label: "Échelle" },
-        { value: "autre", label: "Autre" }
+        { value: "-1", label: "Sous-sol" },
+        { value: "0", label: "RDC" },
+        { value: "1", label: "1er étage" },
+        { value: "2", label: "2ème étage" },
+        { value: "3", label: "3ème étage" },
+        { value: "4", label: "4ème étage" },
+        { value: "5", label: "5ème étage" },
+        { value: "6", label: "6ème étage" },
+        { value: "7", label: "7ème étage" },
+        { value: "8", label: "8ème étage" },
+        { value: "9", label: "9ème étage" },
+        { value: "10+", label: "10ème étage et plus" }
       ]
     },
     {
-      name: "preferencesProduits",
-      type: "textarea",
-      label: "Préférences particulières",
-      required: false,
-      placeholder: "Produits spécifiques, allergies, contraintes..."
-    },
-    
-    // Étape 5: Contraintes et accès
-    {
-      name: "acces",
+      name: "elevator",
       type: "select",
-      label: "Type d'accès",
+      label: "Ascenseur",
       required: true,
       options: [
-        { value: "libre", label: "Accès libre" },
-        { value: "gardien", label: "Gardien/concierge" },
-        { value: "interphone", label: "Interphone" },
-        { value: "code", label: "Code d'accès" },
-        { value: "autre", label: "Autre" }
+        { value: "no", label: "Aucun" },
+        { value: "small", label: "Petit (1-3 pers)" },
+        { value: "medium", label: "Moyen (3-6 pers)" },
+        { value: "large", label: "Grand (+6 pers)" }
+      ]
+    },
+
+    // Surface & Dimensions
+    {
+      name: "surface",
+      type: "number",
+      label: "Surface totale (m²)",
+      required: true,
+      min: 1
+    },
+    {
+      name: "roomCount",
+      type: "number",
+      label: "Nombre de pièces",
+      required: true,
+      min: 1
+    },
+    {
+      name: "housingType",
+      type: "select",
+      label: "Type de logement",
+      required: true,
+      options: [
+        { value: "apartment", label: "Appartement" },
+        { value: "house", label: "Maison" },
+        { value: "office", label: "Bureau" },
+        { value: "commercial", label: "Local commercial" },
+        { value: "other", label: "Autre" }
       ]
     },
     {
-      name: "parking",
-      type: "checkbox",
-      label: "Parking disponible",
+      name: "ceilingHeight",
+      type: "select",
+      label: "Hauteur sous plafond",
+      required: true,
+      options: [
+        { value: "standard", label: "Standard (2.5-3m)" },
+        { value: "high", label: "Élevé (3-4m)" },
+        { value: "very-high", label: "Très élevé (4m+)" }
+      ]
+    },
+
+    // Type de Nettoyage
+    {
+      name: "cleaningType",
+      type: "select",
+      label: "Type de service",
+      required: true,
+      options: [
+        { value: "maintenance", label: "Entretien régulier" },
+        { value: "deep-cleaning", label: "Nettoyage approfondi" },
+        { value: "post-construction", label: "Fin de chantier" },
+        { value: "moving", label: "Avant/après déménagement" },
+        { value: "spring-cleaning", label: "Grand nettoyage" },
+        { value: "commercial", label: "Nettoyage commercial" },
+        { value: "other", label: "Autre" }
+      ]
+    },
+    {
+      name: "frequency",
+      type: "select",
+      label: "Fréquence souhaitée",
+      required: true,
+      options: [
+        { value: "one-time", label: "Ponctuel" },
+        { value: "weekly", label: "Hebdomadaire" },
+        { value: "bi-weekly", label: "Bi-hebdomadaire" },
+        { value: "monthly", label: "Mensuel" },
+        { value: "quarterly", label: "Trimestriel" }
+      ]
+    },
+    {
+      name: "cleaningLevel",
+      type: "select",
+      label: "Niveau de nettoyage",
+      required: true,
+      options: [
+        { value: "standard", label: "Standard" },
+        { value: "thorough", label: "Approfondi" },
+        { value: "premium", label: "Premium" }
+      ]
+    },
+    {
+      name: "accessConstraints",
+      type: "access-constraints",
+      label: "Spécificités",
       required: false
     },
+
+    // Configuration
     {
-      name: "contraintesHoraires",
-      type: "textarea",
-      label: "Contraintes horaires",
-      required: false,
-      placeholder: "Horaires d'accès, contraintes particulières..."
+      name: "duration",
+      type: "number",
+      label: "Durée (en heures)",
+      required: true,
+      min: 1
     },
     {
-      name: "presenceRequise",
-      type: "checkbox",
-      label: "Présence requise pendant le nettoyage",
+      name: "workers",
+      type: "number",
+      label: "Nombre de professionnels",
+      required: true,
+      min: 1
+    },
+
+    // Spécificités
+    {
+      name: "additionalInfo",
+      type: "textarea",
+      label: "Informations supplémentaires",
+      required: false,
+      placeholder: "Précisez vos besoins spécifiques, vos coordonnées et détaillez les contraintes sélectionnées si nécessaire"
+    },
+    {
+      name: "whatsappOptIn",
+      type: "whatsapp-consent",
+      label: "Notifications WhatsApp",
       required: false
-    },
-    
-    // Étape 6: Contact
-    {
-      name: "nom",
-      type: "text",
-      label: "Nom complet",
-      required: true
-    },
-    {
-      name: "email",
-      type: "email",
-      label: "Email",
-      required: true
-    },
-    {
-      name: "telephone",
-      type: "tel",
-      label: "Téléphone",
-      required: true
-    },
-    {
-      name: "adresse",
-      type: "address",
-      label: "Adresse du lieu à nettoyer",
-      required: true
-    },
-    {
-      name: "commentaires",
-      type: "textarea",
-      label: "Commentaires supplémentaires",
-      required: false,
-      placeholder: "Informations complémentaires sur vos besoins..."
     }
   ]
 };
@@ -321,59 +225,41 @@ export const menageSurMesureSummaryConfig: FormSummaryConfig = {
   title: "Résumé de votre demande de ménage sur mesure",
   sections: [
     {
-      title: "Informations générales",
+      title: "Planification",
       fields: [
-        { key: "typeLieu", label: "Type de lieu" },
+        { key: "scheduledDate", label: "Date souhaitée" },
+        { key: "location", label: "Adresse" },
+        { key: "horaire", label: "Horaire de RDV" }
+      ]
+    },
+    {
+      title: "Lieu d'intervention",
+      fields: [
+        { key: "floor", label: "Étage" },
+        { key: "elevator", label: "Ascenseur" }
+      ]
+    },
+    {
+      title: "Surface & Configuration",
+      fields: [
         { key: "surface", label: "Surface", suffix: " m²" },
-        { key: "nombrePieces", label: "Nombre de pièces" }
+        { key: "roomCount", label: "Nombre de pièces" },
+        { key: "housingType", label: "Type de logement" }
       ]
     },
     {
-      title: "Types de nettoyage",
+      title: "Type de Nettoyage",
       fields: [
-        { key: "nettoyageGeneral", label: "Nettoyage général", type: "boolean" },
-        { key: "nettoyageProfond", label: "Nettoyage en profondeur", type: "boolean" },
-        { key: "nettoyageVitres", label: "Nettoyage des vitres", type: "boolean" },
-        { key: "nettoyageSols", label: "Nettoyage des sols", type: "boolean" },
-        { key: "nettoyageSalleBain", label: "Nettoyage salle de bain", type: "boolean" },
-        { key: "nettoyageCuisine", label: "Nettoyage cuisine", type: "boolean" },
-        { key: "nettoyageMeubles", label: "Nettoyage des meubles", type: "boolean" },
-        { key: "nettoyageElectromenager", label: "Nettoyage électroménager", type: "boolean" },
-        { key: "nettoyageExterieur", label: "Nettoyage extérieur", type: "boolean" }
+        { key: "cleaningType", label: "Type de service" },
+        { key: "frequency", label: "Fréquence" },
+        { key: "cleaningLevel", label: "Niveau de nettoyage" }
       ]
     },
     {
-      title: "Fréquence et planification",
+      title: "Configuration du service",
       fields: [
-        { key: "typeFrequence", label: "Type de fréquence" },
-        { key: "datePremierNettoyage", label: "Date du premier nettoyage" },
-        { key: "horaireSouhaite", label: "Horaire souhaité" },
-        { key: "dureeEstimee", label: "Durée estimée" }
-      ]
-    },
-    {
-      title: "Produits et équipements",
-      fields: [
-        { key: "produitsFournis", label: "Produits fournis", type: "boolean" },
-        { key: "produitsEcologiques", label: "Produits écologiques", type: "boolean" },
-        { key: "equipementsSpecifiques", label: "Équipements spécifiques", type: "array" }
-      ]
-    },
-    {
-      title: "Contraintes et accès",
-      fields: [
-        { key: "acces", label: "Type d'accès" },
-        { key: "parking", label: "Parking disponible", type: "boolean" },
-        { key: "presenceRequise", label: "Présence requise", type: "boolean" }
-      ]
-    },
-    {
-      title: "Contact",
-      fields: [
-        { key: "nom", label: "Nom complet" },
-        { key: "email", label: "Email" },
-        { key: "telephone", label: "Téléphone" },
-        { key: "adresse", label: "Adresse" }
+        { key: "duration", label: "Durée", suffix: " heure(s)" },
+        { key: "workers", label: "Nombre de professionnels" }
       ]
     }
   ]
