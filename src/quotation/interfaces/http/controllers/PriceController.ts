@@ -32,15 +32,28 @@ export class PriceController extends BaseApiController {
             logger.info(`   🏠 Départ: ${data.pickupAddress || 'Non spécifié'}`);
             logger.info(`   📦 Arrivée: ${data.deliveryAddress || 'Non spécifié'}`);
 
-            if (data.pickupLogisticsConstraints && data.pickupLogisticsConstraints.length > 0) {
-                logger.info(`   🚧 Contraintes départ (${data.pickupLogisticsConstraints.length}): ${data.pickupLogisticsConstraints.join(', ')}`);
-            }
-            if (data.deliveryLogisticsConstraints && data.deliveryLogisticsConstraints.length > 0) {
-                logger.info(`   🚧 Contraintes arrivée (${data.deliveryLogisticsConstraints.length}): ${data.deliveryLogisticsConstraints.join(', ')}`);
+            // Récupérer les noms lisibles des contraintes et services (au lieu des UUID)
+            const pickupConstraintNames = await this.getConstraintNames(data.pickupLogisticsConstraints);
+            const deliveryConstraintNames = await this.getConstraintNames(data.deliveryLogisticsConstraints);
+            const serviceNames = await this.getServiceNames(data.additionalServices);
+
+            if (pickupConstraintNames.length > 0) {
+                logger.info(`   🚧 Contraintes logistiques DÉPART (${pickupConstraintNames.length}):`);
+                pickupConstraintNames.forEach(name => logger.info(`      • ${name}`));
+            } else {
+                logger.info(`   🚧 Contraintes logistiques DÉPART: Aucune`);
             }
 
-            if (data.additionalServices && data.additionalServices.length > 0) {
-                logger.info(`   ➕ Services additionnels (${data.additionalServices.length}): ${data.additionalServices.join(', ')}`);
+            if (deliveryConstraintNames.length > 0) {
+                logger.info(`   🚧 Contraintes logistiques ARRIVÉE (${deliveryConstraintNames.length}):`);
+                deliveryConstraintNames.forEach(name => logger.info(`      • ${name}`));
+            } else {
+                logger.info(`   🚧 Contraintes logistiques ARRIVÉE: Aucune`);
+            }
+
+            if (serviceNames.length > 0) {
+                logger.info(`   ➕ Services additionnels (${serviceNames.length}):`);
+                serviceNames.forEach(name => logger.info(`      • ${name}`));
             }
 
             logger.info(`📊 Paramètres calcul:`);
@@ -68,8 +81,49 @@ export class PriceController extends BaseApiController {
         });
     }
 
+    /**
+     * Récupérer les noms lisibles des contraintes depuis leurs UUID
+     */
+    private async getConstraintNames(uuids: string[] | undefined): Promise<string[]> {
+        if (!uuids || uuids.length === 0) return [];
 
+        try {
+            const { PrismaClient } = await import('@prisma/client');
+            const prisma = new PrismaClient();
 
+            const rules = await prisma.rule.findMany({
+                where: { id: { in: uuids }, isActive: true },
+                select: { name: true }
+            });
 
+            await prisma.$disconnect();
+            return rules.map(r => r.name);
+        } catch (error) {
+            logger.error('Erreur récupération noms contraintes:', error);
+            return uuids; // Fallback vers UUID si erreur
+        }
+    }
 
+    /**
+     * Récupérer les noms lisibles des services depuis leurs UUID
+     */
+    private async getServiceNames(uuids: string[] | undefined): Promise<string[]> {
+        if (!uuids || uuids.length === 0) return [];
+
+        try {
+            const { PrismaClient } = await import('@prisma/client');
+            const prisma = new PrismaClient();
+
+            const rules = await prisma.rule.findMany({
+                where: { id: { in: uuids }, isActive: true },
+                select: { name: true }
+            });
+
+            await prisma.$disconnect();
+            return rules.map(r => r.name);
+        } catch (error) {
+            logger.error('Erreur récupération noms services:', error);
+            return uuids; // Fallback vers UUID si erreur
+        }
+    }
 } 
