@@ -286,11 +286,16 @@ class CalculationDebugLogger {
     console.log('');
   }
 
-  finishRulesEngine(finalPrice: number, rulesAppliedCount: number) {
+  finishRulesEngine(finalPrice: any, rulesAppliedCount: number) {
     const duration = Date.now() - this.startTime;
 
+    // Gérer le cas où finalPrice est un objet Money avec getAmount()
+    const priceValue = typeof finalPrice === 'object' && finalPrice.getAmount
+      ? finalPrice.getAmount()
+      : finalPrice;
+
     console.log('✅ [CALC-DEBUG] MOTEUR RÈGLES TERMINÉ');
-    console.log(`   💰 Prix final: ${finalPrice.toFixed(2)}€`);
+    console.log(`   💰 Prix final: ${priceValue.toFixed(2)}€`);
     console.log(`   ⚡ Règles appliquées: ${rulesAppliedCount}`);
     console.log(`   ⏱️ Durée: ${duration}ms`);
     console.log('');
