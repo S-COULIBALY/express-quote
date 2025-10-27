@@ -1,4 +1,5 @@
 import { PresetConfig, FormSummaryConfig } from "../../types";
+import { createServiceValidation } from "../_shared/sharedValidation";
 
 // 📝 Valeurs par défaut pour les formulaires de déménagement sur mesure
 export const demenagementSurMesureDefaultValues = {

@@ -1,5 +1,6 @@
 import { PresetConfig, FormSummaryConfig } from "../../types";
 import { mergeWithGlobalPreset } from "../_shared/globalPreset";
+import { createServiceValidation } from "../_shared/sharedValidation";
 
 // 📝 Valeurs par défaut pour les formulaires de ménage sur mesure
 export const menageSurMesureDefaultValues = {
