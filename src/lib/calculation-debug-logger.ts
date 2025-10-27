@@ -286,17 +286,41 @@ class CalculationDebugLogger {
     console.log('');
   }
 
-  finishRulesEngine(finalPrice: any, rulesAppliedCount: number) {
+  finishRulesEngine(result: any, rulesAppliedCount?: number) {
     const duration = Date.now() - this.startTime;
 
-    // Gérer le cas où finalPrice est un objet Money avec getAmount()
-    const priceValue = typeof finalPrice === 'object' && finalPrice.getAmount
-      ? finalPrice.getAmount()
-      : finalPrice;
+    // Gérer différents formats de result
+    let priceValue: number;
+    let appliedCount: number;
+
+    if (typeof result === 'object') {
+      // Si result est un objet avec finalPrice (Money)
+      if (result.finalPrice && result.finalPrice.getAmount) {
+        priceValue = result.finalPrice.getAmount();
+      } else if (result.getAmount) {
+        // Si result est directement un objet Money
+        priceValue = result.getAmount();
+      } else if (typeof result.finalPrice === 'number') {
+        priceValue = result.finalPrice;
+      } else {
+        priceValue = 0;
+      }
+
+      // Compter les règles appliquées
+      appliedCount = rulesAppliedCount !== undefined
+        ? rulesAppliedCount
+        : (result.appliedRules?.length || this.rulesDetails.filter(r => r.isApplicable && r.impact !== 0).length);
+    } else {
+      // Si result est un nombre simple
+      priceValue = typeof result === 'number' ? result : 0;
+      appliedCount = rulesAppliedCount !== undefined
+        ? rulesAppliedCount
+        : this.rulesDetails.filter(r => r.isApplicable && r.impact !== 0).length;
+    }
 
     console.log('✅ [CALC-DEBUG] MOTEUR RÈGLES TERMINÉ');
     console.log(`   💰 Prix final: ${priceValue.toFixed(2)}€`);
-    console.log(`   ⚡ Règles appliquées: ${rulesAppliedCount}`);
+    console.log(`   ⚡ Règles appliquées: ${appliedCount}`);
     console.log(`   ⏱️ Durée: ${duration}ms`);
     console.log('');
   }
