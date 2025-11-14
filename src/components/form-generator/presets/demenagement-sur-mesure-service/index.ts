@@ -220,6 +220,79 @@ export const getDemenagementSurMesureServiceConfig = (serviceOrOptions: Catalogu
           }
         ]
       },
+
+      {
+        title: "🏠 Informations générales",
+        columns: 2,
+        fields: [
+          {
+            name: "typeDemenagement",
+            type: "select",
+            label: "Type de déménagement",
+            required: true,
+            options: [
+              { value: "appartement", label: "Appartement" },
+              { value: "maison", label: "Maison" },
+              { value: "bureau", label: "Bureau/Commerce" },
+              { value: "entrepot", label: "Entrepôt/Local" },
+              { value: "autre", label: "Autre" }
+            ]
+          },
+          {
+            name: "surface",
+            type: "number",
+            label: "Surface approximative (m²)",
+            required: true,
+            validation: {
+              min: 1,
+              max: 1000,
+              custom: (value: any) => {
+                if (!value || value <= 0) return "La surface doit être supérieure à 0";
+                if (value > 1000) return "La surface ne peut pas dépasser 1000 m²";
+                return true;
+              }
+            },
+            componentProps: {
+              min: 1,
+              max: 1000,
+              placeholder: "Ex: 80"
+            }
+          },
+          {
+            name: "nombrePieces",
+            type: "number",
+            label: "Nombre de pièces",
+            required: true,
+            validation: {
+              min: 1,
+              max: 20,
+              custom: (value: any) => {
+                if (!value || value <= 0) return "Le nombre de pièces doit être supérieur à 0";
+                if (value > 20) return "Le nombre de pièces ne peut pas dépasser 20";
+                return true;
+              }
+            },
+            componentProps: {
+              min: 1,
+              max: 20,
+              placeholder: "Ex: 4"
+            }
+          },
+          {
+            name: "volumeEstime",
+            type: "select",
+            label: "Volume estimé",
+            required: true,
+            options: [
+              { value: "petit", label: "Petit (< 20m³)" },
+              { value: "moyen", label: "Moyen (20-50m³)" },
+              { value: "grand", label: "Grand (50-100m³)" },
+              { value: "tres-grand", label: "Très grand (> 100m³)" }
+            ]
+          }
+        ]
+      },
+      
       {
         title: "🗺️ Adresses",
         columns: 2,
@@ -289,7 +362,7 @@ export const getDemenagementSurMesureServiceConfig = (serviceOrOptions: Catalogu
             className: "pickup-field",
             componentProps: {
               type: "pickup",
-              buttonLabel: "🎯Contraintes & Spécificités",
+              buttonLabel: "Contraintes & Spécificités",
               modalTitle: "Contraintes d'accès & Services Supplémentaires - Départ",
               showServices: true,
               serviceType: ServiceType.MOVING
@@ -365,7 +438,7 @@ export const getDemenagementSurMesureServiceConfig = (serviceOrOptions: Catalogu
             className: "delivery-field",
             componentProps: {
               type: "delivery",
-              buttonLabel: "🎯Contraintes & Spécificités",
+              buttonLabel: "Contraintes & Spécificités",
               modalTitle: "Contraintes d'accès & Services Supplémentaires - Arrivée",
               showServices: true,
               serviceType: ServiceType.MOVING
@@ -373,78 +446,23 @@ export const getDemenagementSurMesureServiceConfig = (serviceOrOptions: Catalogu
           }
         ]
       },
+
       {
-        title: "🏠 Informations générales",
-        columns: 2,
+        title: "📝 Informations supplémentaires",
         fields: [
           {
-            name: "typeDemenagement",
-            type: "select",
-            label: "Type de déménagement",
-            required: true,
-            options: [
-              { value: "appartement", label: "Appartement" },
-              { value: "maison", label: "Maison" },
-              { value: "bureau", label: "Bureau/Commerce" },
-              { value: "entrepot", label: "Entrepôt/Local" },
-              { value: "autre", label: "Autre" }
-            ]
-          },
-          {
-            name: "surface",
-            type: "number",
-            label: "Surface approximative (m²)",
-            required: true,
-            validation: {
-              min: 1,
-              max: 1000,
-              custom: (value: any) => {
-                if (!value || value <= 0) return "La surface doit être supérieure à 0";
-                if (value > 1000) return "La surface ne peut pas dépasser 1000 m²";
-                return true;
-              }
-            },
+            name: "additionalInfo",
+            type: "textarea",
+            label: "votre message",
+            columnSpan: 2,
             componentProps: {
-              min: 1,
-              max: 1000,
-              placeholder: "Ex: 80"
+              rows: 3,
+              placeholder: "Précisez vos besoins spécifiques, vos coordonnées et détaillez les contraintes sélectionnées si nécessaire"
             }
-          },
-          {
-            name: "nombrePieces",
-            type: "number",
-            label: "Nombre de pièces",
-            required: true,
-            validation: {
-              min: 1,
-              max: 20,
-              custom: (value: any) => {
-                if (!value || value <= 0) return "Le nombre de pièces doit être supérieur à 0";
-                if (value > 20) return "Le nombre de pièces ne peut pas dépasser 20";
-                return true;
-              }
-            },
-            componentProps: {
-              min: 1,
-              max: 20,
-              placeholder: "Ex: 4"
-            }
-          },
-          {
-            name: "volumeEstime",
-            type: "select",
-            label: "Volume estimé",
-            required: true,
-            options: [
-              { value: "petit", label: "Petit (< 20m³)" },
-              { value: "moyen", label: "Moyen (20-50m³)" },
-              { value: "grand", label: "Grand (50-100m³)" },
-              { value: "tres-grand", label: "Très grand (> 100m³)" }
-            ]
           }
         ]
       },
-      
+
       {
         title: "📱 Notifications",
         fields: [

@@ -21,20 +21,46 @@ export const donneesReservationTest = {
     informationsSupplementaires: 'Appartement au 3ème étage sans ascenseur'
   },
 
-  // Service de déménagement
+  // Service de déménagement avec contraintes réalistes de la BDD
   demenagement: {
     typeService: 'demenagement',
     datePrevue: '2024-02-20',
     horaire: 'matin-6h',
-    adresseDepart: '123 Rue de la Paix, Paris 75001',
-    adresseArrivee: '456 Avenue des Champs, Paris 75008',
-    volume: 25,
-    distance: 5.2,
-    etageDepart: 2,
-    etageArrivee: 1,
-    ascenseurDepart: false,
-    ascenseurArrivee: true,
-    prix: 350,
+    adresseDepart: '45 Rue Étroite, Vieil Immeuble, 75003 Paris',
+    adresseArrivee: '28 Impasse Difficile, Centre-Ville, 69001 Lyon',
+    volume: 45,
+    distance: 465.3,
+    etageDepart: 4,
+    etageArrivee: 6,
+    ascenseurDepart: false, // Escaliers au départ
+    ascenseurArrivee: false, // Escaliers à l'arrivée
+    distancePortageDepart: 35.0, // Longue distance au départ
+    distancePortageArrivee: 40.0, // Longue distance à l'arrivée
+    prix: 2250,
+    // Contraintes GLOBAL (appliquées une fois sur tout le service)
+    contraintesGlobales: {
+      'd85f44a1-3f5f-4e28-883c-778000a2e23e': true, // Circulation complexe (+6.5%)
+      '76d5aa58-d9ad-45c8-8c72-6a03d178d15d': true  // Stationnement difficile (+7.5%)
+    },
+    // Contraintes PICKUP (spécifiques au départ)
+    contraintesDepart: {
+      'b2b8f00b-00a2-456c-ad06-1150d25d71a3': true, // Couloirs étroits (+6.5%)
+      '55ea42b9-aed0-465c-8e5f-ee82a7bb8c85': true, // Ascenseur trop petit (+7.5%)
+      '40acdd70-5c1f-4936-a53c-8f52e6695a4c': true  // Escaliers étroits (+8.5%)
+    },
+    // Services PICKUP (auto-détection)
+    servicesDepart: {
+      '5cdd32e3-23d5-413e-a9b4-26a746066ce0': true  // Monte-meuble requis départ (+150€)
+    },
+    // Contraintes DELIVERY (spécifiques à l'arrivée)
+    contraintesArrivee: {
+      'ca6cb6e5-9f5a-4d50-8200-d78d9dedd901': true  // Longue distance portage (+9.5%)
+      // Note: Ajouter d'autres contraintes DELIVERY réelles de votre BDD ici
+    },
+    // Services DELIVERY
+    servicesArrivee: {
+      '5cdd32e3-23d5-413e-a9b4-26a746066ce0': true  // Monte-meuble requis arrivée (+150€)
+    },
     options: ['emballage', 'montage-meubles']
   },
 
@@ -184,7 +210,7 @@ export const donneesPerformanceTest = {
   }
 };
 
-// Données de test pour les webhooks Stripe
+// Données de test pour les webhooks Stripe (basées sur le flux actuel)
 export const donneesWebhookStripeTest = {
   paiementReussi: {
     type: 'payment_intent.succeeded',
@@ -195,8 +221,13 @@ export const donneesWebhookStripeTest = {
         currency: 'eur',
         status: 'succeeded',
         metadata: {
-          bookingId: 'booking_123',
-          customerId: 'customer_456'
+          temporaryId: 'temp_123456789',
+          customerFirstName: 'Jean',
+          customerLastName: 'Dupont',
+          customerEmail: 'jean.dupont@email.com',
+          customerPhone: '+33123456789',
+          quoteType: 'CLEANING',
+          amount: '120.00'
         }
       }
     }
@@ -213,31 +244,78 @@ export const donneesWebhookStripeTest = {
         last_payment_error: {
           code: 'card_declined',
           message: 'Your card was declined.'
+        },
+        metadata: {
+          temporaryId: 'temp_987654321',
+          customerFirstName: 'Jean',
+          customerLastName: 'Dupont',
+          customerEmail: 'jean.dupont@email.com',
+          customerPhone: '+33123456789',
+          quoteType: 'CLEANING',
+          amount: '120.00'
+        }
+      }
+    }
+  },
+
+  checkoutCompleted: {
+    type: 'checkout.session.completed',
+    data: {
+      object: {
+        id: 'cs_test_123456789',
+        payment_status: 'paid',
+        amount_total: 12000,
+        currency: 'eur',
+        metadata: {
+          temporaryId: 'temp_123456789',
+          customerFirstName: 'Jean',
+          customerLastName: 'Dupont',
+          customerEmail: 'jean.dupont@email.com',
+          customerPhone: '+33123456789',
+          quoteType: 'CLEANING',
+          amount: '120.00'
         }
       }
     }
   }
 };
 
-// Données de test pour les états de réservation
+// Données de test pour les états de réservation (basées sur le schéma Prisma)
 export const donneesEtatReservationTest = {
   etapes: [
     'DRAFT',
     'CONFIRMED', 
     'AWAITING_PAYMENT',
     'PAYMENT_PROCESSING',
+    'PAYMENT_FAILED',
     'PAYMENT_COMPLETED',
+    'CANCELED',
     'COMPLETED'
   ],
 
   transitions: {
-    'DRAFT': ['CONFIRMED,
+    'DRAFT': ['CONFIRMED'],
     'CONFIRMED': ['AWAITING_PAYMENT'],
     'AWAITING_PAYMENT': ['PAYMENT_PROCESSING', 'CANCELED'],
     'PAYMENT_PROCESSING': ['PAYMENT_COMPLETED', 'PAYMENT_FAILED'],
     'PAYMENT_COMPLETED': ['COMPLETED'],
     'PAYMENT_FAILED': ['AWAITING_PAYMENT', 'CANCELED']
-  }
+  },
+
+  // Types de réservation selon le schéma
+  typesReservation: [
+    'MOVING_QUOTE',
+    'PACKING', 
+    'SERVICE'
+  ],
+
+  // Statuts de transaction
+  statutsTransaction: [
+    'PENDING',
+    'COMPLETED',
+    'FAILED',
+    'REFUNDED'
+  ]
 };
 
 // Données de test pour les attributions professionnelles
@@ -296,7 +374,221 @@ export const generateurDonneesTest = {
     date.setDate(date.getDate() + jours);
     return date.toISOString().split('T')[0];
   },
-  prix: (min = 50, max = 500) => Math.floor(Math.random() * (max - min + 1)) + min
+  prix: (min = 50, max = 500) => Math.floor(Math.random() * (max - min + 1)) + min,
+  
+  // Générateurs spécifiques au schéma Prisma
+  uuid: () => `test-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`,
+  temporaryId: () => `temp_${Math.random().toString(36).substr(2, 9)}`,
+  paymentIntentId: () => `pi_test_${Math.random().toString(36).substr(2, 9)}`,
+  bookingId: () => `booking_${Math.random().toString(36).substr(2, 9)}`,
+  customerId: () => `customer_${Math.random().toString(36).substr(2, 9)}`,
+  
+  // Données de test pour les modèles Prisma
+  customer: () => ({
+    id: generateurDonneesTest.customerId(),
+    email: generateurDonneesTest.email(),
+    firstName: 'Test',
+    lastName: 'User',
+    phone: generateurDonneesTest.telephone(),
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }),
+  
+  quoteRequest: () => ({
+    id: generateurDonneesTest.uuid(),
+    type: 'CLEANING',
+    status: 'PENDING',
+    quoteData: { surface: 50, duration: 2 },
+    temporaryId: generateurDonneesTest.temporaryId(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
+    catalogSelectionId: generateurDonneesTest.uuid()
+  }),
+  
+  booking: () => ({
+    id: generateurDonneesTest.bookingId(),
+    type: 'SERVICE',
+    status: 'DRAFT',
+    customerId: generateurDonneesTest.customerId(),
+    totalAmount: 120.0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    quoteRequestId: generateurDonneesTest.uuid()
+  }),
+  
+  transaction: () => ({
+    id: generateurDonneesTest.uuid(),
+    bookingId: generateurDonneesTest.bookingId(),
+    amount: 120.0,
+    currency: 'EUR',
+    status: 'PENDING',
+    paymentIntentId: generateurDonneesTest.paymentIntentId(),
+    createdAt: new Date(),
+    updatedAt: new Date()
+  })
+};
+
+// 🎯 **DONNÉES DE TEST SCOPES (GLOBAL, PICKUP, DELIVERY, BOTH)**
+// Basées sur les règles réelles de la base de données
+export const donneesTestScopes = {
+  // Scénario 1: Uniquement GLOBAL (appliqué une seule fois)
+  globalUniquement: {
+    volume: 35,
+    distance: 15.8,
+    adresseDepart: '45 Rue des Vieux Quartiers, 75003 Paris',
+    adresseArrivee: '12 Impasse du Château, 92100 Boulogne',
+    etageDepart: 1,
+    etageArrivee: 1,
+    ascenseurDepart: true,
+    ascenseurArrivee: true,
+    contraintesGlobales: {
+      'd85f44a1-3f5f-4e28-883c-778000a2e23e': true, // Circulation complexe (GLOBAL, +6.5%)
+      '76d5aa58-d9ad-45c8-8c72-6a03d178d15d': true  // Stationnement difficile (GLOBAL, +7.5%)
+    },
+    scopeExplanation: 'Ces règles GLOBAL affectent l\'ensemble du service (une seule fois)'
+  },
+
+  // Scénario 2: Uniquement PICKUP
+  pickupUniquement: {
+    volume: 45,
+    distance: 15.8,
+    adresseDepart: '45 Rue Étroite, Vieil Immeuble, 75003 Paris', // Contraintes au DÉPART
+    adresseArrivee: '12 Avenue Large, Immeuble Moderne, 92100 Boulogne', // Pas de contraintes
+    etageDepart: 5,
+    etageArrivee: 1,
+    ascenseurDepart: true, // Mais trop petit
+    ascenseurArrivee: true, // Normal
+    distancePortageDepart: 35.0,
+    distancePortageArrivee: 5.0,
+    contraintesDepart: {
+      'b2b8f00b-00a2-456c-ad06-1150d25d71a3': true, // Couloirs étroits (PICKUP, +6.5%)
+      '55ea42b9-aed0-465c-8e5f-ee82a7bb8c85': true, // Ascenseur trop petit (PICKUP, +7.5%)
+      '40acdd70-5c1f-4936-a53c-8f52e6695a4c': true  // Escaliers étroits (PICKUP, +8.5%)
+    },
+    servicesDepart: {
+      '5cdd32e3-23d5-413e-a9b4-26a746066ce0': true  // Monte-meuble départ (PICKUP, +150€)
+    },
+    scopeExplanation: 'Ces règles PICKUP ne s\'appliquent qu\'à l\'adresse de départ'
+  },
+
+  // Scénario 3: Uniquement DELIVERY
+  deliveryUniquement: {
+    volume: 50,
+    distance: 465.3,
+    adresseDepart: '10 Boulevard Facile, Rez-de-chaussée, 75001 Paris', // Pas de contraintes
+    adresseArrivee: '28 Impasse Difficile, Vieil Immeuble, 69001 Lyon', // Contraintes ARRIVÉE
+    etageDepart: 0,
+    etageArrivee: 6,
+    ascenseurDepart: true,
+    ascenseurArrivee: false,
+    distancePortageDepart: 5.0,
+    distancePortageArrivee: 40.0,
+    contraintesArrivee: {
+      'ca6cb6e5-9f5a-4d50-8200-d78d9dedd901': true  // Longue distance portage (DELIVERY, +9.5%)
+      // Note: Ajouter d'autres contraintes DELIVERY réelles de votre BDD ici
+    },
+    servicesArrivee: {
+      '5cdd32e3-23d5-413e-a9b4-26a746066ce0': true  // Monte-meuble arrivée (DELIVERY, +150€)
+    },
+    scopeExplanation: 'Ces règles DELIVERY ne s\'appliquent qu\'à l\'adresse d\'arrivée'
+  },
+
+  // Scénario 4: Règles BOTH (appliquées indépendamment à chaque adresse)
+  bothScopes: {
+    volume: 40,
+    distance: 465.3,
+    adresseDepart: '15 Rue des Marches, Vieux Quartier, 75011 Paris', // Multi-niveaux + escaliers
+    adresseArrivee: '8 Impasse du Parking, Centre-Ville, 69002 Lyon', // Multi-niveaux + parking
+    etageDepart: 4,
+    etageArrivee: 3,
+    ascenseurDepart: false,
+    ascenseurArrivee: false,
+    distancePortageDepart: 25.0,
+    distancePortageArrivee: 30.0,
+    // Règles BOTH au départ
+    contraintesBothDepart: {
+      '293dc311-6f22-42d8-8b31-b322c0e888f9': true  // Accès multi-niveaux (BOTH, +9.5%)
+      // Note: Ajouter d'autres règles BOTH réelles de votre BDD ici
+    },
+    // Règles BOTH à l'arrivée
+    contraintesBothArrivee: {
+      '293dc311-6f22-42d8-8b31-b322c0e888f9': true  // Accès multi-niveaux (BOTH, +9.5%) - même règle, appliquée 2x
+      // Note: Ajouter d'autres règles BOTH réelles de votre BDD ici
+    },
+    scopeExplanation: 'Les règles BOTH peuvent s\'appliquer aux DEUX adresses indépendamment. Si condition match aux deux → appliqué 2 fois.'
+  },
+
+  // Scénario 5: Mixte (GLOBAL + PICKUP + DELIVERY + BOTH)
+  scenarioComplet: {
+    volume: 50,
+    distance: 465.3,
+    adresseDepart: '45 Rue Difficile, Vieux Quartier, 75003 Paris',
+    adresseArrivee: '28 Impasse Complexe, Centre-Ville, 69001 Lyon',
+    etageDepart: 5,
+    etageArrivee: 6,
+    ascenseurDepart: false,
+    ascenseurArrivee: false,
+    distancePortageDepart: 35.0,
+    distancePortageArrivee: 40.0,
+    // GLOBAL (appliqué 1x)
+    contraintesGlobales: {
+      'd85f44a1-3f5f-4e28-883c-778000a2e23e': true, // Circulation complexe (GLOBAL, +6.5%)
+      '76d5aa58-d9ad-45c8-8c72-6a03d178d15d': true  // Stationnement difficile (GLOBAL, +7.5%)
+    },
+    // PICKUP
+    contraintesDepart: {
+      'b2b8f00b-00a2-456c-ad06-1150d25d71a3': true, // Couloirs étroits (PICKUP, +6.5%)
+      '40acdd70-5c1f-4936-a53c-8f52e6695a4c': true  // Escaliers étroits (PICKUP, +8.5%)
+    },
+    servicesDepart: {
+      '5cdd32e3-23d5-413e-a9b4-26a746066ce0': true  // Monte-meuble départ (PICKUP, +150€)
+    },
+    // DELIVERY
+    contraintesArrivee: {
+      'ca6cb6e5-9f5a-4d50-8200-d78d9dedd901': true  // Longue distance portage (DELIVERY, +9.5%)
+      // Note: Ajouter d'autres contraintes DELIVERY réelles de votre BDD ici
+    },
+    servicesArrivee: {
+      '5cdd32e3-23d5-413e-a9b4-26a746066ce0': true  // Monte-meuble arrivée (DELIVERY, +150€)
+    },
+    // BOTH (appliqué aux 2 adresses)
+    contraintesBothDepart: {
+      '293dc311-6f22-42d8-8b31-b322c0e888f9': true  // Accès multi-niveaux (BOTH, +9.5%)
+    },
+    contraintesBothArrivee: {
+      '293dc311-6f22-42d8-8b31-b322c0e888f9': true  // Accès multi-niveaux (BOTH, +9.5%)
+    },
+    scopeExplanation: 'Scénario complet avec tous les scopes: GLOBAL (1x) + PICKUP + DELIVERY + BOTH (2x)'
+  }
+};
+
+// UUIDs réels des règles de la base de données (pour référence)
+export const reglesBDDUUIDs = {
+  // Règles GLOBAL
+  circulationComplexe: 'd85f44a1-3f5f-4e28-883c-778000a2e23e',
+  stationnementDifficile: '76d5aa58-d9ad-45c8-8c72-6a03d178d15d',
+
+  // Règles PICKUP
+  couloirsEtroits: 'b2b8f00b-00a2-456c-ad06-1150d25d71a3',
+  ascenseurTropPetit: '55ea42b9-aed0-465c-8e5f-ee82a7bb8c85',
+  escaliersEtroits: '40acdd70-5c1f-4936-a53c-8f52e6695a4c',
+  monteMeubleDepart: '5cdd32e3-23d5-413e-a9b4-26a746066ce0',
+
+  // Règles DELIVERY
+  longueDistancePortage: 'ca6cb6e5-9f5a-4d50-8200-d78d9dedd901',
+  // Note: Les UUIDs ci-dessous sont des exemples. Remplacer par les vrais UUIDs de votre BDD
+  accesEtroitArrivee: 'EXAMPLE-UUID-DELIVERY-ACCESS', // À remplacer par UUID réel
+  monteMeubleArrivee: '5cdd32e3-23d5-413e-a9b4-26a746066ce0',
+
+  // Règles BOTH
+  accesMultiNiveaux: '293dc311-6f22-42d8-8b31-b322c0e888f9',
+  // Note: Les UUIDs ci-dessous sont des exemples. Remplacer par les vrais UUIDs de votre BDD
+  escaliersSansAscenseur: 'EXAMPLE-UUID-BOTH-STAIRS', // À remplacer par UUID réel
+  parkingRestreint: 'EXAMPLE-UUID-BOTH-PARKING', // À remplacer par UUID réel
+
+  // Règle service (MOVING)
+  objetsFragiles: '352eabed-8869-460f-b7f0-99237b003cc1'
 };
 
 // Configuration des environnements de test
@@ -305,13 +597,13 @@ export const configurationTest = {
     url: process.env.DATABASE_URL_TEST || 'postgresql://test:test@localhost:5432/test',
     isolation: true
   },
-  
+
   stripe: {
     clePublique: process.env.STRIPE_PUBLISHABLE_KEY_TEST,
     cleSecrete: process.env.STRIPE_SECRET_KEY_TEST,
     secretWebhook: process.env.STRIPE_WEBHOOK_SECRET_TEST
   },
-  
+
   notifications: {
     email: {
       active: false,
@@ -326,7 +618,7 @@ export const configurationTest = {
       simulation: true
     }
   },
-  
+
   performance: {
     timeout: 30000, // 30 secondes
     retry: 3,

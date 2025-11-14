@@ -63,7 +63,7 @@ export class DefaultValues {
   static readonly HOURS_PER_DAY = 7; // Heures de travail par jour
 
   // Professionnels
-  static readonly PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM = 150;
+  static readonly PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM = 100;
 
   // Qualité & Sécurité
   static readonly QUALITY_GUARANTEE_DAYS = 30;

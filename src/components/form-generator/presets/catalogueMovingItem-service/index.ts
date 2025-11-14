@@ -258,7 +258,7 @@ export const getCatalogueMovingItemConfig = (packOrOptions: CatalogueMovingItem 
             className: "pickup-field",
             componentProps: {
               type: "pickup",
-              buttonLabel: "🎯 Contraintes & Spécificités",
+              buttonLabel: "Contraintes & Spécificités",
               modalTitle: "Contraintes d'accès & Services Supplémentaires - Départ",
               showServices: true,
               serviceType: ServiceType.MOVING // 🔧 CORRECTION: Spécifier le type de service (PACKING pour déménagement catalogue)
@@ -334,7 +334,7 @@ export const getCatalogueMovingItemConfig = (packOrOptions: CatalogueMovingItem 
             className: "delivery-field",
             componentProps: {
               type: "delivery",
-              buttonLabel: "🎯 Contraintes & Spécificités",
+              buttonLabel: "Contraintes & Spécificités",
               modalTitle: "Contraintes d'accès & Services Supplémentaires - Arrivée",
               showServices: true,
               serviceType: ServiceType.MOVING // 🔧 CORRECTION: Spécifier le type de service (PACKING pour déménagement catalogue)
@@ -347,22 +347,9 @@ export const getCatalogueMovingItemConfig = (packOrOptions: CatalogueMovingItem 
         columns: 2,
         fields: [
           {
-            name: "duration",
-            type: "number",
-            label: "Durée (en Heures)",
-            required: true,
-            validation: {
-              min: pack.duration,
-              custom: (value: any) => value >= pack.duration || `Minimum ${pack.duration} jour${pack.duration > 1 ? 's' : ''}`
-            },
-            componentProps: {
-              helpText: `Minimum ${pack.duration} jour${pack.duration > 1 ? 's' : ''} pour ce pack`
-            }
-          },
-          {
             name: "workers", 
             type: "number",
-            label: "Nombre de professionnels",
+            label: "Nombre de déménageurs",
             required: true,
             validation: {
               min: pack.workers,
@@ -371,7 +358,22 @@ export const getCatalogueMovingItemConfig = (packOrOptions: CatalogueMovingItem 
             componentProps: {
               helpText: `Minimum ${pack.workers} travailleur${pack.workers > 1 ? 's' : ''} pour ce pack`
             }
+          },
+
+          {
+            name: "duration",
+            type: "number",
+            label: "Durée/déménageur (en Heures)",
+            required: true,
+            validation: {
+              min: pack.duration,
+              custom: (value: any) => value >= pack.duration || `Minimum ${pack.duration} jour${pack.duration > 1 ? 's' : ''}`
+            },
+            componentProps: {
+              helpText: `Minimum ${pack.duration} jour${pack.duration > 1 ? 's' : ''} pour ce pack`
+            }
           }
+
         ]
       },
       {

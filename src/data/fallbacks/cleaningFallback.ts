@@ -5,7 +5,7 @@ import { ServiceType, RuleType, RuleCategory } from '@prisma/client';
  * FALLBACK CLEANING - Données générées automatiquement
  * ============================================================================
  *
- * 🤖 GÉNÉRÉ AUTOMATIQUEMENT le 2025-10-20
+ * 🤖 GÉNÉRÉ AUTOMATIQUEMENT le 2025-10-29
  * ⚠️  NE PAS MODIFIER MANUELLEMENT
  *
  * Ce fichier est généré via: npm run generate:fallbacks
@@ -31,6 +31,7 @@ export interface Constraint {
   validTo?: Date | null;
   tags: string[];
   configKey?: string;
+  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH'; // ✅ NOUVEAU: Support du champ scope
   metadata?: {
     source?: string;
     impact?: string;
@@ -69,6 +70,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+6%",
       source: "realistic_seed_2025",
@@ -101,6 +103,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+5.5%",
       source: "realistic_seed_2025",
@@ -133,6 +136,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+6.5%",
       source: "realistic_seed_2025",
@@ -165,6 +169,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+6%",
       source: "realistic_seed_2025",
@@ -197,6 +202,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+6.5%",
       source: "realistic_seed_2025",
@@ -229,6 +235,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+9.8%",
       source: "realistic_seed_2025",
@@ -261,6 +268,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+9.5%",
       source: "realistic_seed_2025",
@@ -293,6 +301,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+7%",
       source: "realistic_seed_2025",
@@ -325,6 +334,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+7%",
       source: "realistic_seed_2025",
@@ -357,6 +367,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "GLOBAL",
     metadata: {
       impact: "+7.5%",
       source: "realistic_seed_2025",
@@ -389,6 +400,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "PICKUP",
     metadata: {
       impact: "+7%",
       source: "realistic_seed_2025",
@@ -421,6 +433,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+9%",
       source: "realistic_seed_2025",
@@ -453,6 +466,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+8.5%",
       source: "realistic_seed_2025",
@@ -485,6 +499,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+9.5%",
       source: "realistic_seed_2025",
@@ -517,6 +532,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+5.5%",
       source: "realistic_seed_2025",
@@ -549,6 +565,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+10%",
       source: "realistic_seed_2025",
@@ -581,6 +598,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+6%",
       source: "realistic_seed_2025",
@@ -613,6 +631,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+7.5%",
       source: "realistic_seed_2025",
@@ -645,6 +664,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+8.5%",
       source: "realistic_seed_2025",
@@ -677,6 +697,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+9%",
       source: "realistic_seed_2025",
@@ -709,6 +730,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+7.5%",
       source: "realistic_seed_2025",
@@ -741,6 +763,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+8.5%",
       source: "realistic_seed_2025",
@@ -773,6 +796,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+10%",
       source: "realistic_seed_2025",
@@ -805,6 +829,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "GLOBAL",
     metadata: {
       impact: "+5.5%",
       source: "realistic_seed_2025",
@@ -837,6 +862,7 @@ export const cleaningConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+9.8%",
       source: "realistic_seed_2025",
@@ -876,6 +902,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+70€",
       source: "realistic_seed_2025",
@@ -908,6 +935,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+35€",
       source: "realistic_seed_2025",
@@ -940,6 +968,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+40€",
       source: "realistic_seed_2025",
@@ -972,6 +1001,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+15€",
       source: "realistic_seed_2025",
@@ -1004,6 +1034,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+80€",
       source: "realistic_seed_2025",
@@ -1036,6 +1067,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+25€",
       source: "realistic_seed_2025",
@@ -1068,6 +1100,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+50€",
       source: "realistic_seed_2025",
@@ -1100,6 +1133,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+60€",
       source: "realistic_seed_2025",
@@ -1132,6 +1166,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+40€",
       source: "realistic_seed_2025",
@@ -1164,6 +1199,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+30€",
       source: "realistic_seed_2025",
@@ -1196,6 +1232,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+60€",
       source: "realistic_seed_2025",
@@ -1228,6 +1265,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+20€",
       source: "realistic_seed_2025",
@@ -1260,6 +1298,7 @@ export const cleaningServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+45€",
       source: "realistic_seed_2025",

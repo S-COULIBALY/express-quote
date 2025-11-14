@@ -48,6 +48,7 @@ interface GeneratedRule {
   validTo?: Date | null;
   tags: string[];
   configKey?: string;
+  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH'; // ✅ NOUVEAU: Support du champ scope
   metadata?: {
     source?: string;
     impact?: string;
@@ -146,6 +147,7 @@ function transformToFallback(
       validTo: rule.validTo ? new Date(rule.validTo) : null,
       tags: rule.tags || [],
       configKey: rule.configKey || undefined,
+      scope: rule.scope || 'BOTH', // ✅ NOUVEAU: Inclure le champ scope
       metadata: rule.metadata || {}
     };
 
@@ -249,6 +251,7 @@ export interface Constraint {
   validTo?: Date | null;
   tags: string[];
   configKey?: string;
+  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH'; // ✅ NOUVEAU: Support du champ scope
   metadata?: {
     source?: string;
     impact?: string;

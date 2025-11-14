@@ -8,6 +8,7 @@ import { ServiceType } from "../../domain/enums/ServiceType";
 import { ConfigurationService } from "../services/ConfigurationService";
 import { RuleEngine } from "../../domain/services/RuleEngine";
 import { calculationDebugLogger } from "../../../lib/calculation-debug-logger";
+import { logger } from "../../../lib/logger";
 import {
   UnifiedDataService,
   ServiceType as UnifiedServiceType,
@@ -76,6 +77,9 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     const data = context.getAllData();
     const serviceType = context.getServiceType();
 
+    // Log de début
+    devLog.debug('PackingStrategy', `🎯 Calcul ${serviceType}`);
+
     calculationDebugLogger.startPriceCalculation(this.serviceType, data);
 
     try {
@@ -117,7 +121,7 @@ export class PackingQuoteStrategy implements QuoteStrategy {
       const { baseTotal, details: baseDetails } =
         await this.calculateBasePriceOnly(context);
 
-      // Utiliser la méthode centralisée pour le calcul avec règles métier
+      // Utiliser la méthode centralisée pour le calcul avec règles métier (startRulesEngine appelé dans RuleEngine.execute)
       const {
         total,
         details: ruleDetails,
@@ -140,6 +144,8 @@ export class PackingQuoteStrategy implements QuoteStrategy {
         Date.now() - startTime,
       );
 
+      calculationDebugLogger.finishRulesEngine({ finalPrice: finalQuote.getTotalPrice().getAmount(), appliedRules: discounts });
+
       return finalQuote;
     } catch (error) {
       calculationDebugLogger.logCalculationError(
@@ -148,6 +154,9 @@ export class PackingQuoteStrategy implements QuoteStrategy {
         data,
       );
       throw error;
+    } finally {
+      // Log de fin
+      devLog.debug('PackingStrategy', `✅ Calcul terminé en ${Date.now() - startTime}ms`);
     }
   }
 
@@ -230,6 +239,13 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     // ✅ AMÉLIORATION: Détails volume
     devLog.debug('Strategy', "\n📏 [PACKING-STRATEGY] ─── Calcul Volume d'emballage ───");
     const volumeCost = volume * volumeRate;
+    calculationDebugLogger.logPriceComponent(
+      'Volume d\'emballage',
+      volumeCost,
+      `${volume}m³ × ${volumeRate.toFixed(2)}€`,
+      { volumeRate },
+      'volume * volumeRate'
+    );
     if (volume > 0) {
       devLog.debug('Strategy', `   📦 Volume à emballer: ${volume}m³`);
       devLog.debug('Strategy', `   💶 Tarif par m³: ${volumeRate.toFixed(2)}€/m³`);
@@ -246,6 +262,13 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     // ✅ AMÉLIORATION: Détails matériel
     devLog.debug('Strategy', "\n📦 [PACKING-STRATEGY] ─── Calcul Matériel d'emballage ───");
     const materialCost = volume * materialCostRate;
+    calculationDebugLogger.logPriceComponent(
+      'Matériel d\'emballage',
+      materialCost,
+      `${volume}m³ × ${materialCostRate.toFixed(2)}€`,
+      { materialCostRate },
+      'volume * materialCostRate'
+    );
     if (volume > 0) {
       devLog.debug('Strategy', `   📦 Volume nécessitant du matériel: ${volume}m³`);
       devLog.debug('Strategy', 
@@ -264,6 +287,13 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     // ✅ AMÉLIORATION: Détails main d'œuvre
     devLog.debug('Strategy', "\n👥 [PACKING-STRATEGY] ─── Calcul Main d'œuvre ───");
     const laborCost = workers * duration * laborRate;
+    calculationDebugLogger.logPriceComponent(
+      'Main d\'œuvre',
+      laborCost,
+      `${workers} × ${duration}h × ${laborRate.toFixed(2)}€`,
+      { workers, duration, laborRate },
+      'workers * duration * laborRate'
+    );
     devLog.debug('Strategy', `   👤 Nombre de travailleurs: ${workers}`);
     devLog.debug('Strategy', `   🕐 Durée de la prestation: ${duration}h`);
     devLog.debug('Strategy', `   💶 Taux horaire: ${laborRate.toFixed(2)}€/h`);
@@ -284,6 +314,13 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     details.push({ label: `${freeDistanceKm} km inclus (offerts)`, amount: 0 });
 
     const distanceCost = chargeableKm * distanceRate;
+    calculationDebugLogger.logPriceComponent(
+      'Distance',
+      distanceCost,
+      `${chargeableKm}km × ${distanceRate.toFixed(2)}€`,
+      { chargeableKm, distanceRate, freeDistanceKm },
+      '(distance - freeDistanceKm) * distanceRate'
+    );
     if (chargeableKm > 0) {
       devLog.debug('Strategy', 
         `   💶 Tarif par km supplémentaire: ${distanceRate.toFixed(2)}€/km`,
@@ -321,9 +358,12 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     baseTotal = promotionResult.finalPrice;
     details.push(...promotionResult.details);
 
-    devLog.debug('Strategy', 
-      `\n💰 [PACKING-STRATEGY] ═══ PRIX DE BASE FINAL (après promotions): ${baseTotal.toFixed(2)}€ ═══`,
-    );
+    calculationDebugLogger.logBasePriceCalculation(context.getServiceType(), {
+      volumeCost,
+      materialCost,
+      laborCost,
+      distanceCost
+    }, baseTotal);
     devLog.debug('Strategy', 
       "📦 [PACKING-STRATEGY] ═══════════════════════════════════════════════════\n",
     );
@@ -487,14 +527,18 @@ export class PackingQuoteStrategy implements QuoteStrategy {
         });
       }
 
-      // Surcharges
-      if (ruleResult.surcharges.length > 0) {
-        devLog.debug('Strategy', "\n  📈 SURCHARGES:");
-        ruleResult.surcharges.forEach((rule, index) => {
-          details.push({
-            label: `Surcharge: ${rule.description}`,
-            amount: rule.impact.getAmount(),
-          });
+      // ✅ CORRECTION: Surcharges (contraintes uniquement, pas les services)
+      // Les services additionnels ont leur propre section dédiée plus bas
+      if (ruleResult.constraints.length > 0) {
+        devLog.debug('Strategy', "\n  📈 SURCHARGES (CONTRAINTES):");
+        ruleResult.constraints.forEach((rule, index) => {
+          // Ne pas ajouter les contraintes consommées (déjà facturées dans le monte-meuble)
+          if (!rule.isConsumed) {
+            details.push({
+              label: `Surcharge: ${rule.description}`,
+              amount: rule.impact.getAmount(),
+            });
+          }
           devLog.debug('Strategy', `   ${index + 1}. ${rule.description}`);
           devLog.debug('Strategy', 
             `      └─ Montant: +${rule.impact.getAmount().toFixed(2)}€`,
@@ -502,17 +546,18 @@ export class PackingQuoteStrategy implements QuoteStrategy {
         });
       }
 
-      // Autres catégories si présentes
-      if (ruleResult.constraints.length > 0) {
-        devLog.debug('Strategy', "\n  🚧 CONTRAINTES:");
-        ruleResult.constraints.forEach((rule, index) => {
-          if (!rule.isConsumed) {
-            details.push({
-              label: `Contrainte: ${rule.description}`,
-              amount: rule.impact.getAmount(),
-            });
-          }
+      // Services additionnels
+      if (ruleResult.additionalServices.length > 0) {
+        devLog.debug('Strategy', "\n  ➕ SERVICES ADDITIONNELS:");
+        ruleResult.additionalServices.forEach((rule, index) => {
+          details.push({
+            label: `Service: ${rule.description}`,
+            amount: rule.impact.getAmount(),
+          });
           devLog.debug('Strategy', `   ${index + 1}. ${rule.description}`);
+          devLog.debug('Strategy', 
+            `      └─ Montant: +${rule.impact.getAmount().toFixed(2)}€`,
+          );
         });
       }
 
@@ -538,6 +583,9 @@ export class PackingQuoteStrategy implements QuoteStrategy {
     );
 
     const discounts = (ruleResult as any).discounts || [];
+
+    // ✅ NOUVEAU: Stocker le RuleExecutionResult dans le contexte pour traçabilité
+    context.setValue('__ruleExecutionResult', ruleResult);
 
     return { total: finalTotal, details, discounts };
   }

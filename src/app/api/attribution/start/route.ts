@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       serviceType,
       serviceLatitude: coordinates.latitude,
       serviceLongitude: coordinates.longitude,
-      maxDistanceKm: body.maxDistanceKm || 150,
+      maxDistanceKm: body.maxDistanceKm || 100,
       bookingData: {
         // Données étendues pour le nouveau flux
         bookingId,
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       message: 'Attribution démarrée avec succès',
       details: {
         serviceType,
-        maxDistanceKm: body.maxDistanceKm || 150,
+        maxDistanceKm: body.maxDistanceKm || 100,
         dataType: 'restricted', // Confirme que les données sont restreintes
         notificationMethod: 'payment-confirmation-api'
       }

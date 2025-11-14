@@ -38,19 +38,27 @@ export class PrismaCustomerRepository implements ICustomerRepository {
       } else {
         // Création d'un nouveau client
         const id = customer.getId() || undefined;
+        const now = new Date();
         const createdCustomer = await this.prisma.customer.create({
           data: {
             ...customerData,
-            id
+            id,
+            createdAt: now,
+            updatedAt: now
           }
         });
 
         // Retourne le client avec l'ID généré
+        // Utiliser une valeur par défaut si le téléphone est manquant
+        const phone = createdCustomer.phone && createdCustomer.phone.trim() !== '' 
+          ? createdCustomer.phone 
+          : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
+        
         const newContactInfo = new ContactInfo(
           createdCustomer.firstName,
           createdCustomer.lastName,
           createdCustomer.email,
-          createdCustomer.phone || ''
+          phone
         );
         
         return new Customer(
@@ -77,11 +85,16 @@ export class PrismaCustomerRepository implements ICustomerRepository {
         return null;
       }
 
+      // Utiliser une valeur par défaut si le téléphone est manquant
+      const phone = customer.phone && customer.phone.trim() !== '' 
+        ? customer.phone 
+        : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
+      
       const contactInfo = new ContactInfo(
         customer.firstName,
         customer.lastName,
         customer.email,
-        customer.phone || ''
+        phone
       );
       
       return new Customer(
@@ -107,11 +120,16 @@ export class PrismaCustomerRepository implements ICustomerRepository {
         return null;
       }
 
+      // Utiliser une valeur par défaut si le téléphone est manquant
+      const phone = customer.phone && customer.phone.trim() !== '' 
+        ? customer.phone 
+        : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
+      
       const contactInfo = new ContactInfo(
         customer.firstName,
         customer.lastName,
         customer.email,
-        customer.phone || ''
+        phone
       );
       
       return new Customer(
@@ -134,11 +152,16 @@ export class PrismaCustomerRepository implements ICustomerRepository {
       });
 
       return customers.map(customer => {
+        // Utiliser une valeur par défaut si le téléphone est manquant
+        const phone = customer.phone && customer.phone.trim() !== '' 
+          ? customer.phone 
+          : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
+        
         const contactInfo = new ContactInfo(
           customer.firstName,
           customer.lastName,
           customer.email,
-          customer.phone || ''
+          phone
         );
         
         return new Customer(

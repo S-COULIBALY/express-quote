@@ -9,8 +9,9 @@ export const catalogueCleaningItemDefaultValues = {
   location: '',
   
   // Configuration du service
-  duration: '',
   workers: '',
+  duration: '',
+  
   
   // Spécificités
   serviceConstraints: [],
@@ -185,9 +186,22 @@ export const CatalogueCleaningItemPreset: PresetConfig = {
         title: "⚙️ Configuration du service",
         fields: [
           {
+            name: "workers",
+            type: "select",
+            label: "Nombre de travailleurs",
+            required: true,
+            options: [
+              { value: '1', label: '1 travailleur' },
+              { value: '2', label: '2 travailleurs' },
+              { value: '3', label: '3 travailleurs' },
+              { value: '4', label: '4 travailleurs' }
+            ]
+          },
+
+          {
             name: "duration",
             type: "select",
-            label: "Durée (en heures)",
+            label: "Durée/travailleur (en heures)",
             required: true,
             options: [
               { value: '1', label: '1 heure' },
@@ -198,19 +212,8 @@ export const CatalogueCleaningItemPreset: PresetConfig = {
               { value: '6', label: '6 heures' },
               { value: '8', label: '8 heures' }
             ]
-          },
-          {
-            name: "workers",
-            type: "select",
-            label: "Nombre de professionnels",
-            required: true,
-            options: [
-              { value: '1', label: '1 professionnel' },
-              { value: '2', label: '2 professionnels' },
-              { value: '3', label: '3 professionnels' },
-              { value: '4', label: '4 professionnels' }
-            ]
           }
+
         ]
       },
       {

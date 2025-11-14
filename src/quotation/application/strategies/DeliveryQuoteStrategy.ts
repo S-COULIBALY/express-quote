@@ -8,6 +8,7 @@ import { ServiceType } from "../../domain/enums/ServiceType";
 import { ConfigurationService } from "../services/ConfigurationService";
 import { RuleEngine } from "../../domain/services/RuleEngine";
 import { calculationDebugLogger } from "../../../lib/calculation-debug-logger";
+import { logger } from "../../../lib/logger";
 import {
   UnifiedDataService,
   ServiceType as UnifiedServiceType,
@@ -33,15 +34,16 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
     this.ruleEngine = ruleEngine || new RuleEngine([]);
     this.rules = this.ruleEngine.getRules();
 
-    // ✅ NOUVEAU: Service unifié pour accès aux données
+    // Service unifié pour accès aux données
     this.unifiedDataService = UnifiedDataService.getInstance();
 
-    // ✅ NOUVEAU: Charger les règles métier au démarrage
+    // Charger les règles métier au démarrage
     this.initializeRules();
   }
 
   /**
-   * ✅ NOUVEAU: Initialise les règles métier depuis le système unifié
+   * Initialise les règles métier depuis le système unifié
+   * Charge toutes les règles actives DELIVERY
    */
   private async initializeRules(): Promise<void> {
     try {
@@ -50,20 +52,46 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
           UnifiedServiceType.DELIVERY,
         );
       if (businessRules.length > 0) {
-        devLog.debug('Strategy', 
+        devLog.debug('Strategy',
           `✅ [DELIVERY-STRATEGY] ${businessRules.length} règles métier chargées depuis UnifiedDataService`,
         );
         // Remplacer le RuleEngine avec les nouvelles règles
         this.ruleEngine = new RuleEngine(businessRules);
       } else {
-        devLog.debug('Strategy', 
+        devLog.debug('Strategy',
           "⚠️ [DELIVERY-STRATEGY] Aucune règle métier trouvée, utilisation des règles par défaut",
         );
       }
     } catch (error) {
-      devLog.warn('Strategy', 
+      devLog.warn('Strategy',
         "⚠️ [DELIVERY-STRATEGY] Erreur lors du chargement des règles métier:",
         error,
+      );
+      // Garder le RuleEngine existant en cas d'erreur
+    }
+  }
+
+  /**
+   * Recharge les règles métier depuis le système unifié
+   * Le filtrage se fait automatiquement : seules les règles SÉLECTIONNÉES s'appliquent
+   */
+  private async initializeRulesWithContext(context: QuoteContext): Promise<void> {
+    try {
+      const businessRules =
+        await this.unifiedDataService.getBusinessRulesForEngine(
+          UnifiedServiceType.DELIVERY
+        );
+
+      if (businessRules.length > 0) {
+        devLog.debug('Strategy',
+          `✅ [DELIVERY-STRATEGY] ${businessRules.length} règles métier chargées`
+        );
+        // Remplacer le RuleEngine avec toutes les règles
+        this.ruleEngine = new RuleEngine(businessRules);
+      }
+    } catch (error) {
+      devLog.warn('Strategy',
+        "⚠️ [DELIVERY-STRATEGY] Erreur lors du rechargement des règles métier:", error
       );
       // Garder le RuleEngine existant en cas d'erreur
     }
@@ -76,10 +104,16 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
   async calculate(context: QuoteContext): Promise<Quote> {
     const startTime = Date.now();
     const data = context.getAllData();
+    const serviceType = context.getServiceType();
+
+    // Log de début
+    devLog.debug('DeliveryStrategy', `🎯 Calcul ${serviceType}`);
 
     calculationDebugLogger.startPriceCalculation(this.serviceType, data);
 
     try {
+      // Recharger les règles métier
+      await this.initializeRulesWithContext(context);
       if (!this.hasModifications(context)) {
         const defaultQuote = new Quote(
           new Money(data.defaultPrice || 0),
@@ -98,7 +132,7 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       const enrichedContext = await this.enrichContext(context);
       const basePrice = await this.getBasePrice(enrichedContext);
 
-      // Appliquer les règles métier via le RuleEngine
+      // Appliquer les règles métier via le RuleEngine (startRulesEngine appelé dans RuleEngine.execute)
       const ruleResult = this.ruleEngine.execute(
         enrichedContext,
         new Money(basePrice),
@@ -131,6 +165,9 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
 
       const discounts = (ruleResult as any).discounts || [];
 
+      // ✅ NOUVEAU: Stocker le RuleExecutionResult dans le contexte pour traçabilité
+      context.setValue('__ruleExecutionResult', ruleResult);
+
       const quote = new Quote(
         new Money(basePrice),
         ruleResult.finalPrice,
@@ -138,6 +175,7 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
         this.serviceType,
       );
       calculationDebugLogger.logFinalCalculation(quote, Date.now() - startTime);
+      calculationDebugLogger.finishRulesEngine({ finalPrice: quote.getTotalPrice().getAmount(), appliedRules: discounts });
 
       return quote;
     } catch (error) {
@@ -147,6 +185,9 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
         data,
       );
       throw error;
+    } finally {
+      // Log de fin
+      devLog.debug('DeliveryStrategy', `✅ Calcul terminé en ${Date.now() - startTime}ms`);
     }
   }
 
@@ -183,6 +224,9 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       "DELIVERY_BASE_PRICE",
     );
     let basePrice = Math.max(data.defaultPrice || 0, minimumPrice);
+    if (minimumPrice > (data.defaultPrice || 0)) {
+      calculationDebugLogger.logPriceComponent('Prix minimum', minimumPrice, `max(${data.defaultPrice || 0}€, ${minimumPrice}€)`, { minimumPrice }, 'max(defaultPrice, minimumPrice)');
+    }
 
     if (data.defaultPrice && data.defaultPrice < minimumPrice) {
       devLog.debug('Strategy', 
@@ -206,6 +250,13 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
         "DELIVERY_PRICE_PER_KM",
       );
       distanceCost = distance * pricePerKm;
+      calculationDebugLogger.logPriceComponent(
+        'Distance',
+        distanceCost,
+        `${distance}km × ${pricePerKm.toFixed(2)}€`,
+        { pricePerKm },
+        'distance * pricePerKm'
+      );
       devLog.debug('Strategy', `   🛣️  Distance à parcourir: ${distance}km`);
       devLog.debug('Strategy', `   💶 Tarif par km: ${pricePerKm.toFixed(2)}€/km`);
       devLog.debug('Strategy', 
@@ -227,6 +278,13 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
         "DELIVERY_WEIGHT_SURCHARGE",
       );
       weightCost = weight * weightSurcharge;
+      calculationDebugLogger.logPriceComponent(
+        'Poids',
+        weightCost,
+        `${weight}kg × ${weightSurcharge.toFixed(2)}€`,
+        { weightSurcharge },
+        'weight * weightSurcharge'
+      );
       devLog.debug('Strategy', `   ⚖️  Poids de la livraison: ${weight}kg`);
       devLog.debug('Strategy', `   💶 Supplément par kg: ${weightSurcharge.toFixed(2)}€/kg`);
       devLog.debug('Strategy', 
@@ -243,6 +301,13 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
     let volumeCost = 0;
     if (volume > 0) {
       volumeCost = await this.calculateVolumeCost(volume);
+      calculationDebugLogger.logPriceComponent(
+        'Volume',
+        volumeCost,
+        `${volume}m³ × prix_m3`,
+        { volume },
+        'volume * pricePerM3'
+      );
       const volumePrice = await this.unifiedDataService.getConfigurationValue(
         ConfigurationCategory.PRICING,
         "DELIVERY_VOLUME_PRICE_PER_M3",
@@ -278,6 +343,13 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
         `   └─ Calcul: ${priceBeforeUrgency.toFixed(2)}€ × ${urgencyMultiplier} = ${(priceBeforeUrgency * urgencyMultiplier).toFixed(2)}€`,
       );
       basePrice *= urgencyMultiplier;
+      calculationDebugLogger.logPriceComponent(
+        `Urgence (${urgencyLabel})`,
+        basePrice - priceBeforeUrgency,
+        `${priceBeforeUrgency.toFixed(2)}€ × ${urgencyMultiplier}`,
+        { urgencyMultiplier, urgencyLabel },
+        'priceBeforeUrgency * urgencyMultiplier - priceBeforeUrgency'
+      );
       devLog.debug('Strategy', `   ✅ Sous-total après urgence: ${basePrice.toFixed(2)}€`);
     } else if (urgency === "urgent") {
       urgencyMultiplier = await this.unifiedDataService.getConfigurationValue(
@@ -325,9 +397,13 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       devLog.debug('Strategy', `   📊 Prix final après promotion: ${basePrice.toFixed(2)}€`);
     }
 
-    devLog.debug('Strategy', 
-      `\n💰 [DELIVERY-STRATEGY] ═══ PRIX DE BASE FINAL: ${basePrice.toFixed(2)}€ ═══`,
-    );
+    calculationDebugLogger.logBasePriceCalculation(context.getServiceType(), {
+      baseStart: data.defaultPrice || 0,
+      distanceCost,
+      weightCost,
+      volumeCost,
+      urgencyMultiplier
+    }, basePrice);
     devLog.debug('Strategy', 
       "🚚 [DELIVERY-STRATEGY] ═══════════════════════════════════════════════════\n",
     );

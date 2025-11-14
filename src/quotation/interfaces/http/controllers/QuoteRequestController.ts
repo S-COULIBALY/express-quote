@@ -2,22 +2,29 @@ import { HttpRequest, HttpResponse } from '../types';
 import { QuoteRequestService } from '../../../application/services/QuoteRequestService';
 import { ValidationError } from '../../../domain/errors/ValidationError';
 import { logger } from '@/lib/logger';
+import { priceSignatureService } from '../../../application/services/PriceSignatureService';
+import { PriceService } from '../../../application/services/PriceService';
 
 /**
  * Contrôleur HTTP pour la gestion des demandes de devis
  * Endpoints REST pour le cycle de vie complet des QuoteRequest
  */
 export class QuoteRequestController {
+    private readonly priceService: PriceService;
+
     constructor(
         private readonly quoteRequestService: QuoteRequestService
-    ) {}
+    ) {
+        this.priceService = new PriceService();
+    }
 
     /**
      * POST /api/quotesRequest/
      * Crée une nouvelle demande de devis
      */
     async createQuoteRequest(req: HttpRequest, res: HttpResponse): Promise<HttpResponse> {
-        logger.info('📬 POST /api/quotesRequest/ - Création demande de devis');
+        logger.info('\n\n\n═══ DEBUT QuoteRequestController.createQuoteRequest ═══');
+        logger.info('📁 [QuoteRequestController.ts] ▶️ Début création demande de devis');
 
         try {
             // Valider les données d'entrée
@@ -29,20 +36,91 @@ export class QuoteRequestController {
 
             // ✅ LOG DÉTAILLÉ: Données reçues du frontend (soumission)
             const quoteData = req.body.quoteData || {};
-            logger.info('📥 ÉTAPE 1 (SOUMISSION): Données reçues du frontend:', {
-                serviceType: req.body.serviceType,
+            const clientCalculatedPrice = quoteData.calculatedPrice || quoteData.totalPrice || 0;
+
+            logger.info('📁 [QuoteRequestController.ts] 📥 Données reçues du frontend:', {
+                'req.body.serviceType': req.body.serviceType,
+                'quoteData.serviceType': quoteData.serviceType,
+                clientCalculatedPrice,
                 hasPickupAddress: !!quoteData.pickupAddress,
                 hasDeliveryAddress: !!quoteData.deliveryAddress,
-                pickupLogisticsConstraints: quoteData.pickupLogisticsConstraints,
-                deliveryLogisticsConstraints: quoteData.deliveryLogisticsConstraints,
-                additionalServices: quoteData.additionalServices,
-                pickupLogisticsConstraintsType: typeof quoteData.pickupLogisticsConstraints,
-                deliveryLogisticsConstraintsType: typeof quoteData.deliveryLogisticsConstraints,
-                additionalServicesType: typeof quoteData.additionalServices,
-                calculatedPrice: quoteData.calculatedPrice,
-                totalPrice: quoteData.totalPrice,
-                catalogId: quoteData.catalogId,
-                hasPresetSnapshot: !!quoteData.__presetSnapshot
+                constraintsCount: (quoteData.pickupLogisticsConstraints?.addressConstraints ? Object.keys(quoteData.pickupLogisticsConstraints.addressConstraints).length : 0) +
+                                  (quoteData.deliveryLogisticsConstraints?.addressConstraints ? Object.keys(quoteData.deliveryLogisticsConstraints.addressConstraints).length : 0),
+                'quoteData.pickupLogisticsConstraints.globalServices': quoteData.pickupLogisticsConstraints?.globalServices,
+                'quoteData.deliveryLogisticsConstraints.globalServices': quoteData.deliveryLogisticsConstraints?.globalServices
+            });
+
+            // 🔒 SÉCURITÉ: Recalculer le prix côté serveur pour validation
+            logger.info('🔒 Recalcul et signature du prix côté serveur');
+
+            // Le serviceType peut être dans req.body OU dans quoteData - on prend le premier disponible
+            const serviceType = req.body.serviceType || quoteData.serviceType;
+            if (!serviceType) {
+                throw new ValidationError('ServiceType manquant dans la requête');
+            }
+
+            // 🔧 EXTRACTION DES GLOBAL SERVICES: Fusionner les globalServices de pickup et delivery
+            let additionalServices: Record<string, boolean> = {};
+
+            if (quoteData.pickupLogisticsConstraints?.globalServices) {
+                additionalServices = { ...additionalServices, ...quoteData.pickupLogisticsConstraints.globalServices };
+            }
+
+            if (quoteData.deliveryLogisticsConstraints?.globalServices) {
+                additionalServices = { ...additionalServices, ...quoteData.deliveryLogisticsConstraints.globalServices };
+            }
+
+            logger.info('🔧 [QuoteRequestController.ts] Services globaux extraits:', {
+                pickupGlobalServices: quoteData.pickupLogisticsConstraints?.globalServices,
+                deliveryGlobalServices: quoteData.deliveryLogisticsConstraints?.globalServices,
+                mergedAdditionalServices: additionalServices,
+                count: Object.keys(additionalServices).length
+            });
+
+            // Créer un objet avec toutes les données nécessaires pour le calcul
+            const priceCalculationRequest = {
+                ...quoteData,
+                serviceType,
+                // ✅ CORRECTION CRITIQUE: Ajouter les globalServices extraits comme additionalServices
+                additionalServices: Object.keys(additionalServices).length > 0 ? additionalServices : undefined
+            };
+
+            const serverPrice = await this.priceService.calculatePrice(priceCalculationRequest);
+
+            // Comparer prix client vs serveur
+            const priceDifference = Math.abs(clientCalculatedPrice - serverPrice.summary.total);
+            if (priceDifference > 0.01) {
+                logger.warn('⚠️ Prix client différent du prix serveur lors de la soumission', {
+                    clientPrice: clientCalculatedPrice,
+                    serverPrice: serverPrice.summary.total,
+                    difference: priceDifference.toFixed(2),
+                    differencePercent: ((priceDifference / serverPrice.summary.total) * 100).toFixed(2) + '%'
+                });
+            }
+
+            // Générer la signature cryptographique
+            const securedPrice = priceSignatureService.createSecuredPrice(
+                {
+                    total: serverPrice.summary.total,
+                    base: serverPrice.summary.base,
+                    calculationId: serverPrice.context.calculationId
+                },
+                priceCalculationRequest  // Utiliser l'objet complet avec serviceType
+            );
+
+            // Stocker le prix sécurisé dans quoteData
+            req.body.quoteData.securedPrice = securedPrice;
+            // Garder aussi l'ancien champ pour compatibilité
+            req.body.quoteData.calculatedPrice = serverPrice.summary.total;
+            req.body.quoteData.totalPrice = serverPrice.summary.total;
+
+            logger.info('✅ Prix calculé et signé:', {
+                totalPrice: securedPrice.totalPrice,
+                basePrice: securedPrice.basePrice,
+                calculationId: securedPrice.calculationId,
+                signature: securedPrice.signature.substring(0, 16) + '...',
+                constraintsCount: securedPrice.dataFingerprint.constraintsCount,
+                servicesCount: securedPrice.dataFingerprint.servicesCount
             });
 
             // Créer la demande via le service
@@ -62,19 +140,25 @@ export class QuoteRequestController {
                 }
             };
 
-            logger.info(`✅ Demande de devis créée: ${quoteRequest.getTemporaryId()}`);
+            logger.info(`📁 [QuoteRequestController.ts] ✅ Demande de devis créée: ${quoteRequest.getTemporaryId()}`);
+            logger.info('📁 [QuoteRequestController.ts] ⏹ Fin QuoteRequestController.createQuoteRequest');
+            logger.info('═══⏹ FIN QuoteRequestController.createQuoteRequest ═══\n\n\n');
             return res.status(201).json(response);
 
         } catch (error) {
-            logger.error('❌ Erreur création demande de devis:', error);
+            logger.error('📁 [QuoteRequestController.ts] ❌ Erreur création demande de devis:', error);
             
             if (error instanceof ValidationError) {
+                logger.info('📁 [QuoteRequestController.ts] ⏹ Fin QuoteRequestController.createQuoteRequest (validation échouée)');
+                logger.info('═══⏹ FIN QuoteRequestController.createQuoteRequest ═══\n\n\n');
                 return res.status(400).json({
                     error: 'Données invalides',
                     message: error.message
                 });
             }
 
+            logger.info('📁 [QuoteRequestController.ts] ⏹ Fin QuoteRequestController.createQuoteRequest (erreur)');
+            logger.info('═══⏹ FIN QuoteRequestController.createQuoteRequest ═══\n\n\n');
             return res.status(500).json({
                 error: 'Erreur interne du serveur',
                 message: 'Une erreur inattendue s\'est produite'
@@ -108,26 +192,64 @@ export class QuoteRequestController {
                 });
             }
 
-            // Calculer le prix actuel pour l'affichage
+            // 🔒 SÉCURITÉ: Utiliser le prix signé stocké (PAS de recalcul)
             let calculatedPrice = null;
-            try {
-                const quote = await this.quoteRequestService.calculateQuotePrice(temporaryId);
+            const quoteData = quoteRequest.getQuoteData();
+
+            if (quoteData.securedPrice) {
+                // Vérifier la signature (détection de manipulation)
+                const verification = priceSignatureService.verifySignature(
+                    quoteData.securedPrice,
+                    quoteData
+                );
+
+                if (verification.valid) {
+                    // ✅ Signature valide - Utiliser le prix sécurisé
+                    calculatedPrice = {
+                        basePrice: quoteData.securedPrice.basePrice,
+                        totalPrice: quoteData.securedPrice.totalPrice,
+                        currency: quoteData.securedPrice.currency,
+                        calculationId: quoteData.securedPrice.calculationId,
+                        calculatedAt: quoteData.securedPrice.calculatedAt
+                    };
+
+                    logger.info(`✅ [QuoteRequestController] Prix signé valide - Pas de recalcul nécessaire`, {
+                        temporaryId,
+                        totalPrice: calculatedPrice.totalPrice,
+                        basePrice: calculatedPrice.basePrice,
+                        calculationId: calculatedPrice.calculationId,
+                        signatureAge: verification.details?.ageHours?.toFixed(2) + 'h'
+                    });
+                } else {
+                    // ⚠️ Signature invalide - Recalcul de sécurité
+                    logger.warn(`⚠️ [QuoteRequestController] Signature invalide - Recalcul de sécurité`, {
+                        temporaryId,
+                        reason: verification.reason
+                    });
+
+                    try {
+                        const quote = await this.quoteRequestService.calculateQuotePrice(temporaryId);
+                        calculatedPrice = {
+                            basePrice: quote.getBasePrice().getAmount(),
+                            totalPrice: quote.getTotalPrice().getAmount(),
+                            currency: quote.getBasePrice().getCurrency()
+                        };
+                    } catch (error) {
+                        logger.error('❌ Impossible de recalculer le prix', { temporaryId, error: error.message });
+                    }
+                }
+            } else {
+                // Fallback: ancien système (pas de signature)
+                logger.warn(`⚠️ [QuoteRequestController] Pas de signature - Utilisation prix stocké`, { temporaryId });
                 calculatedPrice = {
-                    basePrice: quote.getBasePrice().getAmount(),
-                    totalPrice: quote.getTotalPrice().getAmount(),
-                    currency: quote.getBasePrice().getCurrency(),
-                    breakdown: quote.getDiscounts().reduce((acc, discount) => {
-                        acc[discount.getDescription()] = discount.getAmount().getAmount();
-                        return acc;
-                    }, {} as Record<string, number>)
+                    basePrice: quoteData.basePrice || 0,
+                    totalPrice: quoteData.calculatedPrice || quoteData.totalPrice || 0,
+                    currency: 'EUR'
                 };
-            } catch (error) {
-                logger.warn('⚠️ Impossible de calculer le prix pour l\'affichage', { temporaryId, error: error.message });
             }
 
             // Récupérer les informations du catalogue si disponibles
             let catalogSelection = null;
-            const quoteData = quoteRequest.getQuoteData();
             if (quoteData.catalogId || quoteData.catalogSelectionId) {
                 try {
                     // Utiliser l'ID du catalogue depuis les données du devis
@@ -176,7 +298,11 @@ export class QuoteRequestController {
                 }
             };
 
-            logger.info(`✅ Demande trouvée: ${temporaryId}`);
+            logger.info(`✅ Demande trouvée: ${temporaryId}`, {
+                hasCalculatedPrice: !!calculatedPrice,
+                totalPrice: calculatedPrice?.totalPrice,
+                hasSecuredPrice: !!quoteData.securedPrice
+            });
             return res.status(200).json(response);
 
         } catch (error) {

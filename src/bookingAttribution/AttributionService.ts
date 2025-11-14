@@ -89,7 +89,7 @@ export class AttributionService {
       data: {
         bookingId: request.bookingId,
         serviceType: request.serviceType,
-        maxDistanceKm: request.maxDistanceKm || 150,
+        maxDistanceKm: request.maxDistanceKm || 100,
         serviceLatitude: request.serviceLatitude,
         serviceLongitude: request.serviceLongitude,
         status: 'BROADCASTING'

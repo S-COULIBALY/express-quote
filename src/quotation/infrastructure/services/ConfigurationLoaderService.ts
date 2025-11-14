@@ -4,6 +4,7 @@ import { Configuration } from '../../domain/configuration/Configuration';
 import { PrismaConfigurationRepository } from '../repositories/PrismaConfigurationRepository';
 import { ConfigurationCategory, PricingConfigKey } from '../../domain/configuration/ConfigurationKey';
 import { createDefaultConfigurations } from '../../domain/configuration/DefaultConfigurations';
+import { logger } from '../../../lib/logger';
 
 /**
  * Service responsable de charger les configurations depuis la base de données
@@ -58,17 +59,17 @@ export class ConfigurationLoaderService {
       // Créer un nouveau service de configuration avec toutes les configurations chargées
       this.configService = new ConfigurationService(allConfigs);
       this.isInitialized = true;
-      
-      console.log(`Configuration service initialized with ${allConfigs.length} configs.`);
+
+      logger.info(`⚙️ [ConfigurationLoader] Service initialisé avec ${allConfigs.length} configs`);
       return this.configService;
     } catch (error) {
-      console.error('Error loading configurations:', error);
+      logger.error('❌ [ConfigurationLoader] Erreur chargement configs:', error);
       // En cas d'erreur, utiliser les configurations par défaut
       const defaultConfigs = createDefaultConfigurations();
       this.configService = new ConfigurationService(defaultConfigs);
       this.isInitialized = true;
-      
-      console.log(`Configuration service initialized with ${defaultConfigs.length} default configs.`);
+
+      logger.info(`⚙️ [ConfigurationLoader] Fallback: ${defaultConfigs.length} configs par défaut`);
       return this.configService;
     }
   }
@@ -87,6 +88,7 @@ export class ConfigurationLoaderService {
    * S'assure que les configurations par défaut existent dans la base de données
    */
   async ensureDefaultConfigurations(): Promise<void> {
+    
     try {
       // Récupérer les configurations par défaut
       const defaultConfigs = createDefaultConfigurations();
@@ -101,13 +103,13 @@ export class ConfigurationLoaderService {
         if (!existingConfig) {
           // Si elle n'existe pas, l'enregistrer
           await this.repository.save(config);
-          console.log(`Created default configuration: ${config.category}_${config.key}`);
+          logger.info(`📁 [ConfigurationLoaderService.ts] ✅ Created default configuration: ${config.category}_${config.key}`);
         }
       }
       
-      console.log('Default configurations ensured.');
+      logger.info('⚙️ [ConfigurationLoader] Configurations par défaut vérifiées');
     } catch (error) {
-      console.error('Error ensuring default configurations:', error);
+      logger.error('❌ [ConfigurationLoader] Erreur vérification configurations:', error);
     }
   }
 } 

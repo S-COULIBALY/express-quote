@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { SubmissionConfig, validateSubmissionData } from '@/utils/submissionUtils';
 import { retryAsync, getErrorMessage, handleApiError } from '@/utils/errorHandling';
+import { devLog } from '@/lib/conditional-logger';
 
 /**
  * Type de retour du hook unifié
@@ -43,15 +44,22 @@ export const useUnifiedSubmission = (
   const router = useRouter();
 
   const submit = useCallback(async (formData: any, additionalExtraData?: any) => {
+    devLog.info('\n\n\n═══ DEBUT useUnifiedSubmission.submit ═══');
+    devLog.info('📁 [useUnifiedSubmission.tsx] ▶️ Début soumission unifiée');
+    devLog.info(`📁 [useUnifiedSubmission.tsx] Type: ${config.submissionType}`);
+    
     const currentExtraData = additionalExtraData || extraData;
 
     // Validation avec toast au lieu de alert
     const validation = validateSubmissionData(formData, config, currentExtraData);
     if (!validation.valid) {
+      devLog.warn('📁 [useUnifiedSubmission.tsx] ❌ Validation échouée:', validation.error);
       toast.error(validation.error || 'Veuillez remplir tous les champs obligatoires', {
         duration: 4000,
         icon: '⚠️'
       });
+      devLog.info('📁 [useUnifiedSubmission.tsx] ⏹ Fin useUnifiedSubmission.submit (validation échouée)');
+      devLog.info('═══⏹ FIN useUnifiedSubmission.submit ═══\n\n\n');
       return;
     }
 
@@ -83,12 +91,16 @@ export const useUnifiedSubmission = (
 
       // Redirection
       const redirectUrl = config.getSuccessRedirectUrl(data, currentExtraData);
+      devLog.info(`📁 [useUnifiedSubmission.tsx] ✅ Soumission réussie, redirection vers: ${redirectUrl}`);
       router.push(redirectUrl);
+      devLog.info('📁 [useUnifiedSubmission.tsx] ⏹ Fin useUnifiedSubmission.submit (succès)');
+      devLog.info('═══⏹ FIN useUnifiedSubmission.submit ═══\n\n\n');
 
     } catch (error) {
       const handledError = handleApiError(error);
       const message = getErrorMessage(handledError);
 
+      devLog.error('📁 [useUnifiedSubmission.tsx] ❌ Erreur lors de la soumission:', error);
       setState(prev => ({ ...prev, isSubmitting: false, error: message }));
 
       // Toast avec option de retry manuel
@@ -116,6 +128,8 @@ export const useUnifiedSubmission = (
           ), { duration: 10000 });
         }, 100);
       }
+      devLog.info('📁 [useUnifiedSubmission.tsx] ⏹ Fin useUnifiedSubmission.submit (erreur)');
+      devLog.info('═══⏹ FIN useUnifiedSubmission.submit ═══\n\n\n');
     }
   }, [config, calculatedPrice, extraData, router]);
 
@@ -131,6 +145,10 @@ async function submitQuoteRequest(
   calculatedPrice: number,
   formData: any
 ): Promise<any> {
+  devLog.info('\n\n\n═══ DEBUT submitQuoteRequest ═══');
+  devLog.info('📁 [useUnifiedSubmission.tsx] ▶️ Début soumission QuoteRequest');
+  devLog.info(`📁 [useUnifiedSubmission.tsx] Type: ${config.submissionType}, Prix: ${calculatedPrice}€`);
+  
   // Mapper le submissionType vers serviceType attendu par l'API
   let serviceType: string = config.submissionType;
 
@@ -147,6 +165,8 @@ async function submitQuoteRequest(
     }
   }
 
+  devLog.info(`📁 [useUnifiedSubmission.tsx] ServiceType mappé: ${serviceType}`);
+
   // Récupérer catalogId
   const catalogId = requestData.catalogId || formData.catalogId ||
                     requestData.catalogSelectionId || formData.catalogSelectionId;
@@ -156,39 +176,39 @@ async function submitQuoteRequest(
 
   if (!presetSnapshot && catalogId) {
     try {
-      console.log(`🔍 Récupération du __presetSnapshot depuis le catalogue: ${catalogId}`);
+      devLog.info(`📁 [useUnifiedSubmission.tsx] 🔍 Récupération du __presetSnapshot depuis le catalogue: ${catalogId}`);
       const catalogResponse = await fetch(`/api/catalogue/${catalogId}`);
       if (catalogResponse.ok) {
         const catalogData = await catalogResponse.json();
         presetSnapshot = catalogData.catalogSelection?.__presetSnapshot;
-        console.log(`✅ __presetSnapshot récupéré depuis le catalogue`);
+        devLog.info('📁 [useUnifiedSubmission.tsx] ✅ __presetSnapshot récupéré depuis le catalogue');
       }
     } catch (error) {
-      console.warn(`⚠️ Impossible de récupérer le __presetSnapshot:`, error);
+      devLog.warn('📁 [useUnifiedSubmission.tsx] ⚠️ Impossible de récupérer le __presetSnapshot:', error);
     }
   }
 
   // Extraire les données sans créer de structure imbriquée
   const { quoteData: nestedQuoteData, ...requestDataWithoutQuoteData } = requestData;
 
+  // ✅ Structure plate normalisée (sans duplication formData)
   const quoteRequestData = {
     serviceType: serviceType,
     quoteData: {
       ...requestDataWithoutQuoteData,
       calculatedPrice,
       totalPrice: calculatedPrice,
-      formData,
       submissionDate: new Date().toISOString(),
-      additionalInfo: formData.additionalInfo,
       catalogId,
       catalogSelectionId: catalogId,
       __presetSnapshot: presetSnapshot
     }
   };
 
-  console.log('🔄 Création du QuoteRequest:', quoteRequestData);
+  devLog.info('📁 [useUnifiedSubmission.tsx] 🔄 Création du QuoteRequest pour envoi API');
 
   // Appel API
+  devLog.info('📁 [useUnifiedSubmission.tsx] 📤 Envoi POST /api/quotesRequest');
   const response = await fetch('/api/quotesRequest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -197,14 +217,24 @@ async function submitQuoteRequest(
 
   if (!response.ok) {
     const errorData = await response.json();
+    devLog.error('📁 [useUnifiedSubmission.tsx] ❌ Erreur API:', errorData);
+    devLog.info('📁 [useUnifiedSubmission.tsx] ⏹ Fin submitQuoteRequest (erreur)');
+    devLog.info('═══⏹ FIN submitQuoteRequest ═══\n\n\n');
     throw new Error(errorData.error || 'Échec de la soumission');
   }
 
   const result = await response.json();
 
   if (!result.success) {
+    devLog.error('📁 [useUnifiedSubmission.tsx] ❌ Échec création devis:', result.message);
+    devLog.info('📁 [useUnifiedSubmission.tsx] ⏹ Fin submitQuoteRequest (échec)');
+    devLog.info('═══⏹ FIN submitQuoteRequest ═══\n\n\n');
     throw new Error(result.message || 'Échec de la création du devis temporaire');
   }
 
+  devLog.info(`📁 [useUnifiedSubmission.tsx] ✅ QuoteRequest créé avec succès: ${result.data?.temporaryId}`);
+  devLog.info('📁 [useUnifiedSubmission.tsx] ⏹ Fin submitQuoteRequest (succès)');
+  devLog.info('═══⏹ FIN submitQuoteRequest ═══\n\n\n');
+  
   return result.data;
 }

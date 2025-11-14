@@ -105,12 +105,23 @@ export class QuoteCalculationService {
     private mapPricingData(context: QuoteContext, data: Record<string, any>): void {
         // ✅ Utiliser directement les données normalisées
         const quoteData = data;
-        
+
         // Priorité 1: calculatedPrice (le plus récent)
         if (quoteData.calculatedPrice !== undefined) {
-            context.setValue('defaultPrice', quoteData.calculatedPrice);
-            context.setValue('basePrice', quoteData.calculatedPrice);
-            logger.debug(`✅ Prix mappé depuis calculatedPrice: ${quoteData.calculatedPrice}`);
+            // ✅ CORRECTION: calculatedPrice peut être un objet {basePrice, totalPrice} ou un nombre
+            const price = typeof quoteData.calculatedPrice === 'object'
+                ? (quoteData.calculatedPrice.totalPrice || quoteData.calculatedPrice.basePrice || 0)
+                : quoteData.calculatedPrice;
+
+            context.setValue('defaultPrice', price);
+            context.setValue('basePrice', price);
+            logger.info(`✅ [QuoteCalculationService] Prix mappé depuis calculatedPrice:`, {
+                price,
+                calculatedPriceType: typeof quoteData.calculatedPrice,
+                calculatedPriceValue: quoteData.calculatedPrice,
+                isObject: typeof quoteData.calculatedPrice === 'object',
+                extractedPrice: price
+            });
             return;
         }
 
@@ -146,14 +157,7 @@ export class QuoteCalculationService {
             logger.debug(`✅ Prix mappé depuis price: ${quoteData.price}`);
         }
 
-        // Priorité 6: formData.basePrice (fallback)
-        if (quoteData.formData?.basePrice !== undefined) {
-            context.setValue('basePrice', quoteData.formData.basePrice);
-            if (!context.hasValue('defaultPrice')) {
-                context.setValue('defaultPrice', quoteData.formData.basePrice);
-            }
-            logger.debug(`✅ Prix mappé depuis formData.basePrice: ${quoteData.formData.basePrice}`);
-        }
+        // formData.basePrice supprimé - les données sont au niveau racine
     }
 
     /**
@@ -298,17 +302,17 @@ export class QuoteCalculationService {
         switch (serviceType) {
             case ServiceType.PACKING:
                 if (!context.hasValue('defaultPrice')) {
-                    const defaultPrice = quoteData.calculatedPrice || quoteData.totalPrice || quoteData.price || quoteData.formData?.basePrice || 0;
+                    const defaultPrice = quoteData.calculatedPrice || quoteData.totalPrice || quoteData.price || 0;
                     context.setValue('defaultPrice', defaultPrice);
                     logger.debug(`✅ Valeur par défaut définie pour defaultPrice: ${defaultPrice}`);
                 }
                 if (!context.hasValue('duration')) {
-                    const defaultDuration = quoteData.duration || quoteData.formData?.duration || packingDefaultDuration;
+                    const defaultDuration = quoteData.duration || packingDefaultDuration;
                     context.setValue('duration', defaultDuration);
                     logger.debug(`✅ [QUOTE-CALC] Valeur par défaut définie pour duration (depuis config): ${defaultDuration}`);
                 }
                 if (!context.hasValue('workers')) {
-                    const defaultWorkers = quoteData.workers || quoteData.formData?.workers || packingDefaultWorkers;
+                    const defaultWorkers = quoteData.workers || packingDefaultWorkers;
                     context.setValue('workers', defaultWorkers);
                     logger.debug(`✅ [QUOTE-CALC] Valeur par défaut définie pour workers (depuis config): ${defaultWorkers}`);
                 }
@@ -330,17 +334,17 @@ export class QuoteCalculationService {
                 
             case ServiceType.CLEANING:
                 if (!context.hasValue('defaultPrice')) {
-                    const defaultPrice = quoteData.calculatedPrice || quoteData.totalPrice || quoteData.price || quoteData.formData?.basePrice || 0;
+                    const defaultPrice = quoteData.calculatedPrice || quoteData.totalPrice || quoteData.price || 0;
                     context.setValue('defaultPrice', defaultPrice);
                     logger.debug(`✅ Valeur par défaut définie pour defaultPrice: ${defaultPrice}`);
                 }
                 if (!context.hasValue('duration')) {
-                    const defaultDuration = quoteData.duration || quoteData.formData?.duration || cleaningDefaultDuration;
+                    const defaultDuration = quoteData.duration || cleaningDefaultDuration;
                     context.setValue('duration', defaultDuration);
                     logger.debug(`✅ [QUOTE-CALC] Valeur par défaut définie pour duration (depuis config): ${defaultDuration}`);
                 }
                 if (!context.hasValue('workers')) {
-                    const defaultWorkers = quoteData.workers || quoteData.formData?.workers || cleaningDefaultWorkers;
+                    const defaultWorkers = quoteData.workers || cleaningDefaultWorkers;
                     context.setValue('workers', defaultWorkers);
                     logger.debug(`✅ [QUOTE-CALC] Valeur par défaut définie pour workers (depuis config): ${defaultWorkers}`);
                 }
@@ -348,17 +352,17 @@ export class QuoteCalculationService {
                 
             case ServiceType.DELIVERY:
                 if (!context.hasValue('defaultPrice')) {
-                    const defaultPrice = quoteData.calculatedPrice || quoteData.totalPrice || quoteData.price || quoteData.formData?.basePrice || 0;
+                    const defaultPrice = quoteData.calculatedPrice || quoteData.totalPrice || quoteData.price || 0;
                     context.setValue('defaultPrice', defaultPrice);
                     logger.debug(`✅ Valeur par défaut définie pour defaultPrice: ${defaultPrice}`);
                 }
                 if (!context.hasValue('duration')) {
-                    const defaultDuration = quoteData.duration || quoteData.formData?.duration || deliveryDefaultDuration;
+                    const defaultDuration = quoteData.duration || deliveryDefaultDuration;
                     context.setValue('duration', defaultDuration);
                     logger.debug(`✅ [QUOTE-CALC] Valeur par défaut définie pour duration (depuis config): ${defaultDuration}`);
                 }
                 if (!context.hasValue('workers')) {
-                    const defaultWorkers = quoteData.workers || quoteData.formData?.workers || deliveryDefaultWorkers;
+                    const defaultWorkers = quoteData.workers || deliveryDefaultWorkers;
                     context.setValue('workers', defaultWorkers);
                     logger.debug(`✅ [QUOTE-CALC] Valeur par défaut définie pour workers (depuis config): ${defaultWorkers}`);
                 }

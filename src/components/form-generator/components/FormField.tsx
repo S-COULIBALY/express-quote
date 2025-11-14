@@ -391,7 +391,7 @@ export const FormField: React.FC<FormFieldProps> = ({
 
       case "separator":
         return (
-          <div className="flex items-center my-6">
+          <div className="flex items-center my-2 sm:my-4">
             <div className="flex-grow border-t border-blue-600"></div>
             {field.label && (
               <span className="px-4 text-sm text-blue-700 bg-white">

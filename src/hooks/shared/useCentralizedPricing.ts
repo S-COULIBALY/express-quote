@@ -96,14 +96,25 @@ export const useCentralizedPricing = () => {
         throw new Error(data.message || 'Calcul de prix échoué');
       }
 
+      // ✅ CORRECTION: Adapter à la nouvelle structure de réponse API
+      // Nouvelle structure: { summary: { base, total }, ... }
+      // Ancienne structure (fallback): { basePrice, totalPrice, ... }
+      const responseData = data.data || data;
+      const totalPrice = responseData.summary?.total ?? responseData.totalPrice ?? 0;
+      const basePrice = responseData.summary?.base ?? responseData.basePrice ?? 0;
+      const currency = responseData.summary?.currency ?? responseData.currency ?? 'EUR';
+      const breakdown = responseData.breakdown ?? {};
+      const appliedRules = responseData.appliedRules ?? [];
+      const calculationId = responseData.context?.calculationId ?? responseData.calculationId ?? '';
+
       const result: CentralizedPricingResult = {
-        calculatedPrice: data.data.totalPrice,
-        basePrice: data.data.basePrice,
-        totalPrice: data.data.totalPrice,
-        currency: data.data.currency,
-        breakdown: data.data.breakdown,
-        appliedRules: data.data.appliedRules,
-        calculationId: data.data.calculationId,
+        calculatedPrice: totalPrice,
+        basePrice: basePrice,
+        totalPrice: totalPrice,
+        currency: currency,
+        breakdown: breakdown,
+        appliedRules: appliedRules,
+        calculationId: calculationId,
         isPriceLoading: false
       };
 

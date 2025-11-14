@@ -30,6 +30,14 @@ export const RULE_UUID_DISTANCE_PORTAGE = 'ca6cb6e5-9f5a-4d50-8200-d78d9dedd901'
 export const RULE_UUID_PASSAGE_INDIRECT = '24e4e233-655e-4730-9b6b-451b3731789a';
 export const RULE_UUID_ACCES_MULTINIVEAU = '293dc311-6f22-42d8-8b31-b322c0e888f9';
 
+/**
+ * Contraintes liées à l'ascenseur consommées par le monte-meuble
+ * ✅ UUIDs vérifiés depuis la BDD le 2025-01-27
+ */
+export const RULE_UUID_ASCENSEUR_TROP_PETIT = '55ea42b9-aed0-465c-8e5f-ee82a7bb8c85'; // Ascenseur trop petit pour les meubles
+export const RULE_UUID_ASCENSEUR_PANNE = '8c35a3fc-5e2f-4355-b121-a0af0da4b4a7'; // Ascenseur en panne ou hors service
+export const RULE_UUID_ASCENSEUR_INTERDIT = '98ce49a1-3add-4e6b-8a8e-a364a5333423'; // Ascenseur interdit pour déménagement
+
 // ============================================================================
 // ÉQUIPEMENTS
 // ============================================================================
@@ -46,15 +54,28 @@ export const RULE_UUID_MONTE_MEUBLE = '5cdd32e3-23d5-413e-a9b4-26a746066ce0';
 /**
  * Liste des contraintes consommées par le monte-meuble
  * Utilisé par AutoDetectionService pour éviter la double facturation
+ * 
+ * ✅ Liste complète selon consumedConstraints.md (10 contraintes)
+ * ✅ Tous les UUIDs vérifiés depuis la BDD le 2025-01-27
  */
 export const CONSUMED_BY_FURNITURE_LIFT = [
+  // Contraintes d'accès au bâtiment
   RULE_UUID_ESCALIER_DIFFICILE,
   RULE_UUID_COULOIRS_ETROITS,
+  RULE_UUID_ACCES_MULTINIVEAU,
+  RULE_UUID_PASSAGE_INDIRECT,
+  
+  // Contraintes liées aux objets
   RULE_UUID_MEUBLES_ENCOMBRANTS,
   RULE_UUID_OBJETS_LOURDS,
+  
+  // Contraintes de distance
   RULE_UUID_DISTANCE_PORTAGE,
-  RULE_UUID_PASSAGE_INDIRECT,
-  RULE_UUID_ACCES_MULTINIVEAU,
+  
+  // Contraintes liées à l'ascenseur
+  RULE_UUID_ASCENSEUR_TROP_PETIT,
+  RULE_UUID_ASCENSEUR_PANNE,
+  RULE_UUID_ASCENSEUR_INTERDIT,
 ] as const;
 
 /**

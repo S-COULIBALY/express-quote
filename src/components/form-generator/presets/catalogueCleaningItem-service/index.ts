@@ -175,25 +175,27 @@ export const getCatalogueCleaningItemConfig = (serviceOrOptions: CatalogueCleani
         columns: 2,
         fields: [
           {
-            name: "duration",
-            type: "number",
-            label: "Durée (en heures)",
-            required: true,
-            validation: {
-              min: service.duration,
-              custom: (value: any) => value >= service.duration || `Minimum ${service.duration} heure${service.duration > 1 ? 's' : ''}`
-            }
-          },
-          {
             name: "workers", 
             type: "number",
-            label: "Nombre de professionnels",
+            label: "Nombre de travailleurs",
             required: true,
             validation: {
               min: service.workers,
               custom: (value: any) => value >= service.workers || `Minimum ${service.workers} professionnel${service.workers > 1 ? 's' : ''}`
             }
+          },
+          
+          {
+            name: "duration",
+            type: "number",
+            label: "Durée/travailleur (en heures)",
+            required: true,
+            validation: {
+              min: service.duration,
+              custom: (value: any) => value >= service.duration || `Minimum ${service.duration} heure${service.duration > 1 ? 's' : ''}`
+            }
           }
+
         ]
       },
       {

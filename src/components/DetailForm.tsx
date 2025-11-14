@@ -149,21 +149,32 @@ const DetailFormComponent: React.FC<DetailFormProps> = ({ catalogData, onFormRea
 
   // Handler pour soumission depuis PaymentCard
   const handleSubmitFromPaymentCard = useCallback(async (insuranceSelected: boolean) => {
+    devLog.info('\n\n\n═══ DEBUT DetailForm.handleSubmitFromPaymentCard ═══');
+    devLog.info('📁 [DetailForm.tsx] ▶️ Début soumission formulaire depuis PaymentCard');
+    devLog.info(`📁 [DetailForm.tsx] Assurance sélectionnée: ${insuranceSelected}`);
+    
     setIsSubmitting(true);
     try {
       const formData = formRef.current?.getFormData() || {};
+      devLog.info('📁 [DetailForm.tsx] ✅ Données du formulaire récupérées');
+      
       const dataWithInsurance = {
         ...formData,
         insurance: insuranceSelected,
         insuranceAmount: insuranceSelected ? 25 : 0
       };
+      
       await submissionHookRef.current.submit(dataWithInsurance);
       toast.success('Demande créée avec succès !');
+      devLog.info('📁 [DetailForm.tsx] ✅ Soumission réussie');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la création de la demande';
       toast.error(`Erreur: ${errorMessage}`);
+      devLog.error('📁 [DetailForm.tsx] ❌ Erreur lors de la soumission:', error);
     } finally {
       setIsSubmitting(false);
+      devLog.info('📁 [DetailForm.tsx] ⏹ Fin DetailForm.handleSubmitFromPaymentCard');
+      devLog.info('═══⏹ FIN DetailForm.handleSubmitFromPaymentCard ═══\n\n\n');
     }
   }, []);
 
@@ -202,6 +213,7 @@ const DetailFormComponent: React.FC<DetailFormProps> = ({ catalogData, onFormRea
 
   const baseConfig = {
     customDefaults: catalogDefaults,
+    serviceType: serviceType, // 🎯 AJOUT DU SERVICE TYPE POUR LA PERSISTANCE
     onChange: (fieldName: string, value: any, currentFormData: any) => {
       handleFormDataChangeRef.current?.(fieldName, value, currentFormData);
     },
@@ -245,7 +257,7 @@ const DetailFormComponent: React.FC<DetailFormProps> = ({ catalogData, onFormRea
 
   // 10. RENDU
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-2">
+    <div className="w-full max-w-none lg:max-w-7xl mx-auto px-0 sm:px-0 lg:px-8">
       {enrichedConfig ? (
         <FormGenerator
           ref={formRef}

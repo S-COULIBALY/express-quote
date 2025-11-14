@@ -9,7 +9,10 @@ import { logger } from '@/lib/logger';
 interface UseUnifiedRulesOptions {
   ruleType: RuleType;
   serviceType: ServiceType;
-  condition?: Record<string, any>;
+  condition?: {
+    type?: 'pickup' | 'delivery';
+    scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH';
+  };
   enabled?: boolean; // ✅ Nouveau: permet de désactiver le hook
 }
 
@@ -69,6 +72,19 @@ export const useUnifiedRules = ({ ruleType, serviceType, condition, enabled = tr
 
     // 2. Appliquer les conditions supplémentaires si présentes
     if (condition) {
+      // ✅ Filtrer par scope si spécifié
+      if (condition.scope) {
+        filteredRules = filteredRules.filter(rule => {
+          return rule.scope === condition.scope || rule.scope === 'BOTH' || rule.scope === 'GLOBAL';
+        });
+        
+        console.log(`🎯 Filtrage par scope="${condition.scope}":`, {
+          avant: filteredRules.length,
+          après: filteredRules.length,
+          règlesAvecScope: filteredRules.filter(r => r.scope).length
+        });
+      }
+      
       // Pour les contraintes d'accès (pickup/delivery), on ne filtre pas par type
       // car ces règles s'appliquent à tous les types d'accès
       if (condition.type === 'pickup' || condition.type === 'delivery') {
@@ -115,9 +131,10 @@ export const useUnifiedRules = ({ ruleType, serviceType, condition, enabled = tr
         // Charger d'abord les fallbacks
         const fallbackRules = getFallbackRules();
 
-        // ✅ 1. Créer une clé de cache STABLE (éviter JSON.stringify instable)
+        // ✅ 1. Créer une clé de cache STABLE incluant le scope
         const conditionType = condition?.type || 'none';
-        const cacheKey = `rules-${ruleType}-${serviceType}-${conditionType}`;
+        const conditionScope = condition?.scope || 'none';
+        const cacheKey = `rules-${ruleType}-${serviceType}-${conditionType}-${conditionScope}`;
 
         // 🔍 DEBUG: Vérifier l'état du cache avec timestamp et stack trace
         const debugInfo = {

@@ -4,8 +4,6 @@ import { BookingService } from '@/quotation/application/services/BookingService'
 import { CustomerService } from '@/quotation/application/services/CustomerService';
 import { PrismaBookingRepository } from '@/quotation/infrastructure/repositories/PrismaBookingRepository';
 import { PrismaCustomerRepository } from '@/quotation/infrastructure/repositories/PrismaCustomerRepository';
-import { PrismaMovingRepository } from '@/quotation/infrastructure/repositories/PrismaMovingRepository';
-import { PrismaItemRepository } from '@/quotation/infrastructure/repositories/PrismaItemRepository';
 import { PrismaQuoteRequestRepository } from '@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository';
 
 /**
@@ -17,15 +15,11 @@ export async function POST(request: NextRequest) {
   // Initialiser les dépendances
   const bookingRepository = new PrismaBookingRepository();
   const customerRepository = new PrismaCustomerRepository();
-  const movingRepository = new PrismaMovingRepository();
-  const itemRepository = new PrismaItemRepository();
   const quoteRequestRepository = new PrismaQuoteRequestRepository();
 
   const customerService = new CustomerService(customerRepository);
   const bookingService = new BookingService(
     bookingRepository,
-    movingRepository,
-    itemRepository,
     customerRepository,
     undefined, // QuoteCalculator - sera injecté par défaut
     quoteRequestRepository,

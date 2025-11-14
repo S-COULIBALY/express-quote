@@ -44,13 +44,6 @@ export class RuleEngine {
    */
   execute(context: QuoteContext, basePrice: Money): RuleExecutionResult {
     try {
-      // Démarrer le logging
-      calculationDebugLogger.startRulesEngine(
-        this.rules,
-        basePrice.getAmount(),
-        context.getAllData()
-      );
-
       devLog.debug('RuleEngine',
         `📋 CONTEXTE: ${this.rules.length} règles | Prix base: ${basePrice.getAmount().toFixed(2)}€`
       );
@@ -67,6 +60,13 @@ export class RuleEngine {
 
       // 1. Enrichir le contexte (délégué à RuleContextEnricher)
       const enrichedContext = this.contextEnricher.enrichContext(context);
+
+      // Démarrer le logging APRÈS enrichissement pour afficher les noms
+      calculationDebugLogger.startRulesEngine(
+        this.rules,
+        basePrice.getAmount(),
+        enrichedContext
+      );
 
       // Mettre à jour le contexte avec les services fusionnés
       if (enrichedContext.allServices && enrichedContext.allServices.length > 0) {
@@ -86,6 +86,20 @@ export class RuleEngine {
         basePrice,
         appliedRules
       );
+
+      // ✅ NOUVEAU: Ajouter les contraintes déclarées, inférées et consommées depuis le contexte enrichi
+      if (enrichedContext.declared_constraints) {
+        (result as any).declaredConstraints = Array.from(enrichedContext.declared_constraints);
+      }
+      if (enrichedContext.inferred_constraints) {
+        (result as any).inferredConstraints = Array.from(enrichedContext.inferred_constraints);
+      }
+      if (enrichedContext.consumed_constraints) {
+        (result as any).consumedConstraints = Array.from(enrichedContext.consumed_constraints);
+      }
+      if (enrichedContext.inference_metadata) {
+        (result as any).inferenceMetadata = enrichedContext.inference_metadata;
+      }
 
       // 4. Terminer le logging
       calculationDebugLogger.finishRulesEngine(result);

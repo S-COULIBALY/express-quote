@@ -13,9 +13,11 @@
  * - NEXT_PUBLIC_LOG_CATEGORIES=RuleEngine,DetailForm : Active seulement certaines catégories
  */
 
-const IS_DEV = process.env.NODE_ENV === 'development';
-const DEBUG_ENABLED = process.env.NEXT_PUBLIC_DEBUG === 'true';
-const LOG_CATEGORIES = process.env.NEXT_PUBLIC_LOG_CATEGORIES?.split(',').map(c => c.trim()) || [];
+const IS_DEV = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+const DEBUG_ENABLED = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEBUG === 'true';
+const LOG_CATEGORIES = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_LOG_CATEGORIES
+  ? process.env.NEXT_PUBLIC_LOG_CATEGORIES.split(',').map(c => c.trim())
+  : [];
 
 export const devLog = {
   /**

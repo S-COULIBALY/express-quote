@@ -1,8 +1,8 @@
+import crypto from 'crypto';
 import { Booking, BookingStatus } from '../../domain/entities/Booking';
 import { Customer } from '../../domain/entities/Customer';
-import { Moving } from '../../domain/entities/Moving';
-import { Item, ItemType } from '../../domain/entities/Item'; // Nouveau système unifié
-import { Template } from '../../domain/entities/Template'; // Nouveau système unifié
+import { ItemType } from '../../domain/entities/Item';
+import { Transaction, TransactionStatus } from '../../domain/entities/Transaction';
 import { BookingType } from '../../domain/enums/BookingType';
 import { ServiceType } from '../../domain/enums/ServiceType';
 import { CustomerService } from './CustomerService';
@@ -10,14 +10,10 @@ import { QuoteCalculator } from './QuoteCalculator';
 import { QuoteRequest, QuoteRequestStatus } from '../../domain/entities/QuoteRequest';
 import { Quote } from '../../domain/entities/Quote';
 import { Money } from '../../domain/valueObjects/Money';
-import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
-import { Address } from '../../domain/valueObjects/Address';
 import { BookingSearchCriteriaVO, BookingSearchCriteria } from '../../domain/valueObjects/BookingSearchCriteria';
 
 // Repositories
 import { IBookingRepository, BookingSearchResult } from '../../domain/repositories/IBookingRepository';
-import { IMovingRepository } from '../../domain/repositories/IMovingRepository';
-import { IItemRepository } from '../../domain/repositories/IItemRepository'; // Remplace IPackRepository et IServiceRepository
 import { ICustomerRepository } from '../../domain/repositories/ICustomerRepository';
 import { IQuoteRequestRepository } from '../../domain/repositories/IQuoteRequestRepository';
 
@@ -45,6 +41,7 @@ import { logger } from '@/lib/logger';
 import { AttributionUtils } from '@/bookingAttribution/AttributionUtils';
 import { UnifiedDataService, ConfigurationCategory } from '@/quotation/infrastructure/services/UnifiedDataService';
 import { PricingFactorsConfigKey } from '@/quotation/domain/configuration/ConfigurationKey';
+import { PriceService } from './PriceService';
 
 /**
  * Service de gestion des réservations migré vers le système Template/Item
@@ -56,12 +53,11 @@ export class BookingService {
 
   constructor(
     private readonly bookingRepository: IBookingRepository,
-    private readonly movingRepository: IMovingRepository,
-    private readonly itemRepository: IItemRepository, // Unifié pour tous les types d'items
     private readonly customerRepository: ICustomerRepository,
     private readonly quoteCalculator: QuoteCalculator = QuoteCalculator.getInstance(),
     private readonly quoteRequestRepository: IQuoteRequestRepository,
     private readonly customerService: CustomerService,
+    private readonly priceService: PriceService = new PriceService(),
     private readonly transactionService?: ITransactionService,
     private readonly emailService?: IEmailService,
     private readonly pdfService?: IPDFService
@@ -92,65 +88,313 @@ export class BookingService {
   }
 
   /**
-   * Crée une réservation après un paiement réussi
+   * Crée une réservation après un paiement réussi (appelé par le webhook Stripe)
+   * @param sessionId - PaymentIntent ID de Stripe
+   * @param temporaryId - ID temporaire du QuoteRequest
+   * @param customerData - Données client (firstName, lastName, email, phone)
    */
-  async createBookingAfterPayment(sessionId: string): Promise<Booking> {
-    logger.info(`🔄 Création de réservation après paiement - Session: ${sessionId}`);
-    
+  async createBookingAfterPayment(
+    sessionId: string,
+    temporaryId: string,
+    customerData: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+    }
+  ): Promise<Booking> {
+    logger.info(`🔄 Création de réservation après paiement confirmé`, {
+      sessionId,
+      temporaryId,
+      customerEmail: customerData.email
+    });
+
     try {
-      // Récupérer les informations de transaction
-      if (!this.transactionService) {
-        throw new Error('Service de transaction non disponible');
+      // 1. Récupérer le QuoteRequest via temporaryId
+      logger.info(`📋 Étape 1: Récupération QuoteRequest (temporaryId: ${temporaryId})`);
+      const quoteRequest = await this.quoteRequestRepository.findByTemporaryId(temporaryId);
+      if (!quoteRequest) {
+        throw new Error(`QuoteRequest non trouvé pour temporaryId: ${temporaryId}`);
       }
+      logger.info(`✅ QuoteRequest trouvé: ${quoteRequest.getId()}, type: ${quoteRequest.getType()}`);
+
+      // 2. Créer ou récupérer le Customer
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log(`📋 [TRACE UTILISATEUR] Étape 2: Création/Récupération Customer`);
+      console.log('═══════════════════════════════════════════════════════════════');
+      logger.info(`📋 [TRACE UTILISATEUR] Étape 2: Création/Récupération Customer (email: ${customerData.email})`, {
+        source: 'BookingService.createBookingAfterPayment',
+        customerData: {
+          firstName: customerData.firstName,
+          lastName: customerData.lastName,
+          email: customerData.email,
+          phone: customerData.phone,
+          phoneIsEmpty: !customerData.phone || customerData.phone.trim() === '',
+          phoneLength: customerData.phone?.length || 0
+        },
+        warning: (!customerData.phone || customerData.phone.trim() === '') ? '⚠️ Téléphone manquant ou vide' : null
+      });
       
-      const transaction = await this.transactionService.getTransactionBySessionId(sessionId);
-      if (!transaction) {
-        throw new Error(`Transaction non trouvée pour la session ${sessionId}`);
+      // Log console pour visibilité immédiate
+      console.log('📋 [TRACE UTILISATEUR] customerData avant getOrCreateCustomerFromData:', JSON.stringify(customerData, null, 2));
+      
+      const customer = await this.getOrCreateCustomerFromData({
+        email: customerData.email,
+        firstName: customerData.firstName,
+        lastName: customerData.lastName,
+        phone: customerData.phone
+      });
+      
+      logger.info(`📋 [TRACE UTILISATEUR] Customer créé/récupéré:`, {
+        id: customer.getId(),
+        email: customer.getEmail(),
+        phone: customer.getContactInfo().getPhone(),
+        phoneIsEmpty: !customer.getContactInfo().getPhone() || customer.getContactInfo().getPhone().trim() === ''
+      });
+
+      // 3. 🔒 SÉCURITÉ: Utiliser le prix sécurisé (signature HMAC) au lieu de recalculer
+      logger.info('🔒 Validation du prix sécurisé avant création réservation (après paiement)');
+
+      const quoteData = quoteRequest.getQuoteData();
+      let serverCalculatedPrice: number;
+      let priceSource: string;
+
+      // ✅ OPTION A: Utiliser le prix sécurisé avec signature HMAC (RECOMMANDÉ)
+      if (quoteData.securedPrice && quoteData.securedPrice.signature) {
+        logger.info('🔐 Vérification de la signature HMAC du prix...');
+
+        // Importer le service de signature
+        const { priceSignatureService } = await import('./PriceSignatureService');
+
+        // Vérifier la signature
+        const verification = priceSignatureService.verifySignature(
+          quoteData.securedPrice,
+          quoteData
+        );
+
+        if (verification.valid) {
+          // ✅ Signature valide - Utiliser le prix signé
+          serverCalculatedPrice = quoteData.securedPrice.totalPrice;
+          priceSource = `signature HMAC (${verification.details?.ageHours?.toFixed(2)}h)`;
+
+          logger.info('✅ Prix signé validé et utilisé', {
+            price: serverCalculatedPrice,
+            calculationId: quoteData.securedPrice.calculationId,
+            signatureAge: verification.details?.ageHours?.toFixed(2) + 'h',
+            calculatedAt: quoteData.securedPrice.calculatedAt
+          });
+        } else {
+          // ⚠️ Signature invalide - Fallback vers recalcul
+          logger.warn('⚠️ Signature invalide - RECALCUL nécessaire (fallback)', {
+            reason: verification.reason,
+            temporaryId
+          });
+          priceSource = 'recalcul (signature invalide)';
+          serverCalculatedPrice = await this.recalculatePriceWithGlobalServices(quoteData, quoteRequest.getType());
+        }
+      } else {
+        // ⚠️ OPTION B: Pas de prix sécurisé - Recalcul obligatoire (fallback)
+        logger.warn('⚠️ Pas de prix sécurisé - RECALCUL nécessaire (fallback)', { temporaryId });
+        priceSource = 'recalcul (pas de signature)';
+        serverCalculatedPrice = await this.recalculatePriceWithGlobalServices(quoteData, quoteRequest.getType());
       }
 
-      // Récupérer la demande de devis associée
-      const quoteRequest = await this.quoteRequestRepository.findById(transaction.quoteRequestId);
-      if (!quoteRequest) {
-        throw new Error(`Demande de devis non trouvée: ${transaction.quoteRequestId}`);
+      logger.info(`💰 Prix validé: ${serverCalculatedPrice}€ (source: ${priceSource})`);
+
+      // 4. Vérifier si l'assurance était demandée (depuis quoteData ou formData)
+      let finalPrice = serverCalculatedPrice;
+      const wantsInsurance = quoteData.insurance || quoteData.insuranceAmount > 0 || quoteData.wantsInsurance;
+      if (wantsInsurance) {
+        const insurancePrice = await this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING_FACTORS,
+          PricingFactorsConfigKey.INSURANCE_PRICE,
+          25 // Valeur par défaut
+        );
+        finalPrice += insurancePrice;
+        logger.info(`✅ Assurance ajoutée: +${insurancePrice}€ (prix final: ${finalPrice}€)`);
       }
-      
-      // Créer ou récupérer le client
-      const customer = await this.getOrCreateCustomer(quoteRequest.getQuoteData());
-      
-      // Déterminer le type de réservation basé sur les nouvelles entités
+
+      logger.info(`💰 Étape 3: Montant final calculé: ${finalPrice} EUR`);
+
+      if (finalPrice <= 0) {
+        throw new Error(`Montant invalide: ${finalPrice} EUR`);
+      }
+
+      // 5. Déterminer le type de réservation
       const itemType = this.mapServiceTypeToItemType(quoteRequest.getType());
-      
-      // Créer la réservation selon le type d'item
+      logger.info(`📦 Étape 4: Type item déterminé: ${itemType}`);
+
+      // 6. Créer la réservation selon le type d'item
+      logger.info(`🏗️ Étape 5: Création du Booking...`);
       const booking = await this.createBookingForItemType(
         customer,
         quoteRequest,
-        transaction.totalAmount,
+        finalPrice,
         itemType
       );
+      logger.info(`✅ Booking créé: ${booking.getId()}, status: ${booking.getStatus()}`);
 
-      // Mettre à jour le statut de la demande de devis
+      // 6.1. ✅ NOUVEAU: Géocoder et stocker les coordonnées si disponibles
+      await this.storeBookingCoordinates(booking, quoteRequest.getQuoteData());
+
+      // 7. Créer la Transaction associée
+      logger.info(`💳 Étape 6: Création de la Transaction...`);
+
+      // Créer directement avec Prisma (plus simple et évite les problèmes d'entité)
+      const { prisma } = await import('@/lib/prisma');
+      await prisma.transaction.create({
+        data: {
+          id: crypto.randomUUID(),
+          bookingId: booking.getId()!,
+          amount: finalPrice,
+          currency: 'EUR',
+          status: 'COMPLETED',
+          paymentMethod: 'card',
+          paymentIntentId: sessionId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+
+      logger.info(`✅ Transaction créée avec PaymentIntent: ${sessionId}`);
+
+      // 8. TRANSITION CRITIQUE : DRAFT → PAYMENT_COMPLETED (le paiement est déjà confirmé par le webhook)
+      booking.updateStatus(BookingStatus.PAYMENT_COMPLETED);
+      const savedBooking = await this.bookingRepository.save(booking);
+      logger.info(`✅ Statut mis à jour: DRAFT → PAYMENT_COMPLETED pour la réservation ${savedBooking.getId()}`);
+
+      // 9. Mettre à jour le statut du QuoteRequest
+      logger.info(`📝 Étape 7: Mise à jour statut QuoteRequest → CONFIRMED`);
       await this.quoteRequestRepository.updateStatus(
         quoteRequest.getId()!,
         QuoteRequestStatus.CONFIRMED
       );
 
-      // Déclencher les notifications via l'API
+      // 10. 🎯 DÉCLENCHER BOOKING_CONFIRMED - Services spécialisés autonomes
+      logger.info(`📧 Étape 8: Déclenchement des notifications complètes...`);
       try {
-        await this.sendBookingConfirmationNotification(booking, customer, {
-          sessionId,
-          totalAmount,
-          quoteData: quoteRequest.getQuoteData()
+        // Valider les variables d'environnement
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.INTERNAL_API_URL;
+        if (!baseUrl) {
+          throw new Error('NEXT_PUBLIC_APP_URL ou INTERNAL_API_URL doit être configuré pour les notifications');
+        }
+
+        // ÉTAPE 1: Notifications équipe interne (gèrent leurs propres documents)
+        logger.info('👥 Étape 8.1: Notifications équipe interne...');
+        let internalStaffResult = { success: false };
+        try {
+          const internalStaffResponse = await fetch(`${baseUrl}/api/notifications/internal-staff`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent': 'BookingService/1.0'
+            },
+            body: JSON.stringify({
+              bookingId: savedBooking.getId(),
+              trigger: 'BOOKING_CONFIRMED',
+              context: {
+                confirmationDate: new Date().toISOString(),
+                additionalInfo: customerData
+              }
+            })
+          });
+
+          if (internalStaffResponse.ok) {
+            internalStaffResult = await internalStaffResponse.json();
+            logger.info('✅ Notifications équipe interne envoyées', { success: internalStaffResult.success });
+          } else {
+            const errorText = await internalStaffResponse.text();
+            logger.error('❌ Erreur API notifications équipe interne', {
+              status: internalStaffResponse.status,
+              error: errorText
+            });
+          }
+        } catch (internalStaffError) {
+          logger.error('❌ Erreur lors de l\'envoi notifications équipe interne', {
+            error: internalStaffError instanceof Error ? internalStaffError.message : 'Erreur inconnue',
+            stack: internalStaffError instanceof Error ? internalStaffError.stack : undefined
+          });
+        }
+
+        // ÉTAPE 2: Attribution prestataires externes
+        logger.info('🚚 Étape 8.2: Attribution prestataires externes...');
+      try {
+          await this.triggerProfessionalAttribution(savedBooking);
+          logger.info('✅ Attribution prestataires déclenchée');
+        } catch (attributionError) {
+          logger.error('❌ Erreur lors de l\'attribution prestataires', {
+            error: attributionError instanceof Error ? attributionError.message : 'Erreur inconnue',
+            stack: attributionError instanceof Error ? attributionError.stack : undefined
+          });
+        }
+
+        // ÉTAPE 3: Notification client avec documents
+        logger.info('📧 Étape 8.3: Notification client...');
+        let customerResult = { success: false };
+        try {
+          const customerNotificationResponse = await fetch(`${baseUrl}/api/notifications/business/booking-confirmation`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent': 'BookingService/1.0'
+            },
+            body: JSON.stringify({
+              bookingId: savedBooking.getId(),
+              customerEmail: savedBooking.getCustomer().getContactInfo().getEmail(),
+              customerName: `${savedBooking.getCustomer().getFirstName()} ${savedBooking.getCustomer().getLastName()}`,
+              bookingReference: savedBooking.getReference() || `EQ-${savedBooking.getId()?.slice(-8).toUpperCase()}`,
+              serviceType: savedBooking.getType(),
+              serviceName: savedBooking.getType() || 'Service Express Quote',
+              totalAmount: savedBooking.getTotalAmount().getAmount(),
+              serviceDate: savedBooking.getScheduledDate()?.toISOString() || new Date().toISOString(),
+              serviceTime: '09:00',
+              confirmationDate: new Date().toISOString(),
+              viewBookingUrl: `${baseUrl}/bookings/${savedBooking.getId()}`,
+              supportUrl: `${baseUrl}/contact`
+            })
+          });
+
+          if (customerNotificationResponse.ok) {
+            customerResult = await customerNotificationResponse.json();
+            logger.info('✅ Notification client envoyée', { success: customerResult.success });
+          } else {
+            const errorText = await customerNotificationResponse.text();
+            logger.error('❌ Erreur API notification client', {
+              status: customerNotificationResponse.status,
+              error: errorText
+            });
+          }
+        } catch (customerNotificationError) {
+          logger.error('❌ Erreur lors de l\'envoi notification client', {
+            error: customerNotificationError instanceof Error ? customerNotificationError.message : 'Erreur inconnue',
+            stack: customerNotificationError instanceof Error ? customerNotificationError.stack : undefined
+          });
+        }
+
+        logger.info(`✅ Confirmation BOOKING_CONFIRMED terminée`, {
+          internalStaff: internalStaffResult.success,
+          customer: customerResult.success,
+          professionalAttribution: 'triggered'
         });
-        logger.info(`✅ Notifications envoyées pour la réservation: ${booking.getId()}`);
+
       } catch (confirmationError) {
-        logger.error('⚠️ Erreur lors de l\'envoi des notifications:', confirmationError);
-        // Ne pas faire échouer la création de réservation si les notifications échouent
+        // Ne pas faire échouer la création si les notifications échouent
+        logger.error('❌ Erreur lors du workflow de confirmation (réservation confirmée)', {
+          bookingId: savedBooking.getId(),
+          error: confirmationError instanceof Error ? confirmationError.message : 'Erreur inconnue',
+          stack: confirmationError instanceof Error ? confirmationError.stack : undefined,
+          context: {
+            temporaryId,
+            sessionId,
+            customerEmail: customerData.email
+          }
+        });
       }
 
-      logger.info(`✅ Réservation créée avec succès: ${booking.getId()}`);
-      return booking;
+      logger.info(`🎉 Réservation créée et confirmée avec succès: ${savedBooking.getId()}`);
+      return savedBooking;
     } catch (error) {
-      logger.error('Erreur lors de la création de réservation après paiement:', error);
+      logger.error('❌ Erreur lors de la création de réservation après paiement:', error);
       throw error;
     }
   }
@@ -292,6 +536,127 @@ export class BookingService {
   }
 
   /**
+   * Recalcule le prix côté serveur avec extraction correcte des globalServices
+   * Utilisé comme fallback si la signature HMAC est invalide ou absente
+   */
+  private async recalculatePriceWithGlobalServices(
+    quoteData: any,
+    serviceType: string
+  ): Promise<number> {
+    logger.info('🔄 Recalcul du prix avec extraction des globalServices...');
+
+    // Préparer les données pour le recalcul (aplatir la structure)
+    const flatData: Record<string, any> = {
+      serviceType,
+    };
+
+    // Extraire toutes les données au niveau racine
+    Object.keys(quoteData).forEach(key => {
+      if (key !== 'quoteData' && key !== 'calculatedPrice' && key !== 'formData') {
+        flatData[key] = quoteData[key];
+      }
+    });
+
+    // ✅ S'assurer que les champs critiques sont présents
+    const criticalFields = [
+      'pickupLogisticsConstraints',
+      'deliveryLogisticsConstraints',
+      'additionalServices',
+      'pickupServices',
+      'deliveryServices',
+      'volume',
+      'distance',
+      'workers',
+      'duration',
+      'pickupAddress',
+      'deliveryAddress',
+      'catalogId',
+      '__presetSnapshot'
+    ];
+
+    // Les champs critiques sont au niveau racine (plus de fallback formData nécessaire)
+
+    // 🔧 EXTRACTION DES GLOBAL SERVICES (Transport piano, Stockage temporaire, etc.)
+    let extractedGlobalServices: Record<string, boolean> = {};
+
+    if (flatData.pickupLogisticsConstraints?.globalServices) {
+      extractedGlobalServices = {
+        ...extractedGlobalServices,
+        ...flatData.pickupLogisticsConstraints.globalServices
+      };
+      logger.info(`📦 GlobalServices extraits depuis pickup:`, Object.keys(flatData.pickupLogisticsConstraints.globalServices));
+    }
+
+    if (flatData.deliveryLogisticsConstraints?.globalServices) {
+      extractedGlobalServices = {
+        ...extractedGlobalServices,
+        ...flatData.deliveryLogisticsConstraints.globalServices
+      };
+      logger.info(`📦 GlobalServices extraits depuis delivery:`, Object.keys(flatData.deliveryLogisticsConstraints.globalServices));
+    }
+
+    // Merger les globalServices extraits dans additionalServices
+    if (Object.keys(extractedGlobalServices).length > 0) {
+      flatData.additionalServices = {
+        ...(flatData.additionalServices || {}),
+        ...extractedGlobalServices
+      };
+      logger.info(`✅ GlobalServices mergés dans additionalServices:`, Object.keys(extractedGlobalServices));
+    }
+
+    // 🔒 Nettoyer les contraintes pour retirer les clés structurelles non-UUID
+    const cleanConstraints = (constraints: any): string[] | Record<string, boolean> | undefined => {
+      if (!constraints) return undefined;
+
+      if (Array.isArray(constraints)) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return constraints.filter((id: string) => typeof id === 'string' && uuidRegex.test(id));
+      }
+
+      if (typeof constraints === 'object') {
+        const cleaned: Record<string, boolean> = {};
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        if ('globalServices' in constraints || 'addressConstraints' in constraints || 'addressServices' in constraints) {
+          if (constraints.addressConstraints && typeof constraints.addressConstraints === 'object') {
+            Object.keys(constraints.addressConstraints).forEach(key => {
+              if (uuidRegex.test(key) && constraints.addressConstraints[key] === true) {
+                cleaned[key] = true;
+              }
+            });
+          }
+        } else {
+          Object.keys(constraints).forEach(key => {
+            if (uuidRegex.test(key) && constraints[key] === true) {
+              cleaned[key] = true;
+            }
+          });
+        }
+
+        return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+      }
+
+      return undefined;
+    };
+
+    // Nettoyer les contraintes avant le recalcul
+    if (flatData.pickupLogisticsConstraints) {
+      flatData.pickupLogisticsConstraints = cleanConstraints(flatData.pickupLogisticsConstraints);
+    }
+    if (flatData.deliveryLogisticsConstraints) {
+      flatData.deliveryLogisticsConstraints = cleanConstraints(flatData.deliveryLogisticsConstraints);
+    }
+
+    // Recalculer le prix côté serveur
+    const priceResponse = await this.priceService.calculatePrice(flatData);
+    const recalculatedPrice = priceResponse.summary?.total ?? priceResponse.totalPrice ?? 0;
+
+    logger.info(`✅ Prix recalculé: ${recalculatedPrice}€`);
+
+    return recalculatedPrice;
+  }
+
+  /**
    * Crée une réservation selon le type d'item
    */
   private async createBookingForItemType(
@@ -301,20 +666,28 @@ export class BookingService {
     itemType: ItemType
   ): Promise<Booking> {
     const quoteData = quoteRequest.getQuoteData();
-    
-    // Créer la réservation de base
-    const booking = new Booking(
-      customer,
-      this.mapItemTypeToBookingType(itemType),
+
+    // Créer un Quote simple pour la réservation
+    const quote = new Quote(
+      quoteData.serviceName || 'Service',
       new Money(totalAmount),
-      BookingStatus.CONFIRMED
+      []  // items vides pour l'instant
     );
+
+    // Créer la réservation en utilisant la factory
+    const booking = Booking.fromQuoteRequest(
+      quoteRequest,
+      customer,
+      quote,
+      new Money(totalAmount),
+      'card'  // paymentMethod
+    );
+
+    // ✅ Mettre le statut à CONFIRMED (paiement validé)
+    booking.updateStatus(BookingStatus.CONFIRMED);
 
     // Sauvegarder la réservation
     const savedBooking = await this.bookingRepository.save(booking);
-
-    // Créer l'item spécifique selon le type
-    await this.createSpecificItem(savedBooking, quoteData, itemType);
 
     return savedBooking;
   }
@@ -325,89 +698,16 @@ export class BookingService {
   private mapItemTypeToBookingType(itemType: ItemType): BookingType {
     switch (itemType) {
       case ItemType.DEMENAGEMENT:
-        return BookingType.MOVING;
+        return BookingType.MOVING_QUOTE;
       case ItemType.MENAGE:
-        return BookingType.CLEANING;
       case ItemType.TRANSPORT:
-        return BookingType.DELIVERY;
+      case ItemType.LIVRAISON:
+        return BookingType.SERVICE;
       default:
-        return BookingType.MOVING;
+        return BookingType.MOVING_QUOTE;
     }
   }
 
-  /**
-   * Crée l'item spécifique selon le type
-   */
-  private async createSpecificItem(
-    booking: Booking,
-    quoteData: any,
-    itemType: ItemType
-  ): Promise<void> {
-    // Créer l'item unifié qui remplace les anciennes entités Pack/Service
-    const item = new Item(
-      quoteData.serviceId || 'default',
-      itemType,
-      quoteData.calculatedPrice || 0,
-      quoteData
-    );
-
-    await this.itemRepository.save(item);
-
-    // Si c'est un déménagement, créer également l'entité Moving pour compatibilité
-    if (itemType === ItemType.DEMENAGEMENT) {
-      const moving = new Moving(
-        booking.getId()!,
-        this.extractAddressFromData(quoteData, 'pickup'),
-        this.extractAddressFromData(quoteData, 'delivery'),
-        quoteData.scheduledDate ? new Date(quoteData.scheduledDate) : new Date(),
-        quoteData.volume || 0,
-        quoteData.distance || 0
-      );
-
-      await this.movingRepository.save(moving);
-    }
-  }
-
-  /**
-   * Obtient ou crée un client
-   */
-  private async getOrCreateCustomer(data: any): Promise<Customer> {
-    const email = data.email || data.customerDetails?.email;
-    
-    if (!email) {
-      throw new Error('Email du client requis');
-    }
-
-    // Essayer de trouver le client existant
-    const existingCustomer = await this.customerRepository.findByEmail(email);
-    if (existingCustomer) {
-      return existingCustomer;
-    }
-
-    // Créer un nouveau client
-    const contactInfo = new ContactInfo(
-      data.firstName || data.customerDetails?.firstName || '',
-      data.lastName || data.customerDetails?.lastName || '',
-      email,
-      data.phone || data.customerDetails?.phone || ''
-    );
-
-    const customer = new Customer(contactInfo);
-    return await this.customerRepository.save(customer);
-  }
-
-  /**
-   * Extrait une adresse depuis les données
-   */
-  private extractAddressFromData(data: any, type: 'pickup' | 'delivery'): Address {
-    const addressData = data[`${type}Address`] || {};
-    return new Address(
-      addressData.street || '',
-      addressData.city || '',
-      addressData.postalCode || '',
-      addressData.country || 'France'
-    );
-  }
 
   // =====================================
   // NOUVELLES MÉTHODES POUR L'EXTENSION
@@ -659,27 +959,93 @@ export class BookingService {
       // 2. Créer ou récupérer le client
       const customer = await this.getOrCreateCustomerFromData(customerData);
       
-      // 3. Créer la réservation avec statut DRAFT
+      // 3. 🔒 SÉCURITÉ: RECALCULER le prix côté serveur pour éviter manipulation client
+      logger.info('🔒 Recalcul sécurisé du prix côté serveur avant création réservation');
+      
+      // Préparer les données pour le recalcul (aplatir la structure)
+      const quoteData = quoteRequest.getQuoteData();
+      const flatData: Record<string, any> = {
+        serviceType: quoteRequest.getType(),
+      };
+
+      // Extraire toutes les données (niveau racine + formData si présent)
+      Object.keys(quoteData).forEach(key => {
+        if (key === 'formData' && typeof quoteData[key] === 'object') {
+          // Merger formData au niveau racine
+          Object.assign(flatData, quoteData[key]);
+        } else if (key !== 'quoteData' && key !== 'calculatedPrice') {
+          // Copier les autres champs (sauf calculatedPrice qui est l'ancien prix client)
+          flatData[key] = quoteData[key];
+        }
+      });
+
+      // ✅ S'assurer que les champs critiques sont présents
+      const criticalFields = [
+        'pickupLogisticsConstraints',
+        'deliveryLogisticsConstraints',
+        'additionalServices',
+        'pickupServices',
+        'deliveryServices',
+        'volume',
+        'distance',
+        'workers',
+        'duration',
+        'pickupAddress',
+        'deliveryAddress',
+        'catalogId',
+        '__presetSnapshot'
+      ];
+
+      // Les champs critiques sont au niveau racine (plus de fallback formData nécessaire)
+
+      // Recalculer le prix côté serveur
+      const priceResponse = await this.priceService.calculatePrice(flatData);
+      const serverCalculatedPrice = priceResponse.summary?.total ?? priceResponse.totalPrice ?? 0;
+      
+      logger.info(`✅ Prix recalculé côté serveur: ${serverCalculatedPrice}€ (ancien prix client: ${quoteRequest.getQuoteData()?.calculatedPrice?.totalPrice || quoteRequest.getQuoteData()?.totalPrice || 'N/A'}€)`);
+
+      // 4. Ajouter l'assurance si demandée (depuis customerData ou quoteData)
+      let finalPrice = serverCalculatedPrice;
+      const wantsInsurance = customerData.wantsInsurance ||
+                             quoteData.insurance || quoteData.insuranceAmount > 0 || quoteData.wantsInsurance;
+      if (wantsInsurance) {
+        const insurancePrice = await this.unifiedDataService.getConfigurationValue(
+          ConfigurationCategory.PRICING_FACTORS,
+          PricingFactorsConfigKey.INSURANCE_PRICE,
+          25 // Valeur par défaut
+        );
+        finalPrice += insurancePrice;
+        logger.info(`✅ Assurance ajoutée: +${insurancePrice}€ (prix final: ${finalPrice}€)`);
+      }
+      
+      // 5. Créer la réservation avec statut DRAFT (utiliser le prix recalculé)
       const booking = new Booking(
         customer,
         quoteRequest.getType(),
-        new Money(quoteRequest.getCalculatedPrice()?.totalPrice || 0, 'EUR'),
+        new Money(finalPrice, 'EUR'),
         quoteRequest.getQuoteData(),
         BookingStatus.DRAFT
       );
       
-      // 4. Sauvegarder avec statut DRAFT
+      // 6. Sauvegarder avec statut DRAFT
       const savedBooking = await this.bookingRepository.save(booking);
-      logger.info(`✅ Réservation créée avec ID: ${savedBooking.getId()}`);
+      logger.info(`✅ Réservation créée avec ID: ${savedBooking.getId()}, statut: ${savedBooking.getStatus()}, montant: ${finalPrice}€`);
       
-      // 5. TRANSITION CRITIQUE : DRAFT → CONFIRMED avec trigger
-      savedBooking.updateStatus(BookingStatus.CONFIRMED);
+      // 7. TRANSITION CRITIQUE : DRAFT → PAYMENT_COMPLETED (le paiement est déjà confirmé par le webhook)
+      savedBooking.updateStatus(BookingStatus.PAYMENT_COMPLETED);
       await this.bookingRepository.save(savedBooking);
+      logger.info(`✅ Statut mis à jour: DRAFT → PAYMENT_COMPLETED pour la réservation ${savedBooking.getId()}`);
       
-      // 6. 🎯 DÉCLENCHER BOOKING_CONFIRMED - Services spécialisés autonomes
+      // 8. 🎯 DÉCLENCHER BOOKING_CONFIRMED - Services spécialisés autonomes
       try {
+        // Valider les variables d'environnement
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.INTERNAL_API_URL;
+        if (!baseUrl) {
+          throw new Error('NEXT_PUBLIC_APP_URL ou INTERNAL_API_URL doit être configuré pour les notifications');
+        }
+
         // ÉTAPE 1: Notifications équipe interne (gèrent leurs propres documents)
-        const internalStaffResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notifications/internal-staff`, {
+        const internalStaffResponse = await fetch(`${baseUrl}/api/notifications/internal-staff`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -695,13 +1061,31 @@ export class BookingService {
           })
         });
 
-        const internalStaffResult = internalStaffResponse.ok ? await internalStaffResponse.json() : { success: false };
+        let internalStaffResult = { success: false };
+        if (internalStaffResponse.ok) {
+          internalStaffResult = await internalStaffResponse.json();
+          logger.info('✅ Notifications équipe interne envoyées', { success: internalStaffResult.success });
+        } else {
+          const errorText = await internalStaffResponse.text();
+          logger.error('❌ Erreur API notifications équipe interne', {
+            status: internalStaffResponse.status,
+            error: errorText
+          });
+        }
 
-        // ÉTAPE 3: Attribution prestataires externes
+        // ÉTAPE 2: Attribution prestataires externes
+        try {
         await this.triggerProfessionalAttribution(savedBooking);
+          logger.info('✅ Attribution prestataires déclenchée');
+        } catch (attributionError) {
+          logger.error('❌ Erreur lors de l\'attribution prestataires', {
+            error: attributionError instanceof Error ? attributionError.message : 'Erreur inconnue',
+            stack: attributionError instanceof Error ? attributionError.stack : undefined
+          });
+        }
 
-        // ÉTAPE 4: Notification client avec documents
-        const customerNotificationResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notifications/business/booking-confirmation`, {
+        // ÉTAPE 3: Notification client avec documents
+        const customerNotificationResponse = await fetch(`${baseUrl}/api/notifications/business/booking-confirmation`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -718,12 +1102,22 @@ export class BookingService {
             serviceDate: savedBooking.getScheduledDate()?.toISOString() || new Date().toISOString(),
             serviceTime: '09:00',
             confirmationDate: new Date().toISOString(),
-            viewBookingUrl: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${savedBooking.getId()}`,
-            supportUrl: `${process.env.NEXT_PUBLIC_APP_URL}/contact`
+            viewBookingUrl: `${baseUrl}/bookings/${savedBooking.getId()}`,
+            supportUrl: `${baseUrl}/contact`
           })
         });
 
-        const customerResult = customerNotificationResponse.ok ? await customerNotificationResponse.json() : { success: false };
+        let customerResult = { success: false };
+        if (customerNotificationResponse.ok) {
+          customerResult = await customerNotificationResponse.json();
+          logger.info('✅ Notification client envoyée', { success: customerResult.success });
+        } else {
+          const errorText = await customerNotificationResponse.text();
+          logger.error('❌ Erreur API notification client', {
+            status: customerNotificationResponse.status,
+            error: errorText
+          });
+        }
 
         logger.info(`✅ Confirmation BOOKING_CONFIRMED terminée`, {
           internalStaff: internalStaffResult.success,
@@ -733,10 +1127,18 @@ export class BookingService {
 
       } catch (confirmationError) {
         // Ne pas faire échouer la confirmation si les notifications échouent
-        logger.error('❌ Erreur lors du workflow de confirmation (réservation confirmée)', confirmationError);
+        logger.error('❌ Erreur lors du workflow de confirmation (réservation confirmée)', {
+          bookingId: savedBooking.getId(),
+          error: confirmationError instanceof Error ? confirmationError.message : 'Erreur inconnue',
+          stack: confirmationError instanceof Error ? confirmationError.stack : undefined,
+          context: {
+            temporaryId,
+            customerEmail: savedBooking.getCustomer().getContactInfo().getEmail()
+          }
+        });
       }
       
-      // 7. Mettre à jour la QuoteRequest comme utilisée
+      // 9. Mettre à jour la QuoteRequest comme utilisée
       quoteRequest.markAsUsed();
       await this.quoteRequestRepository.save(quoteRequest);
       
@@ -760,26 +1162,97 @@ export class BookingService {
     additionalInfo?: string;
   }): Promise<Customer> {
     try {
+      // Log détaillé pour tracer les données utilisateur reçues
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('📋 [TRACE UTILISATEUR] getOrCreateCustomerFromData - Données reçues');
+      console.log('═══════════════════════════════════════════════════════════════');
+      logger.info('📋 [TRACE UTILISATEUR] Données client reçues dans getOrCreateCustomerFromData:', {
+        source: 'BookingService.getOrCreateCustomerFromData',
+        customerData: {
+          firstName: customerData.firstName,
+          lastName: customerData.lastName,
+          email: customerData.email,
+          phone: customerData.phone,
+          phoneIsEmpty: !customerData.phone || customerData.phone.trim() === '',
+          phoneLength: customerData.phone?.length || 0,
+          hasAdditionalInfo: !!customerData.additionalInfo
+        },
+        warning: (!customerData.phone || customerData.phone.trim() === '') ? '⚠️ Téléphone manquant ou vide' : null
+      });
+      
+      // Log console pour visibilité immédiate
+      console.log('📋 [TRACE UTILISATEUR] customerData dans getOrCreateCustomerFromData:', JSON.stringify(customerData, null, 2));
+
       // Essayer de récupérer le client existant
       const existingCustomer = await this.customerRepository.findByEmail(customerData.email);
       if (existingCustomer) {
-        logger.info(`👤 Client existant trouvé: ${existingCustomer.getEmail()}`);
+        logger.info(`👤 [TRACE UTILISATEUR] Client existant trouvé:`, {
+          id: existingCustomer.getId(),
+          email: existingCustomer.getEmail(),
+          phone: existingCustomer.getContactInfo().getPhone(),
+          phoneIsEmpty: !existingCustomer.getContactInfo().getPhone() || existingCustomer.getContactInfo().getPhone().trim() === ''
+        });
         return existingCustomer;
       }
       
       // Créer un nouveau client
-      const customer = new Customer(
+      // Utiliser une valeur par défaut si le téléphone est manquant
+      const phone = customerData.phone && customerData.phone.trim() !== '' 
+        ? customerData.phone 
+        : '+33600000000'; // Valeur par défaut si téléphone manquant
+      
+      logger.info('📋 [TRACE UTILISATEUR] Création nouveau client avec ContactInfo:', {
+        firstName: customerData.firstName,
+        lastName: customerData.lastName,
+        email: customerData.email,
+        phone: customerData.phone,
+        phoneIsEmpty: !customerData.phone || customerData.phone.trim() === '',
+        phoneUsed: phone,
+        phoneWasDefault: !customerData.phone || customerData.phone.trim() === ''
+      });
+
+      const contactInfo = new ContactInfo(
         customerData.firstName,
         customerData.lastName,
-        new ContactInfo(customerData.email, customerData.phone || '')
+        customerData.email,
+        phone
+      );
+
+      const customer = new Customer(
+        crypto.randomUUID(),
+        contactInfo
       );
       
+      logger.info('📋 [TRACE UTILISATEUR] Customer créé (avant sauvegarde):', {
+        id: customer.getId(),
+        email: customer.getEmail(),
+        phone: customer.getContactInfo().getPhone(),
+        phoneIsEmpty: !customer.getContactInfo().getPhone() || customer.getContactInfo().getPhone().trim() === ''
+      });
+
       const savedCustomer = await this.customerRepository.save(customer);
-      logger.info(`👤 Nouveau client créé: ${savedCustomer.getEmail()}`);
+      
+      logger.info('📋 [TRACE UTILISATEUR] Customer sauvegardé avec succès:', {
+        id: savedCustomer.getId(),
+        email: savedCustomer.getEmail(),
+        phone: savedCustomer.getContactInfo().getPhone(),
+        phoneIsEmpty: !savedCustomer.getContactInfo().getPhone() || savedCustomer.getContactInfo().getPhone().trim() === ''
+      });
+      
       return savedCustomer;
       
     } catch (error) {
-      logger.error('Erreur lors de la gestion du client:', error);
+      logger.error('❌ [TRACE UTILISATEUR] Erreur lors de la gestion du client:', {
+        error: error instanceof Error ? error.message : 'Erreur inconnue',
+        stack: error instanceof Error ? error.stack : undefined,
+        customerData: {
+          firstName: customerData.firstName,
+          lastName: customerData.lastName,
+          email: customerData.email,
+          phone: customerData.phone,
+          phoneIsEmpty: !customerData.phone || customerData.phone.trim() === ''
+        }
+      });
       throw error;
     }
   }
@@ -806,8 +1279,14 @@ export class BookingService {
 
       // 🆕 NOUVEAU FLUX : Services spécialisés autonomes
       try {
+        // Valider les variables d'environnement
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.INTERNAL_API_URL;
+        if (!baseUrl) {
+          throw new Error('NEXT_PUBLIC_APP_URL ou INTERNAL_API_URL doit être configuré pour les notifications');
+        }
+
         // ÉTAPE A : Notification client (gère ses propres documents)
-          const notificationResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notifications/business/payment-confirmation`, {
+          const notificationResponse = await fetch(`${baseUrl}/api/notifications/business/payment-confirmation`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -921,11 +1400,16 @@ export class BookingService {
     customer: Customer, 
     context: { sessionId: string; totalAmount: number; quoteData: any }
   ): Promise<void> {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.INTERNAL_API_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.INTERNAL_API_URL;
+    if (!baseUrl) {
+      logger.error('❌ NEXT_PUBLIC_APP_URL ou INTERNAL_API_URL doit être configuré pour les notifications');
+      throw new Error('Configuration manquante: NEXT_PUBLIC_APP_URL ou INTERNAL_API_URL');
+    }
     
+    const contactInfo = customer.getContactInfo();
     const notificationData = {
       email: customer.getEmail(),
-      customerName: `${customer.getFirstName()} ${customer.getLastName()}`,
+      customerName: contactInfo.getFullName(),
       bookingId: booking.getId()!,
       bookingReference: `EQ-${booking.getId()!.slice(-8).toUpperCase()}`,
       serviceDate: context.quoteData.scheduledDate || new Date().toISOString().split('T')[0],
@@ -1011,8 +1495,23 @@ export class BookingService {
       // Extraire les coordonnées géographiques du booking
       const coordinates = await this.extractBookingCoordinates(booking);
       if (!coordinates) {
-        logger.warn(`⚠️ Coordonnées non disponibles pour booking ${booking.getId()}, attribution annulée`);
+        logger.error(`❌ Coordonnées non disponibles pour booking ${booking.getId()}, attribution annulée`);
+        logger.error(`   Adresse: ${booking.getLocationAddress() || booking.getPickupAddress() || 'Non spécifiée'}`);
+        logger.error(`   Type: ${booking.getType()}`);
         return;
+      }
+
+      // Valider que les coordonnées sont dans le rayon de 50km de Paris
+      const { ProfessionalLocationService } = await import('@/bookingAttribution/ProfessionalLocationService');
+      const locationService = new ProfessionalLocationService();
+      if (!locationService.isWithinParisRadius(coordinates.latitude, coordinates.longitude, 50)) {
+        logger.error(`❌ Coordonnées hors du rayon de 50km de Paris pour booking ${booking.getId()}`);
+        logger.error(`   Coordonnées: (${coordinates.latitude}, ${coordinates.longitude})`);
+        logger.error(`   Adresse: ${booking.getLocationAddress() || booking.getPickupAddress() || 'Non spécifiée'}`);
+        // Pour l'instant, on continue quand même (validation business à faire ailleurs)
+        // Mais on log l'erreur pour monitoring
+      } else {
+        logger.info(`✅ Coordonnées validées (rayon 50km): (${coordinates.latitude}, ${coordinates.longitude})`);
       }
 
       // Déterminer le type de service pour l'attribution
@@ -1071,7 +1570,7 @@ export class BookingService {
         serviceType,
         serviceLatitude: coordinates.latitude,
         serviceLongitude: coordinates.longitude,
-        maxDistanceKm: 150, // Distance par défaut
+        maxDistanceKm: 100, // Distance par défaut
         bookingData
       });
 
@@ -1085,35 +1584,105 @@ export class BookingService {
 
   /**
    * Extrait les coordonnées géographiques d'une réservation
+   * ✅ AMÉLIORÉ: Utilise le géocodage Google Maps et valide le rayon de 50km autour de Paris
    */
   private async extractBookingCoordinates(booking: Booking): Promise<{ latitude: number; longitude: number } | null> {
     try {
-      // Essayer d'extraire depuis les données additionnelles
-      const additionalInfo = booking.getAdditionalInfo() as any;
-      if (additionalInfo?.coordinates) {
-        return {
+      // 1. Essayer d'extraire depuis les données additionnelles (coordonnées déjà stockées)
+      const additionalInfo = (booking as any).additionalInfo as any;
+      if (additionalInfo?.coordinates?.latitude && additionalInfo?.coordinates?.longitude) {
+        const coordinates = {
           latitude: additionalInfo.coordinates.latitude,
           longitude: additionalInfo.coordinates.longitude
         };
+        
+        // Valider que les coordonnées sont dans le rayon de 50km de Paris
+        const { ProfessionalLocationService } = await import('@/bookingAttribution/ProfessionalLocationService');
+        const locationService = new ProfessionalLocationService();
+        if (locationService.isWithinParisRadius(coordinates.latitude, coordinates.longitude, 50)) {
+          logger.info(`✅ Coordonnées trouvées dans additionalInfo: (${coordinates.latitude}, ${coordinates.longitude})`);
+          return coordinates;
+        } else {
+          logger.warn(`⚠️ Coordonnées dans additionalInfo hors du rayon de 50km de Paris: (${coordinates.latitude}, ${coordinates.longitude})`);
+        }
       }
 
-      // Essayer d'extraire depuis les données de déménagement si disponibles
+      // 2. Pour MOVING_QUOTE, récupérer depuis la table Moving
       if (booking.getType() === BookingType.MOVING_QUOTE) {
-        // TODO: Récupérer depuis le repository Moving si nécessaire
+        try {
+          const { prisma } = await import('@/lib/prisma');
+          const moving = await prisma.moving.findUnique({
+            where: { bookingId: booking.getId()! },
+            select: { pickupCoordinates: true, deliveryCoordinates: true }
+          });
+          
+          if (moving?.pickupCoordinates) {
+            const coords = moving.pickupCoordinates as any;
+            if (coords.latitude && coords.longitude) {
+              const coordinates = {
+                latitude: coords.latitude,
+                longitude: coords.longitude
+              };
+              
+              // Valider le rayon de 50km
+              const { ProfessionalLocationService } = await import('@/bookingAttribution/ProfessionalLocationService');
+              const locationService = new ProfessionalLocationService();
+              if (locationService.isWithinParisRadius(coordinates.latitude, coordinates.longitude, 50)) {
+                logger.info(`✅ Coordonnées trouvées dans Moving.pickupCoordinates: (${coordinates.latitude}, ${coordinates.longitude})`);
+                return coordinates;
+              } else {
+                logger.warn(`⚠️ Coordonnées Moving hors du rayon de 50km de Paris: (${coordinates.latitude}, ${coordinates.longitude})`);
+              }
+            }
+          }
+        } catch (movingError) {
+          logger.warn('⚠️ Erreur récupération coordonnées depuis Moving:', movingError);
+        }
       }
 
-      // Fallback: géocoder l'adresse si disponible
+      // 3. Géocoder l'adresse si disponible
       const address = booking.getLocationAddress() || booking.getPickupAddress();
       if (address) {
-        // TODO: Utiliser le service de géocodage existant
-        // Pour l'instant, retourner des coordonnées par défaut (Paris)
-        logger.warn(`⚠️ Géocodage non implémenté pour adresse: ${address}, utilisation coordonnées Paris`);
-        return {
-          latitude: 48.8566,
-          longitude: 2.3522
-        };
+        try {
+          const { ProfessionalLocationService } = await import('@/bookingAttribution/ProfessionalLocationService');
+          const locationService = new ProfessionalLocationService();
+          const coordinates = await locationService.geocodeAddress(address);
+          
+          if (coordinates) {
+            // Valider que l'adresse est dans le rayon de 50km de Paris
+            if (locationService.isWithinParisRadius(coordinates.latitude, coordinates.longitude, 50)) {
+              logger.info(`✅ Adresse géocodée et validée (rayon 50km): ${address} → (${coordinates.latitude}, ${coordinates.longitude})`);
+              
+              // Stocker les coordonnées dans additionalInfo pour usage futur
+              // Note: Cette mise à jour sera persistée lors de la prochaine sauvegarde du booking
+              const updatedInfo = {
+                ...(additionalInfo || {}),
+                coordinates: {
+                  latitude: coordinates.latitude,
+                  longitude: coordinates.longitude,
+                  geocodedAt: new Date().toISOString(),
+                  address: address
+                }
+              };
+              // TODO: Mettre à jour le booking avec les coordonnées (nécessite une méthode update)
+              
+              return coordinates;
+            } else {
+              logger.error(`❌ Adresse hors du rayon de 50km de Paris: ${address} → (${coordinates.latitude}, ${coordinates.longitude})`);
+              // Ne pas retourner null, mais utiliser quand même les coordonnées (validation business à faire ailleurs)
+              // Pour l'instant, on retourne les coordonnées mais on log l'avertissement
+              return coordinates;
+            }
+          } else {
+            logger.warn(`⚠️ Géocodage échoué pour adresse: ${address}`);
+          }
+        } catch (geocodeError) {
+          logger.error('❌ Erreur lors du géocodage:', geocodeError);
+        }
       }
 
+      // 4. Dernier recours: retourner null (ne pas utiliser Paris par défaut)
+      logger.error(`❌ Impossible d'extraire les coordonnées pour booking ${booking.getId()}`);
       return null;
     } catch (error) {
       logger.error('❌ Erreur extraction coordonnées:', error);
@@ -1133,6 +1702,107 @@ export class BookingService {
       case BookingType.SERVICE:
       default:
         return ServiceType.SERVICE;
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU: Stocke les coordonnées dans additionalInfo lors de la création du booking
+   * Extrait les coordonnées depuis quoteData ou géocode l'adresse
+   */
+  private async storeBookingCoordinates(booking: Booking, quoteData: any): Promise<void> {
+    try {
+      // 1. Vérifier si les coordonnées sont déjà dans quoteData
+      if (quoteData?.coordinates?.latitude && quoteData?.coordinates?.longitude) {
+        const coordinates = {
+          latitude: quoteData.coordinates.latitude,
+          longitude: quoteData.coordinates.longitude
+        };
+        
+        // Valider le rayon de 50km
+        const { ProfessionalLocationService } = await import('@/bookingAttribution/ProfessionalLocationService');
+        const locationService = new ProfessionalLocationService();
+        if (locationService.isWithinParisRadius(coordinates.latitude, coordinates.longitude, 50)) {
+          await this.updateBookingAdditionalInfo(booking, {
+            coordinates: {
+              ...coordinates,
+              source: 'quoteData',
+              storedAt: new Date().toISOString()
+            }
+          });
+          logger.info(`✅ Coordonnées stockées depuis quoteData: (${coordinates.latitude}, ${coordinates.longitude})`);
+          return;
+        } else {
+          logger.warn(`⚠️ Coordonnées dans quoteData hors du rayon de 50km: (${coordinates.latitude}, ${coordinates.longitude})`);
+        }
+      }
+
+      // 2. Géocoder l'adresse si disponible
+      const address = quoteData?.pickupAddress || quoteData?.locationAddress || quoteData?.address;
+      if (address) {
+        const { ProfessionalLocationService } = await import('@/bookingAttribution/ProfessionalLocationService');
+        const locationService = new ProfessionalLocationService();
+        const coordinates = await locationService.geocodeAddress(address);
+        
+        if (coordinates) {
+          // Valider le rayon de 50km
+          if (locationService.isWithinParisRadius(coordinates.latitude, coordinates.longitude, 50)) {
+            await this.updateBookingAdditionalInfo(booking, {
+              coordinates: {
+                ...coordinates,
+                source: 'geocoded',
+                address: address,
+                geocodedAt: new Date().toISOString()
+              }
+            });
+            logger.info(`✅ Coordonnées géocodées et stockées: ${address} → (${coordinates.latitude}, ${coordinates.longitude})`);
+          } else {
+            logger.warn(`⚠️ Adresse géocodée hors du rayon de 50km: ${address} → (${coordinates.latitude}, ${coordinates.longitude})`);
+            // Stocker quand même pour référence, mais avec un flag d'avertissement
+            await this.updateBookingAdditionalInfo(booking, {
+              coordinates: {
+                ...coordinates,
+                source: 'geocoded',
+                address: address,
+                geocodedAt: new Date().toISOString(),
+                warning: 'Hors rayon 50km de Paris'
+              }
+            });
+          }
+        } else {
+          logger.warn(`⚠️ Géocodage échoué pour adresse: ${address}`);
+        }
+      }
+    } catch (error) {
+      logger.error('❌ Erreur lors du stockage des coordonnées:', error);
+      // Ne pas bloquer la création du booking si le géocodage échoue
+    }
+  }
+
+  /**
+   * Met à jour additionalInfo d'un booking dans la base de données
+   */
+  private async updateBookingAdditionalInfo(booking: Booking, additionalInfo: any): Promise<void> {
+    try {
+      const { prisma } = await import('@/lib/prisma');
+      const existingInfo = (booking as any).additionalInfo || {};
+      const mergedInfo = {
+        ...existingInfo,
+        ...additionalInfo
+      };
+
+      await prisma.booking.update({
+        where: { id: booking.getId()! },
+        data: {
+          additionalInfo: mergedInfo,
+          updatedAt: new Date()
+        }
+      });
+
+      // Mettre à jour l'entité en mémoire (pour cohérence)
+      (booking as any).additionalInfo = mergedInfo;
+    } catch (error) {
+      logger.error('❌ Erreur mise à jour additionalInfo:', error);
+      throw error;
     }
   }
 

@@ -6,6 +6,7 @@ import { ValidationError } from '../../domain/errors/ValidationError';
 import { logger } from '@/lib/logger';
 import { devLog } from '@/lib/conditional-logger';
 import { PrismaClient } from '@prisma/client';
+import { PriceResponseBuilder } from './PriceResponseBuilder';
 
 interface PriceCalculationRequest {
     serviceType: ServiceType;
@@ -71,35 +72,20 @@ interface PriceCalculationRequest {
  */
 export class PriceService {
     private readonly prisma: PrismaClient;
+    private readonly responseBuilder: PriceResponseBuilder;
 
     constructor(
         private readonly quoteCalculator: QuoteCalculator = QuoteCalculator.getInstance()
     ) {
         this.prisma = new PrismaClient();
+        this.responseBuilder = new PriceResponseBuilder();
     }
 
     /**
      * POST /api/price/calculate
      * Calcul de prix complet et précis avec toutes les règles
      */
-    async calculatePrice(request: PriceCalculationRequest): Promise<{
-        basePrice: number;
-        totalPrice: number;
-        currency: string;
-        breakdown: Record<string, number>;
-        appliedRules: Array<{ name: string; impact: number; type: string }>;
-        calculationId: string;
-        serviceType: ServiceType;
-    }> {
-        logger.info(`💰 Calcul de prix complet - Service: ${request.serviceType}`);
-
-        devLog.debug('PriceService', '📋 [PriceService] ÉTAPE 2: Request reçu:', {
-            pickupLogisticsConstraints: request.pickupLogisticsConstraints,
-            deliveryLogisticsConstraints: request.deliveryLogisticsConstraints,
-            additionalServices: request.additionalServices,
-            pickupAddress: request.pickupAddress?.substring(0, 50),
-            deliveryAddress: request.deliveryAddress?.substring(0, 50)
-        });
+    async calculatePrice(request: PriceCalculationRequest): Promise<any> {
 
         try {
             // Validation des données d'entrée
@@ -108,36 +94,30 @@ export class PriceService {
             // Créer le contexte de calcul
             const context = await this.createQuoteContext(request);
 
-            devLog.debug('PriceService', '🎯 [PriceService] ÉTAPE 3: Context créé, données dans le context:', {
-                pickupLogisticsConstraints: context.getValue('pickupLogisticsConstraints'),
-                deliveryLogisticsConstraints: context.getValue('deliveryLogisticsConstraints'),
-                additionalServices: context.getValue('additionalServices')
-            });
-
-                    // Calculer le prix avec le QuoteCalculator
+            // Calculer le prix avec le QuoteCalculator
             const quote = await this.quoteCalculator.calculateQuote(request.serviceType, context);
+
+            // ✅ NOUVEAU: Récupérer le RuleExecutionResult depuis le contexte pour traçabilité
+            const ruleExecutionResult = context.getValue('__ruleExecutionResult') as any;
 
             // Générer un ID de calcul unique
             const calculationId = this.generateCalculationId();
 
-            // Construire la réponse détaillée
-            const response = {
-                basePrice: quote.getBasePrice().getAmount(),
-                totalPrice: quote.getTotalPrice().getAmount(),
-                currency: quote.getBasePrice().getCurrency(),
-                breakdown: this.convertDetailsToBreakdown(quote.getDetails()),
-                appliedRules: this.extractAppliedRules(quote),
-                details: quote.getDetails(), // ✅ Détails du calcul inclus
-                calculationId,
-                serviceType: request.serviceType
-            };
+            // ✅ NOUVELLE STRUCTURE: Construire la réponse complète et organisée via PriceResponseBuilder
+            const response = await this.responseBuilder.buildResponse(
+                request,
+                quote,
+                ruleExecutionResult,
+                context,
+                calculationId
+            );
 
-            logger.info(`✅ Prix calculé avec succès - ID: ${calculationId}, Base: ${response.basePrice}€, Total: ${response.totalPrice}€`);
+            logger.info(`📁 [PriceService.ts] ✅ Prix calculé avec succès - ID: ${calculationId}, Total: ${response.summary.total}€`);
 
             return response;
 
         } catch (error) {
-            logger.error(`❌ Erreur lors du calcul de prix: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+            logger.error(`📁 [PriceService.ts] ❌ Erreur lors du calcul de prix: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
             throw error;
         }
     }
@@ -148,6 +128,10 @@ export class PriceService {
     // === MÉTHODES PRIVÉES ===
 
     private validateCalculationRequest(request: PriceCalculationRequest): void {
+        // 🔒 SÉCURITÉ: Sanitization des données numériques (conversion string → number si nécessaire)
+        this.sanitizeNumericFields(request);
+
+        // 🔒 SÉCURITÉ: Validation stricte du type de service
         if (!request.serviceType) {
             throw new ValidationError('Type de service requis');
         }
@@ -156,23 +140,188 @@ export class PriceService {
             throw new ValidationError('Type de service invalide');
         }
 
-        // Les champs spécifiques (volume, distance, duration, workers) sont optionnels
-        // Le calculateur se charge de déterminer les valeurs appropriées selon le type de service
+        // 🔒 SÉCURITÉ: Validation stricte des paramètres numériques pour éviter manipulation
+        if (request.volume !== undefined) {
+            if (typeof request.volume !== 'number' || request.volume < 0 || request.volume > 150) {
+                throw new ValidationError(`Volume invalide: doit être entre 0 et 150 m³ (reçu: ${request.volume})`);
+            }
+        }
+
+        if (request.distance !== undefined) {
+            if (typeof request.distance !== 'number' || request.distance < 0 || request.distance > 1000) {
+                throw new ValidationError(`Distance invalide: doit être entre 0 et 1000 km (reçu: ${request.distance})`);
+            }
+        }
+
+        if (request.workers !== undefined) {
+            if (typeof request.workers !== 'number' || !Number.isInteger(request.workers) || request.workers < 1 || request.workers > 10) {
+                throw new ValidationError(`Nombre de déménageurs invalide: doit être entre 1 et 10 (reçu: ${request.workers})`);
+            }
+        }
+
+        if (request.duration !== undefined) {
+            if (typeof request.duration !== 'number' || request.duration < 0 || request.duration > 48) {
+                throw new ValidationError(`Durée invalide: doit être entre 0 et 48 heures (reçu: ${request.duration})`);
+            }
+        }
+
+        if (request.pickupFloor !== undefined) {
+            if (typeof request.pickupFloor !== 'number' || !Number.isInteger(request.pickupFloor) || request.pickupFloor < 0 || request.pickupFloor > 100) {
+                throw new ValidationError(`Étage de départ invalide: doit être entre 0 et 100 (reçu: ${request.pickupFloor})`);
+            }
+        }
+
+        if (request.deliveryFloor !== undefined) {
+            if (typeof request.deliveryFloor !== 'number' || !Number.isInteger(request.deliveryFloor) || request.deliveryFloor < 0 || request.deliveryFloor > 100) {
+                throw new ValidationError(`Étage d'arrivée invalide: doit être entre 0 et 100 (reçu: ${request.deliveryFloor})`);
+            }
+        }
+
+        if (request.defaultPrice !== undefined) {
+            if (typeof request.defaultPrice !== 'number' || request.defaultPrice < 0 || request.defaultPrice > 100000) {
+                throw new ValidationError(`Prix par défaut invalide: doit être entre 0 et 100000€ (reçu: ${request.defaultPrice})`);
+            }
+        }
+
+        if (request.basePrice !== undefined) {
+            if (typeof request.basePrice !== 'number' || request.basePrice < 0 || request.basePrice > 100000) {
+                throw new ValidationError(`Prix de base invalide: doit être entre 0 et 100000€ (reçu: ${request.basePrice})`);
+            }
+        }
+
+        // 🔒 SÉCURITÉ: Valider les UUIDs de contraintes et services (optionnel mais recommandé)
+        this.validateConstraintIds(request.pickupLogisticsConstraints, 'pickupLogisticsConstraints');
+        this.validateConstraintIds(request.deliveryLogisticsConstraints, 'deliveryLogisticsConstraints');
+        this.validateServiceIds(request.pickupServices, 'pickupServices');
+        this.validateServiceIds(request.deliveryServices, 'deliveryServices');
+        this.validateServiceIds(request.additionalServices, 'additionalServices');
+    }
+
+    /**
+     * 🔒 SÉCURITÉ: Sanitize les champs numériques qui peuvent arriver en string depuis le formulaire
+     * Les formulaires HTML envoient souvent des strings qu'il faut convertir en numbers
+     */
+    private sanitizeNumericFields(request: PriceCalculationRequest): void {
+        const numericFields = [
+            'volume', 'distance', 'workers', 'duration',
+            'pickupFloor', 'deliveryFloor',
+            'pickupCarryDistance', 'deliveryCarryDistance',
+            'defaultPrice', 'basePrice', 'baseWorkers', 'baseDuration'
+        ];
+
+        numericFields.forEach(field => {
+            const value = (request as any)[field];
+
+            if (value !== undefined && value !== null && value !== '') {
+                // Si c'est une string, tenter la conversion
+                if (typeof value === 'string') {
+                    const parsed = parseFloat(value);
+                    if (!isNaN(parsed)) {
+                        (request as any)[field] = parsed;
+                    }
+                }
+            }
+        });
+
+        // Cas spécial pour les booléens qui peuvent arriver en string
+        const booleanFields = ['pickupElevator', 'deliveryElevator', 'pickupNeedsLift', 'deliveryNeedsLift'];
+
+        booleanFields.forEach(field => {
+            const value = (request as any)[field];
+
+            if (value !== undefined && value !== null && typeof value === 'string') {
+                // Convertir "true"/"false" string en boolean
+                if (value === 'true') (request as any)[field] = true;
+                else if (value === 'false') (request as any)[field] = false;
+                else if (value === 'yes') (request as any)[field] = true;
+                else if (value === 'no') (request as any)[field] = false;
+            }
+        });
+    }
+
+    /**
+     * 🔒 SÉCURITÉ: Valider le format et l'existence des UUIDs de contraintes
+     *
+     * Supporte deux formats de contraintes:
+     * 1. Format plat: {uuid: true, uuid2: true}
+     * 2. Format groupé: {addressConstraints: {uuid: true}, addressServices: {uuid2: true}}
+     */
+    private validateConstraintIds(constraints: string[] | Record<string, boolean | Record<string, boolean>> | undefined, fieldName: string): void {
+        if (!constraints) return;
+
+        let ids: string[] = [];
+
+        if (Array.isArray(constraints)) {
+            ids = constraints;
+        } else if (typeof constraints === 'object') {
+            // 🔧 CORRECTION: Gérer le format groupé (addressConstraints, addressServices, globalServices)
+            const constraintsObj = constraints as Record<string, boolean | Record<string, boolean>>;
+
+            // Détecter si c'est un format groupé en cherchant les clés spéciales
+            const hasGroupedFormat = 'addressConstraints' in constraintsObj ||
+                                    'addressServices' in constraintsObj ||
+                                    'globalServices' in constraintsObj;
+
+            if (hasGroupedFormat) {
+                // Format groupé: extraire les UUIDs de chaque catégorie
+                ['addressConstraints', 'addressServices', 'globalServices'].forEach(category => {
+                    const categoryData = constraintsObj[category];
+                    if (categoryData && typeof categoryData === 'object' && !Array.isArray(categoryData)) {
+                        const categoryIds = Object.keys(categoryData).filter(k => (categoryData as Record<string, boolean>)[k]);
+                        ids.push(...categoryIds);
+                    }
+                });
+            } else {
+                // Format plat: extraire directement les clés avec valeur true
+                ids = Object.keys(constraintsObj).filter(k => constraintsObj[k] === true);
+            }
+        }
+
+        // Vérifier le format UUID (basique)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        for (const id of ids) {
+            if (!uuidRegex.test(id)) {
+                throw new ValidationError(`${fieldName}: ID de contrainte invalide (${id})`);
+            }
+        }
+
+        // Limite du nombre de contraintes pour éviter abus
+        if (ids.length > 50) {
+            throw new ValidationError(`${fieldName}: Trop de contraintes (max: 50, reçu: ${ids.length})`);
+        }
+    }
+
+    /**
+     * 🔒 SÉCURITÉ: Valider le format et l'existence des UUIDs de services
+     */
+    private validateServiceIds(services: string[] | Record<string, boolean> | undefined, fieldName: string): void {
+        if (!services) return;
+
+        let ids: string[] = [];
+
+        if (Array.isArray(services)) {
+            ids = services;
+        } else if (typeof services === 'object') {
+            ids = Object.keys(services).filter(k => services[k]);
+        }
+
+        // Vérifier le format UUID (basique)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        for (const id of ids) {
+            if (!uuidRegex.test(id)) {
+                throw new ValidationError(`${fieldName}: ID de service invalide (${id})`);
+            }
+        }
+
+        // Limite du nombre de services pour éviter abus
+        if (ids.length > 50) {
+            throw new ValidationError(`${fieldName}: Trop de services (max: 50, reçu: ${ids.length})`);
+        }
     }
 
     private async createQuoteContext(request: PriceCalculationRequest): Promise<QuoteContext> {
-        devLog.debug('PriceService', '🔍 [PriceService] createQuoteContext - request reçue:', {
-            serviceType: request.serviceType,
-            hasPickup: !!(request as any).pickup,
-            hasDelivery: !!(request as any).delivery,
-            hasGlobalServices: !!(request as any).globalServices,
-            pickupLogisticsConstraints: request.pickupLogisticsConstraints,
-            deliveryLogisticsConstraints: request.deliveryLogisticsConstraints
-        });
-
         // ✅ SUPPORT STRUCTURE GROUPÉE: Détecter et extraire depuis la structure groupée
         if ((request as any).pickup || (request as any).delivery || (request as any).globalServices) {
-            devLog.debug('PriceService', '📦 [PriceService] Structure groupée détectée, extraction des données...');
 
             // Extraire pickup
             if ((request as any).pickup) {
@@ -216,13 +365,6 @@ export class PriceService {
                 }, {});
             }
 
-            devLog.debug('PriceService', '✅ [PriceService] Données extraites de la structure groupée:', {
-                pickupAddress: request.pickupAddress,
-                deliveryAddress: request.deliveryAddress,
-                pickupConstraintsCount: Object.keys(request.pickupLogisticsConstraints || {}).length,
-                deliveryConstraintsCount: Object.keys(request.deliveryLogisticsConstraints || {}).length,
-                additionalServicesCount: Object.keys(request.additionalServices || {}).length
-            });
         }
 
         const context = new QuoteContext(request.serviceType);
@@ -295,9 +437,9 @@ export class PriceService {
         }
 
         // ✅ CORRECTION CRITIQUE: Ajouter pickupLogisticsConstraints et deliveryLogisticsConstraints
-        // Ces champs sont envoyés par le formulaire mais n'étaient pas mappés dans le contexte
-        // ⚠️ IMPORTANT: Le formulaire envoie un OBJET {constraint: true, uuid: true}, il faut le convertir en TABLEAU ['constraint']
-        // ✅ NOUVELLE VERSION: Mapping asynchrone des UUIDs vers les noms de contraintes
+        // Le formulaire peut envoyer plusieurs formats:
+        // 1. Objet simple: {uuid: true}
+        // 2. Objet imbriqué: {addressConstraints: {uuid: true}, addressServices: {uuid: true}}
         if (request.pickupLogisticsConstraints !== undefined) {
             const pickupConstraints = await this.normalizeConstraintsAsync(request.pickupLogisticsConstraints, request.serviceType);
             context.setValue('pickupLogisticsConstraints', pickupConstraints);
@@ -311,39 +453,22 @@ export class PriceService {
         if (request.pickupServices !== undefined) {
             const pickupSvcs = await this.normalizeServicesAsync(request.pickupServices, request.serviceType);
             context.setValue('pickupServices', pickupSvcs);
-            devLog.debug('PriceService', '✅ [PriceService] Services pickup ajoutés au contexte:', pickupSvcs);
         }
         if (request.deliveryServices !== undefined) {
             const deliverySvcs = await this.normalizeServicesAsync(request.deliveryServices, request.serviceType);
             context.setValue('deliveryServices', deliverySvcs);
-            devLog.debug('PriceService', '✅ [PriceService] Services delivery ajoutés au contexte:', deliverySvcs);
         }
 
         // ✅ NOUVEAU: Services supplémentaires globaux (piano, stockage, etc.)
-        // Utilise la même logique de normalisation pour mapper les UUIDs vers les noms de services
         if (request.additionalServices !== undefined) {
             const services = await this.normalizeServicesAsync(request.additionalServices, request.serviceType);
             context.setValue('additionalServices', services);
-            devLog.debug('PriceService', '✅ [PriceService] Services globaux ajoutés au contexte:', services);
         }
 
         // ✅ CORRECTION: Ajouter aussi les autres champs du formulaire qui peuvent être présents
         // Adresses (nécessaires pour certaines règles géographiques)
         if (request.pickupAddress !== undefined) context.setValue('pickupAddress', request.pickupAddress);
         if (request.deliveryAddress !== undefined) context.setValue('deliveryAddress', request.deliveryAddress);
-
-        // ✅ LOG: Vérifier que les contraintes ont bien été ajoutées au contexte
-        const contextData = context.getAllData();
-        devLog.debug('PriceService', '🔍 [PriceService] Context créé avec:', {
-            hasPickupConstraints: !!contextData.pickupLogisticsConstraints,
-            pickupConstraintsCount: Array.isArray(contextData.pickupLogisticsConstraints) ? contextData.pickupLogisticsConstraints.length : 0,
-            hasDeliveryConstraints: !!contextData.deliveryLogisticsConstraints,
-            deliveryConstraintsCount: Array.isArray(contextData.deliveryLogisticsConstraints) ? contextData.deliveryLogisticsConstraints.length : 0,
-            pickupFloor: contextData.pickupFloor,
-            pickupElevator: contextData.pickupElevator,
-            deliveryFloor: contextData.deliveryFloor,
-            deliveryElevator: contextData.deliveryElevator
-        });
 
         return context;
     }
@@ -354,7 +479,7 @@ export class PriceService {
         // Convertir les détails en breakdown avec des clés simplifiées
         details.forEach((detail, index) => {
             const key = this.createBreakdownKey(detail.label, index);
-            breakdown[key] = detail.amount;
+            breakdown[key] = parseFloat(detail.amount.toFixed(2));
         });
 
         return breakdown;
@@ -396,7 +521,7 @@ export class PriceService {
 
             return {
                 name: discount.getName(),
-                impact: Math.round(impact * 100) / 100, // Arrondir à 2 décimales
+                impact: parseFloat(impact.toFixed(2)), // Arrondir à 2 décimales
                 type: type
             };
         });
@@ -406,63 +531,80 @@ export class PriceService {
         return `calc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     }
 
+
+
     /**
      * ✅ NOUVELLE VERSION ASYNCHRONE: Normalise les contraintes logistiques ET mappe les UUIDs
-     * Le formulaire peut envoyer soit:
-     * - Un tableau: ['constraint1', 'constraint2'] ✅ Format attendu
-     * - Un objet: {constraint1: true, constraint2: true, uuid: true} ❌ Format actuel du frontend
+     * Le formulaire peut envoyer plusieurs formats:
+     * 1. Un tableau: ['uuid1', 'uuid2'] ✅ Format attendu
+     * 2. Un objet simple: {uuid1: true, uuid2: true} ✅ Format PLATE
+     * 3. Un objet imbriqué: {addressConstraints: {uuid1: true}, addressServices: {uuid2: true}} ✅ Format MODAL
      *
      * Cette méthode:
-     * 1. Extrait les noms de contraintes (snake_case)
-     * 2. Extrait les UUIDs de règles sélectionnées dans le modal
-     * 3. Charge les règles depuis la BDD par UUID
-     * 4. Extrait le nom de contrainte depuis la condition JSON de chaque règle
-     * 5. Retourne la liste complète des noms de contraintes
+     * 1. Détecte le format reçu
+     * 2. Extrait tous les UUIDs (contraintes + services d'adresse)
+     * 3. Retourne la liste complète des UUIDs
      */
     private async normalizeConstraintsAsync(constraints: any, serviceType: ServiceType): Promise<string[]> {
-        // Si c'est déjà un tableau, le retourner tel quel (déjà des UUIDs)
+        // Cas 1: Déjà un tableau (format attendu)
         if (Array.isArray(constraints)) {
             return constraints;
         }
 
-        // Si c'est un objet, extraire les clés avec valeur true (ce sont des UUIDs)
+        // Cas 2: Objet simple {uuid: true}
         if (typeof constraints === 'object' && constraints !== null) {
-            const selectedIds = Object.keys(constraints).filter(key => constraints[key] === true);
+            // ✅ DÉTECTION FORMAT IMBRIQUÉ: {addressConstraints: {...}, addressServices: {...}, globalServices: {...}}
+            if ('addressConstraints' in constraints || 'addressServices' in constraints || 'globalServices' in constraints) {
+                const allIds: string[] = [];
 
-            devLog.debug('PriceService', '🔧 [PriceService] Normalisation des contraintes (UUIDs directs):', {
-                avant: constraints,
-                uuidsExtraits: selectedIds
-            });
+                // Extraire addressConstraints
+                if (constraints.addressConstraints && typeof constraints.addressConstraints === 'object') {
+                    const constraintIds = Object.keys(constraints.addressConstraints).filter(key => constraints.addressConstraints[key] === true);
+                    allIds.push(...constraintIds);
+                }
 
-            return selectedIds;
+                // Extraire addressServices (services liés à l'adresse, ex: monte-meuble, emballage)
+                if (constraints.addressServices && typeof constraints.addressServices === 'object') {
+                    const serviceIds = Object.keys(constraints.addressServices).filter(key => constraints.addressServices[key] === true);
+                    allIds.push(...serviceIds);
+                }
+
+                // Note: globalServices ne sont pas inclus ici (gérés séparément via additionalServices)
+
+                return allIds;
+            }
+
+            // Cas 3: Objet simple {uuid: true, uuid2: true}
+            return Object.keys(constraints).filter(key => constraints[key] === true);
         }
 
-        // Si c'est ni un tableau ni un objet, retourner un tableau vide
-        devLog.warn('PriceService', '⚠️ [PriceService] Format de contraintes invalide:', constraints);
+        // Format invalide
         return [];
     }
 
     /**
      * ✅ NORMALISATION DES SERVICES SUPPLÉMENTAIRES
      * Même logique que normalizeConstraintsAsync, mais pour les services (piano, fragile, etc.)
-     * Les services ne sont PAS liés à une adresse spécifique, ils sont globaux
+     * Les services peuvent être:
+     * 1. Un tableau: ['uuid1', 'uuid2']
+     * 2. Un objet simple: {uuid1: true, uuid2: true}
+     * 3. Un objet imbriqué: {globalServices: {uuid1: true}}
      */
     private async normalizeServicesAsync(services: any, serviceType: ServiceType): Promise<string[]> {
-        // Si c'est déjà un tableau, le retourner tel quel (déjà des UUIDs)
+        // Cas 1: Déjà un tableau
         if (Array.isArray(services)) {
             return services;
         }
 
-        // Si c'est un objet, extraire les clés avec valeur true (ce sont des UUIDs)
+        // Cas 2: Objet
         if (typeof services === 'object' && services !== null) {
-            const selectedIds = Object.keys(services).filter(key => services[key] === true);
+            // ✅ DÉTECTION FORMAT IMBRIQUÉ: {globalServices: {...}}
+            if ('globalServices' in services && typeof services.globalServices === 'object') {
+                return Object.keys(services.globalServices).filter(key => services.globalServices[key] === true);
+            }
 
-            devLog.debug('PriceService', '🔧 [PriceService] Normalisation des services (UUIDs directs):', {
-                avant: services,
-                uuidsExtraits: selectedIds
-            });
-
-            return selectedIds;
+            // Cas 3: Objet simple {uuid: true}
+            return Object.keys(services).filter(key => services[key] === true);
         }
 
         return [];

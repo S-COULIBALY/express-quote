@@ -8,6 +8,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { prisma as sharedPrisma } from '@/lib/prisma';
 
 /**
  * Singleton Prisma client pour gérer les connexions à la base de données
@@ -20,14 +21,8 @@ export class Database {
    */
   public static getClient(): PrismaClient {
     if (!Database.instance) {
-      Database.instance = new PrismaClient({
-        log: process.env.NODE_ENV === 'development' 
-          ? ['query', 'info', 'warn', 'error'] 
-          : ['error'],
-      });
-      
-      // Log de connexion réussie
-      console.log('Connexion à la base de données établie');
+      // Reuse shared Prisma client to avoid multiple instances and unified logging
+      Database.instance = sharedPrisma;
     }
     
     return Database.instance;

@@ -83,8 +83,9 @@ class CalculationDebugLogger {
     this.steps.push(step);
     
     // Log minimal - seulement les métriques clés
-    console.log('\n🔥 [CALC-DEBUG] ' + serviceType + ' | Dist=' + (step.input.contextData.distance || 0) + 'km, Workers=' + (step.input.contextData.workers || 0) + ', Durée=' + (step.input.contextData.duration || 0) + 'h');
+    console.log('\n🔥 [CALC-DEBUG] ' + serviceType + ' | Dist=' + (step.input.contextData.distance || 0) + 'km, Workers=' + (step.input.contextData.workers || 0) + ', Durée=' + (step.input.contextData.duration || 0) + 'h\n\n');
   }
+
 
   logPriceComponent(component: string, value: number, calculation: string, configUsed: any, formula: string) {
     const detail: PriceComponentDetail = {
@@ -96,13 +97,7 @@ class CalculationDebugLogger {
     };
 
     this.priceComponents.push(detail);
-
-    console.log(`💰 [CALC-DEBUG] COMPOSANT: ${component}`);
-    console.log(`   📐 Formule: ${formula}`);
-    console.log(`   🧮 Calcul: ${calculation}`);
-    console.log(`   💵 Valeur: ${detail.value}€`);
-    console.log(`   ⚙️ Config: ${JSON.stringify(configUsed)}`);
-    console.log('');
+    // Logs détaillés supprimés - affichés dans le résumé "PRIX DE BASE CALCULÉ"
   }
 
   logBasePriceCalculation(serviceType: string, components: any, totalBasePrice: number) {
@@ -121,21 +116,17 @@ class CalculationDebugLogger {
 
     console.log('🏗️ [CALC-DEBUG] ═══ PRIX DE BASE CALCULÉ ═══');
     console.log(`🎯 Service: ${serviceType}`);
-    console.log(`💰 Prix de base total: ${totalBasePrice}€`);
+    console.log(`💰 Prix de base total: ${this.formatAmount(totalBasePrice)}€`);
     console.log('\n📊 DÉTAIL DES COMPOSANTS:');
-    
+
     this.priceComponents.forEach((comp, index) => {
-      console.log(`   ${index + 1}. ${comp.component}: ${comp.value}€`);
+      console.log(`   ${index + 1}. ${comp.component}: ${this.formatAmount(comp.value)}€`);
       console.log(`      └─ ${comp.formula} = ${comp.calculation}`);
     });
 
     const sum = this.priceComponents.reduce((acc, comp) => acc + comp.value, 0);
     console.log(`\n🧮 VÉRIFICATION: Somme composants = ${Math.round(sum)}€`);
-    console.log(`🎯 Prix de base final = ${totalBasePrice}€`);
-    
-    if (Math.abs(sum - totalBasePrice) > 1) {
-      console.log(`⚠️ ÉCART DÉTECTÉ: ${Math.abs(sum - totalBasePrice)}€`);
-    }
+    console.log(`🎯 Prix de base final = ${this.formatAmount(totalBasePrice)}€`);
     console.log('═══════════════════════════════════════════════\n');
   }
 
@@ -165,9 +156,10 @@ class CalculationDebugLogger {
     console.log(`💰 Prix de base: ${basePrice.toFixed(2)}€`);
 
     // LOG DÉTAILLÉ des contraintes par adresse
+    // Utiliser les enrichedConstraints qui contiennent les noms lisibles
     console.log('\n🏠 CONTRAINTES PAR ADRESSE:');
-    const pickupConstraints = context.pickupLogisticsConstraints || [];
-    const deliveryConstraints = context.deliveryLogisticsConstraints || [];
+    const pickupConstraints = context.enrichedPickupConstraints || context.pickupLogisticsConstraints || [];
+    const deliveryConstraints = context.enrichedDeliveryConstraints || context.deliveryLogisticsConstraints || [];
 
     if (pickupConstraints.length > 0) {
       console.log(`   📍 DÉPART (${pickupConstraints.length} contraintes):`);
@@ -177,10 +169,10 @@ class CalculationDebugLogger {
     }
 
     if (deliveryConstraints.length > 0) {
-      console.log(`   📦 ARRIVÉE (${deliveryConstraints.length} contraintes):`);
+      console.log(`\n   📦 ARRIVÉE (${deliveryConstraints.length} contraintes):`);
       deliveryConstraints.forEach((c: string) => console.log(`      • ${c}`));
     } else {
-      console.log(`   📦 ARRIVÉE: Aucune contrainte`);
+      console.log(`\n   📦 ARRIVÉE: Aucune contrainte`);
     }
 
     console.log('═══════════════════════════════════════════════\n');
@@ -203,41 +195,32 @@ class CalculationDebugLogger {
       };
 
       this.rulesDetails.push(detail);
+      // Ne pas logger les règles non applicables (affichées dans le résumé final)
+      return;
     }
-    
-    // Format Option D unifié pour l'évaluation des règles
+
+    // Afficher uniquement les règles applicables ou en erreur
     const conditionLocation = this.findConditionLocation(rule.condition, context);
     const isPercentage = rule.isPercentage?.();
-
-    // ✅ CORRECTION: rule.value est déjà en pourcentage (15, 40, 50), ne pas multiplier par 100
     const displayValue = isPercentage ? rule.value.toFixed(1) : rule.value;
-    
+
     if (error) {
       console.log(`🔍 RÈGLE "${rule.name}" → ❌ ERREUR`);
       console.log(`   📝 Condition: ${rule.condition || 'Fonction personnalisée'} ${conditionLocation}`);
       console.log(`   ⚙️ Paramètres: Type=${isPercentage ? 'Pourcentage' : 'Montant fixe'}, Valeur=${displayValue}${isPercentage ? '%' : '€'}`);
       console.log(`   ❌ Erreur: ${error.message}`);
       console.log(`   📋 Stack: ${error.stack?.split('\n').slice(0, 2).join(' → ')}`);
+      console.log('');
     } else if (isApplicable) {
       const conditionDisplay = typeof rule.condition === 'object'
         ? JSON.stringify(rule.condition)
         : (rule.condition || 'Fonction personnalisée');
 
-      console.log(`🔍 RÈGLE "${rule.name}" → ✅ ÉVALUÉE APPLICABLE`);
-      console.log(`   📝 Condition vérifiée: ${conditionDisplay} ${conditionLocation}`);
-      console.log(`   ⚙️ Paramètres: Type=${isPercentage ? 'Pourcentage' : 'Montant fixe'}, Valeur=${displayValue}${isPercentage ? '%' : '€'}`);
-      console.log(`   ✅ Statut: Conditions remplies → Application en cours...`);
-    } else {
-      const conditionDisplay = typeof rule.condition === 'object'
-        ? JSON.stringify(rule.condition)
-        : (rule.condition || 'Fonction personnalisée');
-
-      console.log(`🔍 RÈGLE "${rule.name}" → ❌ NON APPLICABLE`);
+      console.log(`🔍 RÈGLE "${rule.name}" → ✅ APPLICABLE`);
       console.log(`   📝 Condition: ${conditionDisplay} ${conditionLocation}`);
       console.log(`   ⚙️ Paramètres: Type=${isPercentage ? 'Pourcentage' : 'Montant fixe'}, Valeur=${displayValue}${isPercentage ? '%' : '€'}`);
-      console.log(`   ❌ Statut: Conditions non remplies → Règle ignorée`);
+      // Pas de log "Statut: Conditions remplies" car redondant avec "APPLICABLE"
     }
-    console.log('');
   }
 
   logRuleApplication(rule: any, priceBeforeRule: number, ruleResult: any, contextData: any) {
@@ -285,21 +268,36 @@ class CalculationDebugLogger {
       const priceBeforeDisplay = this.formatAmount(priceBeforeRule);
       const priceAfterDisplay = this.formatAmount(detail.priceAfterRule);
       const basePriceDisplay = this.formatAmount(this.basePrice);
-      console.log(`   🧮 Application: ${priceBeforeDisplay}€ + (${basePriceDisplay}€ × ${effectivePercentage}%) = ${priceBeforeDisplay}€ + ${impactDisplay}€ = ${priceAfterDisplay}€`);
+
+      // Détecter si la règle s'applique aux 2 adresses (impact doublé)
+      const expectedSingleImpact = (this.basePrice * rule.value) / 100;
+      const multiplier = Math.round(detail.impact / expectedSingleImpact);
+
+      if (multiplier > 1) {
+        const singleImpact = this.formatAmount(expectedSingleImpact);
+        console.log(`   🧮 Application: ${priceBeforeDisplay}€ + (${basePriceDisplay}€ × ${effectivePercentage}% × ${multiplier} adresses) = ${priceBeforeDisplay}€ + ${impactDisplay}€ = ${priceAfterDisplay}€`);
+      } else {
+        console.log(`   🧮 Application: ${priceBeforeDisplay}€ + (${basePriceDisplay}€ × ${effectivePercentage}%) = ${priceBeforeDisplay}€ + ${impactDisplay}€ = ${priceAfterDisplay}€`);
+      }
     } else {
       // Pour les montants fixes, afficher le montant effectif (avec multiplicateur)
       const effectiveAmount = Math.abs(detail.impact);
       const ruleValue = Math.abs(rule.value);
-      
+
       // Calculer le nombre d'adresses concernées
       const multiplier = Math.round(effectiveAmount / ruleValue);
-      
+
+      const priceBeforeDisplay = this.formatAmount(priceBeforeRule);
+      const effectiveAmountDisplay = this.formatAmount(effectiveAmount);
+      const ruleValueDisplay = this.formatAmount(ruleValue);
+      const priceAfterDisplay = this.formatAmount(detail.priceAfterRule);
+
       if (multiplier > 1) {
         // Afficher le détail par adresse quand il y a un multiplicateur
-        console.log(`   🧮 Application: ${priceBeforeRule}€ ${sign}${effectiveAmount}€ (${ruleValue}€ × ${multiplier} adresses) = ${detail.priceAfterRule}€`);
+        console.log(`   🧮 Application: ${priceBeforeDisplay}€ ${sign}${effectiveAmountDisplay}€ (${ruleValueDisplay}€ × ${multiplier} adresses) = ${priceAfterDisplay}€`);
       } else {
         // Affichage simple quand pas de multiplicateur
-        console.log(`   🧮 Application: ${priceBeforeRule}€ ${sign}${effectiveAmount}€ = ${detail.priceAfterRule}€`);
+        console.log(`   🧮 Application: ${priceBeforeDisplay}€ ${sign}${effectiveAmountDisplay}€ = ${priceAfterDisplay}€`);
       }
     }
     
@@ -342,7 +340,7 @@ class CalculationDebugLogger {
     }
 
     console.log('✅ [CALC-DEBUG] MOTEUR RÈGLES TERMINÉ');
-    console.log(`   💰 Prix final: ${priceValue.toFixed(2)}€`);
+    console.log(`   💰 Prix final: ${this.formatAmount(priceValue)}€`);
     console.log(`   ⚡ Règles appliquées: ${appliedCount}`);
     console.log(`   ⏱️ Durée: ${duration}ms`);
     console.log('');
@@ -378,6 +376,17 @@ class CalculationDebugLogger {
       icon = '🚫';
       status = 'CONSOMMÉE PAR MONTE-MEUBLE';
       reasonIcon = '🏗️';
+      
+      // ✅ AMÉLIORATION: Distinguer contrainte déclarée vs inférée
+      if (reason.includes('inférée automatiquement')) {
+        icon = '🔍';
+        status = 'CONSOMMÉE (INFÉRÉE)';
+        reasonIcon = '🤖';
+      } else if (reason.includes('déclarée par le client')) {
+        icon = '✅';
+        status = 'CONSOMMÉE (DÉCLARÉE)';
+        reasonIcon = '👤';
+      }
     } else if (reason.includes('prix minimum')) {
       icon = '🛡️';
       status = 'PRIX MINIMUM DÉFINI';
@@ -393,8 +402,13 @@ class CalculationDebugLogger {
     
     // Ajouter des détails spécifiques selon le type
     if (reason.includes('consommée par le monte-meuble')) {
+      if (reason.includes('inférée automatiquement')) {
+        console.log(`   🎯 Contrainte inférée automatiquement car monte-meuble requis`);
+        console.log(`   💡 Évite la double facturation (principe: "Mieux vaut inférer trop que facturer deux fois")`);
+      } else {
       console.log(`   🎯 Contrainte déjà facturée dans le monte-meuble`);
       console.log(`   💡 Évite la double facturation`);
+      }
     } else if (reason.includes('prix minimum')) {
       const priceMatch = reason.match(/(\d+(?:\.\d+)?)€/);
       if (priceMatch) {
@@ -411,12 +425,12 @@ class CalculationDebugLogger {
 
   logMinimumPriceCheck(currentPrice: number, minimumPrice: number, finalPrice: number) {
     console.log('🔍 [CALC-DEBUG] ═══ VÉRIFICATION PRIX MINIMUM ═══');
-    console.log(`💰 Prix actuel: ${currentPrice}€`);
-    console.log(`🛡️ Prix minimum: ${minimumPrice}€`);
-    console.log(`💰 Prix final: ${finalPrice}€`);
-    
+    console.log(`💰 Prix actuel: ${this.formatAmount(currentPrice)}€`);
+    console.log(`🛡️ Prix minimum: ${this.formatAmount(minimumPrice)}€`);
+    console.log(`💰 Prix final: ${this.formatAmount(finalPrice)}€`);
+
     if (finalPrice > currentPrice) {
-      console.log(`⬆️ AJUSTEMENT: Prix relevé au minimum (+${finalPrice - currentPrice}€)`);
+      console.log(`⬆️ AJUSTEMENT: Prix relevé au minimum (+${this.formatAmount(finalPrice - currentPrice)}€)`);
     } else {
       console.log(`✅ VALIDATION: Prix actuel respecte le minimum`);
     }
@@ -450,58 +464,69 @@ class CalculationDebugLogger {
     this.steps.push(step);
 
     console.log('🎉 [CALC-DEBUG] ═══ CALCUL TERMINÉ ═══');
-    console.log(`⏱️ Durée totale: ${totalDuration}ms`);
-    console.log(`💰 Prix de base: ${step.output.basePrice}€`);
-    console.log(`💰 Prix final: ${step.output.finalPrice}€`);
-    console.log(`📈 Différence: ${step.output.finalPrice - step.output.basePrice > 0 ? '+' : ''}${step.output.finalPrice - step.output.basePrice}€`);
+    console.log(`⏱️ Durée totale: ${totalDuration}ms\n`);
 
-    console.log('\n📊 RÉSUMÉ DES COMPOSANTS DE PRIX:');
-    this.priceComponents.forEach((comp, index) => {
-      const percentage = (comp.value / step.output.basePrice) * 100;
-      console.log(`   ${index + 1}. ${comp.component}: ${comp.value}€ (${percentage.toFixed(1)}%)`);
-    });
-
-    // 🔧 CORRECTION: Affichage détaillé de toutes les règles
     const appliedRules = this.rulesDetails.filter(r => r.isApplicable && r.impact !== 0);
     const skippedRules = this.rulesDetails.filter(r => !r.isApplicable);
-    const zeroImpactRules = this.rulesDetails.filter(r => r.isApplicable && r.impact === 0);
-    
+    const difference = step.output.finalPrice - step.output.basePrice;
+
+    // CALCUL DÉTAILLÉ VISIBLE D'UN COUP D'ŒIL
+    console.log('💰 CALCUL DU PRIX TOTAL:');
+    console.log('─────────────────────────────────────────────────');
+
+    // 1. Composants de base
+    console.log('📊 PRIX DE BASE:');
+    let runningTotal = 0;
+    this.priceComponents.forEach((comp, index) => {
+      runningTotal += comp.value;
+      console.log(`   ${this.formatAmount(comp.value).padStart(10)}€  ${comp.component}`);
+    });
+    console.log('   ' + '─'.repeat(48));
+    console.log(`   ${this.formatAmount(step.output.basePrice).padStart(10)}€  TOTAL BASE\n`);
+
+    // 2. Règles appliquées
     if (appliedRules.length > 0) {
-      console.log('\n📋 RÈGLES APPLIQUÉES:');
+      console.log(`📋 ${appliedRules.length} RÈGLES APPLIQUÉES (+):`);
+      let rulesTotal = 0;
       appliedRules.forEach((rule, index) => {
-        const sign = rule.impact > 0 ? '+' : '';
-        const percentage = rule.ruleType === 'percentage' ? ` (${(rule.ruleValue * 100).toFixed(1)}%)` : '';
-        console.log(`   ${index + 1}. ${rule.ruleName}: ${sign}${rule.impact}€${percentage}`);
+        rulesTotal += rule.impact;
+        const percentage = rule.ruleType === 'percentage' ? ` (${rule.ruleValue.toFixed(1)}%)` : '';
+        console.log(`   ${this.formatAmount(rule.impact).padStart(10)}€  ${rule.ruleName}${percentage}`);
       });
+      console.log('   ' + '─'.repeat(48));
+      console.log(`   ${this.formatAmount(rulesTotal).padStart(10)}€  TOTAL RÈGLES\n`);
     }
 
-    if (zeroImpactRules.length > 0) {
-      console.log('\n⚡ RÈGLES SANS IMPACT:');
-      zeroImpactRules.forEach((rule, index) => {
-        console.log(`   ${index + 1}. ${rule.ruleName}: 0€ (applicable mais sans effet)`);
-      });
-    }
+    // 3. Total final
+    console.log('═════════════════════════════════════════════════');
+    console.log(`💰 PRIX FINAL: ${this.formatAmount(step.output.finalPrice)}€`);
+    console.log(`📈 Augmentation: +${this.formatAmount(difference)}€ (+${((difference / step.output.basePrice) * 100).toFixed(1)}%)`);
+    console.log('═════════════════════════════════════════════════\n');
 
     if (skippedRules.length > 0) {
       console.log(`\n⏭️ RÈGLES NON APPLICABLES: ${skippedRules.length}`);
-      // Afficher le détail des règles ignorées
       const ignoredByCondition = skippedRules.filter(r => r.errorMessage === 'Conditions non remplies');
       const ignoredByOther = skippedRules.filter(r => r.errorMessage !== 'Conditions non remplies');
-      
+
       if (ignoredByCondition.length > 0) {
         console.log(`   📝 Conditions non remplies: ${ignoredByCondition.length}`);
+        ignoredByCondition.forEach(r => {
+          const isPercentage = r.ruleType === 'percentage';
+          // ✅ CORRECTION: ruleValue est déjà en pourcentage (7.0 = 7%), ne pas multiplier par 100
+          const value = isPercentage ? `${r.ruleValue.toFixed(1)}%` : `${this.formatAmount(r.ruleValue)}€`;
+          console.log(`      • ${r.ruleName} (${value})`);
+        });
       }
       if (ignoredByOther.length > 0) {
         console.log(`   🚫 Autres raisons: ${ignoredByOther.length}`);
+        ignoredByOther.forEach(r => {
+          const isPercentage = r.ruleType === 'percentage';
+          // ✅ CORRECTION: ruleValue est déjà en pourcentage (7.0 = 7%), ne pas multiplier par 100
+          const value = isPercentage ? `${r.ruleValue.toFixed(1)}%` : `${this.formatAmount(r.ruleValue)}€`;
+          console.log(`      • ${r.ruleName} (${value})`);
+        });
       }
     }
-
-    console.log('\n🔍 SESSION SUMMARY:');
-    console.log(`   📋 Session ID: ${this.sessionId}`);
-    console.log(`   🔢 Étapes totales: ${this.steps.length}`);
-    console.log(`   💰 Composants prix: ${this.priceComponents.length}`);
-    console.log(`   📋 Règles vérifiées: ${this.rulesDetails.length}`);
-    console.log(`   ⚡ Règles appliquées: ${appliedRules.length}`);
     console.log('═══════════════════════════════════════════════\n');
   }
 

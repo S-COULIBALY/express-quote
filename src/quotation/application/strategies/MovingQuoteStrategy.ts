@@ -7,17 +7,13 @@ import { ServiceType } from "../../domain/enums/ServiceType";
 import { ConfigurationService } from "../services/ConfigurationService";
 import { RuleEngine } from "../../domain/services/RuleEngine";
 import { calculationDebugLogger } from "../../../lib/calculation-debug-logger";
-import {
-  ConfigurationCategory,
-  PricingConfigKey,
-  BusinessTypePricingConfigKey,
-} from "../../domain/configuration/ConfigurationKey";
 import { configAccessService } from "../services/ConfigurationAccessService";
 import {
   UnifiedDataService,
   ServiceType as UnifiedServiceType,
 } from "../../infrastructure/services/UnifiedDataService";
 import { devLog } from "../../../lib/conditional-logger";
+import { logger } from "../../../lib/logger";
 
 @injectable()
 export class MovingQuoteStrategy implements QuoteStrategy {
@@ -36,15 +32,16 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     this.ruleEngine = ruleEngine || new RuleEngine([]);
     this.rules = this.ruleEngine.getRules();
 
-    // ✅ NOUVEAU: Service unifié pour accès aux données
+    // Service unifié pour accès aux données
     this.unifiedDataService = UnifiedDataService.getInstance();
 
-    // ✅ NOUVEAU: Charger les règles métier au démarrage
+    // Charger les règles métier au démarrage
     this.initializeRules();
   }
 
   /**
-   * ✅ NOUVEAU: Initialise les règles métier depuis le système unifié
+   * Initialise les règles métier depuis le système unifié
+   * Charge toutes les règles actives MOVING
    */
   private async initializeRules(): Promise<void> {
     try {
@@ -71,6 +68,32 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     }
   }
 
+  /**
+   * Recharge les règles métier depuis le système unifié
+   * Le filtrage se fait automatiquement : seules les règles SÉLECTIONNÉES s'appliquent
+   */
+  private async initializeRulesWithContext(context: QuoteContext): Promise<void> {
+    try {
+      const businessRules =
+        await this.unifiedDataService.getBusinessRulesForEngine(
+          UnifiedServiceType.MOVING
+        );
+
+      if (businessRules.length > 0) {
+        devLog.debug('MovingStrategy',
+          `✅ ${businessRules.length} règles métier chargées`
+        );
+        // Remplacer le RuleEngine avec toutes les règles
+        this.ruleEngine = new RuleEngine(businessRules);
+      }
+    } catch (error) {
+      devLog.warn('MovingStrategy',
+        "⚠️ Erreur lors du rechargement des règles métier:", error
+      );
+      // Garder le RuleEngine existant en cas d'erreur
+    }
+  }
+
   canHandle(serviceType: string): boolean {
     return (
       serviceType === ServiceType.MOVING ||
@@ -87,12 +110,15 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     const data = context.getAllData();
     const serviceType = context.getServiceType();
 
-    devLog.debug('MovingStrategy', "\n🎯 DÉBUT CALCUL | " + serviceType + " | MovingQuoteStrategy");
+    // Log de début
+    devLog.debug('MovingStrategy', `🎯 Calcul ${serviceType}`);
 
     calculationDebugLogger.startPriceCalculation(this.serviceType, data);
 
     try {
-      // ✅ Cas 1 : PACKING non modifié → shortcut avec defaultPrice SANS promotions
+      // Recharger les règles métier
+      await this.initializeRulesWithContext(context);
+      // Cas 1 : PACKING non modifié → shortcut avec defaultPrice SANS promotions
       if (
         this.isPackingUnchanged(context) &&
         (data.defaultPrice || data.calculatedPrice || data.totalPrice)
@@ -151,6 +177,12 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         Date.now() - startTime,
       );
 
+      // 🔧 Résumé de fin du moteur de règles
+      calculationDebugLogger.finishRulesEngine({
+        finalPrice: finalQuote.getTotalPrice().getAmount(),
+        appliedRules: discounts
+      });
+
       devLog.debug('MovingStrategy', "\n✅ FIN CALCUL: Base=" + finalQuote.getBasePrice().getAmount().toFixed(2) + "€ | Final=" + finalQuote.getTotalPrice().getAmount().toFixed(2) + "€ | Règles=" + finalQuote.getDiscounts().length + " | " + (Date.now() - startTime) + "ms\n");
 
       return finalQuote;
@@ -162,6 +194,9 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         data,
       );
       throw error;
+    } finally {
+      // Logs de fin
+      devLog.debug('MovingStrategy', `✅ Calcul terminé en ${Date.now() - startTime}ms`);
     }
   }
 
@@ -215,7 +250,7 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     const duration = data.duration || 1;
 
     devLog.debug('MovingStrategy', "\n🏗️ CALCUL PRIX DE BASE | " + serviceType + " | Vol:" + volume + "m³, Dist:" + distance + "km, Workers:" + workers + ", Durée:" + duration + "h");
-    // 🚚 Application de la règle : km inclus
+    // Application de la règle : km inclus
     const freeDistanceKm = await configAccessService.get<number>(
       "MOVING_FREE_DISTANCE_KM",
     );
@@ -226,21 +261,21 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     let baseTotal = 0;
     let details: { label: string; amount: number }[] = [];
 
-    // ✅ Cas 1 : MOVING sur mesure (VOLUME UNIQUEMENT + transport)
+    // Cas 1 : MOVING sur mesure (VOLUME UNIQUEMENT + transport)
     if (serviceType === ServiceType.MOVING) {
-      // ✅ VALIDATION: MOVING requiert un volume
+      // VALIDATION: MOVING requiert un volume
       if (!volume || volume === 0) {
         throw new Error(
           "MOVING (déménagement sur mesure) requiert un volume non nul",
         );
       }
 
-      // ✅ CORRECTION: Le camion se loue par jour (7h = 1 jour par défaut)
+      // Le camion se loue par jour (7h = 1 jour par défaut)
       const hoursPerDay =
         await configAccessService.get<number>("HOURS_PER_DAY");
       const numberOfDays = Math.ceil(duration / hoursPerDay);
 
-      // 🧮 Nombre de déménageurs recommandé (INFORMATIF UNIQUEMENT)
+      // Nombre de déménageurs recommandé (INFORMATIF UNIQUEMENT)
       const workersPerM3Threshold = await configAccessService.get<number>(
         "MOVING_WORKERS_PER_M3_THRESHOLD",
       );
@@ -255,6 +290,43 @@ export class MovingQuoteStrategy implements QuoteStrategy {
       const distanceCost = chargeableKm * distanceRate;
       const fuelCost = chargeableKm * fuelRate;
       const tollCost = chargeableKm * tollRate;
+
+      // 🔎 Tracer les composants du prix de base (MOVING)
+      calculationDebugLogger.logPriceComponent(
+        'Volume',
+        volumeCost,
+        `${volume}m³ × ${baseRate}€`,
+        { baseRate },
+        'volume * baseRate'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Camion',
+        truckCost,
+        `${truckRate}€ × ${numberOfDays} jour(s)`,
+        { truckRate, numberOfDays },
+        'truckRate * numberOfDays'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Distance',
+        distanceCost,
+        `${chargeableKm}km × ${distanceRate}€`,
+        { chargeableKm, distanceRate, freeDistanceKm },
+        '(distance - freeDistanceKm) * distanceRate'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Carburant',
+        fuelCost,
+        `${chargeableKm}km × ${fuelRate}€`,
+        { chargeableKm, fuelRate, freeDistanceKm },
+        '(distance - freeDistanceKm) * fuelRate'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Péages',
+        tollCost,
+        `${chargeableKm}km × ${tollRate}€`,
+        { chargeableKm, tollRate, freeDistanceKm },
+        '(distance - freeDistanceKm) * tollRate'
+      );
 
       baseTotal = volumeCost + truckCost + distanceCost + fuelCost + tollCost;
       details = [
@@ -279,9 +351,14 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         },
       ];
 
-      devLog.debug('MovingStrategy', 
-        `🏠 [MOVING-STRATEGY] CALCUL MOVING SUR MESURE (PRIX DE BASE - VOLUME UNIQUEMENT):`,
-      );
+      // Résumé du prix de base (MOVING)
+      calculationDebugLogger.logBasePriceCalculation(serviceType, {
+        volumeCost,
+        truckCost,
+        distanceCost,
+        fuelCost,
+        tollCost
+      }, baseTotal);
       devLog.debug('MovingStrategy', 
         `   └─ Volume: ${volume}m³ × ${baseRate}€ = ${volumeCost.toFixed(2)}€`,
       );
@@ -343,9 +420,49 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         { label: `Péages (au-delà de ${freeDistanceKm} km)`, amount: tollCost },
       ];
 
-      devLog.debug('MovingStrategy', 
-        `📦 [MOVING-STRATEGY] CALCUL PACKING CATALOGUE (PRIX DE BASE - MAIN D'ŒUVRE UNIQUEMENT):`,
+      // 🔎 Tracer les composants du prix de base (PACKING)
+      calculationDebugLogger.logPriceComponent(
+        'Main d\'œuvre',
+        laborCost,
+        `${workers} × ${duration}h × ${laborRate}€`,
+        { workers, duration, laborRate },
+        'workers * duration * laborRate'
       );
+      calculationDebugLogger.logPriceComponent(
+        'Camion',
+        truckCost,
+        `${truckRate}€ × ${numberOfDays} jour(s)`,
+        { truckRate, numberOfDays },
+        'truckRate * numberOfDays'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Distance',
+        distanceCost,
+        `${chargeableKm}km × ${distanceRate}€`,
+        { chargeableKm, distanceRate, freeDistanceKm },
+        '(distance - freeDistanceKm) * distanceRate'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Carburant',
+        fuelCost,
+        `${chargeableKm}km × ${fuelRate}€`,
+        { chargeableKm, fuelRate, freeDistanceKm },
+        '(distance - freeDistanceKm) * fuelRate'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Péages',
+        tollCost,
+        `${chargeableKm}km × ${tollRate}€`,
+        { chargeableKm, tollRate, freeDistanceKm },
+        '(distance - freeDistanceKm) * tollRate'
+      );
+      calculationDebugLogger.logBasePriceCalculation(serviceType, {
+        laborCost,
+        truckCost,
+        distanceCost,
+        fuelCost,
+        tollCost
+      }, baseTotal);
       devLog.debug('MovingStrategy', 
         `   └─ Main d'œuvre: ${workers} × ${duration}h × ${laborRate}€ = ${laborCost.toFixed(2)}€`,
       );
@@ -443,9 +560,73 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         { label: "Nb déménageurs (info)", amount: workers },
       ];
 
-      devLog.debug('MovingStrategy', 
-        `🏠 [MOVING-STRATEGY] CALCUL MOVING_PREMIUM (PRIX DE BASE - TOUT INCLUS):`,
+      // 🔎 Tracer les composants du prix de base (MOVING_PREMIUM)
+      calculationDebugLogger.logPriceComponent(
+        'Volume',
+        volumeCost,
+        `${volume}m³ × ${baseRate}€`,
+        { baseRate },
+        'volume * baseRate'
       );
+      calculationDebugLogger.logPriceComponent(
+        'Cartons d\'emballage',
+        boxesCost,
+        `${numberOfBoxes.toFixed(1)} × ${boxPrice}€`,
+        { numberOfBoxes, boxPrice },
+        'numberOfBoxes * boxPrice'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Fournitures premium',
+        suppliesCost,
+        `${boxesCost.toFixed(2)}€ × ${suppliesMultiplier}`,
+        { boxesCost, suppliesMultiplier },
+        'boxesCost * suppliesMultiplier'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Main d\'œuvre premium',
+        laborCost,
+        `${workers} × ${duration}h × ${premiumLaborRate}€`,
+        { workers, duration, premiumLaborRate },
+        'workers * duration * premiumLaborRate'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Camion',
+        truckCost,
+        `${truckRate}€ × ${numberOfDays} jour(s)`,
+        { truckRate, numberOfDays },
+        'truckRate * numberOfDays'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Distance',
+        distanceCost,
+        `${chargeableKm}km × ${distanceRate}€`,
+        { chargeableKm, distanceRate, freeDistanceKm },
+        '(distance - freeDistanceKm) * distanceRate'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Carburant',
+        fuelCost,
+        `${chargeableKm}km × ${fuelRate}€`,
+        { chargeableKm, fuelRate, freeDistanceKm },
+        '(distance - freeDistanceKm) * fuelRate'
+      );
+      calculationDebugLogger.logPriceComponent(
+        'Péages',
+        tollCost,
+        `${chargeableKm}km × ${tollRate}€`,
+        { chargeableKm, tollRate, freeDistanceKm },
+        '(distance - freeDistanceKm) * tollRate'
+      );
+      calculationDebugLogger.logBasePriceCalculation(serviceType, {
+        volumeCost,
+        boxesCost,
+        suppliesCost,
+        laborCost,
+        truckCost,
+        distanceCost,
+        fuelCost,
+        tollCost
+      }, baseTotal);
       devLog.debug('MovingStrategy', 
         `   └─ Volume: ${volume}m³ × ${baseRate}€ = ${volumeCost.toFixed(2)}€`,
       );
@@ -611,15 +792,18 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         });
       }
 
-      // Surcharges (contraintes + services supplémentaires)
-      const allSurcharges = [...(ruleResult.constraints || []), ...(ruleResult.additionalServices || [])];
-      if (allSurcharges.length > 0) {
-        devLog.debug('MovingStrategy', "\n  📈 SURCHARGES:");
-        allSurcharges.forEach((rule, index) => {
-          details.push({
-            label: `Surcharge: ${rule.description}`,
-            amount: rule.impact.getAmount(),
-          });
+      // ✅ CORRECTION: Surcharges (contraintes uniquement, pas les services)
+      // Les services additionnels ont leur propre section dédiée plus bas
+      if (ruleResult.constraints.length > 0) {
+        devLog.debug('MovingStrategy', "\n  📈 SURCHARGES (CONTRAINTES):");
+        ruleResult.constraints.forEach((rule, index) => {
+          // Ne pas ajouter les contraintes consommées (déjà facturées dans le monte-meuble)
+          if (!rule.isConsumed) {
+            details.push({
+              label: `Surcharge: ${rule.description}`,
+              amount: rule.impact.getAmount(),
+            });
+          }
           devLog.debug('MovingStrategy', `   ${index + 1}. ${rule.description}`);
           devLog.debug('MovingStrategy', 
             `      └─ Montant: +${rule.impact.getAmount().toFixed(2)}€`,
@@ -627,24 +811,8 @@ export class MovingQuoteStrategy implements QuoteStrategy {
         });
       }
 
-      // Contraintes
-      if (ruleResult.constraints.length > 0) {
-        devLog.debug('MovingStrategy', "\n  🚧 CONTRAINTES LOGISTIQUES:");
-        ruleResult.constraints.forEach((rule, index) => {
-          if (!rule.isConsumed) {
-            details.push({
-              label: `Contrainte: ${rule.description}`,
-              amount: rule.impact.getAmount(),
-            });
-          }
-          devLog.debug('MovingStrategy', `   ${index + 1}. ${rule.description}`);
-          devLog.debug('MovingStrategy', 
-            `      └─ Montant: ${rule.impact.getAmount().toFixed(2)}€`,
-          );
-          devLog.debug('MovingStrategy', `      └─ Adresse: ${rule.address || "global"}`);
-          devLog.debug('MovingStrategy', `      └─ Consommée: ${rule.isConsumed ? "Oui" : "Non"}`);
-        });
-      }
+      // ✅ NOTE: Les contraintes sont déjà traitées dans la section "Surcharges" ci-dessus
+      // Cette section est supprimée pour éviter la duplication
 
       // Services additionnels
       if (ruleResult.additionalServices.length > 0) {
@@ -719,6 +887,9 @@ export class MovingQuoteStrategy implements QuoteStrategy {
     );
 
     const discounts = (ruleResult as any).discounts || [];
+
+    // ✅ NOUVEAU: Stocker le RuleExecutionResult dans le contexte pour traçabilité
+    context.setValue('__ruleExecutionResult', ruleResult);
 
     return { total: finalTotal, details, discounts };
   }

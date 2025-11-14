@@ -402,7 +402,7 @@ export const getMenageSurMesureServiceConfig = (serviceOrOptions: CatalogueClean
             label: "Spécificités",
             componentProps: {
               type: "pickup",
-              buttonLabel: "🎯 Spécificités & Contraintes",
+              buttonLabel: "Spécificités & Contraintes",
               modalTitle: "Contraintes d'accès & Services Supplémentaires",
               showServices: true,
               serviceType: ServiceType.CLEANING
@@ -415,9 +415,23 @@ export const getMenageSurMesureServiceConfig = (serviceOrOptions: CatalogueClean
         columns: 2,
         fields: [
           {
+            name: "workers",
+            type: "number",
+            label: "Nombre de travailleurs",
+            required: true,
+            validation: {
+              min: 1,
+              custom: (value: any) => value >= 1 || "Minimum 1 travailleur"
+            },
+            componentProps: {
+              helpText: "Nombre de travailleurs souhaité (sera optimisé selon la surface)"
+            }
+          },
+
+          {
             name: "duration",
             type: "number",
-            label: "Durée estimée (heures)",
+            label: "Durée/travailleur (en heures)",
             required: true,
             validation: {
               min: 1,
@@ -426,20 +440,8 @@ export const getMenageSurMesureServiceConfig = (serviceOrOptions: CatalogueClean
             componentProps: {
               helpText: "Durée estimée par vous (sera ajustée par nos professionnels)"
             }
-          },
-          {
-            name: "workers",
-            type: "number",
-            label: "Nombre de professionnels",
-            required: true,
-            validation: {
-              min: 1,
-              custom: (value: any) => value >= 1 || "Minimum 1 professionnel"
-            },
-            componentProps: {
-              helpText: "Nombre souhaité (sera optimisé selon la surface)"
-            }
           }
+
         ]
       },
       {

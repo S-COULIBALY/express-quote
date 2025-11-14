@@ -69,10 +69,6 @@ export const AccessConstraintsModal: React.FC<AccessConstraintsModalProps> = ({
   // ✅ Mémoriser la valeur normalisée pour éviter les recalculs
   const initialNormalizedValue = useMemo(() => {
     const normalized = normalizeValue(value);
-    console.log('🔄 [AccessConstraintsModal] Normalisation initiale de value:', {
-      input: value,
-      output: normalized
-    });
     return normalized;
   }, []);
 
@@ -82,17 +78,24 @@ export const AccessConstraintsModal: React.FC<AccessConstraintsModalProps> = ({
   const [blockedRuleMessage, setBlockedRuleMessage] = useState<string>('');
 
   // ✅ CORRECTION: Utiliser le serviceType passé en prop au lieu de hardcoder MOVING
+  // ✅ NOUVEAU: Utiliser le scope pour filtrer les règles par adresse
   const { rules: constraintRules, loading: loadingConstraints, error: errorConstraints } = useUnifiedRules({
     ruleType: RuleType.CONSTRAINT,
     serviceType: serviceType, // 🔧 Utiliser la prop au lieu de ServiceType.MOVING
-    condition: { type },
+    condition: { 
+      type,
+      scope: type === 'pickup' ? 'PICKUP' : type === 'delivery' ? 'DELIVERY' : 'BOTH'
+    },
     enabled: isOpen
   });
 
   const { rules: serviceRules, loading: loadingServices, error: errorServices } = useUnifiedRules({
     ruleType: RuleType.CUSTOM,
     serviceType: serviceType, // 🔧 Utiliser la prop au lieu de ServiceType.MOVING
-    condition: { type },
+    condition: { 
+      type,
+      scope: type === 'pickup' ? 'PICKUP' : type === 'delivery' ? 'DELIVERY' : 'BOTH'
+    },
     enabled: isOpen && showServices
   });
 

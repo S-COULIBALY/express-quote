@@ -747,11 +747,17 @@ model rules {
   configKey    String?
   metadata     Json?
 
+  // ✅ Nouveau champ explicite pour la portée
+  scope        RuleScope    @default(BOTH)
+
   @@unique([ruleType, category, name])
+  @@unique([ruleType, category, name, scope])
   @@index([isActive, validFrom, validTo])
   @@index([priority])
   @@index([ruleType])
   @@index([ruleType, serviceType])
+  @@index([scope])
+  @@index([serviceType, scope])
   @@index([tags], type: Gin)
 }
 
@@ -976,6 +982,13 @@ enum TemplateType {
   CLIENT_REMINDER_24H
   CLIENT_REMINDER_1H
   PROFESSIONAL_DAY_J
+}
+
+enum RuleScope {
+  GLOBAL      // Règle applicable à l'ensemble du service (temps, volume, urgence)
+  PICKUP      // Règle liée à l'adresse de départ
+  DELIVERY    // Règle liée à l'adresse d'arrivée
+  BOTH        // Règle applicable aux deux adresses
 }
 
 enum TransactionStatus {

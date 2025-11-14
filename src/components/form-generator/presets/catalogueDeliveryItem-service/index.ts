@@ -345,7 +345,7 @@ export const getCatalogueDeliveryItemServiceConfig = (serviceOrOptions: Catalogu
             className: "pickup-field",
             componentProps: {
               type: "pickup",
-              buttonLabel: "🎯 Contraintes & Spécificités",
+              buttonLabel: "Contraintes & Spécificités",
               modalTitle: "Contraintes d'accès & Services Supplémentaires - Récupération",
               showServices: true,
               serviceType: ServiceType.DELIVERY // 🔧 CORRECTION: Spécifier le type de service
@@ -412,7 +412,7 @@ export const getCatalogueDeliveryItemServiceConfig = (serviceOrOptions: Catalogu
             className: "delivery-field",
             componentProps: {
               type: "delivery",
-              buttonLabel: "🎯 Contraintes & Spécificités",
+              buttonLabel: "Contraintes & Spécificités",
               modalTitle: "Contraintes d'accès & Services Supplémentaires - Livraison",
               showServices: true,
               serviceType: ServiceType.DELIVERY // 🔧 CORRECTION: Spécifier le type de service

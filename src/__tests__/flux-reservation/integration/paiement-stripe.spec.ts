@@ -23,18 +23,65 @@ test.describe('Intégration - Paiement Stripe', () => {
   });
 
   test.describe('Paiements réussis', () => {
-    test('Paiement avec Visa', async ({ page }) => {
-      // Remplir le formulaire de paiement
+    test('Paiement avec Visa - Flux complet avec webhook', async ({ page }) => {
+      // 1. Vérifier le chargement de la page de réservation
+      await expect(page.locator('[data-testid="booking-page"]')).toBeVisible();
+      await expect(page.locator('[data-testid="quote-request-loaded"]')).toBeVisible();
+
+      // 2. Vérifier la création automatique de la session Stripe
+      await expect(page.locator('[data-testid="stripe-session-created"]')).toBeVisible();
+
+      // 3. Remplir le formulaire de paiement
       await HelpersPaiement.remplirFormulairePaiement(page, cartesTestStripe.succes.visa);
 
-      // Procéder au paiement
+      // 4. Procéder au paiement
       await HelpersPaiement.procederPaiement(page);
 
-      // Vérifier le succès
+      // 5. Vérifier le succès du paiement
       await HelpersPaiement.verifierPaiementReussi(page);
 
-      // Vérifier la redirection vers la page de succès
-      await expect(page).toHaveURL(/\/success\/[a-zA-Z0-9]+/);
+      // 6. Vérifier la redirection vers la page de succès avec payment_intent
+      await expect(page).toHaveURL(/\/success\?payment_intent=pi_test_/);
+
+      // 7. Vérifier le polling de la page de succès
+      await expect(page.locator('[data-testid="success-polling"]')).toBeVisible();
+
+      // 8. Simuler le webhook Stripe (payment_intent.succeeded)
+      await page.route('**/api/webhooks/stripe', route => {
+        const webhookData = {
+          type: 'payment_intent.succeeded',
+          data: {
+            object: {
+              id: 'pi_test_123456789',
+              amount: 12000,
+              currency: 'eur',
+              status: 'succeeded',
+              metadata: {
+                temporaryId: 'temp_123456789',
+                customerFirstName: 'Jean',
+                customerLastName: 'Dupont',
+                customerEmail: 'jean.dupont@email.com',
+                customerPhone: '+33123456789',
+                quoteType: 'CLEANING',
+                amount: '120.00'
+              }
+            }
+          }
+        };
+        
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(webhookData)
+        });
+      });
+
+      // 9. Attendre la redirection automatique vers la page de détail
+      await page.waitForTimeout(3000);
+      await expect(page).toHaveURL(/\/bookings\/[a-zA-Z0-9-]+/);
+
+      // 10. Vérifier le contenu de la page de détail de la réservation
+      await expect(page.locator('text=Réservation')).toBeVisible();
     });
 
     test('Paiement avec Mastercard', async ({ page }) => {

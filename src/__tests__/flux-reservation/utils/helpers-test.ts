@@ -109,9 +109,14 @@ export class HelpersPaiement {
 
   /**
    * Vérifie que le paiement a réussi
+   * Attend la redirection vers la page de succès puis vers la page de détail
    */
   static async verifierPaiementReussi(page: Page) {
-    await page.waitForURL(/\/success\/[a-zA-Z0-9]+/);
+    // Attendre d'abord la page de succès avec payment_intent
+    await page.waitForURL(/\/success\?payment_intent=/);
+    // Puis attendre la redirection automatique vers la page de détail
+    await page.waitForTimeout(3000);
+    await page.waitForURL(/\/bookings\/[a-zA-Z0-9-]+/);
     await page.waitForSelector('[data-testid="confirmation-paiement"]');
   }
 

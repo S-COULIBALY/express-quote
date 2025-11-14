@@ -34,122 +34,114 @@ interface Booking {
   deliveryAddress?: string
 }
 
-// Données fictives pour la démonstration
-const MOCK_BOOKINGS: Booking[] = [
-  {
-    id: 'BKG-2023-001',
-    type: 'PACK',
-    status: BookingStatus.CONFIRMED,
-    paymentStatus: PaymentStatus.PARTIAL,
+// Interface pour les données brutes de l'API
+interface ApiBooking {
+  id: string
+  type: string
+  status: string
     customer: {
-      firstName: 'Jean',
-      lastName: 'Dupont',
-      email: 'jean.dupont@example.com',
-      phone: '+33 6 12 34 56 78'
-    },
-    totalAmount: 450,
-    paidAmount: 135,
-    remainingAmount: 315,
-    depositRate: 30,
-    createdAt: '2023-10-15T14:30:00Z',
-    scheduledDate: '2023-11-10T09:00:00Z',
-    deliveryAddress: '123 Rue de Paris, 75001 Paris'
-  },
-  {
-    id: 'BKG-2023-002',
-    type: 'SERVICE',
-    status: BookingStatus.PAYMENT_COMPLETED,
-    paymentStatus: PaymentStatus.COMPLETED,
-    customer: {
-      firstName: 'Marie',
-      lastName: 'Martin',
-      email: 'marie.martin@example.com'
-    },
-    totalAmount: 120,
-    paidAmount: 120,
-    remainingAmount: 0,
-    depositRate: 100,
-    createdAt: '2023-10-18T09:15:00Z',
-    scheduledDate: '2023-10-25T14:00:00Z',
-    deliveryAddress: '45 Avenue Victor Hugo, 69002 Lyon'
-  },
-  {
-    id: 'BKG-2023-003',
-    type: 'MOVING_QUOTE',
-    status: BookingStatus.PAYMENT_PROCESSING,
-    paymentStatus: PaymentStatus.PENDING,
-    customer: {
-      firstName: 'Pierre',
-      lastName: 'Leblanc',
-      email: 'pierre.leblanc@example.com',
-      phone: '+33 7 98 76 54 32'
-    },
-    totalAmount: 1200,
-    paidAmount: 0,
-    remainingAmount: 1200,
-    depositRate: 30,
-    createdAt: '2023-10-20T11:45:00Z',
-    scheduledDate: '2023-11-15T08:00:00Z',
-    pickupAddress: '78 Boulevard Saint-Michel, 75006 Paris',
-    deliveryAddress: '22 Rue de la Paix, 44000 Nantes'
-  },
-  {
-    id: 'BKG-2023-004',
-    type: 'PACK',
-    status: BookingStatus.CANCELED,
-    paymentStatus: PaymentStatus.REFUNDED,
-    customer: {
-      firstName: 'Sophie',
-      lastName: 'Petit',
-      email: 'sophie.petit@example.com'
-    },
-    totalAmount: 350,
-    paidAmount: 0,
-    remainingAmount: 0,
-    depositRate: 30,
-    createdAt: '2023-10-05T16:20:00Z',
-    scheduledDate: '2023-10-30T10:00:00Z',
-    deliveryAddress: '15 Rue des Fleurs, 33000 Bordeaux'
-  },
-  {
-    id: 'BKG-2023-005',
-    type: 'SERVICE',
-    status: BookingStatus.DRAFT,
-    paymentStatus: PaymentStatus.PENDING,
-    customer: {
-      firstName: 'Lucas',
-      lastName: 'Moreau',
-      email: 'lucas.moreau@example.com',
-      phone: '+33 6 55 44 33 22'
-    },
-    totalAmount: 85,
-    paidAmount: 0,
-    remainingAmount: 85,
-    depositRate: 30,
-    createdAt: '2023-10-22T10:00:00Z',
-    scheduledDate: '2023-11-05T13:00:00Z',
-    deliveryAddress: '8 Place Bellecour, 69002 Lyon'
-  },
-  {
-    id: 'BKG-2023-006',
-    type: 'MOVING_QUOTE',
-    status: BookingStatus.PAYMENT_FAILED,
-    paymentStatus: PaymentStatus.FAILED,
-    customer: {
-      firstName: 'Emma',
-      lastName: 'Richard',
-      email: 'emma.richard@example.com'
-    },
-    totalAmount: 850,
-    paidAmount: 0,
-    remainingAmount: 850,
-    depositRate: 30,
-    createdAt: '2023-10-19T09:30:00Z',
-    scheduledDate: '2023-11-12T08:30:00Z',
-    pickupAddress: '35 Rue de la République, 13001 Marseille',
-    deliveryAddress: '12 Avenue Jean Jaurès, 13002 Marseille'
+    id?: string
+    firstName: string
+    lastName: string
+    email: string
   }
-];
+  totalAmount: number
+  paidAmount?: number // Montant réellement payé basé sur les transactions
+  createdAt: string | Date
+  scheduledDate?: string | Date
+  phone?: string
+  depositAmount?: number
+}
+
+// Fonction pour calculer le statut de paiement et les montants basé sur le montant réellement payé
+function calculatePaymentInfo(apiBooking: ApiBooking): {
+  paymentStatus: PaymentStatus
+  paidAmount: number
+  remainingAmount: number
+  depositRate: number
+} {
+  const totalAmount = apiBooking.totalAmount || 0
+  const depositAmount = apiBooking.depositAmount || totalAmount * 0.3
+  const depositRate = totalAmount > 0 ? Math.round((depositAmount / totalAmount) * 100) : 30
+
+  // Utiliser le montant réellement payé depuis l'API (basé sur les transactions)
+  const paidAmount = apiBooking.paidAmount || 0
+  const remainingAmount = Math.max(0, totalAmount - paidAmount)
+
+  // Déterminer le statut de paiement en fonction du montant réellement payé
+  let paymentStatus: PaymentStatus
+
+  if (paidAmount <= 0) {
+    // Aucun paiement effectué
+    if (apiBooking.status === BookingStatus.PAYMENT_FAILED) {
+      paymentStatus = PaymentStatus.FAILED
+    } else if (apiBooking.status === BookingStatus.CANCELED) {
+      paymentStatus = PaymentStatus.REFUNDED
+    } else {
+      paymentStatus = PaymentStatus.PENDING
+    }
+  } else if (paidAmount >= totalAmount) {
+    // Paiement complet
+    paymentStatus = PaymentStatus.COMPLETED
+  } else if (paidAmount >= depositAmount) {
+    // Acompte versé (partiel)
+    paymentStatus = PaymentStatus.PARTIAL
+  } else {
+    // Paiement partiel mais inférieur à l'acompte
+    paymentStatus = PaymentStatus.PARTIAL
+  }
+
+  return {
+    paymentStatus,
+    paidAmount,
+    remainingAmount,
+    depositRate
+  }
+}
+
+// Fonction pour mapper les données de l'API vers le format attendu
+function mapApiBookingToBooking(apiBooking: ApiBooking): Booking {
+  try {
+    const paymentInfo = calculatePaymentInfo(apiBooking)
+    
+    // Convertir createdAt en string si c'est un objet Date
+    let createdAtString = apiBooking.createdAt
+    if (createdAtString instanceof Date) {
+      createdAtString = createdAtString.toISOString()
+    } else if (typeof createdAtString !== 'string') {
+      createdAtString = new Date(createdAtString).toISOString()
+    }
+    
+    // Convertir scheduledDate en string si présent
+    let scheduledDateString = apiBooking.scheduledDate
+    if (scheduledDateString instanceof Date) {
+      scheduledDateString = scheduledDateString.toISOString()
+    } else if (scheduledDateString && typeof scheduledDateString !== 'string') {
+      scheduledDateString = new Date(scheduledDateString).toISOString()
+    }
+    
+    return {
+      id: apiBooking.id || '',
+      type: apiBooking.type || '',
+      status: (apiBooking.status as BookingStatus) || BookingStatus.DRAFT,
+      paymentStatus: paymentInfo.paymentStatus,
+    customer: {
+        firstName: apiBooking.customer?.firstName || '',
+        lastName: apiBooking.customer?.lastName || '',
+        email: apiBooking.customer?.email || '',
+        phone: apiBooking.phone
+      },
+      totalAmount: apiBooking.totalAmount || 0,
+      paidAmount: paymentInfo.paidAmount,
+      remainingAmount: paymentInfo.remainingAmount,
+      depositRate: paymentInfo.depositRate,
+      createdAt: createdAtString,
+      scheduledDate: scheduledDateString
+    }
+      } catch (error) {
+        throw error
+      }
+}
 
 export default function BookingsPage() {
   const router = useRouter()
@@ -164,15 +156,46 @@ export default function BookingsPage() {
   const [searchQuery, setSearchQuery] = useState<string>('')
 
   useEffect(() => {
-    // Simuler un chargement depuis l'API
+    // Charger les réservations depuis l'API
     const fetchBookings = async () => {
       try {
-        // Attendre un peu pour simuler un chargement
-        await new Promise(resolve => setTimeout(resolve, 800))
-        setBookings(MOCK_BOOKINGS)
-        setFilteredBookings(MOCK_BOOKINGS)
+        setLoading(true)
+        setError(null)
+        
+        const response = await fetch('/api/bookings')
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Erreur HTTP: ${response.status} - ${errorText}`)
+        }
+        
+        const responseData = await response.json()
+        
+        if (!responseData.success) {
+          throw new Error(responseData.error || 'Format de réponse invalide')
+        }
+        
+        if (!responseData.data) {
+          throw new Error('Format de réponse invalide: data manquant')
+        }
+        
+        // Vérifier que bookings existe et est un tableau
+        const bookingsArray = responseData.data.bookings
+        
+        if (!Array.isArray(bookingsArray)) {
+          setBookings([])
+          setFilteredBookings([])
+          return
+        }
+        
+        // Mapper les données de l'API vers le format attendu
+        const mappedBookings = bookingsArray.map((apiBooking: ApiBooking) => 
+          mapApiBookingToBooking(apiBooking)
+        )
+        setBookings(mappedBookings)
+        setFilteredBookings(mappedBookings)
       } catch (err) {
-        setError('Une erreur est survenue lors du chargement des réservations')
+        setError(err instanceof Error ? err.message : 'Une erreur est survenue lors du chargement des réservations')
       } finally {
         setLoading(false)
       }
@@ -263,7 +286,13 @@ export default function BookingsPage() {
   }
 
   // Fonction pour afficher le statut complet
-  const getStatusLabel = (status: BookingStatus) => {
+  // Utilise le statut de paiement pour déterminer le statut affiché si le paiement est complété
+  const getStatusLabel = (status: BookingStatus, paymentStatus?: PaymentStatus) => {
+    // Si le paiement est complété, afficher "Payée" même si le statut en base est DRAFT
+    if (paymentStatus === PaymentStatus.COMPLETED) {
+      return 'Payée'
+    }
+    
     switch (status) {
       case BookingStatus.CONFIRMED:
         return 'Confirmée'
@@ -280,6 +309,15 @@ export default function BookingsPage() {
       default:
         return status
     }
+  }
+  
+  // Fonction pour obtenir la classe CSS du statut en fonction du paiement
+  const getStatusClassWithPayment = (status: BookingStatus, paymentStatus?: PaymentStatus) => {
+    // Si le paiement est complété, utiliser la classe verte même si le statut en base est DRAFT
+    if (paymentStatus === PaymentStatus.COMPLETED) {
+      return 'bg-green-100 text-green-800'
+    }
+    return getStatusClass(status)
   }
 
   // Fonction pour afficher le statut de paiement complet
@@ -486,7 +524,7 @@ export default function BookingsPage() {
                     </dt>
                     <dd className="flex items-baseline">
                       <div className="text-2xl font-semibold text-gray-900">
-                        {bookings.reduce((sum, booking) => sum + booking.paidAmount, 0)} €
+                        {bookings.reduce((sum, booking) => sum + booking.paidAmount, 0).toFixed(2)} €
                       </div>
                     </dd>
                   </dl>
@@ -545,7 +583,7 @@ export default function BookingsPage() {
                         Client
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                        Montant
+                        Acompte/Montant total
                       </th>
                       <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                           Date prévue
@@ -566,8 +604,8 @@ export default function BookingsPage() {
                               {formatBookingType(booking.type)}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
-                              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusClass(booking.status)}`}>
-                                {getStatusLabel(booking.status)}
+                              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusClassWithPayment(booking.status, booking.paymentStatus)}`}>
+                                {getStatusLabel(booking.status, booking.paymentStatus)}
                               </span>
                         </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -580,25 +618,66 @@ export default function BookingsPage() {
                               <div className="text-xs text-gray-400">{booking.customer.email}</div>
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
-                              <div className="text-gray-900 font-medium">{booking.paidAmount} € / {booking.totalAmount} €</div>
+                              {(() => {
+                                // Calculer l'acompte payé
+                                const depositAmount = booking.totalAmount * booking.depositRate / 100;
+                                const paidDeposit = booking.paymentStatus === PaymentStatus.COMPLETED 
+                                  ? depositAmount 
+                                  : booking.paymentStatus === PaymentStatus.PARTIAL 
+                                    ? Math.min(booking.paidAmount, depositAmount)
+                                    : 0;
+                                
+                                return (
+                                  <>
+                                    <div className="text-gray-900 font-medium">
+                                      {paidDeposit.toFixed(2)} € / {booking.totalAmount.toFixed(2)} €
+                                    </div>
                               <div className="text-xs text-gray-500">
-                                {booking.paymentStatus === PaymentStatus.PARTIAL ? 
-                                  `Acompte ${booking.depositRate}% versé` : 
-                                  booking.paymentStatus === PaymentStatus.COMPLETED ? 
-                                  'Payé intégralement' : 
-                                  `Acompte ${booking.depositRate}% requis`
-                                }
+                                      {booking.paymentStatus === PaymentStatus.PARTIAL ? (
+                                        <>
+                                          <span className="font-semibold">Acompte {booking.depositRate}% versé</span>
+                                          <br />
+                                          <span>Reste: {booking.remainingAmount.toFixed(2)} €</span>
+                                        </>
+                                      ) : booking.paymentStatus === PaymentStatus.COMPLETED ? (
+                                        <>
+                                          <span>Payé intégralement</span>
+                                          <br />
+                                          <span className="text-gray-400">Acompte: {depositAmount.toFixed(2)} €</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span>Acompte {booking.depositRate}% requis</span>
+                                          <br />
+                                          <span className="text-gray-400">({depositAmount.toFixed(2)} €)</span>
+                                        </>
+                                      )}
                               </div>
+                                  </>
+                                );
+                              })()}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                              {booking.scheduledDate ? 
-                                new Date(booking.scheduledDate).toLocaleDateString('fr-FR', {
+                              {(() => {
+                                if (!booking.scheduledDate) {
+                                  return 'Non planifiée';
+                                }
+                                
+                                 try {
+                                   const date = new Date(booking.scheduledDate);
+                                   if (isNaN(date.getTime())) {
+                                     return 'Non planifiée';
+                                   }
+                                   
+                                   return date.toLocaleDateString('fr-FR', {
                                   day: '2-digit',
                                   month: '2-digit',
                                   year: 'numeric'
-                                }) : 
-                                'Non planifiée'
+                                   });
+                                 } catch (error) {
+                                   return 'Non planifiée';
                               }
+                              })()}
                             </td>
                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                               <button 
@@ -623,7 +702,14 @@ export default function BookingsPage() {
                       ) : (
                         <tr>
                           <td colSpan={8} className="py-8 text-center text-gray-500">
+                            {bookings.length === 0 ? (
+                              <div>
+                                <p className="text-lg font-medium mb-2">Aucune réservation trouvée</p>
+                                <p className="text-sm">Il n'y a pas encore de réservations dans le système.</p>
+                              </div>
+                            ) : (
                             <p>Aucune réservation ne correspond aux critères de recherche</p>
+                            )}
                         </td>
                       </tr>
                       )}

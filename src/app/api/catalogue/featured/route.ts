@@ -54,12 +54,6 @@ export async function GET(request: NextRequest) {
       isFeatured: boolean;
       isNewOffer: boolean;
     }) => {
-      logger.info('🔄 Transformation catalogue', 'Transform', {
-        id: catalogue.id,
-        category: catalogue.category,
-        hasMarketingData: (catalogue.marketingTitle || catalogue.marketingSubtitle)
-      })
-
       // Mapping intelligent des données
       const categoryTitles = {
         'DEMENAGEMENT': 'Déménagement',
@@ -106,15 +100,6 @@ export async function GET(request: NextRequest) {
         targetAudience: catalogue.targetAudience || 'particuliers',
         type: 'service' as const
       }
-    })
-
-    logger.info('✅ Transformation terminée', 'Transform', {
-      itemsTransformed: catalogItems.length,
-      sampleItem: catalogItems[0] ? {
-        id: catalogItems[0].id,
-        title: catalogItems[0].title,
-        category: catalogItems[0].category
-      } : null
     })
 
     return NextResponse.json(catalogItems)

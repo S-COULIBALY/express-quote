@@ -80,8 +80,8 @@ export const stripeConfig = {
   locale: 'fr',
   
   // URLs de redirection
-  successUrl: `${env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/services/success?payment_intent={PAYMENT_INTENT_ID}`,
-  cancelUrl: `${env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/services/cancel`,
+  successUrl: `${env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/success?payment_intent={PAYMENT_INTENT_ID}`,
+  cancelUrl: `${env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/catalogue`,
   
   // Modes de paiement acceptés
   paymentMethods: ['card'],

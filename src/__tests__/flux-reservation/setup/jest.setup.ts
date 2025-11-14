@@ -1,18 +1,12 @@
 /**
- * 🧪 **CONFIGURATION JEST POUR LES TESTS DE FLUX**
+ * 🧪 **SETUP JEST - Tests de Réservation**
  * 
- * Ce fichier configure Jest pour les tests de flux de réservation
- * avec tous les mocks et configurations nécessaires.
+ * Configuration globale pour les tests Jest
  */
 
 import '@testing-library/jest-dom';
-import { TextEncoder, TextDecoder } from 'util';
 
-// Polyfills pour Node.js
-global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder as any;
-
-// Mock des modules externes
+// Mock des modules Next.js
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
@@ -20,286 +14,212 @@ jest.mock('next/navigation', () => ({
     back: jest.fn(),
     forward: jest.fn(),
     refresh: jest.fn(),
-    prefetch: jest.fn(),
+    prefetch: jest.fn()
   }),
-  usePathname: () => '/test-path',
-  useParams: () => ({ id: 'test-id' }),
+  usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
+  useParams: () => ({})
 }));
 
-jest.mock('next/link', () => {
-  return ({ children, href, ...props }: any) => {
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    );
-  };
-});
-
-// Mock des services Stripe
+// Mock des modules Stripe
 jest.mock('@stripe/stripe-js', () => ({
   loadStripe: jest.fn(() => Promise.resolve({
-    elements: jest.fn(() => ({
-      create: jest.fn(() => ({
-        mount: jest.fn(),
-        on: jest.fn(),
-        destroy: jest.fn(),
-      })),
-    })),
-    confirmPayment: jest.fn(() => Promise.resolve({ error: null })),
-  })),
+    elements: jest.fn(),
+    confirmPayment: jest.fn(),
+    confirmSetup: jest.fn(),
+    retrievePaymentIntent: jest.fn()
+  }))
 }));
 
-// Mock des APIs externes
-global.fetch = jest.fn();
-
-// Mock des notifications
-jest.mock('@/notifications', () => ({
-  default: {
-    initialize: jest.fn(() => Promise.resolve({
-      sendEmail: jest.fn(() => Promise.resolve({ success: true })),
-      sendSMS: jest.fn(() => Promise.resolve({ success: true })),
-      sendWhatsApp: jest.fn(() => Promise.resolve({ success: true })),
-    })),
-  },
+jest.mock('@stripe/react-stripe-js', () => ({
+  Elements: ({ children }: { children: React.ReactNode }) => children,
+  PaymentElement: () => React.createElement('div', { 'data-testid': 'payment-element' }),
+  useStripe: () => ({
+    confirmPayment: jest.fn(),
+    elements: jest.fn()
+  }),
+  useElements: () => ({
+    getElement: jest.fn()
+  })
 }));
 
-// Mock des services de base de données
-jest.mock('@/quotation/infrastructure/repositories/PrismaBookingRepository', () => ({
-  PrismaBookingRepository: jest.fn().mockImplementation(() => ({
-    save: jest.fn(),
-    findById: jest.fn(),
-    findByCustomerId: jest.fn(),
-    update: jest.fn(),
+// Mock des modules de base de données
+jest.mock('@/lib/prisma', () => ({
+  prisma: {
+    customer: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn()
+    },
+    quoteRequest: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn()
+    },
+    booking: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn()
+    },
+    transaction: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn()
+    },
+    $connect: jest.fn(),
+    $disconnect: jest.fn()
+  }
+}));
+
+// Mock des modules de notification
+jest.mock('react-hot-toast', () => ({
+  toast: {
+    success: jest.fn(),
+    error: jest.fn(),
+    loading: jest.fn(),
+    dismiss: jest.fn(),
+    promise: jest.fn()
+  }
+}));
+
+// Mock des modules de logging
+jest.mock('@/lib/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn()
+  }
+}));
+
+// Mock des modules de validation
+jest.mock('@/lib/validation', () => ({
+  validateEmail: jest.fn((email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)),
+  validatePhone: jest.fn((phone: string) => /^(\+33|0)[1-9](\d{8})$/.test(phone)),
+  validateRequired: jest.fn((value: any) => value !== null && value !== undefined && value !== '')
+}));
+
+// Mock des modules d'API
+jest.mock('@/lib/api', () => ({
+  apiClient: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn()
+  }
+}));
+
+// Mock des modules de cache
+jest.mock('@/lib/cache', () => ({
+  cache: {
+    get: jest.fn(),
+    set: jest.fn(),
     delete: jest.fn(),
-  })),
+    clear: jest.fn()
+  }
 }));
 
-jest.mock('@/quotation/infrastructure/repositories/PrismaCustomerRepository', () => ({
-  PrismaCustomerRepository: jest.fn().mockImplementation(() => ({
-    save: jest.fn(),
-    findByEmail: jest.fn(),
-    findById: jest.fn(),
-    update: jest.fn(),
-  })),
-}));
-
-jest.mock('@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository', () => ({
-  PrismaQuoteRequestRepository: jest.fn().mockImplementation(() => ({
-    save: jest.fn(),
-    findByTemporaryId: jest.fn(),
-    findById: jest.fn(),
-    update: jest.fn(),
-  })),
-}));
-
-// Mock des services de calcul de prix
-jest.mock('@/hooks/shared/useCentralizedPricing', () => ({
-  useCentralizedPricing: jest.fn(() => ({
-    calculatePrice: jest.fn(() => Promise.resolve({
-      basePrice: 100,
-      totalPrice: 120,
-      breakdown: { base: 100, tax: 20 },
-    })),
-    isLoading: false,
-    error: null,
-  })),
-}));
-
-// Mock des services de notification
-jest.mock('@/internalStaffNotification/InternalStaffNotificationService', () => ({
-  InternalStaffNotificationService: jest.fn().mockImplementation(() => ({
-    sendNotification: jest.fn(() => Promise.resolve({ success: true })),
-    sendEmail: jest.fn(() => Promise.resolve({ success: true })),
-    sendSMS: jest.fn(() => Promise.resolve({ success: true })),
-  })),
-}));
-
-// Mock des services de documents
-jest.mock('@/documents/application/services/DocumentNotificationService', () => ({
-  DocumentNotificationService: jest.fn().mockImplementation(() => ({
-    sendConfirmation: jest.fn(() => Promise.resolve({ success: true })),
-    generateInvoice: jest.fn(() => Promise.resolve({ success: true })),
-  })),
+// Mock des modules de configuration
+jest.mock('@/lib/config', () => ({
+  config: {
+    stripe: {
+      publishableKey: 'pk_test_123',
+      secretKey: 'sk_test_123'
+    },
+    database: {
+      url: 'postgresql://test:test@localhost:5432/test'
+    }
+  }
 }));
 
 // Configuration des variables d'environnement de test
 process.env.NODE_ENV = 'test';
+process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = 'pk_test_123';
+process.env.STRIPE_SECRET_KEY = 'sk_test_123';
+process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_123';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
-process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
-process.env.STRIPE_SECRET_KEY_TEST = 'sk_test_123456789';
-process.env.STRIPE_PUBLISHABLE_KEY_TEST = 'pk_test_123456789';
-process.env.STRIPE_WEBHOOK_SECRET_TEST = 'whsec_123456789';
+process.env.NEXT_PUBLIC_BASE_URL = 'http://localhost:3000';
 
-// Mock des console methods pour éviter le spam dans les tests
-const originalConsole = { ...console };
+// Mock des modules de test
+global.fetch = jest.fn();
 global.console = {
-  ...originalConsole,
+  ...console,
+  // Supprimer les logs de console pendant les tests
   log: jest.fn(),
   debug: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
-  error: jest.fn(),
+  error: jest.fn()
 };
+
+// Mock des modules de test Playwright
+jest.mock('@playwright/test', () => ({
+  test: {
+    describe: jest.fn(),
+    beforeEach: jest.fn(),
+    afterEach: jest.fn(),
+    afterAll: jest.fn(),
+    beforeAll: jest.fn()
+  },
+  expect: jest.fn()
+}));
+
+// Configuration des mocks globaux
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn()
+}));
+
+global.IntersectionObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn()
+}));
+
+// Mock des modules de test
+global.matchMedia = jest.fn().mockImplementation(query => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: jest.fn(),
+  removeListener: jest.fn(),
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
+  dispatchEvent: jest.fn()
+}));
 
 // Configuration des timeouts
 jest.setTimeout(30000);
 
-// Nettoyage après chaque test
+// Configuration des mocks de test
+beforeEach(() => {
+  // Nettoyer les mocks avant chaque test
+  jest.clearAllMocks();
+  
+  // Réinitialiser les mocks globaux
+  (global.fetch as jest.Mock).mockClear();
+  
+  // Réinitialiser les mocks de console
+  jest.clearAllMocks();
+});
+
 afterEach(() => {
+  // Nettoyer après chaque test
   jest.clearAllMocks();
-  jest.restoreAllMocks();
 });
 
-// Nettoyage global
+// Configuration des mocks de test
 afterAll(() => {
-  jest.resetAllMocks();
-});
-
-// Mock des timers pour les tests de performance
-jest.useFakeTimers();
-
-// Configuration des mocks pour les tests de flux
-export const mockBookingService = {
-  createQuoteRequest: jest.fn(() => Promise.resolve({
-    id: 'quote_123',
-    temporaryId: 'temp_123',
-    status: 'pending',
-  })),
-  createBooking: jest.fn(() => Promise.resolve({
-    id: 'booking_123',
-    status: 'DRAFT',
-    totalAmount: 120,
-  })),
-  createAndConfirmBooking: jest.fn(() => Promise.resolve({
-    id: 'booking_123',
-    status: 'CONFIRMED',
-    totalAmount: 120,
-  })),
-};
-
-export const mockCustomerService = {
-  createCustomer: jest.fn(() => Promise.resolve({
-    id: 'customer_123',
-    email: 'test@example.com',
-    firstName: 'Test',
-    lastName: 'User',
-  })),
-  findByEmail: jest.fn(() => Promise.resolve(null)),
-};
-
-export const mockNotificationService = {
-  sendEmail: jest.fn(() => Promise.resolve({ success: true })),
-  sendSMS: jest.fn(() => Promise.resolve({ success: true })),
-  sendWhatsApp: jest.fn(() => Promise.resolve({ success: true })),
-};
-
-export const mockStripeService = {
-  createPaymentIntent: jest.fn(() => Promise.resolve({
-    id: 'pi_test_123',
-    client_secret: 'pi_test_123_secret',
-    status: 'requires_payment_method',
-  })),
-  confirmPayment: jest.fn(() => Promise.resolve({
-    id: 'pi_test_123',
-    status: 'succeeded',
-  })),
-};
-
-// Configuration des mocks pour les tests de performance
-export const mockPerformanceMetrics = {
-  formLoadTime: 1500,
-  priceCalculationTime: 300,
-  submissionTime: 2000,
-  paymentTime: 5000,
-};
-
-// Configuration des mocks pour les tests d'erreur
-export const mockErrorScenarios = {
-  networkError: new Error('Network error'),
-  validationError: new Error('Validation failed'),
-  paymentError: new Error('Payment failed'),
-  serverError: new Error('Server error'),
-};
-
-// Helper pour réinitialiser tous les mocks
-export const resetAllMocks = () => {
-  jest.clearAllMocks();
+  // Nettoyer après tous les tests
   jest.restoreAllMocks();
-  jest.resetAllMocks();
-};
-
-// Helper pour configurer les mocks avec des données spécifiques
-export const configureMocks = (config: any) => {
-  if (config.bookingService) {
-    Object.assign(mockBookingService, config.bookingService);
-  }
-  if (config.customerService) {
-    Object.assign(mockCustomerService, config.customerService);
-  }
-  if (config.notificationService) {
-    Object.assign(mockNotificationService, config.notificationService);
-  }
-  if (config.stripeService) {
-    Object.assign(mockStripeService, config.stripeService);
-  }
-};
-
-// Configuration des tests de performance
-export const performanceConfig = {
-  timeout: 30000,
-  retry: 3,
-  interval: 1000,
-};
-
-// Configuration des tests de notification
-export const notificationConfig = {
-  email: {
-    enabled: false,
-    simulation: true,
-  },
-  sms: {
-    enabled: false,
-    simulation: true,
-  },
-  whatsapp: {
-    enabled: false,
-    simulation: true,
-  },
-};
-
-// Configuration des tests de paiement
-export const paymentConfig = {
-  stripe: {
-    mode: 'test',
-    publishableKey: 'pk_test_123456789',
-    secretKey: 'sk_test_123456789',
-    webhookSecret: 'whsec_123456789',
-  },
-  timeout: 30000,
-  retry: 3,
-};
-
-// Configuration des tests de base de données
-export const databaseConfig = {
-  url: 'postgresql://test:test@localhost:5432/test',
-  isolation: true,
-  cleanup: true,
-};
-
-// Export de toutes les configurations
-export {
-  mockBookingService,
-  mockCustomerService,
-  mockNotificationService,
-  mockStripeService,
-  mockPerformanceMetrics,
-  mockErrorScenarios,
-  resetAllMocks,
-  configureMocks,
-  performanceConfig,
-  notificationConfig,
-  paymentConfig,
-  databaseConfig,
-};
+});

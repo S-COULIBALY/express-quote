@@ -7,8 +7,10 @@ export async function POST(request: Request) {
 
     const timestamp = new Date().toISOString();
     const conditionType = condition?.type || 'none';
-    const cacheKey = `rules-${ruleType}-${serviceType}-${conditionType}`;
+    const conditionScope = condition?.scope || 'none';
+    const cacheKey = `rules-${ruleType}-${serviceType}-${conditionType}-${conditionScope}`;
 
+    if (process.env.NODE_ENV !== 'production') {
     console.log(`🌐 [API /api/rules/unified] ${timestamp}`, {
       cacheKey,
       ruleType,
@@ -19,6 +21,7 @@ export async function POST(request: Request) {
         userAgent: request.headers.get('user-agent')?.substring(0, 50)
       }
     });
+    }
 
     // Vérifier que ruleType est une valeur valide de l'enum RuleType
     const validRuleTypes = ['CONSTRAINT', 'BUSINESS', 'PRICING', 'TEMPORAL', 'GEOGRAPHIC', 'VOLUME', 'CUSTOM'];
@@ -30,30 +33,44 @@ export async function POST(request: Request) {
       );
     }
 
+    // Construire la condition WHERE
+    const where: any = {
+      isActive: true,
+      AND: [
+        {
+          OR: [
+            { validFrom: null },
+            { validFrom: { lte: new Date() } }
+          ]
+        },
+        {
+          OR: [
+            { validTo: null },
+            { validTo: { gte: new Date() } }
+          ]
+        }
+      ]
+    };
+
+    // Filtrer par scope si spécifié
+    if (condition?.scope && condition.scope !== 'none') {
+      where.OR = [
+        { scope: condition.scope },
+        { scope: 'BOTH' },
+        { scope: 'GLOBAL' }
+      ];
+    }
+
     // Récupérer toutes les règles actives et valides
     const rules = await prisma.rules.findMany({
-      where: {
-        isActive: true,
-        AND: [
-          {
-            OR: [
-              { validFrom: null },
-              { validFrom: { lte: new Date() } }
-            ]
-          },
-          {
-            OR: [
-              { validTo: null },
-              { validTo: { gte: new Date() } }
-            ]
-          }
-        ]
-      },
+      where,
       orderBy: {
         priority: 'asc'
       }
     });
+    if (process.env.NODE_ENV !== 'production') {
     console.log(`✅ [API /api/rules/unified] ${cacheKey} - Found ${rules.length} rules`);
+    }
 
     return NextResponse.json(rules);
   } catch (error) {

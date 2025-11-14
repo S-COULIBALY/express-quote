@@ -179,7 +179,7 @@ export interface RuleExecutionResult {
   globalCosts: AddressCosts;
 
   // ═══════════════════════════════════════════════════════════════════════
-  // CONTRAINTES CONSOMMÉES
+  // CONTRAINTES CONSOMMÉES (avec traçabilité déclaré/inféré)
   // ═══════════════════════════════════════════════════════════════════════
 
   /** Liste des contraintes consommées (non facturées séparément) */
@@ -187,6 +187,26 @@ export interface RuleExecutionResult {
 
   /** Raison de la consommation (ex: "consommées par Monte-meuble") */
   consumptionReason?: string;
+
+  /** ✅ NOUVEAU: Contraintes déclarées par le client */
+  declaredConstraints?: string[];
+
+  /** ✅ NOUVEAU: Contraintes inférées automatiquement */
+  inferredConstraints?: string[];
+
+  /** ✅ NOUVEAU: Métadonnées d'inférence pour audit */
+  inferenceMetadata?: {
+    pickup?: {
+      reason: string;
+      inferredAt: Date;
+      allowInference: boolean;
+    };
+    delivery?: {
+      reason: string;
+      inferredAt: Date;
+      allowInference: boolean;
+    };
+  };
 
   // ═══════════════════════════════════════════════════════════════════════
   // MÉTADONNÉES

@@ -15,6 +15,7 @@ import { devLog } from "../../../../lib/conditional-logger";
 export class RuleApplicationService {
   /**
    * Applique toutes les règles applicables et retourne les résultats
+   * Les règles sont appliquées si leur ID est dans les sélections utilisateur
    */
   applyRules(
     rules: Rule[],
@@ -26,15 +27,12 @@ export class RuleApplicationService {
 
     for (const rule of rules) {
       // Vérifier si la règle doit être ignorée
+      // Note: shouldSkipRule() appelle déjà calculationDebugLogger.logRuleSkipped() avec la raison détaillée
       if (this.shouldSkipRule(rule, enrichedContext)) {
-        calculationDebugLogger.logRuleSkipped(
-          rule,
-          "Contrainte consommée par le monte-meuble"
-        );
         continue;
       }
 
-      // Vérifier l'applicabilité
+      // Vérifier l'applicabilité (basée sur les sélections utilisateur)
       const isApplicable = rule.isApplicable(enrichedContext);
       if (!isApplicable) {
         calculationDebugLogger.logRuleEvaluation(rule, enrichedContext, false);
@@ -55,11 +53,12 @@ export class RuleApplicationService {
 
   /**
    * Vérifie si une règle doit être ignorée (contrainte consommée)
+   * ✅ AMÉLIORATION: Logging amélioré pour distinguer déclaré vs inféré
    */
   private shouldSkipRule(rule: Rule, context: EnrichedContext): boolean {
     // Vérifier si la contrainte a été consommée par le monte-meuble
     if (context.furniture_lift_required && context.consumed_constraints) {
-      const ruleId = typeof rule.getId === 'function' ? rule.getId() : (rule as any).id;
+      const ruleId = rule.id;
 
       // Si cette règle est la règle du monte-meuble elle-même, ne pas l'ignorer
       if (rule.condition === "furniture_lift_required" ||
@@ -69,13 +68,30 @@ export class RuleApplicationService {
       }
 
       // Vérifier si l'ID est dans les contraintes consommées
-      if (context.consumed_constraints.has(ruleId)) {
+      if (ruleId && context.consumed_constraints.has(ruleId)) {
+        // ✅ AMÉLIORATION: Déterminer si la contrainte était déclarée ou inférée
+        const wasDeclared = context.declared_constraints?.has(ruleId) || false;
+        const wasInferred = context.inferred_constraints?.has(ruleId) || false;
+        
+        const reason = wasInferred 
+          ? `Contrainte consommée par le monte-meuble (inférée automatiquement)`
+          : `Contrainte consommée par le monte-meuble (déclarée par le client)`;
+        
+        calculationDebugLogger.logRuleSkipped(rule, reason);
         return true;
       }
 
       // Vérifier aussi par le nom de contrainte (fallback)
       const constraintName = this.extractConstraintNameFromCondition(rule.condition);
       if (constraintName && context.consumed_constraints.has(constraintName)) {
+        const wasDeclared = context.declared_constraints?.has(constraintName) || false;
+        const wasInferred = context.inferred_constraints?.has(constraintName) || false;
+        
+        const reason = wasInferred 
+          ? `Contrainte consommée par le monte-meuble (inférée automatiquement)`
+          : `Contrainte consommée par le monte-meuble (déclarée par le client)`;
+        
+        calculationDebugLogger.logRuleSkipped(rule, reason);
         return true;
       }
     }
@@ -163,75 +179,32 @@ export class RuleApplicationService {
 
       return null;
     } catch (error) {
-      devLog.error(`Erreur lors de l'application de la règle ${rule.getName()}:`, error);
+      devLog.error(`Erreur lors de l'application de la règle ${rule.name}:`, error);
       return null;
     }
   }
 
   /**
    * Détermine l'adresse concernée par une règle (pickup, delivery, both, none)
+   * Utilise le champ scope pour l'affichage et le contexte
    */
   private determineAddress(
     rule: Rule,
     contextData: Record<string, unknown>
   ): 'pickup' | 'delivery' | 'both' | 'none' {
-    const name = rule.name.toLowerCase();
-
-    // Analyse le nom de la règle
-    const hasPickupMention =
-      name.includes("départ") ||
-      name.includes("chargement") ||
-      name.includes("pickup");
-    const hasDeliveryMention =
-      name.includes("arrivée") ||
-      name.includes("livraison") ||
-      name.includes("delivery");
-
-    if (hasPickupMention && !hasDeliveryMention) return "pickup";
-    if (hasDeliveryMention && !hasPickupMention) return "delivery";
-    if (hasPickupMention && hasDeliveryMention) return "both";
-
-    // Vérifier l'UUID de la règle dans les contraintes et services
-    const ruleId = typeof rule.getId === 'function' ? rule.getId() : (rule as any).id;
-
-    if (ruleId) {
-      const pickupConstraints = (contextData.pickupLogisticsConstraints as string[]) || [];
-      const deliveryConstraints = (contextData.deliveryLogisticsConstraints as string[]) || [];
-      const pickupServices = (contextData.pickupServices as string[]) || [];
-      const deliveryServices = (contextData.deliveryServices as string[]) || [];
-
-      const isInPickup = pickupConstraints.includes(ruleId) || pickupServices.includes(ruleId);
-      const isInDelivery = deliveryConstraints.includes(ruleId) || deliveryServices.includes(ruleId);
-
-      if (isInPickup && isInDelivery) {
-        devLog.debug('RuleEngine', `🔄 [RuleApplicationService] Règle "${rule.name}" (${ruleId.substring(0, 8)}...) trouvée aux DEUX adresses → multiplicateur x2`);
-        return "both";
-      }
-      if (isInPickup) {
-        devLog.debug('RuleEngine', `📍 [RuleApplicationService] Règle "${rule.name}" (${ruleId.substring(0, 8)}...) trouvée au DÉPART uniquement`);
-        return "pickup";
-      }
-      if (isInDelivery) {
-        devLog.debug('RuleEngine', `📍 [RuleApplicationService] Règle "${rule.name}" (${ruleId.substring(0, 8)}...) trouvée à l'ARRIVÉE uniquement`);
-        return "delivery";
+    // Le scope est utilisé pour catégoriser l'affichage frontend
+    // mais pas pour filtrer l'application des règles
+    if (rule.scope) {
+      switch (rule.scope) {
+        case 'PICKUP': return 'pickup';
+        case 'DELIVERY': return 'delivery';
+        case 'BOTH': return 'both';
+        case 'GLOBAL': return 'none';
+        default: break;
       }
     }
 
-    // Fallback: vérifier par nom de contrainte
-    const constraintName = this.extractConstraintNameFromCondition(rule.condition);
-    if (constraintName) {
-      const pickupConstraints = (contextData.pickupLogisticsConstraints as string[]) || [];
-      const deliveryConstraints = (contextData.deliveryLogisticsConstraints as string[]) || [];
-
-      const isInPickup = pickupConstraints.includes(constraintName);
-      const isInDelivery = deliveryConstraints.includes(constraintName);
-
-      if (isInPickup && isInDelivery) return "both";
-      if (isInPickup) return "pickup";
-      if (isInDelivery) return "delivery";
-    }
-
-    return "none";
+    return "both";
   }
 
   /**

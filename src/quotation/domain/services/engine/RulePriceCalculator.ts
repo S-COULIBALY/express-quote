@@ -73,7 +73,7 @@ export class RulePriceCalculator {
         isPercentage: rule.isPercentage(),
         impact: new Money(absoluteImpact),
         description: rule.name,
-        address: appliedRule.address,
+        address: appliedRule.address === 'none' ? undefined : appliedRule.address,
         isConsumed: false,
       };
 
@@ -167,6 +167,27 @@ export class RulePriceCalculator {
             "Consommées par le Monte-meuble"
           );
         }
+
+        // ✅ NOUVEAU: Ajouter les contraintes déclarées et inférées pour traçabilité
+        const allDeclaredConstraints = new Set<string>([
+          ...(firstRule.pickupDetection?.declaredConstraints || []),
+          ...(firstRule.deliveryDetection?.declaredConstraints || []),
+        ]);
+
+        // ✅ CORRECTION CRITIQUE: Filtrer les contraintes inférées pour exclure celles déjà déclarées
+        const allInferredConstraints = new Set<string>([
+          ...(firstRule.pickupDetection?.inferredConstraints || []),
+          ...(firstRule.deliveryDetection?.inferredConstraints || []),
+        ].filter(c => !allDeclaredConstraints.has(c))); // Exclure les contraintes déjà déclarées
+
+        // Stocker dans le résultat (via extension du builder)
+        (builder as any).result.declaredConstraints = Array.from(allDeclaredConstraints);
+        (builder as any).result.inferredConstraints = Array.from(allInferredConstraints);
+        (builder as any).result.consumedConstraints = Array.from(allConsumedConstraints);
+        (builder as any).result.inferenceMetadata = {
+          pickup: firstRule.pickupDetection?.inferenceMetadata,
+          delivery: firstRule.deliveryDetection?.inferenceMetadata
+        };
       }
     }
 

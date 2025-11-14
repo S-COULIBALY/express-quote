@@ -380,8 +380,13 @@ export class ProductionNotificationService {
     const notificationId = (notification as any).notificationId || notification.id;
     
     try {
-      // 1. Marquer comme en cours d'envoi
+      // 1. Vérifier si la notification est SCHEDULED et la transitionner vers PENDING si nécessaire
       if (notificationId) {
+        const notification = await this.repository.findById(notificationId);
+        if (notification && notification.status === 'SCHEDULED') {
+          await this.repository.transitionScheduledToPending(notificationId);
+        }
+        // Marquer comme en cours d'envoi
         await this.repository.markAsSending(notificationId);
       }
       
@@ -486,8 +491,13 @@ export class ProductionNotificationService {
     const notificationId = (notification as any).notificationId || notification.id;
     
     try {
-      // 1. Marquer comme en cours d'envoi
+      // 1. Vérifier si la notification est SCHEDULED et la transitionner vers PENDING si nécessaire
       if (notificationId) {
+        const notification = await this.repository.findById(notificationId);
+        if (notification && notification.status === 'SCHEDULED') {
+          await this.repository.transitionScheduledToPending(notificationId);
+        }
+        // Marquer comme en cours d'envoi
         await this.repository.markAsSending(notificationId);
       }
       
@@ -636,8 +646,13 @@ export class ProductionNotificationService {
     const notificationId = (notification as any).notificationId || notification.id;
     
     try {
-      // 1. Marquer comme en cours d'envoi
+      // 1. Vérifier si la notification est SCHEDULED et la transitionner vers PENDING si nécessaire
       if (notificationId) {
+        const notification = await this.repository.findById(notificationId);
+        if (notification && notification.status === 'SCHEDULED') {
+          await this.repository.transitionScheduledToPending(notificationId);
+        }
+        // Marquer comme en cours d'envoi
         await this.repository.markAsSending(notificationId);
       }
       

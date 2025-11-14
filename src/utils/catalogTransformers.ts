@@ -108,12 +108,6 @@ export const transformCatalogDataToCatalogueMovingItem = (catalogData: CatalogDa
     isPromotionActive: catalogSelection.isPromotionActive
   };
 
-  console.log('📦 [TRANSFORMER] CatalogueMovingItem avec __presetSnapshot:', {
-    name: transformedData.name,
-    price: transformedData.price,
-    __presetSnapshot: transformedData.__presetSnapshot
-  });
-
   return transformedData;
 };
 
@@ -163,12 +157,6 @@ export const transformCatalogDataToCatalogueCleaningItem = (catalogData: Catalog
     promotionType: catalogSelection.promotionType,
     isPromotionActive: catalogSelection.isPromotionActive
   };
-
-  console.log('🏠 [TRANSFORMER] CatalogueCleaningItem avec __presetSnapshot:', {
-    name: transformedData.name,
-    price: transformedData.price,
-    __presetSnapshot: transformedData.__presetSnapshot
-  });
 
   return transformedData;
 };
@@ -299,8 +287,8 @@ export const transformCatalogDataToMenageSurMesure = (catalogData: CatalogData):
 
 // Fonction pour obtenir le chemin de redirection après soumission
 export const getSuccessRedirectPath = (category: string, bookingId: string): string => {
-  // Toutes les redirections utilisent maintenant la page unifiée /success/[id]
-  return `/success/${bookingId}`;
+  // Rediriger vers la page de détail de la réservation
+  return `/bookings/${bookingId}`;
 };
 
 // Fonction pour obtenir l'icône selon la catégorie

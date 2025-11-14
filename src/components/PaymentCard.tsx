@@ -11,6 +11,7 @@ import {
   SparklesIcon
 } from '@heroicons/react/24/outline';
 import { usePrice } from './PriceProvider';
+import { devLog } from '@/lib/conditional-logger';
 
 interface PaymentCardProps {
   serviceType: string;
@@ -55,7 +56,7 @@ export const PaymentCard: React.FC<PaymentCardProps> = ({
   const remainingAmount = finalPrice - depositAmount;
 
   return (
-    <div className="sticky top-8 space-y-6">
+    <div className="lg:sticky lg:top-8 space-y-6">
       {/* Prix et options de paiement */}
       <Card className="card-ios">
         <CardHeader>
@@ -118,7 +119,12 @@ export const PaymentCard: React.FC<PaymentCardProps> = ({
           {/* Boutons d'action */}
           <div className="space-y-3">
             <Button
-              onClick={() => onSubmit?.(insuranceSelected)}
+              onClick={() => {
+                devLog.info('\n\n\n═══ DEBUT PaymentCard.onSubmit ═══');
+                devLog.info('📁 [PaymentCard.tsx] ▶️ Clic sur "Réserver maintenant"');
+                devLog.info(`📁 [PaymentCard.tsx] Assurance sélectionnée: ${insuranceSelected}`);
+                onSubmit?.(insuranceSelected);
+              }}
               disabled={isSubmitting}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
             >

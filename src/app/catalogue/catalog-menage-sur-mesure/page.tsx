@@ -14,7 +14,7 @@ import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import { ServicesNavigation } from '@/components/ServicesNavigation';
 import { PaymentCard } from '@/components/PaymentCard';
-import { PriceProvider } from '@/components/PriceProvider';
+import { PriceProvider, usePrice } from '@/components/PriceProvider';
 
 // Service initial (simulation des données catalogue)
 const initialService = {
@@ -31,6 +31,18 @@ const initialService = {
   requiresSurface: true,
   requiresCustomPricing: true,
   isDynamicPricing: true
+};
+
+// ✅ Composant pour mettre à jour le PriceProvider avec le prix calculé
+const PriceUpdater: React.FC<{ priceCalculator: ReturnType<typeof useRealTimePricing> }> = ({ priceCalculator }) => {
+  const { updatePrice } = usePrice();
+  const calculatedPrice = priceCalculator?.calculatedPrice || 0;
+  
+  useEffect(() => {
+    updatePrice(calculatedPrice, priceCalculator?.priceDetails);
+  }, [calculatedPrice, priceCalculator?.priceDetails, updatePrice]);
+  
+  return null;
 };
 
 export default function MenageSurMesurePage() {
@@ -152,29 +164,41 @@ export default function MenageSurMesurePage() {
       <ServicesNavigation />
 
       {/* Section promotionnelle compacte */}
-      <div className="bg-white border-b border-gray-200 pt-20">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-2">
-          <div className="flex flex-col items-center justify-center gap-2">
-            {/* Texte promotionnel centré */}
-            <div className="text-center">
-              <h2 className="text-lg font-bold text-gray-900 mb-1">
-                Ménage Sur Mesure - Devis Instantané !
+      <div className="bg-white border-b border-gray-200 pt-16 sm:pt-20">
+        <div className="w-full px-3 sm:px-6 lg:px-8 py-1.5 sm:py-2">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-2 sm:gap-3">
+            {/* Texte promotionnel principal */}
+            <div className="text-center lg:text-left flex-1">
+              <h2 className="text-base font-bold text-gray-900 mb-0.5 sm:mb-1">
+                <span className="sm:hidden">⭐ Devis instantané</span>
+                <span className="hidden sm:inline">⭐ Ménage Sur Mesure - Devis Instantané !</span>
               </h2>
-              <p className="text-xs text-gray-600 max-w-xl">
-                Service de nettoyage personnalisé selon vos besoins avec tarification transparente.
+              <p className="text-xs text-gray-600 max-w-2xl">
+                <span className="sm:hidden">Configurez et obtenez votre prix en temps réel.</span>
+                <span className="hidden sm:inline">Service de nettoyage personnalisé selon vos besoins avec tarification transparente.</span>
               </p>
+            </div>
+            
+            {/* Encart promotionnel - visible uniquement sur desktop */}
+            <div className="hidden lg:block bg-gradient-to-r from-orange-500 to-red-600 text-white px-3 py-2 rounded-lg shadow-lg">
+              <div className="text-center">
+                <div className="text-lg font-bold">💰</div>
+                <div className="text-xs font-medium">Prix en temps réel</div>
+                <div className="text-xs opacity-90">Mise à jour instantanée</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Layout Amazon - 2 colonnes avec largeur 100% */}
-      <div className="w-full mt-8">
+      <div className="w-full mt-6 sm:mt-8">
         <PriceProvider initialPrice={0}>
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-0 p-4 lg:p-0">
+          <PriceUpdater priceCalculator={priceCalculator} />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-0 px-0 sm:px-4 lg:px-0">
             {/* Colonne gauche (75%) - Formulaire de réservation */}
-            <div className="lg:col-span-3">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="lg:col-span-3 w-full">
+              <div className="w-full max-w-none lg:max-w-7xl mx-auto px-0 sm:px-0 lg:px-8">
                 <FormGenerator
                   ref={formRef}
                   config={{
@@ -199,7 +223,7 @@ export default function MenageSurMesurePage() {
             </div>
 
             {/* Colonne droite (25%) - Détails du service et paiement */}
-            <div className="lg:col-span-1 space-y-6">
+            <div className="lg:col-span-1 w-full space-y-6 mt-0 lg:mt-0">
               {/* Section paiement */}
               <PaymentCard
                 serviceType="MENAGE"
@@ -213,34 +237,34 @@ export default function MenageSurMesurePage() {
       </div>
 
       {/* Section avantages - Compacte */}
-      <section className="bg-gradient-to-br from-emerald-50 to-green-50 py-8 mt-8 border-t border-emerald-100 animate-fade-in-up">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="bg-gradient-to-br from-emerald-50 to-green-50 py-4 sm:py-8 mt-4 sm:mt-8 border-t border-emerald-100 animate-fade-in-up">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
           {/* En-tête de la section compact */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-semibold mb-3">
+          <div className="text-center mb-4 sm:mb-8">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-emerald-100 text-emerald-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold mb-2 sm:mb-3">
               <span>✨</span>
               Nos Garanties
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3">
               Une expérience de service exceptionnelle
             </h2>
-            <p className="text-base text-gray-600 max-w-2xl mx-auto">
+            <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto">
               Profitez d'un service professionnel avec des garanties qui font la
               différence
             </p>
           </div>
 
           {/* Grille des avantages compacte */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             {/* Réservation instantanée */}
-            <div className="group bg-white rounded-xl p-4 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
-              <div className="bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl p-2 w-10 h-10 mb-4 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
-                <span className="text-lg text-white">⚡</span>
+            <div className="group bg-white rounded-xl p-3 sm:p-4 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
+              <div className="bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl p-1.5 sm:p-2 w-8 h-8 sm:w-10 sm:h-10 mb-3 sm:mb-4 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
+                <span className="text-base sm:text-lg text-white">⚡</span>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1.5 sm:mb-2">
                 Réservation instantanée
               </h3>
-              <p className="text-gray-600 leading-relaxed text-sm">
+              <p className="text-gray-600 leading-relaxed text-xs sm:text-sm">
                 Réservez en quelques clics et recevez votre confirmation
                 immédiatement
               </p>
@@ -248,16 +272,16 @@ export default function MenageSurMesurePage() {
 
             {/* Assurance incluse */}
             <div
-              className="group bg-white rounded-xl p-4 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
+              className="group bg-white rounded-xl p-3 sm:p-4 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
               style={{ animationDelay: "0.1s" }}
             >
-              <div className="bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl p-2 w-10 h-10 mb-4 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
-                <span className="text-lg text-white">🛡️</span>
+              <div className="bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl p-1.5 sm:p-2 w-8 h-8 sm:w-10 sm:h-10 mb-3 sm:mb-4 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
+                <span className="text-base sm:text-lg text-white">🛡️</span>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1.5 sm:mb-2">
                 Assurance incluse
               </h3>
-              <p className="text-gray-600 leading-relaxed text-sm">
+              <p className="text-gray-600 leading-relaxed text-xs sm:text-sm">
                 Tous nos services sont couverts par une assurance responsabilité
                 civile
               </p>
@@ -265,16 +289,16 @@ export default function MenageSurMesurePage() {
 
             {/* Service premium */}
             <div
-              className="group bg-white rounded-xl p-4 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
+              className="group bg-white rounded-xl p-3 sm:p-4 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
               style={{ animationDelay: "0.2s" }}
             >
-              <div className="bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl p-2 w-10 h-10 mb-4 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
-                <span className="text-lg text-white">⭐</span>
+              <div className="bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl p-1.5 sm:p-2 w-8 h-8 sm:w-10 sm:h-10 mb-3 sm:mb-4 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
+                <span className="text-base sm:text-lg text-white">⭐</span>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1.5 sm:mb-2">
                 Service premium
               </h3>
-              <p className="text-gray-600 leading-relaxed text-sm">
+              <p className="text-gray-600 leading-relaxed text-xs sm:text-sm">
                 Équipe professionnelle formée avec matériel de qualité
               </p>
             </div>

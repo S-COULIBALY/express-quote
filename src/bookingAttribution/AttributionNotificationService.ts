@@ -9,6 +9,7 @@ import { LimitedClientData, ProfessionalPaymentNotificationData, ScheduledServic
 import { ProfessionalDocumentService } from '@/documents/application/services/ProfessionalDocumentService';
 import { AttributionUtils } from './AttributionUtils';
 import { logger } from '@/lib/logger';
+import { getGlobalNotificationService } from '@/notifications/interfaces/http/GlobalNotificationService';
 
 interface AttributionNotificationData {
   attributionId: string;
@@ -153,72 +154,77 @@ export class AttributionNotificationService {
         totalSize: `${Math.round(documentsResult.metadata.totalSize / 1024)}KB`
       });
 
-      // ÉTAPE 2 : Envoi via API payment-confirmation avec PDF joint
-      const paymentNotificationData: ProfessionalPaymentNotificationData = {
-        // Standard payment-confirmation fields
-        email: professional.email,
-        customerName: bookingData.limitedClientData.customerName, // Données limitées
-        bookingId: bookingData.bookingId,
-        amount: bookingData.limitedClientData.quoteDetails.estimatedAmount, // Montant estimé uniquement
-        currency: bookingData.limitedClientData.quoteDetails.currency,
-        paymentMethod: 'Attribution Express Quote',
-        transactionId: attributionId,
-        paymentDate: new Date().toISOString(),
+      // ✅ ÉTAPE 2 : Ajouter à la queue via système de notification
+      const notificationService = await getGlobalNotificationService();
 
-        // Attribution spécifique
-        bookingReference: bookingData.bookingReference,
-        serviceType: bookingData.serviceType,
-        serviceName: `Mission ${bookingData.serviceType} - ${professional.companyName}`,
-        serviceDate: bookingData.serviceDate.toISOString(),
-        serviceTime: bookingData.serviceTime,
+      // Préparer les pièces jointes
+      const attachments = documentsResult.documents.map(doc => ({
+        filename: doc.filename,
+        path: doc.path,
+        content: doc.content ? Buffer.from(doc.content) : undefined,
+        contentType: doc.mimeType || 'application/pdf',
+        size: doc.size
+      })).filter(att => att.path || att.content);
 
-        // Actions prestataire
-        viewBookingUrl: acceptUrl, // URL d'acceptation
-        supportUrl: `${this.baseUrl}/contact`,
-
-        // PDF restreint
-        attachments: documentsResult.documents.map(doc => ({
-          filename: doc.filename,
-          path: doc.path,
-          size: doc.size,
-          mimeType: doc.mimeType
-        })),
-
-        // Context
-        trigger: 'PROFESSIONAL_ATTRIBUTION',
-
-        // Données limitées pour template
-        limitedData: bookingData.limitedClientData,
-
-        // Actions prestataires
-        acceptUrl,
-        refuseUrl,
-        timeoutDate: AttributionUtils.calculateTimeoutDate(bookingData.priority)
-      };
-
-      // Appel à l'API payment-confirmation
-      const notificationResponse = await fetch(`${this.baseUrl}/api/notifications/business/payment-confirmation`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'AttributionNotificationService/1.0'
-        },
-        body: JSON.stringify(paymentNotificationData)
+      this.notificationLogger.info('📧 Ajout attribution prestataire à la queue', {
+        professionalCompany: professional.companyName,
+        professionalEmail: professional.email.replace(/(.{3}).*(@.*)/, '$1***$2'),
+        attachmentsCount: attachments.length
       });
 
-      if (!notificationResponse.ok) {
-        const errorText = await notificationResponse.text();
-        throw new Error(`Erreur API payment-confirmation: ${notificationResponse.status} - ${errorText}`);
-      }
+      // ✅ Ajouter à la queue email avec PDF restreint
+      const notificationResult = await notificationService.sendEmail({
+        to: professional.email,
+        template: 'external-professional-attribution',
+        data: {
+          // Données professionnel
+          professionalName: professional.companyName,
+          professionalEmail: professional.email,
+          professionalId: professional.id,
 
-      const notificationResult = await notificationResponse.json();
+          // Données mission (limitées)
+          bookingId: bookingData.bookingId,
+          bookingReference: bookingData.bookingReference,
+          serviceType: bookingData.serviceType,
+          serviceName: `Mission ${bookingData.serviceType} - ${professional.companyName}`,
+          serviceDate: bookingData.serviceDate.toISOString(),
+          serviceTime: bookingData.serviceTime,
+          estimatedDuration: AttributionUtils.estimateDuration(bookingData),
+          distanceKm: professional.distanceKm,
 
-      this.notificationLogger.info('✅ Attribution envoyée via payment-confirmation', {
+          // Données client (limitées)
+          customerName: bookingData.limitedClientData.customerName,
+          pickupAddress: bookingData.limitedClientData.pickupAddress,
+          deliveryAddress: bookingData.limitedClientData.deliveryAddress,
+          quoteDetails: bookingData.limitedClientData.quoteDetails,
+
+          // Actions prestataire
+          acceptUrl,
+          refuseUrl,
+          timeoutDate: AttributionUtils.calculateTimeoutDate(bookingData.priority),
+          viewBookingUrl: acceptUrl,
+          supportUrl: `${this.baseUrl}/contact`,
+
+          // Context
+          trigger: 'PROFESSIONAL_ATTRIBUTION',
+          attributionId,
+          priority: bookingData.priority
+        },
+        attachments: attachments,
+        priority: bookingData.priority === 'urgent' ? 'HIGH' : 'NORMAL',
+        metadata: {
+          attributionId,
+          professionalId: professional.id,
+          bookingId: bookingData.bookingId,
+          source: 'professional-attribution',
+          limitedData: true // Flag pour indiquer données limitées
+        }
+      });
+
+      this.notificationLogger.info('✅ Attribution ajoutée à la queue', {
         professionalCompany: professional.companyName,
-        messageId: notificationResult.id,
-        emailsSent: notificationResult.emailsSent,
-        smsSent: notificationResult.smsSent,
-        attachmentsProcessed: notificationResult.attachmentsProcessed
+        emailJobId: notificationResult.id,
+        attachmentsQueued: attachments.length
       });
 
     } catch (error) {

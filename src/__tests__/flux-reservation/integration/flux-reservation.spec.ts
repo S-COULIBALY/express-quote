@@ -33,33 +33,52 @@ test.describe('Intégration - Flux de Réservation', () => {
       await page.goto('/catalogue/service-nettoyage');
       await expect(page).toHaveURL(/\/catalogue\/service-nettoyage/);
 
-      // 2. Remplir le formulaire de réservation
+      // 2. Vérifier le chargement des composants critiques
+      await expect(page.locator('[data-testid="detail-form"]')).toBeVisible();
+      await expect(page.locator('[data-testid="form-generator"]')).toBeVisible();
+      await expect(page.locator('[data-testid="payment-card"]')).toBeVisible();
+
+      // 3. Remplir le formulaire de réservation
       await HelpersFormulaire.remplirFormulaireReservation(page, 'nettoyage');
       
-      // 3. Vérifier que le prix est calculé
+      // 4. Vérifier le calcul de prix avec useCentralizedPricing
       await expect(page.locator('[data-testid="prix-calcule"]')).toContainText('120€');
+      await expect(page.locator('[data-testid="prix-details"]')).toBeVisible();
 
-      // 4. Soumettre le formulaire
+      // 5. Vérifier la persistance des données
+      await expect(page.locator('[data-testid="form-save-indicator"]')).toBeVisible();
+
+      // 6. Soumettre le formulaire avec useUnifiedSubmission
       await HelpersFormulaire.soumettreFormulaire(page);
 
-      // 5. Vérifier la redirection vers la page de réservation
+      // 7. Vérifier la redirection vers la page de réservation
       await expect(page).toHaveURL(/\/booking\/[a-zA-Z0-9]+/);
 
-      // 6. Vérifier que les données sont conservées
+      // 8. Vérifier le chargement du QuoteRequest
+      await expect(page.locator('[data-testid="quote-request-loaded"]')).toBeVisible();
+
+      // 9. Vérifier que les données sont conservées
       await expect(page.locator('[data-testid="recapitulatif-date"]')).toContainText('15/02/2024');
       await expect(page.locator('[data-testid="recapitulatif-prix"]')).toContainText('120€');
 
-      // 7. Remplir les informations de paiement
+      // 10. Vérifier la création automatique de la session Stripe
+      await expect(page.locator('[data-testid="stripe-session-created"]')).toBeVisible();
+
+      // 11. Remplir les informations de paiement
       await HelpersPaiement.remplirFormulairePaiement(page, cartesTestStripe.succes.visa);
 
-      // 8. Procéder au paiement
+      // 12. Procéder au paiement
       await HelpersPaiement.procederPaiement(page);
 
-      // 9. Vérifier le succès du paiement
+      // 13. Vérifier le succès du paiement
       await HelpersPaiement.verifierPaiementReussi(page);
 
-      // 10. Vérifier la redirection vers la page de succès
-      await expect(page).toHaveURL(/\/success\/[a-zA-Z0-9]+/);
+      // 14. Vérifier la redirection vers la page de succès
+      await expect(page).toHaveURL(/\/success\?payment_intent=pi_test_/);
+
+      // 15. Attendre la redirection automatique vers la page de détail
+      await page.waitForTimeout(3000);
+      await expect(page).toHaveURL(/\/bookings\/[a-zA-Z0-9-]+/);
     });
 
     test('Validation des champs obligatoires', async ({ page }) => {
@@ -122,22 +141,31 @@ test.describe('Intégration - Flux de Réservation', () => {
       await HelpersPaiement.verifierPaiementReussi(page);
     });
 
-    test('Calcul de prix avec options de déménagement', async ({ page }) => {
+    test('Calcul de prix avec options et contraintes PICKUP de déménagement', async ({ page }) => {
       await page.goto('/catalogue/service-demenagement');
 
-      // Remplir les informations de base
-      await page.fill('[name="volume"]', '25');
-      await page.fill('[name="distance"]', '5');
+      // Remplir les informations de base avec données réalistes
+      await page.fill('[name="volume"]', '45');
+      await page.fill('[name="distance"]', '15.8');
+      await page.fill('[name="pickupFloor"]', '5');
+      await page.fill('[name="deliveryFloor"]', '1');
+      await page.select('[name="pickupElevator"]', 'small'); // Ascenseur trop petit (PICKUP)
+      await page.select('[name="deliveryElevator"]', 'large');
 
-      // Vérifier le prix de base
-      await expect(page.locator('[data-testid="prix-calcule"]')).toContainText('300€');
+      // Vérifier le prix de base calculé
+      await expect(page.locator('[data-testid="prix-calcule"]')).toContainText('1429€');
 
-      // Ajouter des options
+      // Ajouter contraintes PICKUP réelles de la BDD
+      await page.check('[data-constraint-id="b2b8f00b-00a2-456c-ad06-1150d25d71a3"]'); // Couloirs étroits (+6.5%)
+      await expect(page.locator('[data-testid="prix-calcule"]')).toContainText('1522€');
+
+      // Auto-détection du monte-meuble (PICKUP) car étage > 3 + volume > 40 + ascenseur small
+      await expect(page.locator('[data-testid="service-auto-detecte"]')).toContainText('Monte-meuble requis (départ)');
+      await expect(page.locator('[data-testid="prix-calcule"]')).toContainText('1672€');
+
+      // Ajouter options de service
       await page.check('[name="options"][value="emballage"]');
-      await expect(page.locator('[data-testid="prix-calcule"]')).toContainText('350€');
-
-      await page.check('[name="options"][value="montage-meubles"]');
-      await expect(page.locator('[data-testid="prix-calcule"]')).toContainText('400€');
+      await expect(page.locator('[data-testid="prix-calcule"]')).toContainText('1750€');
     });
   });
 

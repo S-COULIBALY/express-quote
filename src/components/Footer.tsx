@@ -4,16 +4,16 @@ export function Footer() {
   return (
     <footer className="bg-gray-50 border-t" role="contentinfo" aria-label="Pied de page">
       <div className="max-w-7xl mx-auto py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
-          <div className="col-span-2 sm:col-span-1">
-            <h3 className="text-lg font-semibold text-green-600 mb-3">
-              ExpressQuote
-            </h3>
-            <p className="text-sm text-gray-600">
-              Solutions de déménagement et nettoyage professionnel pour particuliers et entreprises.
-            </p>
-          </div>
-          
+        <div className="mb-6 sm:mb-0">
+          <h3 className="text-lg font-semibold text-green-600 mb-3">
+            ExpressQuote
+          </h3>
+          <p className="text-sm text-gray-600">
+            Solutions de déménagement et nettoyage professionnel pour particuliers et entreprises.
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 sm:gap-8">
           <div>
             <h4 className="text-sm font-medium text-gray-900 mb-3" id="footer-services">Services</h4>
             <ul className="space-y-2" aria-labelledby="footer-services">

@@ -9,6 +9,8 @@ import { SidebarLayout } from "./layouts/SidebarLayout";
 import { ServiceSummaryLayout } from "./layouts/ServiceSummaryLayout";
 import { FormStylesSimplified } from "./styles/FormStylesSimplified";
 import { FormSection } from "./components/FormSection";
+import { useFormPersistence } from "@/hooks/shared/useFormPersistence";
+import { FormSaveIndicator } from "@/components/FormSaveIndicator";
 
 export interface FormGeneratorRef {
   getFormData: () => Record<string, unknown>;
@@ -31,6 +33,15 @@ export interface FormGeneratorRef {
 export const FormGenerator = forwardRef<FormGeneratorRef, FormGeneratorProps>(({ config }, ref) => {
   // Hooks React
   const hasInitialized = React.useRef(false);
+
+  // 🎯 PERSISTANCE DES DONNÉES - Hook centralisé
+  const serviceType = config?.serviceType || 'general';
+  const serviceId = config.customDefaults?.serviceId || config.customDefaults?.catalogId || 'default';
+  
+  const { getStoredData, saveData, clearData, isDataSaved } = useFormPersistence({
+    serviceType,
+    serviceId
+  });
 
   const {
     register,
@@ -64,16 +75,22 @@ export const FormGenerator = forwardRef<FormGeneratorRef, FormGeneratorProps>(({
       const current = getValues();
       devLog.debug('FormGenerator', "📊 [ÉTAPE 10] Données complètes après changement:", current);
       devLog.debug('FormGenerator', "🔗 [ÉTAPE 10] Synchronisation avec DetailForm...");
+      
+      // 🎯 SAUVEGARDE AUTOMATIQUE DES DONNÉES
+      saveData(current);
+      
       config?.onChange?.(fieldName, value, current);
     },
-    [config, setValue, getValues],
+    [config, setValue, getValues, saveData],
   );
 
   const onSubmit = useCallback(
     async (data: Record<string, unknown>) => {
+      // 🎯 NETTOYAGE DES DONNÉES APRÈS SOUMISSION RÉUSSIE
+      clearData();
       await config?.onSubmit?.(data);
     },
-    [config],
+    [config, clearData],
   );
 
   const onError = useCallback(
@@ -87,9 +104,11 @@ export const FormGenerator = forwardRef<FormGeneratorRef, FormGeneratorProps>(({
   useImperativeHandle(ref, () => ({
     getFormData: () => getValues(),
     submitForm: async () => {
+      // 🎯 NETTOYAGE DES DONNÉES APRÈS SOUMISSION RÉUSSIE
+      clearData();
       await handleSubmit(onSubmit, onError)();
     }
-  }), [getValues, handleSubmit, onSubmit, onError]);
+  }), [getValues, handleSubmit, onSubmit, onError, clearData]);
 
   // Rendu d'une section
   const renderSection = useCallback(
@@ -113,20 +132,27 @@ export const FormGenerator = forwardRef<FormGeneratorRef, FormGeneratorProps>(({
       devLog.debug('FormGenerator', 
         "🔄 [ÉTAPE 8.1] Reset initial du formulaire avec valeurs par défaut",
       );
+      
+      // 🎯 RÉCUPÉRATION DES DONNÉES SAUVEGARDÉES
+      const storedData = getStoredData();
+      const initialData = storedData ? { ...config.customDefaults, ...storedData } : config.customDefaults;
+      
       devLog.debug('FormGenerator', "📊 [ÉTAPE 8.1] CustomDefaults appliqués:", {
-        totalValues: Object.keys(config.customDefaults).length,
+        totalValues: Object.keys(initialData).length,
+        hasStoredData: !!storedData,
         hasImportantValues: !!(
-          config.customDefaults.duration || config.customDefaults.workers
+          initialData.duration || initialData.workers
         ),
-        sampleValues: Object.entries(config.customDefaults)
+        sampleValues: Object.entries(initialData)
           .slice(0, 5)
           .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {}),
       });
-      reset(config.customDefaults);
+      
+      reset(initialData);
       hasInitialized.current = true;
       devLog.debug('FormGenerator', "✅ [ÉTAPE 8.1] Formulaire initialisé avec succès");
     }
-  }, [config?.customDefaults, reset]);
+  }, [config?.customDefaults, reset, getStoredData]);
 
   React.useEffect(() => {
     devLog.debug('FormGenerator', 
@@ -310,6 +336,7 @@ export const FormGenerator = forwardRef<FormGeneratorRef, FormGeneratorProps>(({
           ...layoutProps,
           ...config.layout,
           actions: sidebarActions,
+          autoSummary: config.layout?.autoSummary as any, // Type assertion pour éviter les conflits de types
         };
 
         return <SidebarLayout {...sidebarProps}>{formElement}</SidebarLayout>;
@@ -327,7 +354,7 @@ export const FormGenerator = forwardRef<FormGeneratorRef, FormGeneratorProps>(({
           ...serviceSummaryOptions.serviceDetails,
           ...(config.serviceType &&
             !serviceSummaryOptions.serviceDetails.type && {
-              type: config.serviceType as string,
+              type: config.serviceType as "moving" | "cleaning" | "package" | "maintenance" | "other",
             }),
         };
         return (
@@ -355,6 +382,9 @@ export const FormGenerator = forwardRef<FormGeneratorRef, FormGeneratorProps>(({
     <div className="form-generator">
       {/* 🎨 Styles iOS 18 simplifiés - OPTIMISÉ */}
       {memoizedFormStyles}
+
+      {/* 🎯 INDICATEUR DE SAUVEGARDE */}
+      <FormSaveIndicator isVisible={isDataSaved} />
 
       {/* Layout et formulaire */}
       {renderLayout()}

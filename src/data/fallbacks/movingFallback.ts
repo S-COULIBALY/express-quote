@@ -5,7 +5,7 @@ import { ServiceType, RuleType, RuleCategory } from '@prisma/client';
  * FALLBACK MOVING - Données générées automatiquement
  * ============================================================================
  *
- * 🤖 GÉNÉRÉ AUTOMATIQUEMENT le 2025-10-20
+ * 🤖 GÉNÉRÉ AUTOMATIQUEMENT le 2025-10-29
  * ⚠️  NE PAS MODIFIER MANUELLEMENT
  *
  * Ce fichier est généré via: npm run generate:fallbacks
@@ -31,6 +31,7 @@ export interface Constraint {
   validTo?: Date | null;
   tags: string[];
   configKey?: string;
+  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH'; // ✅ NOUVEAU: Support du champ scope
   metadata?: {
     source?: string;
     impact?: string;
@@ -69,6 +70,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+9.5%",
       source: "realistic_seed_2025",
@@ -101,6 +103,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+8%",
       source: "realistic_seed_2025",
@@ -133,6 +136,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+8%",
       source: "realistic_seed_2025",
@@ -165,6 +169,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "PICKUP",
     metadata: {
       impact: "+7.5%",
       source: "realistic_seed_2025",
@@ -197,6 +202,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+7%",
       source: "realistic_seed_2025",
@@ -229,6 +235,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "GLOBAL",
     metadata: {
       impact: "+6.5%",
       source: "realistic_seed_2025",
@@ -261,6 +268,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+6%",
       source: "realistic_seed_2025",
@@ -293,6 +301,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "PICKUP",
     metadata: {
       impact: "+6.5%",
       source: "realistic_seed_2025",
@@ -325,6 +334,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+7.8%",
       source: "realistic_seed_2025",
@@ -357,6 +367,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+8.5%",
       source: "realistic_seed_2025",
@@ -389,6 +400,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+8.2%",
       source: "realistic_seed_2025",
@@ -421,6 +433,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+6.8%",
       source: "realistic_seed_2025",
@@ -453,6 +466,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+9%",
       source: "realistic_seed_2025",
@@ -485,6 +499,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+5.5%",
       source: "realistic_seed_2025",
@@ -517,6 +532,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "GLOBAL",
     metadata: {
       impact: "+7.5%",
       source: "realistic_seed_2025",
@@ -549,6 +565,7 @@ export const movingConstraintsFallback: Constraint[] = [
     tags: [
       "percentage"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+8.5%",
       source: "realistic_seed_2025",
@@ -588,6 +605,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "DELIVERY",
     metadata: {
       impact: "+100€",
       source: "realistic_seed_2025",
@@ -620,6 +638,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "PICKUP",
     metadata: {
       impact: "+80€",
       source: "realistic_seed_2025",
@@ -652,6 +671,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "PICKUP",
     metadata: {
       impact: "+200€",
       source: "realistic_seed_2025",
@@ -684,6 +704,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "PICKUP",
     metadata: {
       impact: "+120€",
       source: "realistic_seed_2025",
@@ -716,6 +737,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "PICKUP",
     metadata: {
       impact: "+50€",
       source: "realistic_seed_2025",
@@ -748,6 +770,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+60€",
       source: "realistic_seed_2025",
@@ -780,6 +803,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+80€",
       source: "realistic_seed_2025",
@@ -812,6 +836,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+150€",
       source: "realistic_seed_2025",
@@ -844,6 +869,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+300€",
       source: "realistic_seed_2025",
@@ -876,6 +902,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "PICKUP",
     metadata: {
       impact: "+120€",
       source: "realistic_seed_2025",
@@ -908,6 +935,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "PICKUP",
     metadata: {
       impact: "+180€",
       source: "realistic_seed_2025",
@@ -940,6 +968,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+200€",
       source: "realistic_seed_2025",
@@ -972,6 +1001,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "DELIVERY",
     metadata: {
       impact: "+100€",
       source: "realistic_seed_2025",
@@ -1004,6 +1034,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+150€",
       source: "realistic_seed_2025",
@@ -1036,6 +1067,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+80€",
       source: "realistic_seed_2025",
@@ -1068,6 +1100,7 @@ export const movingServicesFallback: Constraint[] = [
     tags: [
       "fixed"
     ],
+    scope: "BOTH",
     metadata: {
       impact: "+250€",
       source: "realistic_seed_2025",

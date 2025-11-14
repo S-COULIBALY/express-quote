@@ -34,7 +34,11 @@ export class BookingController extends BaseApiController {
   async finalizeBooking(request: NextRequest): Promise<NextResponse> {
     return this.handleRequest(request, async (data) => {
       // ✅ LOG DÉTAILLÉ: Données reçues du webhook Stripe
-      logger.info('📥 ÉTAPE 1 (FINALIZE BOOKING): Données reçues du webhook Stripe:', {
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('📥 [TRACE UTILISATEUR] ÉTAPE 1 (FINALIZE BOOKING): Données reçues');
+      console.log('═══════════════════════════════════════════════════════════════');
+      logger.info('📥 [TRACE UTILISATEUR] ÉTAPE 1 (FINALIZE BOOKING): Données reçues du webhook Stripe:', {
+        source: 'BookingController.finalizeBooking',
         sessionId: data.sessionId,
         temporaryId: data.temporaryId,
         paymentIntentId: data.paymentIntentId,
@@ -44,9 +48,16 @@ export class BookingController extends BaseApiController {
           firstName: data.customerData?.firstName,
           lastName: data.customerData?.lastName,
           email: data.customerData?.email,
-          phone: data.customerData?.phone
-        }
+          phone: data.customerData?.phone,
+          phoneIsEmpty: !data.customerData?.phone || data.customerData.phone.trim() === '',
+          phoneLength: data.customerData?.phone?.length || 0
+        },
+        _trace: data._trace || null,
+        warning: (!data.customerData?.phone || data.customerData.phone.trim() === '') ? '⚠️ Téléphone manquant ou vide dans customerData' : null
       });
+      
+      // Log console pour visibilité immédiate
+      console.log('📥 [TRACE UTILISATEUR] customerData reçu:', JSON.stringify(data.customerData, null, 2));
 
       // Validation: Paiement doit être confirmé
       if (data.paymentStatus !== 'succeeded' && data.paymentStatus !== 'paid') {
@@ -89,24 +100,26 @@ export class BookingController extends BaseApiController {
 
   /**
    * Méthode privée: Construction de réponse standardisée pour un Booking
+   * Retourne directement les données (sera enveloppé par successResponse)
    */
   private buildBookingResponse(booking: any, additionalData?: any) {
+    const totalAmount = booking.getTotalAmount().getAmount();
+    const depositAmount = totalAmount * 0.3; // Acompte de 30%
+
     return {
-      success: true,
-      data: {
-        id: booking.getId(),
-        type: booking.getType(),
-        status: booking.getStatus(),
-        customer: {
-          id: booking.getCustomer().getId(),
-          firstName: booking.getCustomer().getContactInfo().getFirstName(),
-          lastName: booking.getCustomer().getContactInfo().getLastName(),
-          email: booking.getCustomer().getEmail()
-        },
-        totalAmount: booking.getTotalAmount().getAmount(),
-        createdAt: booking.getCreatedAt(),
-        ...additionalData
-      }
+      id: booking.getId(),
+      type: booking.getType(),
+      status: booking.getStatus(),
+      customer: {
+        id: booking.getCustomer().getId(),
+        firstName: booking.getCustomer().getContactInfo().getFirstName(),
+        lastName: booking.getCustomer().getContactInfo().getLastName(),
+        email: booking.getCustomer().getEmail()
+      },
+      totalAmount,
+      depositAmount, // ✅ Ajout de l'acompte payé (30%)
+      createdAt: booking.getCreatedAt(),
+      ...additionalData
     };
   }
 
@@ -169,11 +182,56 @@ export class BookingController extends BaseApiController {
       
       const result = await this.bookingService.searchBookings(criteria);
       
-      return {
-        success: true,
-        data: {
-          bookings: result.bookings.map(booking => ({
-            id: booking.getId(),
+      // Vérifier que le résultat est valide
+      if (!result || !result.bookings) {
+        logger.warn('⚠️ Résultat de recherche invalide:', result);
+        // Retourner directement les données (handleRequest enveloppera dans success: true, data: ...)
+        return {
+          bookings: [],
+          totalCount: 0,
+          hasMore: false
+        };
+      }
+      
+      // Récupérer les transactions pour chaque booking pour calculer le montant réellement payé
+      const { prisma } = await import('@/lib/prisma');
+      
+      const bookingsWithPayments = await Promise.all(
+        (result.bookings || []).map(async (booking) => {
+          const bookingId = booking.getId();
+          
+          // Récupérer les transactions complétées pour ce booking
+          const transactions = await prisma.transaction.findMany({
+            where: {
+              bookingId,
+              status: 'COMPLETED'
+            },
+            select: {
+              amount: true
+            }
+          });
+          
+          // Calculer le montant total payé
+          const paidAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+          const totalAmount = booking.getTotalAmount().getAmount();
+          const depositAmount = totalAmount * 0.3; // Acompte de 30%
+          
+          // Récupérer scheduledDate depuis l'entité ou depuis quoteData
+          let scheduledDate = booking.getScheduledDate();
+          
+          if (!scheduledDate) {
+            const quoteRequestData = (booking as any).quoteRequestData;
+            if (quoteRequestData?.quoteData) {
+              const quoteData = quoteRequestData.quoteData;
+              const dateStr = quoteData.scheduledDate || quoteData.serviceDate || quoteData.moveDate;
+              if (dateStr) {
+                scheduledDate = new Date(dateStr);
+              }
+            }
+          }
+          
+          return {
+            id: bookingId,
             type: booking.getType(),
             status: booking.getStatus(),
             customer: {
@@ -182,12 +240,21 @@ export class BookingController extends BaseApiController {
               lastName: booking.getCustomer().getContactInfo().getLastName(),
               email: booking.getCustomer().getEmail()
             },
-            totalAmount: booking.getTotalAmount().getAmount(),
-            createdAt: booking.getCreatedAt()
-          })),
-          totalCount: result.totalCount,
-          hasMore: result.hasMore
-        }
+            totalAmount,
+            paidAmount, // Montant réellement payé basé sur les transactions
+            createdAt: booking.getCreatedAt().toISOString(),
+            phone: booking.getCustomer().getContactInfo().getPhone(),
+            scheduledDate: scheduledDate ? scheduledDate.toISOString() : undefined,
+            depositAmount
+          };
+        })
+      );
+      
+      // Retourner directement les données (handleRequest enveloppera dans success: true, data: ...)
+      return {
+        bookings: bookingsWithPayments,
+        totalCount: result.totalCount || 0,
+        hasMore: result.hasMore || false
       };
     });
   }
@@ -202,10 +269,23 @@ export class BookingController extends BaseApiController {
       
       try {
         const booking = await this.bookingService.getBookingById(id);
+        
+        // Récupérer les données du QuoteRequest si disponibles
+        const quoteRequestData = (booking as any).quoteRequestData || null;
 
         return this.buildBookingResponse(booking, {
           phone: booking.getCustomer().getContactInfo().getPhone(),
-          updatedAt: booking.getUpdatedAt()
+          updatedAt: booking.getUpdatedAt(),
+          scheduledDate: (booking as any).scheduledDate || null,
+          quoteRequest: quoteRequestData ? {
+            id: quoteRequestData.id,
+            temporaryId: quoteRequestData.temporaryId,
+            type: quoteRequestData.type,
+            status: quoteRequestData.status,
+            quoteData: quoteRequestData.quoteData,
+            createdAt: quoteRequestData.createdAt,
+            expiresAt: quoteRequestData.expiresAt
+          } : null
         });
       } catch (error) {
         return this.handleBookingError(error);

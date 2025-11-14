@@ -17,6 +17,8 @@ interface Rule {
   serviceType: 'MOVING' | 'CLEANING' | 'DELIVERY';
   priority: number;
   tags: string[];
+  // ✅ Nouveau champ scope
+  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH';
   metadata?: {
     impact?: string;
     category_frontend?: "constraint" | "service";

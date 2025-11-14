@@ -46,11 +46,16 @@ export class Rule {
     public readonly isActive: boolean = true,
     public readonly id?: string,
     public readonly percentBased?: boolean,
-    public readonly metadata?: RuleMetadata
+    public readonly metadata?: RuleMetadata,
+    // ✅ NOUVEAU: Champ scope pour la portée des règles
+    public readonly scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH'
   ) {}
 
   /**
    * Détermine si une règle est applicable en fonction du contexte
+   * 🎯 LOGIQUE SIMPLIFIÉE: Une règle s'applique SI elle est sélectionnée par l'utilisateur
+   * (son ID est dans les arrays de contraintes/services)
+   *
    * @param context Contexte contenant les données pour évaluer la condition
    */
   isApplicable(context: any): boolean {
@@ -60,12 +65,34 @@ export class Rule {
       return result.success && result.modified;
     }
 
-    // Si aucune condition n'est spécifiée, la règle est toujours applicable
+    // ✅ LOGIQUE SIMPLIFIÉE: Vérifier d'abord si la règle est SÉLECTIONNÉE
+    // Les conditions JSON ne servent QUE d'indicateur historique, pas de véritable condition
+    const pickupConstraints = context.pickupLogisticsConstraints || [];
+    const deliveryConstraints = context.deliveryLogisticsConstraints || [];
+    const pickupServices = context.pickupServices || [];
+    const deliveryServices = context.deliveryServices || [];
+    const additionalServices = context.additionalServices || [];
+
+    // Combiner tous les IDs sélectionnés
+    const allSelectedIds = [
+      ...pickupConstraints,
+      ...deliveryConstraints,
+      ...pickupServices,
+      ...deliveryServices,
+      ...additionalServices
+    ];
+
+    // Si cette règle est sélectionnée → APPLICABLE (peu importe la condition JSON)
+    if (this.id && allSelectedIds.includes(this.id)) {
+      return true;
+    }
+
+    // Si aucune condition n'est spécifiée → toujours applicable
     if (!this.condition) {
       return true;
     }
 
-    // Gérer le cas où condition est une string vide
+    // Gérer le cas où condition est une string vide → toujours applicable
     if (typeof this.condition === 'string' && this.condition.trim() === '') {
       return true;
     }
