@@ -25,18 +25,34 @@ Ce document présente un diagramme simplifié du flux de réservation-notificati
 │    Status: String (dans quoteData)                                          │
 │    ────────────────────────────────────────────────────────────────────────  │
 │                                                                              │
-│    [PENDING] ────────────────────────────────────────────────────────────┐  │
+│    [TEMPORARY] ──────────────────────────────────────────────────────────┐  │
 │         │                                                                 │  │
 │         │  Webhook Stripe checkout.session.completed                     │  │
 │         │  → BookingService.createBookingAfterPayment()                  │  │
+│         │  (src/quotation/application/services/BookingService.ts:270)    │  │
+│         │                                                                 │  │
+│         ├─────────────────────────────────────────────────────────────┐  │  │
+│         │                                                             │  │  │
+│         ▼                                                             ▼  │  │
+│    [CONFIRMED] ✅ UTILISÉ                                        [EXPIRED] ✅ UTILISÉ
+│         │                                                                 │  │
+│         │  Transition possible mais rare                                 │  │
+│         │  (ligne 136 QuoteStateService.ts)                             │  │
 │         │                                                                 │  │
 │         ▼                                                                 │  │
-│    [CONFIRMED] ✅ UTILISÉ                                                 │  │
+│    [EXPIRED] ✅ UTILISÉ                                          (statut terminal)
 │                                                                              │
-│    ⚠️  STATUTS DÉFINIS MAIS NON UTILISÉS:                                 │  │
-│       - TEMPORARY (défini dans QuoteRequestStatus enum)                    │  │
-│       - CONVERTED (défini dans QuoteRequestStatus enum)                    │  │
-│       - EXPIRED (défini dans QuoteRequestStatus enum)                      │  │
+│    ✅ STATUTS UTILISÉS:                                                    │  │
+│       - TEMPORARY (statut initial, ligne 24 QuoteRequest.ts)               │  │
+│       - CONFIRMED (après paiement Stripe, ligne 270 BookingService.ts)     │  │
+│       - EXPIRED (expiration automatique, ligne 177 QuoteStateService.ts)   │  │
+│                                                                              │
+│    ⚠️  STATUT DÉFINI MAIS NON UTILISÉ:                                    │  │
+│       - CONVERTED (défini dans enum, utilisé uniquement en tests)          │  │
+│                                                                              │
+│    🚨 INCOHÉRENCE PRISMA/TYPESCRIPT:                                       │  │
+│       Le schéma Prisma définit `status` comme `String` (pas d'enum).       │  │
+│       Recommandation: Ajouter un enum QuoteRequestStatus dans Prisma.      │  │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
                                 │
@@ -338,17 +354,21 @@ Ce document présente un diagramme simplifié du flux de réservation-notificati
 
 ### ✅ **QUOTE_REQUEST (Demande de Devis)**
 
-| Statut Défini | Utilisé dans le Flux ? | Transition Utilisée | Notes |
-|--------------|------------------------|---------------------|-------|
-| `PENDING` | ✅ OUI | `PENDING → CONFIRMED` | Statut initial |
-| `CONFIRMED` | ✅ OUI | - | Après création du booking |
-| `TEMPORARY` | ❌ NON | - | Défini dans enum mais non utilisé |
-| `CONVERTED` | ❌ NON | - | Défini dans enum mais non utilisé |
-| `EXPIRED` | ❌ NON | - | Défini dans enum mais non utilisé |
+| Statut Défini | Utilisé dans le Flux ? | Transitions Utilisées | Fichier | Ligne |
+|--------------|------------------------|----------------------|---------|-------|
+| `TEMPORARY` | ✅ OUI | Statut initial | QuoteRequest.ts | 24 |
+| `TEMPORARY` | ✅ OUI | `TEMPORARY → CONFIRMED` | BookingService.ts | 270 |
+| `TEMPORARY` | ✅ OUI | `TEMPORARY → EXPIRED` | QuoteStateService.ts | 177 |
+| `CONFIRMED` | ✅ OUI | Statut après paiement | BookingService.ts | 270, 475 |
+| `CONFIRMED` | ✅ OUI | `CONFIRMED → EXPIRED` | QuoteStateService.ts | 136 |
+| `EXPIRED` | ✅ OUI | Statut terminal | QuoteStateService.ts | 177 |
+| `CONVERTED` | ⚠️ TESTS | Utilisé uniquement en tests | __tests__/BookingService.test.ts | - |
 
-**📊 Utilisation**: 2/5 statuts utilisés (40%)
+**📊 Utilisation**: 3/4 statuts utilisés en production (75%)
 
-**⚠️ Problème identifié**: Les statuts `TEMPORARY`, `CONVERTED`, et `EXPIRED` sont définis dans l'enum `QuoteRequestStatus` mais ne sont pas utilisés dans le flux actuel.
+**🚨 INCOHÉRENCE**:
+- Le schéma Prisma définit `status: String` (pas d'enum)
+- Risque de valeurs non valides en base de données
 
 ---
 
@@ -373,7 +393,7 @@ Action:
   → Appelle BookingService.createBookingAfterPayment()
 
 État:
-  ✅ QuoteRequest: status = 'PENDING' (déjà existant)
+  ✅ QuoteRequest: status = 'TEMPORARY' (créé lors du calcul de prix)
 
 ───────────────────────────────────────────────────────────────────────────────
 
@@ -390,7 +410,7 @@ Action:
 
 État:
   ✅ Booking: status = 'DRAFT' (créé avec ce statut)
-  ✅ QuoteRequest: status = 'PENDING' (pas encore mis à jour)
+  ✅ QuoteRequest: status = 'TEMPORARY' (pas encore mis à jour)
 
 ───────────────────────────────────────────────────────────────────────────────
 
@@ -406,6 +426,7 @@ Action:
 État:
   ✅ Transaction: status = 'COMPLETED' (créé directement avec ce statut)
   ✅ Booking: status = 'DRAFT' (pas encore mis à jour)
+  ✅ QuoteRequest: status = 'TEMPORARY' (pas encore mis à jour)
 
 ───────────────────────────────────────────────────────────────────────────────
 
@@ -421,7 +442,7 @@ Action:
 État:
   ✅ Booking: status = 'PAYMENT_COMPLETED' (transition DRAFT → PAYMENT_COMPLETED)
   ✅ Transaction: status = 'COMPLETED'
-  ✅ QuoteRequest: status = 'PENDING' (pas encore mis à jour)
+  ✅ QuoteRequest: status = 'TEMPORARY' (pas encore mis à jour)
 
 ───────────────────────────────────────────────────────────────────────────────
 
@@ -434,7 +455,7 @@ Action:
   → quoteRequestRepository.updateStatus(..., QuoteRequestStatus.CONFIRMED) (ligne 266-268)
 
 État:
-  ✅ QuoteRequest: status = 'CONFIRMED' (transition PENDING → CONFIRMED)
+  ✅ QuoteRequest: status = 'CONFIRMED' (transition TEMPORARY → CONFIRMED)
   ✅ Booking: status = 'PAYMENT_COMPLETED'
   ✅ Transaction: status = 'COMPLETED'
 
@@ -506,7 +527,7 @@ Action:
 RÉSUMÉ DES STATUTS FINAUX
 ───────────────────────────────────────────────────────────────────────────────
 
-✅ QuoteRequest: PENDING → CONFIRMED
+✅ QuoteRequest: TEMPORARY → CONFIRMED (ou EXPIRED)
 ✅ Booking: DRAFT → PAYMENT_COMPLETED
 ✅ Transaction: COMPLETED (créé directement)
 ✅ Booking_Attribution: BROADCASTING → (ACCEPTED | EXPIRED | RE_BROADCASTING)
@@ -514,10 +535,10 @@ RÉSUMÉ DES STATUTS FINAUX
 ✅ Scheduled_Reminder: SCHEDULED (repository créé, transitions à intégrer)
 
 ⚠️  STATUTS NON UTILISÉS (intentionnels ou futurs):
+   - QuoteRequest: CONVERTED (utilisé uniquement en tests)
    - Booking: CONFIRMED, AWAITING_PAYMENT, PAYMENT_PROCESSING, PAYMENT_FAILED, CANCELED, COMPLETED
    - Transaction: PENDING, FAILED, REFUNDED
    - Booking_Attribution: CANCELLED, COMPLETED
-   - QuoteRequest: TEMPORARY, CONVERTED, EXPIRED
 ```
 
 **Explication**: Le flux actuel fait une transition directe `DRAFT → PAYMENT_COMPLETED` car le paiement est déjà validé par Stripe avant la création du booking. Les statuts intermédiaires (`CONFIRMED`, `AWAITING_PAYMENT`, `PAYMENT_PROCESSING`) ne sont donc pas nécessaires dans ce flux. Toutes les notifications sont gérées via BullMQ avec transitions complètes.
