@@ -1,29 +1,39 @@
 /**
  * 🎨 RENDERER REACT EMAIL - Compilation et rendu des templates
- * 
+ *
  * Utilité:
  * - Compilation des composants React Email en HTML
  * - Gestion des variables et props
  * - Optimisation pour clients email
  * - Cache des templates compilés
+ *
+ * ⚠️ IMPORTANT: Ce fichier utilise @react-email/render qui importe react-dom/server
+ * en interne. Pour Next.js 13+ App Router, nous gérons cela avec un import dynamique
+ * côté serveur uniquement.
  */
 
+import React from 'react';
 import { render } from '@react-email/render';
-import { 
-  QuoteConfirmation, 
-  BookingConfirmation, 
-  PaymentConfirmation, 
+import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  QuoteConfirmation,
+  BookingConfirmation,
+  PaymentConfirmation,
   ServiceReminder,
   Reminder24hEmail,
   Reminder7dEmail,
   Reminder1hEmail,
+  ProfessionalAttribution,
+  AccountingDocuments,
   type QuoteConfirmationData,
   type BookingConfirmationData,
   type PaymentConfirmationData,
   type ServiceReminderData,
   type Reminder24hData,
   type Reminder7dData,
-  type Reminder1hData
+  type Reminder1hData,
+  type ProfessionalAttributionData,
+  type AccountingDocumentsData
 } from '../../templates/react-email';
 
 export interface ReactEmailTemplate {
@@ -56,13 +66,13 @@ export class ReactEmailRenderer {
       dataType: {} as QuoteConfirmationData
     },
     'booking-confirmation': {
-      id: 'booking-confirmation', 
+      id: 'booking-confirmation',
       component: BookingConfirmation,
       dataType: {} as BookingConfirmationData
     },
     'payment-confirmation': {
       id: 'payment-confirmation',
-      component: PaymentConfirmation, 
+      component: PaymentConfirmation,
       dataType: {} as PaymentConfirmationData
     },
     'service-reminder': {
@@ -84,18 +94,28 @@ export class ReactEmailRenderer {
       id: 'reminder-1h',
       component: Reminder1hEmail,
       dataType: {} as Reminder1hData
+    },
+    'professional-attribution': {
+      id: 'professional-attribution',
+      component: ProfessionalAttribution,
+      dataType: {} as ProfessionalAttributionData
+    },
+    'accounting-documents': {
+      id: 'accounting-documents',
+      component: AccountingDocuments,
+      dataType: {} as AccountingDocumentsData
     }
   };
 
   /**
    * 🎨 Rendre un template React Email
    */
-  async renderTemplate(
-    templateId: string, 
+  renderTemplate(
+    templateId: string,
     data: any
-  ): Promise<{ html: string; text: string; subject: string }> {
+  ): { html: string; text: string; subject: string } {
     const template = this.templates[templateId];
-    
+
     if (!template) {
       throw new Error(`Template React Email '${templateId}' not found`);
     }
@@ -107,17 +127,47 @@ export class ReactEmailRenderer {
     }
 
     try {
-      // Rendu HTML
-      const html = await render(template.component(data), {
-        pretty: true,
-        plainText: false
-      });
+      // 🔍 DEBUG: Loguer les données passées au template
+      console.log(`\n[ReactEmailRenderer] ========== DÉBUT RENDU '${templateId}' ==========`);
+      console.log('[ReactEmailRenderer] Data keys:', Object.keys(data));
+      console.log('[ReactEmailRenderer] Component:', template.component.name || 'Anonymous');
+      console.log('[ReactEmailRenderer] Component type:', typeof template.component);
 
-      // Rendu texte
-      const text = await render(template.component(data), {
-        pretty: false,
-        plainText: true
-      });
+      const Component = template.component;
+
+      let html: string;
+      let text: string;
+
+      // 🔧 SOLUTION FINALE: Utiliser ReactDOMServer directement (synchrone)
+      // pour éviter les problèmes de dynamic imports de @react-email/render
+      console.log('[ReactEmailRenderer] Step 1: Creating React element...');
+      const element = React.createElement(Component, data);
+      console.log('[ReactEmailRenderer] Step 2: React element created:', !!element);
+
+      console.log('[ReactEmailRenderer] Step 3: Using renderToStaticMarkup...');
+      const startTime = Date.now();
+
+      try {
+        // ✅ SOLUTION: Utiliser l'import statique de renderToStaticMarkup
+        html = renderToStaticMarkup(element);
+
+        console.log('[ReactEmailRenderer] Step 4: HTML rendered in', Date.now() - startTime, 'ms');
+        console.log('[ReactEmailRenderer] Step 5: HTML length:', html?.length);
+        console.log('[ReactEmailRenderer] Step 6: HTML is string?', typeof html === 'string');
+
+        // Générer version texte en retirant les tags HTML
+        text = html
+          .replace(/<style[^>]*>.*?<\/style>/gs, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        console.log('[ReactEmailRenderer] Step 7: TEXT length:', text?.length);
+      } catch (error: any) {
+        console.error('[ReactEmailRenderer] ❌ renderToStaticMarkup failed:', error.message);
+        console.error('[ReactEmailRenderer] ❌ Full error:', error);
+        throw error;
+      }
 
       // Extraction du sujet depuis les props
       const subject = this.extractSubject(templateId, data);
@@ -130,6 +180,7 @@ export class ReactEmailRenderer {
       return result;
 
     } catch (error) {
+      console.error(`[ReactEmailRenderer] Error rendering template '${templateId}':`, error);
       throw new Error(`Erreur de rendu React Email '${templateId}': ${error}`);
     }
   }
@@ -141,11 +192,13 @@ export class ReactEmailRenderer {
     const subjectMap: Record<string, (data: any) => string> = {
       'quote-confirmation': (data) => `Devis Express Quote - ${data.quoteNumber}`,
       'booking-confirmation': (data) => `Confirmation de réservation - ${data.bookingId}`,
-      'payment-confirmation': (data) => `Confirmation de paiement - ${data.paymentId}`,
+      'payment-confirmation': (data) => `Confirmation de paiement - ${data.transactionId}`,
       'service-reminder': (data) => `Rappel de service - ${data.serviceDate}`,
       'reminder-24h': (data) => `🚨 Rappel important - Service demain à ${data.serviceTime}`,
       'reminder-7d': (data) => `📅 Rappel préventif - Service dans 7 jours`,
-      'reminder-1h': (data) => `🚨 URGENT - Service dans 1 heure !`
+      'reminder-1h': (data) => `🚨 URGENT - Service dans 1 heure !`,
+      'professional-attribution': (data) => `🎯 Nouvelle mission ${data.serviceType} - ${data.totalAmount}€ à ${data.locationCity}`,
+      'accounting-documents': (data) => `💰 Documents comptables - ${data.bookingReference}`
     };
 
     return subjectMap[templateId]?.(data) || 'Notification Express Quote';
