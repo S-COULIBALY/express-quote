@@ -7,14 +7,48 @@
  * - Optimisation pour clients email
  * - Cache des templates compilés
  *
- * ⚠️ IMPORTANT: Ce fichier utilise @react-email/render qui importe react-dom/server
- * en interne. Pour Next.js 13+ App Router, nous gérons cela avec un import dynamique
- * côté serveur uniquement.
+ * ⚠️ SOLUTION TECHNIQUE IMPORTANTE (pour les développeurs):
+ *
+ * Ce renderer utilise `renderToStaticMarkup` de react-dom/server avec un IMPORT STATIQUE.
+ *
+ * ❌ ANCIEN CODE (ne fonctionnait pas):
+ * ```
+ * import { render } from '@react-email/render';
+ * const ReactDOMServer = require('react-dom/server');
+ * const html = await render(element);
+ * ```
+ *
+ * Problèmes:
+ * 1. @react-email/render utilise des imports dynamiques qui ne fonctionnent pas dans Jest
+ * 2. require('react-dom/server') dans Jest cause des erreurs "dynamic import callback"
+ * 3. Résultat: fallback HTML de 441 caractères au lieu de React Email complet (15k+ caractères)
+ *
+ * ✅ SOLUTION ACTUELLE (fonctionne parfaitement):
+ * ```
+ * import { renderToStaticMarkup } from 'react-dom/server';  // Import statique ES6
+ * const html = renderToStaticMarkup(element);                // Synchrone
+ * ```
+ *
+ * Avantages:
+ * 1. Import statique ES6 compatible avec Jest, Next.js, et Node.js production
+ * 2. Rendu synchrone (50ms pour ~19k caractères)
+ * 3. Pas de dépendance à @react-email/render
+ * 4. Génère le HTML complet React Email avec tous les styles
+ *
+ * Validation:
+ * - bodyLength attendu: > 10,000 caractères (React Email complet)
+ * - bodyLength < 1000 = PROBLÈME (fallback HTML utilisé)
+ *
+ * Tests de référence:
+ * - src/__tests__/integration/accounting-notifications.test.ts (bodyLength: 19,382)
+ *
+ * Documentation complète:
+ * - docs/SOLUTION_ACCOUNTING_DOCUMENTS_REACT_EMAIL.md
+ * - docs/GUIDE_COMPLET_TESTS_REACT_EMAIL.md
  */
 
 import React from 'react';
-import { render } from '@react-email/render';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup } from 'react-dom/server';  // ✅ IMPORTANT: Import statique ES6
 import {
   QuoteConfirmation,
   BookingConfirmation,
@@ -138,8 +172,22 @@ export class ReactEmailRenderer {
       let html: string;
       let text: string;
 
-      // 🔧 SOLUTION FINALE: Utiliser ReactDOMServer directement (synchrone)
-      // pour éviter les problèmes de dynamic imports de @react-email/render
+      // 🔧 SOLUTION CRITIQUE: Rendu synchrone avec renderToStaticMarkup
+      //
+      // ⚠️ NE PAS remplacer par:
+      //   - await render(element) de @react-email/render (imports dynamiques incompatibles Jest)
+      //   - require('react-dom/server') (cause erreurs en Jest)
+      //
+      // ✅ Cette approche garantit:
+      //   - Compatibilité Jest + Next.js + Node.js production
+      //   - HTML complet React Email (>10k caractères)
+      //   - Rendu rapide (~50ms)
+      //
+      // Si bodyLength < 1000 dans les tests, vérifier:
+      //   1. Import statique maintenu: import { renderToStaticMarkup } from 'react-dom/server'
+      //   2. Tous les champs obligatoires du template fournis
+      //   3. Dates en format ISO (toISOString())
+      //   4. Montants en centimes (pas euros)
       console.log('[ReactEmailRenderer] Step 1: Creating React element...');
       const element = React.createElement(Component, data);
       console.log('[ReactEmailRenderer] Step 2: React element created:', !!element);
@@ -148,7 +196,7 @@ export class ReactEmailRenderer {
       const startTime = Date.now();
 
       try {
-        // ✅ SOLUTION: Utiliser l'import statique de renderToStaticMarkup
+        // ✅ SOLUTION: Import statique + rendu synchrone
         html = renderToStaticMarkup(element);
 
         console.log('[ReactEmailRenderer] Step 4: HTML rendered in', Date.now() - startTime, 'ms');
