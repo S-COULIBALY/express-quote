@@ -1,6 +1,8 @@
 /**
  * 🎨 RENDERER REACT EMAIL - Compilation et rendu des templates
  *
+ * ⚠️ SERVER-ONLY FILE - Ce fichier ne doit JAMAIS être importé côté client
+ *
  * Utilité:
  * - Compilation des composants React Email en HTML
  * - Gestion des variables et props
@@ -46,6 +48,8 @@
  * - docs/SOLUTION_ACCOUNTING_DOCUMENTS_REACT_EMAIL.md
  * - docs/GUIDE_COMPLET_TESTS_REACT_EMAIL.md
  */
+
+import 'server-only';  // ✅ CRITICAL: Marquer ce fichier comme server-only pour Next.js
 
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';  // ✅ IMPORTANT: Import statique ES6

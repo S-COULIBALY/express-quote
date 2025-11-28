@@ -44,7 +44,18 @@
     "analyze:rules": "ts-node scripts/analyze-rules.ts",
     "clean": "ts-node scripts/clean-project.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
-    "validate-catalogue": "ts-node scripts/validate-catalogue-build.ts"
+    "validate-catalogue": "ts-node scripts/validate-catalogue-build.ts",
+    "test:redis": "npm run queue:test",
+    "redis:queues": "npm run queue:status",
+    "redis:clear": "npm run queue:clear",
+    "queue:test": "ts-node scripts/état-de-la-queue/01-test-connexion-redis.ts",
+    "queue:status": "ts-node scripts/état-de-la-queue/02-vérifier-état-queues.ts",
+    "queue:clear": "ts-node scripts/état-de-la-queue/03-vider-queues.ts",
+    "queue:failed": "ts-node scripts/état-de-la-queue/04-jobs-échoués.ts",
+    "queue:job": "ts-node scripts/état-de-la-queue/05-détails-job.ts",
+    "queue:workers": "ts-node scripts/état-de-la-queue/06-workers-actifs.ts",
+    "queue:stats": "ts-node scripts/état-de-la-queue/07-statistiques-détaillées.ts",
+    "queue:health": "ts-node scripts/état-de-la-queue/08-santé-système.ts"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"
@@ -69,6 +80,7 @@
     "@react-email/components": "^0.5.3",
     "@react-email/render": "^1.2.3",
     "@react-google-maps/api": "^2.20.5",
+    "@sentry/nextjs": "^10.25.0",
     "@stripe/react-stripe-js": "^3.10.0",
     "@stripe/stripe-js": "^7.9.0",
     "@tanstack/react-query": "^5.66.0",
@@ -118,6 +130,7 @@
     "react-slick": "^0.30.2",
     "redis": "^5.8.2",
     "reflect-metadata": "^0.2.2",
+    "server-only": "^0.0.1",
     "slick-carousel": "^1.8.1",
     "stripe": "^18.5.0",
     "tailwind-merge": "^2.6.0",
