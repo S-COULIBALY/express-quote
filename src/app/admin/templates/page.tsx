@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { toast } from 'react-hot-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -344,7 +345,7 @@ export default function AdminTemplatesPage() {
 
     } catch (err) {
       console.error('Erreur sauvegarde:', err)
-      alert(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
     }
   }
 
@@ -370,7 +371,7 @@ export default function AdminTemplatesPage() {
       await fetchStats(true) // Force refresh
     } catch (err) {
       console.error('Erreur suppression:', err)
-      alert(err instanceof Error ? err.message : 'Erreur lors de la suppression')
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la suppression')
     }
   }
 
@@ -405,7 +406,7 @@ export default function AdminTemplatesPage() {
 
     } catch (err) {
       console.error('Erreur toggle:', err)
-      alert(err instanceof Error ? err.message : 'Erreur lors de la mise à jour')
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la mise à jour')
     }
   }
 
@@ -435,11 +436,11 @@ export default function AdminTemplatesPage() {
 
       await fetchTemplates(true) // Force refresh
       await fetchStats(true) // Force refresh
-      alert(`${result.data?.count || 0} templates par défaut créés avec succès !`)
+      toast.success(`${result.data?.count || 0} templates par défaut créés avec succès !`)
 
     } catch (err) {
       console.error('Erreur création defaults:', err)
-      alert(err instanceof Error ? err.message : 'Erreur lors de la création des templates par défaut')
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la création des templates par défaut')
     }
   }
 

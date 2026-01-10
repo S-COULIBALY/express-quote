@@ -355,23 +355,23 @@ export class NotificationTemplate {
   /**
    * 📝 Ajouter/modifier le contenu pour une langue
    */
-  setContent(language: SupportedLanguage, content: TemplateContent, modifiedBy?: string): void {
+  setContent(language: SupportedLanguage, content: TemplateContent, modifiedBy?: string, skipCompilation?: boolean): void {
     // Validation du contenu
     const validationResult = TemplateContentSchema.safeParse(content);
     if (!validationResult.success) {
       throw new Error(`Contenu invalide: ${validationResult.error.message}`);
     }
-    
+
     // Validation spécifique par type
     this.validateContentByType(content);
-    
+
     // Stockage du contenu
     this._content.set(language, { ...content });
     this._lastModified = new Date();
     this._modifiedBy = modifiedBy;
-    
-    // Compilation automatique si nécessaire
-    if (this._type === TemplateType.EMAIL_HTML) {
+
+    // ✅ Compilation automatique si nécessaire (sauf si skipCompilation=true pour lazy loading)
+    if (this._type === TemplateType.EMAIL_HTML && !skipCompilation) {
       this.compileEmailTemplate(language, content);
     }
   }
@@ -596,20 +596,25 @@ export class NotificationTemplate {
   private async compileEmailTemplate(language: SupportedLanguage, content: TemplateContent): Promise<void> {
     try {
       const compilationStart = Date.now();
-      
+
       // Vérifier si c'est un template React Email
       if (this._type === TemplateType.EMAIL_HTML && this.isReactEmailTemplate()) {
-        // Utiliser le renderer React Email
-        const { ReactEmailRenderer } = await import('../../infrastructure/templates/react-email.renderer');
-        const renderer = ReactEmailRenderer.getInstance();
-        
-        if (renderer.hasTemplate(this._id)) {
+        // ✅ FIX: Normaliser l'ID en retirant le suffixe -email pour le renderer
+        const normalizedId = this._id.replace(/-email$/, '');
+
+        // ✅ CRITICAL: Utiliser le wrapper server-only pour éviter que Next.js
+        // essaie d'inclure react-dom/server dans le bundle client
+        const { hasReactEmailTemplate, renderReactEmailTemplate } =
+          require('../../infrastructure/templates/react-email.renderer.server');
+
+        // ✅ Utiliser l'ID normalisé pour chercher le template React Email
+        if (hasReactEmailTemplate(normalizedId)) {
           // Compiler avec React Email
-          const compiled = await renderer.renderTemplate(this._id, content.previewData || {});
+          const compiled = renderReactEmailTemplate(normalizedId, content.previewData || {});
           const sourceHash = this.generateHash(compiled.html);
-          
+
           const compilationTime = Date.now() - compilationStart;
-          
+
           // Mise à jour du contenu avec compilation React Email
           const updatedContent: TemplateContent = {
             ...content,
@@ -623,13 +628,13 @@ export class NotificationTemplate {
               sourceHash
             }
           };
-          
+
           this._content.set(language, updatedContent);
-          
+
           // Mise à jour des métriques
-          this._metrics.avgCompilationTime = 
+          this._metrics.avgCompilationTime =
             (this._metrics.avgCompilationTime + compilationTime) / 2;
-          
+
           return;
         }
       }
@@ -668,12 +673,18 @@ export class NotificationTemplate {
   private isReactEmailTemplate(): boolean {
     const reactEmailTemplates = [
       'quote-confirmation',
-      'booking-confirmation', 
+      'booking-confirmation',
       'payment-confirmation',
-      'service-reminder'
+      'service-reminder',
+      'professional-attribution',
+      'accounting-documents'
     ];
-    
-    return reactEmailTemplates.includes(this._id);
+
+    // ✅ FIX: Supporter aussi les IDs avec suffixe -email (ex: 'service-reminder-email')
+    // Cela permet aux templates créés par les factories de fonctionner correctement
+    const normalizedId = this._id.replace(/-email$/, '');
+
+    return reactEmailTemplates.includes(this._id) || reactEmailTemplates.includes(normalizedId);
   }
   
   /**
@@ -683,10 +694,69 @@ export class NotificationTemplate {
     content: TemplateContent,
     variables: Record<string, any>
   ): Promise<{ subject: string; body: string; textBody?: string }> {
+    // 🔍 DEBUG: Pour les templates React Email, on doit re-rendre avec les vraies données
+    if (this.isReactEmailTemplate()) {
+      // ✅ FIX: Normaliser l'ID en retirant le suffixe -email pour le renderer
+      const normalizedId = this._id.replace(/-email$/, '');
+
+      console.log('[NotificationTemplate] Rendering React Email template with real data');
+      console.log('[NotificationTemplate] Template ID (original):', this._id);
+      console.log('[NotificationTemplate] Template ID (normalized):', normalizedId);
+      console.log('[NotificationTemplate] Variables keys:', Object.keys(variables));
+
+      try {
+        // ✅ CRITICAL: Utiliser le wrapper server-only pour éviter que Next.js
+        // essaie d'inclure react-dom/server dans le bundle client
+        const { hasReactEmailTemplate, renderReactEmailTemplate } =
+          require('../../infrastructure/templates/react-email.renderer.server');
+
+        // ✅ Utiliser l'ID normalisé pour chercher le template React Email
+        if (hasReactEmailTemplate(normalizedId)) {
+          // ✅ FIX: RE-RENDRE le template avec les VRAIES données (ASYNCHRONE)
+          // Note: Pas besoin de pre-compiler, le renderer le fait à la volée
+          console.log('[NotificationTemplate] ========== APPEL RENDERER ==========');
+          console.log('[NotificationTemplate] Calling renderReactEmailTemplate with:', normalizedId);
+
+          const compiled = renderReactEmailTemplate(normalizedId, variables);
+
+          console.log('[NotificationTemplate] ========== RÉSULTAT RENDERER ==========');
+          console.log('[NotificationTemplate] Compiled object:', {
+            hasHtml: !!compiled?.html,
+            htmlType: typeof compiled?.html,
+            htmlLength: compiled?.html?.length,
+            htmlIsString: typeof compiled?.html === 'string',
+            htmlPreview: typeof compiled?.html === 'string' ? compiled.html.substring(0, 150) : 'NOT A STRING',
+            hasText: !!compiled?.text,
+            textLength: compiled?.text?.length,
+            hasSubject: !!compiled?.subject,
+            subjectValue: compiled?.subject
+          });
+
+          if (compiled && compiled.html && typeof compiled.html === 'string') {
+            console.log('[NotificationTemplate] ✅ RETURNING React Email HTML (length:', compiled.html.length, ')');
+            return {
+              subject: compiled.subject,
+              body: compiled.html,
+              textBody: compiled.text
+            };
+          } else {
+            console.error('[NotificationTemplate] ❌ React Email renderer returned INVALID result!');
+            console.error('[NotificationTemplate] compiled:', JSON.stringify(compiled, null, 2));
+          }
+        } else {
+          console.warn(`[NotificationTemplate] React Email template '${normalizedId}' not found in renderer`);
+        }
+      } catch (error) {
+        console.error('[NotificationTemplate] Error rendering React Email:', error);
+        // Fallback vers l'ancien système
+      }
+    }
+
+    // Fallback: utiliser le HTML pré-compilé avec interpolation
     const subject = this.interpolateString(content.subject, variables);
     const body = content.compiledBody || content.body;
     const textBody = content.textBody || this.htmlToText(body);
-    
+
     return {
       subject,
       body: this.interpolateString(body, variables),
@@ -1257,6 +1327,7 @@ export class NotificationTemplateFactory {
     });
     
     // Contenu HTML basique (fallback)
+    // ✅ LAZY COMPILATION: Skip compilation at initialization to avoid Jest ES modules error
     template.setContent(SupportedLanguage.FR, {
       version: '1.0.0',
       subject: 'Confirmation de votre devis - {{quoteReference}}',
@@ -1268,10 +1339,10 @@ export class NotificationTemplateFactory {
         <p>Montant: {{totalAmount}}€</p>
         <p>L'équipe Express Quote</p>
       `
-    });
-    
+    }, undefined, true); // skipCompilation = true
+
     template.addTags('quote', 'confirmation', 'email');
-    
+
     return template;
   }
 
@@ -1337,6 +1408,7 @@ export class NotificationTemplateFactory {
     });
     
     // Contenu HTML basique (fallback)
+    // ✅ LAZY COMPILATION: Skip compilation at initialization to avoid Jest ES modules error
     template.setContent(SupportedLanguage.FR, {
       version: '1.0.0',
       subject: 'Confirmation de votre réservation - {{bookingReference}}',
@@ -1349,10 +1421,10 @@ export class NotificationTemplateFactory {
         <p>Montant: {{totalAmount}}€</p>
         <p>L'équipe Express Quote</p>
       `
-    });
-    
+    }, undefined, true); // skipCompilation = true
+
     template.addTags('booking', 'confirmation', 'email');
-    
+
     return template;
   }
 
@@ -1410,6 +1482,7 @@ export class NotificationTemplateFactory {
     });
     
     // Contenu HTML basique (fallback)
+    // ✅ LAZY COMPILATION: Skip compilation at initialization to avoid Jest ES modules error
     template.setContent(SupportedLanguage.FR, {
       version: '1.0.0',
       subject: 'Confirmation de paiement - {{paymentReference}}',
@@ -1422,10 +1495,148 @@ export class NotificationTemplateFactory {
         <p>Réservation: {{bookingReference}}</p>
         <p>L'équipe Express Quote</p>
       `
-    });
-    
+    }, undefined, true); // skipCompilation = true
+
     template.addTags('payment', 'confirmation', 'email');
-    
+
+    return template;
+  }
+
+  /**
+   * 💰 Template de documents comptables (Email)
+   */
+  static createAccountingDocumentsEmailTemplate(): NotificationTemplate {
+    const template = new NotificationTemplate(
+      'accounting-documents-email',
+      'Notification de documents comptables',
+      TemplateType.EMAIL_HTML,
+      TemplateCategory.TRANSACTIONAL,
+      'Email de notification pour documents comptables avec détails financiers'
+    );
+
+    // Variables principales
+    template.addVariable({
+      name: 'accountingName',
+      type: 'string',
+      description: 'Nom du comptable',
+      required: true,
+      example: 'Marie Durand'
+    });
+
+    template.addVariable({
+      name: 'bookingReference',
+      type: 'string',
+      description: 'Référence de réservation',
+      required: true,
+      example: 'BK-123456'
+    });
+
+    template.addVariable({
+      name: 'totalAmount',
+      type: 'number',
+      description: 'Montant total',
+      required: true,
+      example: 15000
+    });
+
+    template.addVariable({
+      name: 'currency',
+      type: 'string',
+      description: 'Devise',
+      required: false,
+      example: 'EUR'
+    });
+
+    template.addVariable({
+      name: 'documentsCount',
+      type: 'number',
+      description: 'Nombre de documents',
+      required: true,
+      example: 2
+    });
+
+    template.addVariable({
+      name: 'hasInvoice',
+      type: 'boolean',
+      description: 'Présence d\'une facture',
+      required: true,
+      example: true
+    });
+
+    template.addVariable({
+      name: 'hasPaymentReceipt',
+      type: 'boolean',
+      description: 'Présence d\'un reçu de paiement',
+      required: true,
+      example: true
+    });
+
+    template.addVariable({
+      name: 'hasQuote',
+      type: 'boolean',
+      description: 'Présence d\'un devis',
+      required: true,
+      example: false
+    });
+
+    template.addVariable({
+      name: 'trigger',
+      type: 'string',
+      description: 'Déclencheur de la notification',
+      required: true,
+      example: 'payment_completed'
+    });
+
+    template.addVariable({
+      name: 'reason',
+      type: 'string',
+      description: 'Raison de la notification',
+      required: true,
+      example: 'Paiement complété'
+    });
+
+    template.addVariable({
+      name: 'viewBookingUrl',
+      type: 'string',
+      description: 'URL pour voir la réservation',
+      required: true,
+      example: 'http://localhost:3000/bookings/123'
+    });
+
+    template.addVariable({
+      name: 'accountingDashboardUrl',
+      type: 'string',
+      description: 'URL du dashboard comptable',
+      required: true,
+      example: 'http://localhost:3000/admin/accounting'
+    });
+
+    template.addVariable({
+      name: 'downloadAllUrl',
+      type: 'string',
+      description: 'URL pour télécharger tous les documents',
+      required: true,
+      example: 'http://localhost:3000/documents/download-all/123'
+    });
+
+    // Contenu HTML basique (fallback)
+    template.setContent(SupportedLanguage.FR, {
+      version: '1.0.0',
+      subject: 'Documents comptables - {{bookingReference}}',
+      body: `
+        <h1>Nouveaux documents comptables</h1>
+        <p>Bonjour {{accountingName}},</p>
+        <p>{{documentsCount}} document(s) comptable(s) ont été générés.</p>
+        <p>Référence: {{bookingReference}}</p>
+        <p>Montant: {{totalAmount}} {{currency}}</p>
+        <p>Raison: {{reason}}</p>
+        <p><a href="{{viewBookingUrl}}">Voir la réservation</a></p>
+        <p>L'équipe Express Quote</p>
+      `
+    }, undefined, true); // skipCompilation = true
+
+    template.addTags('accounting', 'documents', 'email', 'internal');
+
     return template;
   }
 
@@ -1507,16 +1718,17 @@ export class NotificationTemplateFactory {
     });
     
     // Contenu email HTML simple
+    // ✅ LAZY COMPILATION: Skip compilation at initialization to avoid Jest ES modules error
     template.setContent(SupportedLanguage.FR, {
       version: '1.0.0',
       subject: 'Rappel de votre service Express Quote - {{serviceDate}}',
       body: `
         <h1>Rappel de Service Express Quote</h1>
-        
+
         <p>Bonjour {{customerName}},</p>
-        
+
         <p>Nous vous rappelons votre service prévu très bientôt.</p>
-        
+
         <h2>Détails de votre service :</h2>
         <ul>
           <li><strong>Réservation :</strong> {{bookingReference}}</li>
@@ -1525,20 +1737,133 @@ export class NotificationTemplateFactory {
           <li><strong>Heure :</strong> {{serviceTime}}</li>
           <li><strong>Adresse :</strong> {{primaryAddress}}</li>
         </ul>
-        
+
         <h2>Checklist de préparation :</h2>
         <p>{{finalChecklist}}</p>
-        
+
         <p>Nous avons hâte de vous servir ! Notre équipe sera ponctuelle et professionnelle.</p>
-        
+
         <p>Besoin d'aide ? Contactez-nous au 01 23 45 67 89 ou par email à contact@express-quote.fr</p>
-        
+
         <p>L'équipe Express Quote</p>
       `
-    });
-    
+    }, undefined, true); // skipCompilation = true
+
     template.addTags('reminder', 'service', 'email');
-    
+
+    return template;
+  }
+
+  /**
+   * 📧 Template d'attribution de mission au professionnel (Email HTML)
+   */
+  static createProfessionalAttributionEmailTemplate(): NotificationTemplate {
+    const template = new NotificationTemplate(
+      'professional-attribution',
+      'Attribution de mission professionnel',
+      TemplateType.EMAIL_HTML,
+      TemplateCategory.TRANSACTIONAL,
+      'Email envoyé aux professionnels pour les informer d\'une nouvelle mission disponible'
+    );
+
+    // Variables pour le template React Email
+    template.addVariable({
+      name: 'professionalEmail',
+      type: 'string',
+      description: 'Email du professionnel',
+      required: true,
+      example: 'pro@example.com'
+    });
+
+    template.addVariable({
+      name: 'attributionId',
+      type: 'string',
+      description: 'ID d\'attribution',
+      required: true,
+      example: 'attr_123456'
+    });
+
+    template.addVariable({
+      name: 'serviceType',
+      type: 'string',
+      description: 'Type de service',
+      required: true,
+      example: 'MOVING'
+    });
+
+    template.addVariable({
+      name: 'totalAmount',
+      type: 'number',
+      description: 'Montant total',
+      required: true,
+      example: 150
+    });
+
+    template.addVariable({
+      name: 'scheduledDate',
+      type: 'string',
+      description: 'Date prévue',
+      required: true,
+      example: '2025-11-26'
+    });
+
+    template.addVariable({
+      name: 'scheduledTime',
+      type: 'string',
+      description: 'Heure prévue',
+      required: true,
+      example: '09:00'
+    });
+
+    template.addVariable({
+      name: 'locationCity',
+      type: 'string',
+      description: 'Ville',
+      required: true,
+      example: 'Paris'
+    });
+
+    template.addVariable({
+      name: 'acceptUrl',
+      type: 'string',
+      description: 'URL pour accepter',
+      required: true,
+      example: 'https://express-quote.com/professional/accept/attr_123456'
+    });
+
+    template.addVariable({
+      name: 'refuseUrl',
+      type: 'string',
+      description: 'URL pour refuser',
+      required: true,
+      example: 'https://express-quote.com/professional/refuse/attr_123456'
+    });
+
+    // Contenu HTML basique (fallback)
+    // ✅ LAZY COMPILATION: Skip compilation at initialization to avoid Jest ES modules error
+    template.setContent(SupportedLanguage.FR, {
+      version: '1.0.0',
+      subject: '🎯 Nouvelle mission {{serviceType}} - {{totalAmount}}€ à {{locationCity}}',
+      body: `
+        <h1>Nouvelle mission disponible</h1>
+        <p>Une nouvelle mission vient d'être publiée dans votre secteur.</p>
+        <h2>Détails de la mission :</h2>
+        <ul>
+          <li><strong>Type :</strong> {{serviceType}}</li>
+          <li><strong>Montant :</strong> {{totalAmount}}€</li>
+          <li><strong>Date :</strong> {{scheduledDate}} à {{scheduledTime}}</li>
+          <li><strong>Localisation :</strong> {{locationCity}}</li>
+        </ul>
+        <p>
+          <a href="{{acceptUrl}}">Accepter la mission</a> |
+          <a href="{{refuseUrl}}">Refuser</a>
+        </p>
+        <p>L'équipe Express Quote</p>
+      `
+    }, undefined, true); // skipCompilation = true
+
+    template.addTags('professional', 'attribution', 'email');
+
     return template;
   }
 

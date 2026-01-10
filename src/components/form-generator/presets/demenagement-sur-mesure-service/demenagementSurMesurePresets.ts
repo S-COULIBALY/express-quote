@@ -1,51 +1,41 @@
 import { PresetConfig, FormSummaryConfig } from "../../types";
-import { mergeWithGlobalPreset } from "../_shared/globalPreset";
-import { 
-  createSizeFieldForService, 
-  addressFields, 
-  dateField, 
-  timeField,
-  contactFields,
-  housingFields,
-  commentsField,
-  commonFieldCollections 
-} from "../_shared/sharedFields";
 import { createServiceValidation } from "../_shared/sharedValidation";
 
 // 📝 Valeurs par défaut pour les formulaires de déménagement sur mesure
 export const demenagementSurMesureDefaultValues = {
+  // Planification
+  dateSouhaitee: "",
+  flexibilite: "",
+  horaire: "",
+
+  // Adresses
+  adresseDepart: "",
+  pickupFloor: "0",
+  pickupElevator: "no",
+  pickupCarryDistance: "",
+  adresseArrivee: "",
+  deliveryFloor: "0",
+  deliveryElevator: "no",
+  deliveryCarryDistance: "",
+
   // Informations générales
   typeDemenagement: "",
   surface: "",
   nombrePieces: "",
-  etageDepart: "0",
-  etageArrivee: "0",
-  ascenseurDepart: false,
-  ascenseurArrivee: false,
-  
-  // Adresses
-  adresseDepart: "",
-  adresseArrivee: "",
-  distanceEstimee: "",
-  
+  volumeEstime: "",
+
   // Mobilier
   meubles: [],
   electromenager: [],
   objetsFragiles: [],
-  volumeEstime: "",
-  
+
   // Services optionnels
   emballage: false,
   montage: false,
   nettoyage: false,
   stockage: false,
   assurance: false,
-  
-  // Planification
-  dateSouhaitee: "",
-  flexibilite: "",
-  horaire: "",
-  
+
   // Contact
   nom: "",
   email: "",

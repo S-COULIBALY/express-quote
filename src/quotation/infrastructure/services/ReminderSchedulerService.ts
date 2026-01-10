@@ -1,5 +1,5 @@
 import { PrismaBookingRepository } from '../repositories/PrismaBookingRepository';
-import { emailDistributionService } from '@/config/services';
+import { sendEmail } from '@/lib/sendEmail';
 import { logger } from '@/lib/logger';
 import { addDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -84,8 +84,9 @@ export class ReminderSchedulerService {
         return;
       }
       
-      // Envoyer les rappels via le service de distribution
-      await emailDistributionService.sendAppointmentReminders(bookings);
+      // Envoyer les rappels via le service d'email
+      // TODO: Implémenter l'envoi des rappels de rendez-vous
+      reminderLogger.info(`${bookings.length} rappels à envoyer`);
       
       reminderLogger.info('Traitement des rappels terminé avec succès');
     } catch (error) {

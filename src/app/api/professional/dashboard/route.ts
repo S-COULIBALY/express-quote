@@ -167,7 +167,7 @@ function formatAvailableMission(attribution: any) {
     scheduledDate: booking.scheduledDate ? 
       new Date(booking.scheduledDate).toLocaleDateString('fr-FR') : 
       'À planifier',
-    distanceKm: attribution.maxDistanceKm || 150,
+    distanceKm: attribution.maxDistanceKm || 100,
     timeAgo,
     priority: attribution.status === 'RE_BROADCASTING' ? 'high' : 'normal',
     // Informations client masquées jusqu'à acceptation

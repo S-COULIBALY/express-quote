@@ -7,7 +7,7 @@ import { QuoteRequest } from './QuoteRequest';
 
 export enum BookingType {
     MOVING_QUOTE = 'MOVING_QUOTE',
-    PACK = 'PACK',
+    PACKING = 'PACKING',
     SERVICE = 'SERVICE'
 }
 
@@ -92,9 +92,12 @@ export class Booking extends Entity {
                 bookingType = BookingType.MOVING_QUOTE;
                 break;
             case 'PACK':
-                bookingType = BookingType.PACK;
+            case 'PACKING':
+                bookingType = BookingType.PACKING;
                 break;
             case 'SERVICE':
+            case 'CLEANING':
+            case 'DELIVERY':
                 bookingType = BookingType.SERVICE;
                 break;
             default:

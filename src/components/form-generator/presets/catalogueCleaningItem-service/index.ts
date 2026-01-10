@@ -1,5 +1,6 @@
 import { FormConfig } from '../../types';
 import { CatalogueCleaningItem } from '@/types/booking';
+import { ServiceType } from '@/quotation/domain/enums/ServiceType';
 import { CatalogueCleaningItemPreset } from './catalogueCleaningItemPresets';
 
 export interface CatalogueCleaningItemPresetOptions {
@@ -11,8 +12,20 @@ export interface CatalogueCleaningItemPresetOptions {
   sessionStorageKey?: string;
 }
 
-export const getCatalogueCleaningItemConfig = (options: CatalogueCleaningItemPresetOptions): FormConfig => {
-  const { service, onPriceCalculated, onSubmitSuccess, onError, editMode, sessionStorageKey } = options;
+export const getCatalogueCleaningItemConfig = (serviceOrOptions: CatalogueCleaningItem | CatalogueCleaningItemPresetOptions): FormConfig => {
+  // Support pour les deux signatures : ancien (objet options) et nouveau (service direct)
+  const isOptions = 'service' in serviceOrOptions || 'onPriceCalculated' in serviceOrOptions;
+  const service = isOptions ? (serviceOrOptions as CatalogueCleaningItemPresetOptions).service : (serviceOrOptions as CatalogueCleaningItem);
+  const onPriceCalculated = isOptions ? (serviceOrOptions as CatalogueCleaningItemPresetOptions).onPriceCalculated : undefined;
+  const onSubmitSuccess = isOptions ? (serviceOrOptions as CatalogueCleaningItemPresetOptions).onSubmitSuccess : undefined;
+  const onError = isOptions ? (serviceOrOptions as CatalogueCleaningItemPresetOptions).onError : undefined;
+  const editMode = isOptions ? (serviceOrOptions as CatalogueCleaningItemPresetOptions).editMode : undefined;
+  const sessionStorageKey = isOptions ? (serviceOrOptions as CatalogueCleaningItemPresetOptions).sessionStorageKey : undefined;
+
+  // Vérification de sécurité: service doit être défini
+  if (!service) {
+    throw new Error('getCatalogueCleaningItemConfig: service is required');
+  }
 
   // Auto-détection des valeurs par défaut depuis sessionStorage si en mode édition
   const getDefaultValues = () => {
@@ -30,21 +43,25 @@ export const getCatalogueCleaningItemConfig = (options: CatalogueCleaningItemPre
     }
     
     // Utiliser les valeurs par défaut du CatalogueCleaningItemPreset + données du service
+    if (!service) {
+      return CatalogueCleaningItemPreset.defaultValues;
+    }
+
     return {
       ...CatalogueCleaningItemPreset.defaultValues,
-      duration: service.duration.toString(),
-      workers: service.workers.toString(),
+      duration: service.duration?.toString() || '',
+      workers: service.workers?.toString() || '',
       // Ajouter les données du service au contexte
-      serviceName: service.name,
-      serviceDescription: service.description,
-      defaultPrice: service.price
+      serviceName: service.name || '',
+      serviceDescription: service.description || '',
+      defaultPrice: service.price || 0
     };
   };
 
   // Configuration de base utilisant CatalogueCleaningItemPreset
   const baseConfig: FormConfig = {
-    title: "Détails de la réservation",
-    description: "Personnalisez votre réservation selon vos besoins",
+    //title: "Détails de la réservation",
+    //description: "Personnalisez votre réservation selon vos besoins",
     serviceType: "general",
     customDefaults: getDefaultValues(),
     
@@ -131,12 +148,26 @@ export const getCatalogueCleaningItemConfig = (options: CatalogueCleaningItemPre
             }
           },
           {
+            name: "horaire",
+            type: "select",
+            label: "Horaire de RDV",
+            required: true,
+            options: [
+              { value: "matin-6h", label: "Matin - 6h" },
+              { value: "matin-8h", label: "Matin - 8h" },
+              { value: "apres-midi-13h", label: "Après-midi - 13h" },
+              { value: "soiree-18h", label: "Soirée - 18h" },
+              { value: "flexible", label: "Flexible - selon disponibilité" }
+            ]
+          },
+          {
             name: "location",
             type: "address-pickup",
             label: "Adresse",
             required: true,
             columnSpan: 2
-          }
+          },
+
         ]
       },
       {
@@ -144,41 +175,48 @@ export const getCatalogueCleaningItemConfig = (options: CatalogueCleaningItemPre
         columns: 2,
         fields: [
           {
-            name: "duration",
-            type: "number",
-            label: "Durée (en heures)",
-            required: true,
-            validation: {
-              min: service.duration,
-              custom: (value: any) => value >= service.duration || `Minimum ${service.duration} heure${service.duration > 1 ? 's' : ''}`
-            }
-          },
-          {
             name: "workers", 
             type: "number",
-            label: "Nombre de professionnels",
+            label: "Nombre de travailleurs",
             required: true,
             validation: {
               min: service.workers,
               custom: (value: any) => value >= service.workers || `Minimum ${service.workers} professionnel${service.workers > 1 ? 's' : ''}`
             }
+          },
+          
+          {
+            name: "duration",
+            type: "number",
+            label: "Durée/travailleur (en heures)",
+            required: true,
+            validation: {
+              min: service.duration,
+              custom: (value: any) => value >= service.duration || `Minimum ${service.duration} heure${service.duration > 1 ? 's' : ''}`
+            }
           }
+
         ]
       },
       {
         title: "🎯 Spécificités",
         fields: [
+
           {
-            name: "serviceConstraints",
-            type: "service-constraints",
-            label: "Contraintes spécifiques",
-            columnSpan: 2,
+            name: "locationLogisticsConstraints",
+            type: "access-constraints",
+            label: "Contraintes d'accès",
+            className: "location-field",
             componentProps: {
-              buttonLabel: "Ajouter des contraintes spécifiques à ce service",
-              modalTitle: "Contraintes spécifiques au service",
-              showSelectedCount: true
+              type: "pickup",
+              buttonLabel: "Contraintes d'accès",
+              modalTitle: "Contraintes d'accès & Services Supplémentaires",
+              showServices: true,
+              serviceType: ServiceType.CLEANING // 🔧 CORRECTION: Spécifier le type de service
             }
           },
+
+
           {
             name: "additionalInfo",
             type: "textarea",

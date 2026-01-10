@@ -1,12 +1,74 @@
 import { PresetConfig, FormSummaryConfig } from "../../types";
 import { mergeWithGlobalPreset } from "../_shared/globalPreset";
-import { commonFieldCollections, contactFields, dateField, timeField } from "../_shared/sharedFields";
-import { createServiceValidation } from "../_shared/sharedValidation";
+import { AutoDetectionService, AddressData } from "@/quotation/domain/services/AutoDetectionService";
+import { RULE_UUID_MONTE_MEUBLE } from "@/quotation/domain/constants/RuleUUIDs";
+
+/**
+ * 🎯 Helper pour formater l'affichage d'une adresse avec détection intelligente du monte-meubles
+ */
+const formatAddressDetails = (
+  floor: string,
+  elevator: string,
+  carryDistance: string,
+  constraints: string[],
+  volume?: number
+): string[] => {
+  const details: string[] = [];
+
+  // Afficher l'étage
+  if (floor && floor !== '0') {
+    details.push(`Étage ${floor}`);
+  }
+
+  // Afficher l'ascenseur
+  if (elevator && elevator !== 'no') {
+    const elevatorLabels: Record<string, string> = {
+      'small': 'Petit ascenseur',
+      'medium': 'Ascenseur moyen',
+      'large': 'Grand ascenseur'
+    };
+    details.push(elevatorLabels[elevator] || 'Ascenseur');
+  } else if (floor && floor !== '0') {
+    details.push('Aucun ascenseur');
+  }
+
+  // Afficher la distance de portage
+  if (carryDistance) {
+    const formattedDistance = carryDistance.replace('-', ' à ').replace('+', '+ de ');
+    details.push(`Portage ${formattedDistance}m`);
+  }
+
+  // ✅ Détecter et afficher le monte-meubles avec raison explicite (utilise l'UUID)
+  if (Array.isArray(constraints) && constraints.includes(RULE_UUID_MONTE_MEUBLE)) {
+    const addressData: AddressData = {
+      floor: parseInt(floor) || 0,
+      elevator: elevator as 'no' | 'small' | 'medium' | 'large',
+      carryDistance: carryDistance as '0-10' | '10-30' | '30+' | undefined,
+      constraints
+    };
+
+    const detectionResult = AutoDetectionService.detectFurnitureLift(addressData, volume);
+
+    if (detectionResult.furnitureLiftRequired && detectionResult.furnitureLiftReason) {
+      details.push(`🏗️ Monte-meuble requis (${detectionResult.furnitureLiftReason})`);
+    } else {
+      details.push('🏗️ Monte-meuble');
+    }
+  }
+
+  // Détecter la longue distance de portage
+  if (Array.isArray(constraints) && constraints.includes('long_carrying_distance')) {
+    details.push('📏 Longue distance de portage');
+  }
+
+  return details;
+};
 
 // 📝 Valeurs par défaut pour les formulaires de packs
 export const catalogueMovingItemDefaultValues = {
   // Planification
   scheduledDate: '',
+  horaire: '',
   
   // Adresses - Départ
   pickupAddress: '',
@@ -94,61 +156,31 @@ export const catalogueMovingItemSummaryConfig: FormSummaryConfig = {
           key: "pickupAddress",
           label: "Adresse de départ",
           format: (value: any, formData: any) => {
-            const result = value;
-            const details = [];
-            
-            if (formData.pickupFloor && formData.pickupFloor !== '0') {
-              details.push(`Étage ${formData.pickupFloor}`);
-            }
-            if (formData.pickupElevator && formData.pickupElevator !== 'no') {
-              const elevatorLabels: Record<string, string> = {
-                'small': 'Petit ascenseur',
-                'medium': 'Ascenseur moyen',
-                'large': 'Grand ascenseur'
-              };
-              details.push(elevatorLabels[formData.pickupElevator] || 'Ascenseur');
-            }
-            if (formData.pickupCarryDistance) {
-              details.push(`Portage ${formData.pickupCarryDistance.replace('-', ' à ').replace('+', '+ de ')}m`);
-            }
-            
-            // Vérifier si monte-meuble dans les contraintes
-            if (formData.pickupLogisticsConstraints && formData.pickupLogisticsConstraints.includes('furniture_lift_required')) {
-              details.push('🏗️ Monte-meuble');
-            }
-            
-            return details.length > 0 ? `${result}\n${details.join(' • ')}` : result;
+            const details = formatAddressDetails(
+              formData.pickupFloor,
+              formData.pickupElevator,
+              formData.pickupCarryDistance,
+              formData.pickupLogisticsConstraints,
+              formData.volume
+            );
+
+            return details.length > 0 ? `${value}\n${details.join(' • ')}` : value;
           },
           condition: (value: any) => !!value
         },
         {
           key: "deliveryAddress",
-          label: "Détails arrivée",
+          label: "Adresse d'arrivée",
           format: (value: any, formData: any) => {
-            const result = value;
-            const details = [];
-            
-            if (formData.deliveryFloor && formData.deliveryFloor !== '0') {
-              details.push(`Étage ${formData.deliveryFloor}`);
-            }
-            if (formData.deliveryElevator && formData.deliveryElevator !== 'no') {
-              const elevatorLabels: Record<string, string> = {
-                'small': 'Petit ascenseur',
-                'medium': 'Ascenseur moyen',
-                'large': 'Grand ascenseur'
-              };
-              details.push(elevatorLabels[formData.deliveryElevator] || 'Ascenseur');
-            }
-            if (formData.deliveryCarryDistance) {
-              details.push(`Portage ${formData.deliveryCarryDistance.replace('-', ' à ').replace('+', '+ de ')}m`);
-            }
-            
-            // Vérifier si monte-meuble dans les contraintes
-            if (formData.deliveryLogisticsConstraints && formData.deliveryLogisticsConstraints.includes('furniture_lift_required')) {
-              details.push('🏗️ Monte-meuble');
-            }
-            
-            return details.length > 0 ? `${result}\n${details.join(' • ')}` : result;
+            const details = formatAddressDetails(
+              formData.deliveryFloor,
+              formData.deliveryElevator,
+              formData.deliveryCarryDistance,
+              formData.deliveryLogisticsConstraints,
+              formData.volume
+            );
+
+            return details.length > 0 ? `${value}\n${details.join(' • ')}` : value;
           },
           condition: (value: any) => !!value
         }
@@ -223,6 +255,19 @@ export const CatalogueMovingItemPreset: PresetConfig = {
                 return selectedDate >= today || "La date ne peut pas être dans le passé";
               }
             }
+          },
+          {
+            name: "horaire",
+            type: "select",
+            label: "Horaire de RDV",
+            required: true,
+            options: [
+              { value: "matin-6h", label: "Matin - 6h" },
+              { value: "matin-8h", label: "Matin - 8h" },
+              { value: "apres-midi-13h", label: "Après-midi - 13h" },
+              { value: "soiree-18h", label: "Soirée - 18h" },
+              { value: "flexible", label: "Flexible - selon disponibilité" }
+            ]
           }
         ]
       },

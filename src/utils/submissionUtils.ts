@@ -149,20 +149,18 @@ export const validateSubmissionData = (
   formData: any,
   config: SubmissionConfig,
   extraData?: any
-): boolean => {
+): { valid: boolean; error?: string } => {
   const validationResult = config.validateFormData(formData, extraData);
-  
+
   if (typeof validationResult === 'string') {
-    alert(validationResult);
-    return false;
+    return { valid: false, error: validationResult };
   }
-  
+
   if (!validationResult) {
-    alert('Veuillez remplir tous les champs obligatoires.');
-    return false;
+    return { valid: false, error: 'Veuillez remplir tous les champs obligatoires.' };
   }
-  
-  return true;
+
+  return { valid: true };
 };
 
 // Logging standardisé pour la submission

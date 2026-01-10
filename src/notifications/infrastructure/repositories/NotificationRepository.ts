@@ -59,14 +59,21 @@ export class NotificationRepository {
   
   /**
    * Crée une nouvelle notification
+   * Utilise SCHEDULED si scheduledAt est dans le futur, sinon PENDING
    */
   async create(data: CreateNotificationData) {
     try {
+      // Déterminer le statut initial : SCHEDULED si programmé dans le futur, sinon PENDING
+      const initialStatus: NotificationStatus = 
+        data.scheduledAt && data.scheduledAt > new Date() 
+          ? 'SCHEDULED' 
+          : 'PENDING';
+      
       const notification = await this.prisma.notification.create({
         data: {
           recipientId: data.recipientId,
           channel: data.channel,
-          status: 'PENDING',
+          status: initialStatus,
           templateId: data.templateId,
           templateData: data.templateData,
           subject: data.subject,
@@ -81,7 +88,11 @@ export class NotificationRepository {
         }
       });
       
-      this.logger.info('📝 Notification créée', { id: notification.id, channel: notification.channel });
+      this.logger.info('📝 Notification créée', { 
+        id: notification.id, 
+        channel: notification.channel,
+        status: notification.status 
+      });
       return notification;
       
     } catch (error) {
@@ -181,6 +192,99 @@ export class NotificationRepository {
       lastError: error
     });
   }
+
+  /**
+   * Marque une notification comme programmée (SCHEDULED)
+   */
+  async markAsScheduled(id: string) {
+    return this.update(id, {
+      status: 'SCHEDULED'
+    });
+  }
+
+  /**
+   * Marque une notification comme livrée (DELIVERED)
+   */
+  async markAsDelivered(id: string, deliveredAt?: Date, providerResponse?: any) {
+    return this.update(id, {
+      status: 'DELIVERED',
+      deliveredAt: deliveredAt || new Date(),
+      providerResponse
+    });
+  }
+
+  /**
+   * Marque une notification comme lue (READ)
+   */
+  async markAsRead(id: string, readAt?: Date, providerResponse?: any) {
+    return this.update(id, {
+      status: 'READ',
+      readAt: readAt || new Date(),
+      providerResponse
+    });
+  }
+
+  /**
+   * Marque une notification comme annulée (CANCELLED)
+   */
+  async markAsCancelled(id: string, reason?: string) {
+    return this.update(id, {
+      status: 'CANCELLED',
+      lastError: reason
+    });
+  }
+
+  /**
+   * Marque une notification comme expirée (EXPIRED)
+   */
+  async markAsExpired(id: string) {
+    return this.update(id, {
+      status: 'EXPIRED'
+    });
+  }
+
+  /**
+   * Trouve les notifications programmées (SCHEDULED) qui doivent être traitées
+   * (scheduledAt <= Date.now())
+   */
+  async findScheduledReady(limit: number = 100) {
+    try {
+      return await this.prisma.notification.findMany({
+        where: {
+          status: 'SCHEDULED',
+          scheduledAt: { lte: new Date() }
+        },
+        orderBy: [
+          { priority: 'desc' },
+          { scheduledAt: 'asc' }
+        ],
+        take: limit
+      });
+    } catch (error) {
+      this.logger.error('❌ Erreur recherche notifications scheduled ready', { error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  /**
+   * Transition SCHEDULED → PENDING pour les notifications programmées
+   */
+  async transitionScheduledToPending(id: string) {
+    const notification = await this.findById(id);
+    if (!notification) {
+      throw new Error(`Notification ${id} not found`);
+    }
+    if (notification.status !== 'SCHEDULED') {
+      this.logger.warn('⚠️ Tentative de transition SCHEDULED → PENDING sur une notification non-SCHEDULED', {
+        id,
+        currentStatus: notification.status
+      });
+      return notification;
+    }
+    return this.update(id, {
+      status: 'PENDING'
+    });
+  }
   
   /**
    * Incrémente le compteur de tentatives
@@ -196,15 +300,26 @@ export class NotificationRepository {
   
   /**
    * Trouve les notifications en attente de traitement
+   * Inclut PENDING, RETRYING, et SCHEDULED qui sont prêtes (scheduledAt <= now)
    */
   async findPending(limit: number = 100) {
     try {
       return await this.prisma.notification.findMany({
         where: {
-          status: { in: ['PENDING', 'RETRYING'] },
           OR: [
-            { scheduledAt: null },
-            { scheduledAt: { lte: new Date() } }
+            // Notifications PENDING ou RETRYING sans scheduledAt ou avec scheduledAt passé
+            {
+              status: { in: ['PENDING', 'RETRYING'] },
+              OR: [
+                { scheduledAt: null },
+                { scheduledAt: { lte: new Date() } }
+              ]
+            },
+            // Notifications SCHEDULED qui sont prêtes à être traitées
+            {
+              status: 'SCHEDULED',
+              scheduledAt: { lte: new Date() }
+            }
           ]
         },
         orderBy: [

@@ -16,8 +16,8 @@ export type QuoteContextData = {
     distance?: number;
     tollCost?: number;
     fuelCost?: number;
-    pickupElevator?: boolean;
-    deliveryElevator?: boolean;
+    pickupElevator?: 'no' | 'small' | 'medium' | 'large';
+    deliveryElevator?: 'no' | 'small' | 'medium' | 'large';
     pickupFloor?: number;
     deliveryFloor?: number;
     pickupCarryDistance?: number;
@@ -93,8 +93,15 @@ export class QuoteContext {
             return;
         }
         
-        // Validation pour les champs booléens
-        if (key.includes('Elevator') || key.includes('NeedsLift') ||
+        // Validation pour les champs ascenseur (doivent rester des strings: 'no' | 'small' | 'medium' | 'large')
+        if (key.includes('Elevator')) {
+            // Ne pas convertir en booléen, garder la valeur string
+            this.values[key] = value;
+            return;
+        }
+
+        // Validation pour les autres champs booléens
+        if (key.includes('NeedsLift') ||
             key === 'packaging' || key === 'fragile' || key === 'storage' ||
             key === 'disassembly' || key === 'unpacking' || key === 'supplies') {
             // Conversion en booléen

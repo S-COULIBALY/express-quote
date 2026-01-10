@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -200,12 +201,12 @@ export default function ProfessionalDashboard() {
       if (result.success) {
         // Recharger les données
         loadDashboardData();
-        alert('Mission acceptée avec succès !');
+        toast.success('Mission acceptée avec succès !');
       } else {
-        alert(result.error || 'Erreur lors de l\'acceptation');
+        toast.error(result.error || 'Erreur lors de l\'acceptation');
       }
     } catch (err) {
-      alert('Erreur de connexion');
+      toast.error('Erreur de connexion');
       console.error('Accept error:', err);
     }
   };
@@ -225,12 +226,12 @@ export default function ProfessionalDashboard() {
       
       if (result.success) {
         loadDashboardData();
-        alert('Mission refusée');
+        toast.success('Mission refusée');
       } else {
-        alert(result.error || 'Erreur lors du refus');
+        toast.error(result.error || 'Erreur lors du refus');
       }
     } catch (err) {
-      alert('Erreur de connexion');
+      toast.error('Erreur de connexion');
       console.error('Refuse error:', err);
     }
   };
@@ -253,10 +254,10 @@ export default function ProfessionalDashboard() {
           user: { ...prev.user, isAvailable: newStatus }
         } : null);
       } else {
-        alert(result.error || 'Erreur de mise à jour');
+        toast.error(result.error || 'Erreur de mise à jour');
       }
     } catch (err) {
-      alert('Erreur de connexion');
+      toast.error('Erreur de connexion');
       console.error('Availability error:', err);
     }
   };

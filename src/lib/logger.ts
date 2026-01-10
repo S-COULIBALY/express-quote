@@ -59,19 +59,45 @@ const formatMessage = (level: LogLevel, message: string, context?: string): stri
 /**
  * Journalise un message avec le niveau spécifié
  */
-const log = (level: LogLevel, message: string | Error, context?: string, ...args: any[]): void => {
+const log = (level: LogLevel, message: string | Error | Record<string, any>, context?: string | any, ...args: any[]): void => {
   // Ne pas journaliser si désactivé ou niveau trop bas
   if (!config.enabled || level < config.level) {
     return;
   }
-  
-  // Convertir l'erreur en message si nécessaire
-  const msg = message instanceof Error ? `${message.name}: ${message.message}\n${message.stack}` : message;
-  const formattedMessage = formatMessage(level, msg, context);
-  
+
+  // Gérer context: si c'est un objet ou autre chose qu'un string, le mettre dans args
+  let actualContext: string | undefined;
+  if (context !== undefined) {
+    if (typeof context === 'string') {
+      actualContext = context;
+    } else {
+      // Context n'est pas un string, c'est des données à logger
+      args = [context, ...args];
+      actualContext = undefined;
+    }
+  }
+
+  // Convertir le message en string selon son type
+  let msg: string;
+  if (message instanceof Error) {
+    msg = `${message.name}: ${message.message}\n${message.stack}`;
+  } else if (typeof message === 'object' && message !== null) {
+    // Si c'est un objet, extraire le message et stringify le reste
+    const { message: objMessage, ...rest } = message as any;
+    msg = objMessage || JSON.stringify(message, null, 2);
+    // Ajouter le reste de l'objet aux args pour l'affichage
+    if (Object.keys(rest).length > 0) {
+      args = [rest, ...args];
+    }
+  } else {
+    msg = message;
+  }
+
+  const formattedMessage = formatMessage(level, msg, actualContext);
+
   // Sélectionner la méthode de console appropriée
   let consoleMethod: (...args: any[]) => void;
-  
+
   switch (level) {
     case LogLevel.ERROR:
       consoleMethod = console.error;
@@ -87,7 +113,7 @@ const log = (level: LogLevel, message: string | Error, context?: string, ...args
       consoleMethod = console.debug;
       break;
   }
-  
+
   // Journaliser le message
   if (args.length > 0) {
     consoleMethod(formattedMessage, ...args);
@@ -103,45 +129,45 @@ const isServer = typeof window === 'undefined';
  * Logger exporté avec des fonctionnalités différentes selon l'environnement (client/serveur)
  */
 export const logger = {
-  debug: (message: string | Error, context?: string, ...args: any[]) => 
+  debug: (message: string | Error | Record<string, any>, context?: string | any, ...args: any[]) =>
     log(LogLevel.DEBUG, message, context, ...args),
-    
-  info: (message: string | Error, context?: string, ...args: any[]) => 
+
+  info: (message: string | Error | Record<string, any>, context?: string | any, ...args: any[]) =>
     log(LogLevel.INFO, message, context, ...args),
-    
-  warn: (message: string | Error, context?: string, ...args: any[]) => 
+
+  warn: (message: string | Error | Record<string, any>, context?: string | any, ...args: any[]) =>
     log(LogLevel.WARN, message, context, ...args),
-    
-  error: (message: string | Error, context?: string, ...args: any[]) => 
+
+  error: (message: string | Error | Record<string, any>, context?: string | any, ...args: any[]) =>
     log(LogLevel.ERROR, message, context, ...args),
   
   // Créer un logger avec un contexte prédéfini - fonctionne différemment selon l'environnement
-  withContext: isServer 
+  withContext: isServer
     ? (context: string) => ({
-        debug: (message: string | Error, ...args: any[]) => 
+        debug: (message: string | Error | Record<string, any>, ...args: any[]) =>
           log(LogLevel.DEBUG, message, context, ...args),
-          
-        info: (message: string | Error, ...args: any[]) => 
+
+        info: (message: string | Error | Record<string, any>, ...args: any[]) =>
           log(LogLevel.INFO, message, context, ...args),
-          
-        warn: (message: string | Error, ...args: any[]) => 
+
+        warn: (message: string | Error | Record<string, any>, ...args: any[]) =>
           log(LogLevel.WARN, message, context, ...args),
-          
-        error: (message: string | Error, ...args: any[]) => 
+
+        error: (message: string | Error | Record<string, any>, ...args: any[]) =>
           log(LogLevel.ERROR, message, context, ...args),
       })
     : (context: string) => ({
         // Version simplifiée côté client qui ajoute juste le contexte au message
-        debug: (message: string | Error, ...args: any[]) => 
+        debug: (message: string | Error | Record<string, any>, ...args: any[]) =>
           console.debug(`[${context}]`, message, ...args),
-          
-        info: (message: string | Error, ...args: any[]) => 
+
+        info: (message: string | Error | Record<string, any>, ...args: any[]) =>
           console.info(`[${context}]`, message, ...args),
-          
-        warn: (message: string | Error, ...args: any[]) => 
+
+        warn: (message: string | Error | Record<string, any>, ...args: any[]) =>
           console.warn(`[${context}]`, message, ...args),
-          
-        error: (message: string | Error, ...args: any[]) => 
+
+        error: (message: string | Error | Record<string, any>, ...args: any[]) =>
           console.error(`[${context}]`, message, ...args),
       }),
   

@@ -1,9 +1,11 @@
+import { ServiceType, RuleType, RuleCategory } from '@prisma/client';
+
 /**
  * ============================================================================
  * FALLBACK CLEANING - Données générées automatiquement
  * ============================================================================
  *
- * 🤖 GÉNÉRÉ AUTOMATIQUEMENT le 2025-10-02
+ * 🤖 GÉNÉRÉ AUTOMATIQUEMENT le 2025-10-29
  * ⚠️  NE PAS MODIFIER MANUELLEMENT
  *
  * Ce fichier est généré via: npm run generate:fallbacks
@@ -17,12 +19,30 @@ export interface Constraint {
   id: string;
   name: string;
   description?: string;
-  category?: string;
-  icon?: string;
-  type: 'constraint' | 'service';
-  value?: number;
-  impact?: string;
-  autoDetection?: boolean;
+  value: number;
+  isActive: boolean;
+  category: RuleCategory;
+  condition?: any;
+  percentBased: boolean;
+  serviceType: ServiceType;
+  ruleType: RuleType;
+  priority: number;
+  validFrom?: Date;
+  validTo?: Date | null;
+  tags: string[];
+  configKey?: string;
+  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH'; // ✅ NOUVEAU: Support du champ scope
+  metadata?: {
+    source?: string;
+    impact?: string;
+    category_frontend?: "constraint" | "service";
+    display?: {
+      icon?: string;
+      priority?: number;
+      group?: string;
+      description_short?: string;
+    };
+  };
 }
 
 /**
@@ -31,279 +51,829 @@ export interface Constraint {
  */
 export const cleaningConstraintsFallback: Constraint[] = [
   {
-    id: "rule_cmg29sh63000xca8kwkk6isr6",
+    id: "49e42e4c-c240-418d-bbdc-aff9a2cefe37",
     name: "Absence d'ascenseur",
     description: "Transport matériel par escaliers",
-    category: "surcharge",
-    icon: "🏢",
-    type: "constraint",
-    value: 15,
-    impact: "+15€",
-    autoDetection: false
+    value: 6,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "access",
+      elevator: "none"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.830Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+6%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🛗",
+        group: "access",
+        priority: 49,
+        description_short: "Transport matériel par escaliers"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29sh6p000yca8kfbt4qwhz",
+    id: "c2951072-61a4-4a1a-96ab-e5949cdbdbb3",
     name: "Accès difficile au bâtiment",
     description: "Codes, digicode, interphone complexe",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 10,
-    impact: "+10€",
-    autoDetection: false
+    value: 5.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "access",
+      building: "difficult"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.845Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+5.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "access",
+        priority: 49,
+        description_short: "Codes, digicode, interphone complexe"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29sh8r0012ca8kxgv8cmea",
+    id: "a032d730-d1d8-44a0-8eb4-2f845b962bb6",
     name: "Allergies signalées",
     description: "Produits hypoallergéniques, précautions spéciales",
-    category: "surcharge",
-    icon: "🤧",
-    type: "constraint",
-    value: 20,
-    impact: "+20€",
-    autoDetection: false
+    value: 6.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "work",
+      allergies: "present"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.913Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+6.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "work",
+        priority: -43,
+        description_short: "Produits hypoallergéniques, précautions spéciales"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29sh79000zca8kfwzgm3mp",
+    id: "4185f3e1-b8d1-4536-88e4-a1896908cbe7",
     name: "Contrôle de sécurité strict",
     description: "Badge, gardien, vérifications d'identité",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 15,
-    impact: "+15€",
-    autoDetection: false
+    value: 6,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "access",
+      security: "strict"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.866Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+6%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🔒",
+        group: "access",
+        priority: 49,
+        description_short: "Badge, gardien, vérifications d'identité"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shai0015ca8k3hjumiq7",
+    id: "d7858dc6-712a-405b-b342-353e157d7c57",
     name: "Créneau horaire spécifique",
     description: "Disponibilité réduite, contraintes client",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 20,
-    impact: "+20€",
-    autoDetection: false
+    value: 6.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "schedule",
+      window: "specific"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.960Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+6.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "⏰",
+        group: "schedule",
+        priority: -42,
+        description_short: "Disponibilité réduite, contraintes client"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29she2001cca8ka1lkt0rk",
+    id: "2b9e827e-7990-4779-9ab7-cf72bf7d0016",
     name: "Dégâts des eaux récents",
     description: "Humidité, moisissures potentielles, équipement spécial",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 80,
-    impact: "+80€",
-    autoDetection: false
+    value: 9.8,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "location",
+      damage: "water"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.069Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+9.8%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "💧",
+        group: "location",
+        priority: -41,
+        description_short: "Humidité, moisissures potentielles, équipement spécial"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shhf001jca8kdyd56rk2",
+    id: "edefd89b-117d-4739-9bf5-6ed67a5a4b64",
     name: "Équipement industriel requis",
     description: "Mono-brosse, injecteur-extracteur, haute pression",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 60,
-    impact: "+60€",
-    autoDetection: false
+    value: 9.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "utilities",
+      equipment: "industrial"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.196Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+9.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "utilities",
+        priority: -40,
+        description_short: "Mono-brosse, injecteur-extracteur, haute pression"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shf1001eca8ktg2t57cb",
+    id: "6ff2c0d6-8539-4618-b456-55750c0d0d13",
     name: "Espace très restreint",
     description: "Meubles encombrants, accès difficile",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 25,
-    impact: "+25€",
-    autoDetection: false
+    value: 7,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "location",
+      space: "limited"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.121Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+7%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "location",
+        priority: -41,
+        description_short: "Meubles encombrants, accès difficile"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shay0016ca8k7fx0gjey",
+    id: "e331f21f-caa5-4e07-b6b3-d5e86ee02f4d",
     name: "Intervention matinale",
     description: "Majoration horaires atypiques (avant 8h)",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 25,
-    impact: "+25€",
-    autoDetection: false
+    value: 7,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      time: "early",
+      type: "schedule"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.976Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+7%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "schedule",
+        priority: -42,
+        description_short: "Majoration horaires atypiques (avant 8h)"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29sh9x0014ca8ksk44hvqq",
+    id: "1bdf8ac3-0fef-4b6e-9e2f-2de56714580c",
     name: "Meubles lourds à déplacer",
     description: "Mobilier encombrant nécessitant 2 personnes",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 30,
-    impact: "+30€",
-    autoDetection: false
+    value: 7.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "work",
+      furniture: "heavy"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.944Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "GLOBAL",
+    metadata: {
+      impact: "+7.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🏋️",
+        group: "work",
+        priority: -43,
+        description_short: "Mobilier encombrant nécessitant 2 personnes"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29sh990013ca8kthw9evjf",
+    id: "bc66e368-2c23-4453-b308-f89d925fdb65",
     name: "Objets fragiles/précieux",
     description: "Antiquités, œuvres d'art, manipulation délicate",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 25,
-    impact: "+25€",
-    autoDetection: false
+    value: 7,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "work",
+      items: "fragile"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.929Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "PICKUP",
+    metadata: {
+      impact: "+7%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "💎",
+        group: "work",
+        priority: -43,
+        description_short: "Antiquités, œuvres d'art, manipulation délicate"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shg1001gca8ke3u7wbpy",
+    id: "0b75ab1c-a7d4-4c23-a8d5-5d6db9c45e9a",
     name: "Pas d'accès à l'eau",
     description: "Approvisionnement eau, équipement autonome",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 50,
-    impact: "+50€",
-    autoDetection: false
+    value: 9,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "utilities",
+      water: "none"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.151Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+9%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "💧",
+        group: "utilities",
+        priority: -40,
+        description_short: "Approvisionnement eau, équipement autonome"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shgh001hca8k6qif7yw7",
+    id: "b32ae668-29a4-4d3e-9729-637f22b0cd2d",
     name: "Pas d'électricité",
     description: "Matériel sur batterie, éclairage portatif",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 40,
-    impact: "+40€",
-    autoDetection: false
+    value: 8.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "utilities",
+      power: "none"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.165Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+8.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "⚡",
+        group: "utilities",
+        priority: -40,
+        description_short: "Matériel sur batterie, éclairage portatif"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shdm001bca8kx5k0rke2",
+    id: "0253e05d-2287-48bf-b0de-6dfbe17a3a21",
     name: "Post-construction/travaux",
     description: "Poussière, gravats, matériel renforcé",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 60,
-    impact: "+60€",
-    autoDetection: false
+    value: 9.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "location",
+      work: "construction"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.054Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+9.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "location",
+        priority: -41,
+        description_short: "Poussière, gravats, matériel renforcé"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29sh7s0010ca8kzuv4mvm3",
+    id: "670b8b7a-bedd-4e84-9aa8-dc6969738c3e",
     name: "Présence d'animaux",
     description: "Chiens, chats, poils, produits adaptés nécessaires",
-    category: "surcharge",
-    icon: "🐕",
-    type: "constraint",
-    value: 10,
-    impact: "+10€",
-    autoDetection: false
+    value: 5.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      pets: "present",
+      type: "work"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.883Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+5.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🐾",
+        group: "work",
+        priority: -43,
+        description_short: "Chiens, chats, poils, produits adaptés nécessaires"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shek001dca8k02geo3ca",
+    id: "6d58240f-3c9a-4e58-9d1f-4825213a4a7d",
     name: "Présence de moisissure",
     description: "Traitement antifongique, EPI spéciaux",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 100,
-    impact: "+100€",
-    autoDetection: false
+    value: 10,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      mold: "present",
+      type: "location"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.105Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+10%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🦠",
+        group: "location",
+        priority: -41,
+        description_short: "Traitement antifongique, EPI spéciaux"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29sh8a0011ca8khwq197yw",
+    id: "f8b7187b-539f-43de-b4f9-54898560d908",
     name: "Présence d'enfants",
     description: "Produits écologiques, sécurité renforcée",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 15,
-    impact: "+15€",
-    autoDetection: false
+    value: 6,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "work",
+      children: "present"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.898Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+6%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "work",
+        priority: -43,
+        description_short: "Produits écologiques, sécurité renforcée"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shgy001ica8k34p5m6gv",
+    id: "27bdf16d-94aa-46da-b08e-2b3e1c6cc442",
     name: "Produits spécifiques requis",
     description: "Produits professionnels, détachants spéciaux",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 30,
-    impact: "+30€",
-    autoDetection: false
+    value: 7.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "utilities",
+      products: "special"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.181Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+7.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "utilities",
+        priority: -40,
+        description_short: "Produits professionnels, détachants spéciaux"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shd1001aca8kxp0gk583",
+    id: "863ea826-b34d-4d6e-a990-e2334ccfdb97",
     name: "Saleté importante/tenace",
     description: "Nettoyage intensif, temps supplémentaire",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 40,
-    impact: "+40€",
-    autoDetection: false
+    value: 8.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      dirt: "heavy",
+      type: "location"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.039Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+8.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "location",
+        priority: -41,
+        description_short: "Nettoyage intensif, temps supplémentaire"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shcc0019ca8k9mqiul70",
+    id: "31b86be9-fc6d-43e4-9372-dbe12d944982",
     name: "Service d'urgence",
     description: "Intervention d'urgence, mobilisation rapide",
-    category: "surcharge",
-    icon: "🚨",
-    type: "constraint",
-    value: 50,
-    impact: "+50€",
-    autoDetection: false
+    value: 9,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "schedule",
+      urgency: "emergency"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.022Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+9%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "⏰",
+        group: "schedule",
+        priority: -42,
+        description_short: "Intervention d'urgence, mobilisation rapide"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shbe0017ca8kiw4bigh1",
+    id: "4bdacdf9-e723-446d-8c89-6034ad1a844b",
     name: "Service en soirée",
     description: "Majoration horaires atypiques (après 18h)",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 30,
-    impact: "+30€",
-    autoDetection: false
+    value: 7.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      time: "evening",
+      type: "schedule"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.990Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+7.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "schedule",
+        priority: -42,
+        description_short: "Majoration horaires atypiques (après 18h)"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shbv0018ca8kojxfph1a",
+    id: "eed07d02-692b-4d91-9568-793aec0edf28",
     name: "Service weekend",
     description: "Samedi/dimanche, majoration weekend",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 40,
-    impact: "+40€",
-    autoDetection: false
+    value: 8.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      day: "weekend",
+      type: "schedule"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.006Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+8.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📅",
+        group: "schedule",
+        priority: -42,
+        description_short: "Samedi/dimanche, majoration weekend"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shfk001fca8kzxbzzzzy",
+    id: "8adc228c-823b-4161-ac37-a925c340c131",
     name: "Situation d'accumulation",
     description: "Syndrome de Diogène, tri préalable nécessaire",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 150,
-    impact: "+150€",
-    autoDetection: false
+    value: 10,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "location",
+      hoarding: "present"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.136Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+10%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "location",
+        priority: -41,
+        description_short: "Syndrome de Diogène, tri préalable nécessaire"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29sh5l000wca8k97v488xd",
+    id: "f48f86de-b12f-4a24-8186-9e363315623e",
     name: "Stationnement limité ou payant",
     description: "Difficulté de stationnement, frais supplémentaires possibles",
-    category: "surcharge",
-    icon: "🅿️",
-    type: "constraint",
-    value: 10,
-    impact: "+10€",
-    autoDetection: false
+    value: 5.5,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "access",
+      parking: "limited"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:45.815Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "GLOBAL",
+    metadata: {
+      impact: "+5.5%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🅿️",
+        group: "access",
+        priority: 49,
+        description_short: "Difficulté de stationnement, frais supplémentaires possibles"
+      },
+      category_frontend: "constraint"
+    }
   },
   {
-    id: "rule_cmg29shhu001kca8kw86v5l4j",
+    id: "2e91f72e-a210-4f7c-ae36-25bc4473bde3",
     name: "Travail en hauteur",
     description: "Échafaudage, harnais, nettoyage vitres hautes",
-    category: "surcharge",
-    icon: "⚠️",
-    type: "constraint",
-    value: 80,
-    impact: "+80€",
-    autoDetection: false
+    value: 9.8,
+    isActive: true,
+    category: "SURCHARGE",
+    condition: {
+      type: "utilities",
+      height: "required"
+    },
+    percentBased: true,
+    serviceType: "CLEANING",
+    ruleType: "CONSTRAINT",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.211Z"),
+    validTo: null,
+    tags: [
+      "percentage"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+9.8%",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🪜",
+        group: "utilities",
+        priority: -40,
+        description_short: "Échafaudage, harnais, nettoyage vitres hautes"
+      },
+      category_frontend: "constraint"
+    }
   }
 ];
 
@@ -313,147 +883,433 @@ export const cleaningConstraintsFallback: Constraint[] = [
  */
 export const cleaningServicesFallback: Constraint[] = [
   {
-    id: "rule_cmg29shkn001pca8kopzxqpvn",
+    id: "e1c7b822-878d-44a6-93cc-fac1a232313b",
     name: "Désinfection complète",
     description: "Traitement virucide, surfaces contact",
-    category: "fixed",
-    icon: "🦠",
-    type: "service",
     value: 70,
-    impact: "+70€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      disinfection: "complete"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.292Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+70€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🧼",
+        group: "service",
+        priority: 6,
+        description_short: "Traitement virucide, surfaces contact"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shm2001sca8kl2y21ymp",
+    id: "310ddae6-6f96-46a1-b87c-4fc61e583819",
     name: "Entretien mobilier",
     description: "Nourrissage cuir, cirage bois, protection",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 35,
-    impact: "+35€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      maintenance: "furniture"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.341Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+35€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "service",
+        priority: 6,
+        description_short: "Nourrissage cuir, cirage bois, protection"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shnv001wca8k5fks1t0s",
+    id: "41c91949-f9c8-4843-b44f-77b2839f5e39",
     name: "Évacuation déchets",
     description: "Tri sélectif, évacuation selon réglementation",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 40,
-    impact: "+40€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      logistics: "waste"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.416Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+40€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🗑️",
+        group: "service",
+        priority: 6,
+        description_short: "Tri sélectif, évacuation selon réglementation"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shoa001xca8k2virkx9g",
+    id: "43e86f13-f2d5-494c-91c0-75aeb00709e8",
     name: "Gestion trousseau de clés",
     description: "Service récupération/dépôt clés sécurisé",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 15,
-    impact: "+15€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      logistics: "keys"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.434Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+15€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "💧",
+        group: "service",
+        priority: 6,
+        description_short: "Service récupération/dépôt clés sécurisé"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shib001lca8kptjnyu62",
+    id: "ada91bb4-1041-43dd-84cb-915250c2679d",
     name: "Grand nettoyage de printemps",
     description: "Nettoyage complet incluant placards, électroménager",
-    category: "fixed",
-    icon: "🌸",
-    type: "service",
     value: 80,
-    impact: "+80€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      specialized: "deep"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.227Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+80€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🧹",
+        group: "service",
+        priority: 6,
+        description_short: "Nettoyage complet incluant placards, électroménager"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shmi001tca8kcq5anxhp",
+    id: "d9d29af9-3081-4e45-aa88-d97f3a8be3c6",
     name: "Nettoyage argenterie",
     description: "Produits spécialisés métaux précieux",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 25,
-    impact: "+25€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      maintenance: "silver"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.360Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+25€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🧹",
+        group: "service",
+        priority: 6,
+        description_short: "Produits spécialisés métaux précieux"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shk5001oca8k8rrk2oby",
+    id: "54f28bcd-e602-4148-8df6-175ba3ef6bc8",
     name: "Nettoyage électroménager",
     description: "Four, frigo, lave-vaisselle, micro-ondes",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 50,
-    impact: "+50€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      specialized: "appliances"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.277Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+50€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🧹",
+        group: "service",
+        priority: 6,
+        description_short: "Four, frigo, lave-vaisselle, micro-ondes"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shir001mca8kuanq5t2j",
+    id: "c8b12ff6-f3fe-4519-8a8f-83c9987a44aa",
     name: "Nettoyage tapis et moquettes",
     description: "Injection-extraction, traitement taches",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 60,
-    impact: "+60€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      specialized: "carpet"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.246Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+60€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🧹",
+        group: "service",
+        priority: 6,
+        description_short: "Injection-extraction, traitement taches"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shji001nca8k287qhzc1",
+    id: "5c2ae204-c271-428b-9251-ef27072c15ec",
     name: "Nettoyage vitres complet",
     description: "Toutes vitres accessibles, produits anti-traces",
-    category: "fixed",
-    icon: "🪟",
-    type: "service",
     value: 40,
-    impact: "+40€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      specialized: "windows"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.261Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+40€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🧹",
+        group: "service",
+        priority: 6,
+        description_short: "Toutes vitres accessibles, produits anti-traces"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shl5001qca8kvo609ug5",
+    id: "f73b5754-5865-465b-b366-861e429d7801",
     name: "Protocole sanitaire renforcé",
     description: "Désinfection selon protocoles sanitaires",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 30,
-    impact: "+30€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      disinfection: "covid"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.308Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+30€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "service",
+        priority: 6,
+        description_short: "Désinfection selon protocoles sanitaires"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shmz001uca8k2yt8cba8",
+    id: "deff0691-fd7f-4930-8a8e-3ab96555ac9e",
     name: "Rangement et organisation",
     description: "Tri, rangement optimisé, étiquetage",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 60,
-    impact: "+60€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      maintenance: "organization"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.377Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+60€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "🗄️",
+        group: "service",
+        priority: 6,
+        description_short: "Tri, rangement optimisé, étiquetage"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shne001vca8k9dqzf54l",
+    id: "1dd42931-8314-4a0d-8b6d-bbefeece6d2d",
     name: "Réapprovisionnement produits",
     description: "Achat et approvisionnement produits ménagers",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 20,
-    impact: "+20€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      logistics: "supply"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.400Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+20€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "service",
+        priority: 6,
+        description_short: "Achat et approvisionnement produits ménagers"
+      },
+      category_frontend: "service"
+    }
   },
   {
-    id: "rule_cmg29shlm001rca8ktkq626ry",
+    id: "73d0f2a4-c8dc-47bd-99dc-573c4e4c3846",
     name: "Traitement anti-allergènes",
     description: "Produits hypoallergéniques, acariens",
-    category: "fixed",
-    icon: "🧽",
-    type: "service",
     value: 45,
-    impact: "+45€",
-    autoDetection: false
+    isActive: true,
+    category: "FIXED",
+    condition: {
+      type: "service",
+      disinfection: "allergen"
+    },
+    percentBased: false,
+    serviceType: "CLEANING",
+    ruleType: "BUSINESS",
+    priority: 100,
+    validFrom: new Date("2025-10-15T14:39:46.325Z"),
+    validTo: null,
+    tags: [
+      "fixed"
+    ],
+    scope: "BOTH",
+    metadata: {
+      impact: "+45€",
+      source: "realistic_seed_2025",
+      display: {
+        icon: "📋",
+        group: "service",
+        priority: 6,
+        description_short: "Produits hypoallergéniques, acariens"
+      },
+      category_frontend: "service"
+    }
   }
 ];
 

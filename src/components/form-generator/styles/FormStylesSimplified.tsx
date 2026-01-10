@@ -105,6 +105,12 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
       display: block !important;
     }
 
+    /* Placeholders par défaut */
+    .form-generator ::placeholder {
+      color: rgba(60, 60, 67, 0.6) !important;
+      opacity: 1 !important; /* Firefox */
+    }
+
     /* 🍏 Styles iOS 18 pour les messages d'erreur */
     .form-generator .error-message {
       color: var(--form-error-color) !important;
@@ -124,8 +130,10 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
       .form-generator select,
       .form-generator textarea {
         font-size: 16px !important; /* Critical pour éviter le zoom sur iOS */
-        padding: 14px 16px !important; /* Plus de padding pour le tactile */
-        min-height: 44px !important; /* Taille de cible tactile recommandée */
+        padding: 19px 14px !important; /* +2px supplémentaires de hauteur */
+        min-height: 49px !important; /* +2px supplémentaires */
+        border-color: rgba(0, 0, 0, 0.40) !important; /* Bordures encore plus visibles */
+        border-width: 1.5px !important; /* Légère augmentation d'épaisseur */
         border-radius: 12px !important; /* Plus petit border-radius sur mobile */
       }
 
@@ -142,7 +150,7 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
 
       /* Espacement mobile optimisé */
       .form-generator .form-field {
-        margin-bottom: 16px !important;
+        margin-bottom: 18px !important; /* Plus d'espace entre les champs */
       }
 
       .form-generator .form-section {
@@ -150,30 +158,66 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
         margin-bottom: 12px !important;
       }
 
-      /* Labels plus grands sur mobile */
+      /* Labels plus petits sur mobile (mobile-first) */
       .form-generator label,
       .form-generator .form-label {
-        font-size: 14px !important;
+        font-size: 12px !important;
         margin-bottom: 6px !important;
       }
 
-      /* Messages d'erreur plus visibles */
-      .form-generator .error-message {
+      /* Placeholders légèrement réduits sur mobile */
+      .form-generator ::placeholder {
+        font-size: 13px !important;
+      }
+
+      /* Titres de section plus compacts sur mobile */
+      .form-generator .form-section-title,
+      .form-generator .form-section h2,
+      .form-generator .form-section h3 {
         font-size: 14px !important;
+        line-height: 1.25 !important;
+      }
+
+      /* Messages d'erreur compacts mais lisibles */
+      .form-generator .error-message {
+        font-size: 13px !important;
         margin-top: 6px !important;
+      }
+
+      /* Réduit spécifiquement le texte "Contraintes & Spécificités" dans les boutons access-constraints */
+      .form-generator button.border-orange-300 span.flex.items-center {
+        font-size: 12px !important;
+        line-height: 1.4 !important;
       }
     }
 
     /* 📱 Mobile touch optimizations */
     @media (max-width: 640px) {
       .form-generator {
-        padding: 16px !important; /* Padding container mobile */
+        padding: 0 !important; /* Supprime le padding container sur mobile */
       }
 
       .form-generator input,
       .form-generator select,
       .form-generator textarea {
-        padding: 16px !important; /* Extra padding pour petits écrans */
+        padding: 19px 12px !important; /* +2px supplémentaires sur très petits écrans */
+        border-color: rgba(0, 0, 0, 0.40) !important; /* Bordures encore plus visibles */
+        border-width: 1.5px !important; /* Légère augmentation d'épaisseur */
+      }
+
+      /* Légère augmentation du gap horizontal pour les lignes multi-champs */
+      .form-generator .form-row,
+      .form-generator .form-group,
+      .form-generator .form-grid {
+        gap: 12px !important;
+        column-gap: 12px !important;
+        row-gap: 12px !important;
+      }
+
+      /* Réduit encore plus le texte "Contraintes & Spécificités" sur très petits écrans */
+      .form-generator button.border-orange-300 span.flex.items-center {
+        font-size: 11px !important;
+        line-height: 1.3 !important;
       }
 
       /* Safe area optimizations pour iPhone */
@@ -219,3 +263,4 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
     }} />
   );
 };
+

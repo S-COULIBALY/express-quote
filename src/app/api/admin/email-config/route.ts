@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ConfigurationController } from '@/quotation/interfaces/http/controllers/ConfigurationController';
-import { container } from '@/quotation/application/container';
+import { container } from '@/config/dependency-injection';
 import { ConfigurationCategory } from '@/quotation/domain/configuration/ConfigurationKey';
 
 const configController = container.resolve(ConfigurationController);
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const response = await configController.getConfigurations(new NextRequest(request.url, {
       ...request,
-      body: JSON.stringify({ category: ConfigurationCategory.EMAIL })
+      body: JSON.stringify({ category: ConfigurationCategory.SYSTEM_VALUES })
     }));
     return response;
   } catch (error) {
@@ -26,9 +26,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const response = await configController.setValue(new NextRequest(request.url, {
       ...request,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         ...body,
-        category: ConfigurationCategory.EMAIL 
+        category: ConfigurationCategory.SYSTEM_VALUES
       })
     }));
     return response;

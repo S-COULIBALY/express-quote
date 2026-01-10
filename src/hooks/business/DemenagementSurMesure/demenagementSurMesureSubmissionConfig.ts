@@ -1,7 +1,5 @@
 import { SubmissionConfig } from '@/utils/submissionUtils';
 import { DemenagementSurMesureData } from './useDemenagementSurMesureSubmission';
-import { AutoDetectionService, AddressData } from '@/quotation/domain/services/AutoDetectionService';
-import { DefaultValues } from '@/quotation/domain/configuration/DefaultValues';
 
 export interface DemenagementSurMesureSubmissionExtraData {
   service: DemenagementSurMesureData;
@@ -16,31 +14,13 @@ export const createDemenagementSurMesureSubmissionConfig = (service: Demenagemen
     if (!formData.scheduledDate || !formData.pickupAddress || !formData.deliveryAddress) {
       return 'Veuillez remplir tous les champs obligatoires.';
     }
-    
+
     // Validation spécifique au déménagement sur mesure
     if (!formData.typeDemenagement || !formData.surface || !formData.nombrePieces) {
       return 'Veuillez spécifier le type de déménagement, la surface et le nombre de pièces.';
     }
-    
-    // ✅ REFACTORISÉ: Validation avec AutoDetectionService
-    const pickupData: AddressData = {
-      floor: parseInt(formData.etageDepart) || 0,
-      elevator: (formData.ascenseurDepart ? 'medium' : 'no') as 'no' | 'small' | 'medium' | 'large',
-      constraints: formData.pickupLogisticsConstraints || []
-    };
 
-    const deliveryData: AddressData = {
-      floor: parseInt(formData.etageArrivee) || 0,
-      elevator: (formData.ascenseurArrivee ? 'medium' : 'no') as 'no' | 'small' | 'medium' | 'large',
-      constraints: formData.deliveryLogisticsConstraints || []
-    };
-
-    const detectionResult = AutoDetectionService.detectAutomaticConstraints(pickupData, deliveryData);
-    const furnitureLiftRequired = detectionResult.pickup.furnitureLiftRequired || detectionResult.delivery.furnitureLiftRequired;
-
-    if (furnitureLiftRequired && !formData.pickupNeedsLift && !formData.deliveryNeedsLift) {
-      return 'Un monte-meuble est obligatoire selon les contraintes détectées (étages élevés, contraintes d\'accès, ou ascenseur inadapté).';
-    }
+    // ✅ Validation monte-meubles supprimée - Gérée par AccessConstraintsModal + AutoDetectionService
 
     return true;
   },
@@ -73,7 +53,11 @@ export const createDemenagementSurMesureSubmissionConfig = (service: Demenagemen
       etageArrivee: parseInt(formData.etageArrivee) || 0,
       ascenseurDepart: formData.ascenseurDepart,
       ascenseurArrivee: formData.ascenseurArrivee,
-      
+      pickupLogisticsConstraints: formData.pickupLogisticsConstraints,
+      deliveryLogisticsConstraints: formData.deliveryLogisticsConstraints,
+      // ✅ Services supplémentaires globaux (piano, objets fragiles, etc.)
+      additionalServices: formData.additionalServices,
+
       // Mobilier et objets
       meubles: formData.meubles || [],
       electromenager: formData.electromenager || [],
@@ -106,7 +90,7 @@ export const createDemenagementSurMesureSubmissionConfig = (service: Demenagemen
   },
 
   getSuccessRedirectUrl: (responseData: any) => {
-    return `/summary/quote/${responseData.temporaryId || responseData.id}`;
+    return `/booking/${responseData.temporaryId || responseData.id}`;
   },
 
   getNotificationData: (formData: any, responseData: any, extraData?: DemenagementSurMesureSubmissionExtraData) => {

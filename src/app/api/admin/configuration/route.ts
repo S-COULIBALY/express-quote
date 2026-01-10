@@ -51,10 +51,10 @@ export async function GET(request: NextRequest) {
 
       for (const cat of allCategories) {
         try {
-          configurations[cat] = await configService.getConfigurations(cat);
+          configurations[cat as string] = await configService.getConfigurations(cat as any);
         } catch (error) {
           logger.warn(`Erreur lors de la récupération de la catégorie ${cat}:`, error as Error);
-          configurations[cat] = [];
+          configurations[cat as string] = [];
         }
       }
 

@@ -78,6 +78,8 @@ export interface UnifiedRule {
   metadata?: any;
   condition?: any;
   isActive: boolean;
+  // ✅ NOUVEAU: Champ scope pour la portée des règles
+  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH';
 }
 
 export interface UnifiedConfiguration {
@@ -97,6 +99,10 @@ export interface RuleQuery {
   category?: RuleCategory;
   tags?: string[];
   onlyActive?: boolean;
+  // ✅ NOUVEAU: Filtrage par scope
+  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH';
+  // ✅ NOUVEAU: Filtrage par type d'adresse (pickup, delivery, both)
+  addressType?: 'pickup' | 'delivery' | 'both';
 }
 
 export interface ConfigurationQuery {
@@ -165,25 +171,51 @@ export class UnifiedDataService {
     }
 
     try {
-      logger.debug(`🔍 Recherche des règles: ${JSON.stringify(query)}`);
-
-      const where: any = {};
+      
+      const where: any = {
+        // Filtrage par validité temporelle (toujours actif)
+        validFrom: { lte: new Date() },
+        OR: [{ validTo: null }, { validTo: { gte: new Date() } }]
+      };
 
       if (query.serviceType) where.serviceType = query.serviceType;
       if (query.ruleType) where.ruleType = query.ruleType;
       if (query.category) where.category = query.category;
       if (query.onlyActive !== false) where.isActive = true;
 
-      // Filtrage par validité temporelle
-      where.validFrom = { lte: new Date() };
-      where.OR = [{ validTo: null }, { validTo: { gte: new Date() } }];
+      // ✅ NOUVEAU: Filtrage par scope
+      if (query.scope) {
+        where.scope = query.scope;
+      }
+
+      // ✅ NOUVEAU: Filtrage par type d'adresse
+      // On utilise AND avec plusieurs conditions OR pour combiner scope et validité
+      if (query.addressType) {
+        // Remplacer le OR de validité par un AND combinant validité ET scope
+        where.AND = [
+          // Condition 1: Validité temporelle
+          {
+            OR: [{ validTo: null }, { validTo: { gte: new Date() } }]
+          },
+          // Condition 2: Scope approprié
+          {
+            OR: [
+              { scope: query.addressType.toUpperCase() },
+              { scope: 'BOTH' },
+              { scope: 'GLOBAL' }
+            ]
+          }
+        ];
+        // Supprimer le OR simple qui est maintenant dans AND
+        delete where.OR;
+      }
 
       // Filtrage par tags si spécifié
       if (query.tags && query.tags.length > 0) {
         where.tags = { hasSome: query.tags };
       }
 
-      const rules = await this.prisma.rule.findMany({
+      const rules = await this.prisma.rules.findMany({
         where,
         orderBy: { priority: "asc" },
       });
@@ -197,26 +229,28 @@ export class UnifiedDataService {
         category: rule.category as RuleCategory,
         value: rule.value,
         percentBased: rule.percentBased,
-        priority: rule.priority,
-        validFrom: rule.validFrom,
+        priority: rule.priority || 100,
+        validFrom: rule.validFrom || new Date(),
         validTo: rule.validTo || undefined,
         tags: rule.tags,
         configKey: rule.configKey || undefined,
         metadata: rule.metadata || undefined,
         condition: rule.condition || undefined,
         isActive: rule.isActive,
+        // ✅ NOUVEAU: Champ scope (fallback si pas encore disponible en base)
+        scope: (rule as any).scope as 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH' | undefined,
       }));
 
       // Mettre en cache
       this.ruleCache.set(cacheKey, unifiedRules);
       this.ruleTimestamp.set(cacheKey, Date.now());
 
-      logger.info(`✅ ${unifiedRules.length} règles chargées pour ${cacheKey}`);
+      logger.info(`📋 [UnifiedDataService] ${unifiedRules.length} règles chargées (${query.serviceType || 'ALL'})`);
       return unifiedRules;
     } catch (error) {
       logger.error(
         error as Error,
-        `❌ Erreur lors du chargement des règles: ${cacheKey}`,
+        `\n❌ Erreur lors du chargement des règles: ${cacheKey}`,
       );
       return this.getFallbackRules(query);
     }
@@ -234,24 +268,39 @@ export class UnifiedDataService {
   }
 
   /**
-   * Récupère les règles métier pour les calculateurs
+   * Récupère toutes les règles actives pour un service
+   * Charge toutes les règles actives sans filtrage par ruleType ou scope
+   * Le filtrage se fait lors de l'application selon les sélections utilisateur
+   *
+   * @param serviceType Type de service (MOVING, CLEANING, etc.)
+   * @param options Options (gardées pour compatibilité, ignorées)
    */
-  async getBusinessRules(serviceType?: ServiceType): Promise<UnifiedRule[]> {
-    return this.getRules({
+  async getBusinessRules(
+    serviceType?: ServiceType,
+    options?: { addressType?: 'pickup' | 'delivery' | 'both' }
+  ): Promise<UnifiedRule[]> {
+    // Charger toutes les règles actives du service
+    // ruleType et scope servent uniquement pour l'affichage frontend
+    // L'application se fait uniquement sur les règles sélectionnées
+    const allRules = await this.getRules({
       serviceType,
-      ruleType: RuleType.BUSINESS,
       onlyActive: true,
     });
+
+    return allRules;
   }
 
   /**
    * Convertit les règles unifiées en objets Rule pour le RuleEngine
+   * @param serviceType Type de service (MOVING, CLEANING, etc.)
+   * @param options Options (gardées pour compatibilité, ignorées)
    */
   async getBusinessRulesForEngine(
     serviceType?: ServiceType,
+    options?: { addressType?: 'pickup' | 'delivery' | 'both' }
   ): Promise<import("../../domain/valueObjects/Rule").Rule[]> {
     try {
-      const unifiedRules = await this.getBusinessRules(serviceType);
+      const unifiedRules = await this.getBusinessRules(serviceType, options);
       const { Rule } = await import("../../domain/valueObjects/Rule");
 
       return unifiedRules.map(
@@ -264,6 +313,9 @@ export class UnifiedDataService {
             unifiedRule.isActive,
             unifiedRule.id,
             unifiedRule.percentBased,
+            unifiedRule.metadata,
+            // ✅ NOUVEAU: Passer le champ scope
+            unifiedRule.scope
           ),
       );
     } catch (error) {
@@ -308,8 +360,7 @@ export class UnifiedDataService {
     }
 
     try {
-      logger.debug(`🔍 Recherche des configurations: ${JSON.stringify(query)}`);
-
+      
       const where: any = {};
 
       if (query.category) where.category = query.category;
@@ -338,9 +389,7 @@ export class UnifiedDataService {
       this.configCache.set(cacheKey, unifiedConfigs);
       this.configTimestamp.set(cacheKey, Date.now());
 
-      logger.info(
-        `✅ ${unifiedConfigs.length} configurations chargées pour ${cacheKey}`,
-      );
+      logger.info(`⚙️ [UnifiedDataService] ${unifiedConfigs.length} config chargée (${query.key || query.category || 'ALL'})`);
       return unifiedConfigs;
     } catch (error) {
       logger.error(
@@ -626,6 +675,7 @@ export class UnifiedDataService {
             validFrom: now,
             tags: ["fallback", "constraint"],
             isActive: true,
+            scope: this.determineFallbackScope(rule.name, rule.description), // ✅ NOUVEAU: Support du scope
           });
         });
       }
@@ -646,6 +696,7 @@ export class UnifiedDataService {
             validFrom: now,
             tags: ["fallback", "service"],
             isActive: true,
+            scope: this.determineFallbackScope(rule.name, rule.description), // ✅ NOUVEAU: Support du scope
           });
         });
       }
@@ -675,6 +726,7 @@ export class UnifiedDataService {
             validFrom: now,
             tags: ["fallback", "constraint"],
             isActive: true,
+            scope: this.determineFallbackScope(rule.name, rule.description), // ✅ NOUVEAU: Support du scope
           });
         });
 
@@ -693,6 +745,7 @@ export class UnifiedDataService {
             validFrom: now,
             tags: ["fallback", "service"],
             isActive: true,
+            scope: this.determineFallbackScope(rule.name, rule.description), // ✅ NOUVEAU: Support du scope
           });
         });
       });
@@ -719,10 +772,81 @@ export class UnifiedDataService {
       );
     }
 
+    // ✅ NOUVEAU: Filtrer par scope si spécifié
+    if (query.scope) {
+      filteredRules = filteredRules.filter(rule => {
+        return rule.scope === query.scope || rule.scope === 'BOTH' || rule.scope === 'GLOBAL';
+      });
+    }
+
     logger.info(
       `✅ ${filteredRules.length} règles de fallback générées pour ${query.serviceType || "ALL"}`,
     );
     return filteredRules;
+  }
+
+  /**
+   * Détermine le scope d'une règle de fallback basé sur son nom et description
+   */
+  private determineFallbackScope(name: string, description?: string): 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH' {
+    const text = `${name} ${description || ''}`.toLowerCase();
+    
+    // Mots-clés pour PICKUP
+    const pickupKeywords = [
+      'départ', 'pickup', 'departure', 'origin', 'origine',
+      'démontage', 'emballage', 'fournitures', 'œuvres d\'art',
+      'nettoyage après déménagement', 'nettoyage départ', 'nettoyage avant',
+      'préparation', 'chargement', 'loading'
+    ];
+    
+    // Mots-clés pour DELIVERY
+    const deliveryKeywords = [
+      'arrivée', 'delivery', 'arrival', 'destination',
+      'remontage', 'déballage', 'livraison', 'déchargement',
+      'nettoyage arrivée', 'nettoyage après', 'installation',
+      'mise en place', 'déballage', 'unpacking'
+    ];
+    
+    // Mots-clés pour BOTH
+    const bothKeywords = [
+      'ascenseur', 'escalier', 'portage', 'accès', 'bâtiment',
+      'couloirs', 'sécurité', 'horaires', 'restrictions',
+      'monte-meuble', 'meubles encombrants', 'objets fragiles',
+      'objets très lourds', 'transport piano', 'contrôle d\'accès',
+      'autorisation administrative', 'distance de portage',
+      'passage indirect', 'accès complexe', 'sol fragile'
+    ];
+    
+    // Mots-clés pour GLOBAL
+    const globalKeywords = [
+      'global', 'general', 'universal', 'common', 'système',
+      'configuration', 'paramètre', 'tarif minimum', 'tarif maximum',
+      'prix de base', 'coût', 'frais', 'supplément général',
+      'stationnement', 'circulation', 'véhicule', 'camion'
+    ];
+    
+    // Vérifier pickup
+    if (pickupKeywords.some(keyword => text.includes(keyword))) {
+      return 'PICKUP';
+    }
+    
+    // Vérifier delivery
+    if (deliveryKeywords.some(keyword => text.includes(keyword))) {
+      return 'DELIVERY';
+    }
+    
+    // Vérifier both
+    if (bothKeywords.some(keyword => text.includes(keyword))) {
+      return 'BOTH';
+    }
+    
+    // Vérifier global
+    if (globalKeywords.some(keyword => text.includes(keyword))) {
+      return 'GLOBAL';
+    }
+    
+    // Par défaut, BOTH
+    return 'BOTH';
   }
 
   private getFallbackPricingConstants(

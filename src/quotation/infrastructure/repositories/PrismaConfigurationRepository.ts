@@ -82,10 +82,12 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
    */
   async save(configuration: Configuration): Promise<Configuration> {
     try {
-      logger.debug(`Sauvegarde de la configuration ${configuration.category}.${configuration.key}`);
+      // ✅ CORRECTION: Générer un ID unique car le schéma Prisma n'a pas @default()
+      const id = configuration.getId() || `${configuration.category}_${configuration.key}_${Date.now()}`;
 
       const data = await this.prisma.configuration.create({
         data: {
+          id, // ✅ ID requis par le schéma
           category: configuration.category,
           key: configuration.key,
           value: configuration.value,
@@ -93,9 +95,10 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
           isActive: configuration.isActive,
           validFrom: configuration.validFrom,
           validTo: configuration.validTo,
+          updatedAt: new Date(), // ✅ CORRECTION: updatedAt requis par le schéma
           // Nouveaux champs avec valeurs par défaut
           environment: 'production',
-          createdBy: 'system',
+          created_by: 'system', // ✅ CORRECTION: snake_case selon le schéma Prisma
           tags: [],
           priority: 100,
         },
@@ -113,8 +116,6 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
    */
   async update(configuration: Configuration): Promise<Configuration> {
     try {
-      logger.debug(`Mise à jour de la configuration ${configuration.category}.${configuration.key}`);
-      
       const data = await this.prisma.configuration.update({
         where: { id: configuration.getId() },
         data: {
@@ -138,8 +139,6 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
    */
   async findById(id: string): Promise<Configuration | null> {
     try {
-      logger.debug(`Recherche de la configuration avec l'ID ${id}`);
-      
       const data = await this.prisma.configuration.findUnique({
         where: { id },
       });
@@ -159,8 +158,6 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
     key: string
   ): Promise<Configuration | null> {
     try {
-      logger.debug(`Recherche de la configuration ${category}.${key}`);
-      
       const data = await this.prisma.configuration.findFirst({
         where: {
           category,
@@ -187,8 +184,6 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
     date: Date = new Date()
   ): Promise<Configuration | null> {
     try {
-      logger.debug(`Recherche de la configuration active ${category}.${key}`);
-      
       const data = await this.prisma.configuration.findFirst({
         where: {
           category,
@@ -225,8 +220,6 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
    */
   async findByCategory(category: ConfigurationCategory): Promise<Configuration[]> {
     try {
-      logger.debug(`Recherche des configurations de la catégorie ${category}`);
-      
       const data = await this.prisma.configuration.findMany({
         where: {
           category,
@@ -255,20 +248,15 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
     date: Date = new Date()
   ): Promise<Configuration[]> {
     try {
-      console.log(`==== RECHERCHE DES CONFIGURATIONS ACTIVES DE LA CATÉGORIE ${category} ====`);
-      logger.debug(`Recherche des configurations actives de la catégorie ${category}`);
-      
       // Vérifier d'abord si la table existe
       const tableExists = await this.checkConfigurationTableExists();
       if (!tableExists) {
-        console.log(`==== TABLE CONFIGURATION INACCESSIBLE, UTILISATION DES CONFIGURATIONS PAR DÉFAUT POUR ${category} ====`);
         logger.warn(`Table configuration inaccessible, utilisation des configurations par défaut pour ${category}`);
         const defaultConfigs = createDefaultConfigurations();
         const filteredConfigs = defaultConfigs.filter(config => config.category === category);
-        console.log(`==== ${filteredConfigs.length} CONFIGURATIONS PAR DÉFAUT TROUVÉES POUR ${category} ====`);
         return filteredConfigs;
       }
-      
+
       const data = await this.prisma.configuration.findMany({
         where: {
           category,
@@ -292,12 +280,6 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
         },
       });
 
-      console.log(`==== ${data.length} CONFIGURATIONS ACTIVES TROUVÉES POUR LA CATÉGORIE ${category} ====`);
-      if (data.length > 0) {
-        console.log(`==== EXEMPLE CONFIG ${category}: ${data[0].key} ====`);
-      }
-      
-      logger.info(`${data.length} configurations actives trouvées pour la catégorie ${category}`);
       return data.map((item) => this.mapToDomain(item));
     } catch (error) {
       console.error(`==== ERREUR LORS DE LA RECHERCHE DES CONFIGURATIONS POUR ${category}: ${error instanceof Error ? error.message : 'Erreur inconnue'} ====`);
@@ -336,8 +318,12 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
       const results: Configuration[] = [];
       
       for (const config of configurations) {
+        // ✅ CORRECTION: Générer un ID unique pour chaque configuration
+        const id = config.getId() || `${config.category}_${config.key}_${Date.now()}`;
+
         const data = await tx.configuration.create({
           data: {
+            id, // ✅ ID requis par le schéma
             category: config.category,
             key: config.key,
             value: config.value,
@@ -345,9 +331,14 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
             isActive: config.isActive,
             validFrom: config.validFrom,
             validTo: config.validTo,
+            updatedAt: new Date(), // ✅ CORRECTION: updatedAt requis par le schéma
+            environment: 'production',
+            created_by: 'system', // ✅ CORRECTION: snake_case
+            tags: [],
+            priority: 100,
           },
         });
-        
+
         results.push(this.mapToDomain(data));
       }
       
@@ -421,16 +412,21 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
           }
         });
       } else {
+        // ✅ CORRECTION: Générer un ID unique lors de la création
+        const id = `${category}_${key}_${Date.now()}`;
+
         // Créer une nouvelle configuration
         await this.prisma.configuration.create({
           data: {
+            id, // ✅ ID requis par le schéma
             category,
             key,
             value,
             description,
             isActive: true,
+            updatedAt: new Date(), // ✅ CORRECTION: updatedAt requis par le schéma
             environment: 'production',
-            createdBy: 'system',
+            created_by: 'system', // ✅ CORRECTION: snake_case
             tags: [],
             priority: 100
           }

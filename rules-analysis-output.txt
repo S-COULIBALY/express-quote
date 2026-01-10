@@ -1,0 +1,2966 @@
+╔══════════════════════════════════════════════════════════════════╗
+║   ANALYSE DES RÈGLES ET CONFIGURATIONS - EXPRESS QUOTE          ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+📋 PARTIE 1: ANALYSE DES RÈGLES
+
+══════════════════════════════════════════════════════════════════════
+
+✅ Total des règles: 76
+
+📊 RÉPARTITION PAR SERVICE TYPE:
+──────────────────────────────────────────────────────────────────────
+  MOVING: 32 règles
+  CLEANING: 38 règles
+  DELIVERY: 6 règles
+
+📊 RÉPARTITION PAR RULE TYPE:
+──────────────────────────────────────────────────────────────────────
+  BUSINESS: 76 règles
+
+🔍 ANALYSE DES CONDITIONS:
+──────────────────────────────────────────────────────────────────────
+  Règles AVEC condition: 76
+  Règles SANS condition: 0
+
+📝 TYPES DE CONDITIONS DÉTECTÉES:
+──────────────────────────────────────────────────────────────────────
+  access, type: 3 règles
+  elevator, type: 5 règles
+  permit, type: 1 règles
+  traffic, type: 1 règles
+  corridors, type: 1 règles
+  packing, type: 4 règles
+  handling, type: 5 règles
+  carrying, type: 1 règles
+  stairs, type: 1 règles
+  annexe, type: 4 règles
+  protection, type: 3 règles
+  lift, type: 1 règles
+  time, type: 3 règles
+  road, type: 1 règles
+  floor, type: 1 règles
+  parking, type: 2 règles
+  type, zone: 2 règles
+  building, type: 1 règles
+  allergies, type: 1 règles
+  security, type: 1 règles
+  type, window: 1 règles
+  damage, type: 1 règles
+  disinfection, type: 3 règles
+  maintenance, type: 3 règles
+  equipment, type: 1 règles
+  space, type: 1 règles
+  logistics, type: 3 règles
+  specialized, type: 4 règles
+  furniture, type: 1 règles
+  items, type: 1 règles
+  type, water: 1 règles
+  power, type: 1 règles
+  type, work: 1 règles
+  pets, type: 1 règles
+  mold, type: 1 règles
+  children, type: 1 règles
+  products, type: 1 règles
+  dirt, type: 1 règles
+  type, urgency: 2 règles
+  day, type: 2 règles
+  hoarding, type: 1 règles
+  height, type: 1 règles
+  speed, type: 1 règles
+
+
+📋 PARTIE 2: ANALYSE DÉTAILLÉE PAR SERVICE
+
+══════════════════════════════════════════════════════════════════════
+
+
+🔧 SERVICE: MOVING (32 règles)
+──────────────────────────────────────────────────────────────────────
+
+  📌 BUSINESS (32 règles):
+
+    1. "Accès complexe multi-niveaux"
+       ID: 293dc311-6f22-42d8-8b31-b322c0e888f9
+       Description: Plusieurs étages à traverser, temps multiplié
+       Valeur: 9.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "distance",
+          "access": "multilevel"
+}
+       📋 METADATA: {
+          "impact": "+9.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "💧",
+                    "group": "distance",
+                    "priority": -47,
+                    "description_short": "Plusieurs étages à traverser, temps multiplié"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    2. "Ascenseur en panne ou hors service"
+       ID: 8c35a3fc-5e2f-4355-b121-a0af0da4b4a7
+       Description: Transport par escaliers obligatoire
+       Valeur: 8%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "building",
+          "elevator": "unavailable"
+}
+       📋 METADATA: {
+          "impact": "+8%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🛗",
+                    "group": "building",
+                    "priority": -48,
+                    "description_short": "Transport par escaliers obligatoire"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    3. "Ascenseur interdit pour déménagement"
+       ID: 98ce49a1-3add-4e6b-8a8e-a364a5333423
+       Description: Règlement copropriété, escaliers obligatoires
+       Valeur: 8%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "building",
+          "elevator": "forbidden"
+}
+       📋 METADATA: {
+          "impact": "+8%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🛗",
+                    "group": "building",
+                    "priority": -48,
+                    "description_short": "Règlement copropriété, escaliers obligatoires"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    4. "Ascenseur trop petit pour les meubles"
+       ID: 55ea42b9-aed0-465c-8e5f-ee82a7bb8c85
+       Description: Démontage obligatoire ou escaliers
+       Valeur: 7.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "building",
+          "elevator": "small"
+}
+       📋 METADATA: {
+          "impact": "+7.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🛗",
+                    "group": "building",
+                    "priority": -48,
+                    "description_short": "Démontage obligatoire ou escaliers"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    5. "Autorisation administrative"
+       ID: be4d1f35-12e3-4c1e-8bd4-ed436fa4a843
+       Description: Démarches mairie, réservation voirie
+       Valeur: 7%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "security",
+          "permit": "required"
+}
+       📋 METADATA: {
+          "impact": "+7%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "security",
+                    "priority": -49,
+                    "description_short": "Démarches mairie, réservation voirie"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    6. "Circulation complexe"
+       ID: d85f44a1-3f5f-4e28-883c-778000a2e23e
+       Description: Temps de trajet augmenté, détours obligatoires
+       Valeur: 6.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "vehicle_access",
+          "traffic": "complex"
+}
+       📋 METADATA: {
+          "impact": "+6.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "vehicle_access",
+                    "priority": -46,
+                    "description_short": "Temps de trajet augmenté, détours obligatoires"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    7. "Contrôle d'accès strict"
+       ID: c2ed1e45-65cf-47b0-bfeb-967df4275087
+       Description: Autorisation préalable, badges nécessaires
+       Valeur: 6%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "security",
+          "access": "strict"
+}
+       📋 METADATA: {
+          "impact": "+6%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🔒",
+                    "group": "security",
+                    "priority": -49,
+                    "description_short": "Autorisation préalable, badges nécessaires"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    8. "Couloirs étroits ou encombrés"
+       ID: b2b8f00b-00a2-456c-ad06-1150d25d71a3
+       Description: Démontage supplémentaire, temps augmenté
+       Valeur: 6.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "building",
+          "corridors": "narrow"
+}
+       📋 METADATA: {
+          "impact": "+6.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "building",
+                    "priority": -48,
+                    "description_short": "Démontage supplémentaire, temps augmenté"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    9. "Déballage professionnel arrivée"
+       ID: 388128a7-b47e-4a35-8143-5455b3e0ab52
+       Description: Déballage + nettoyage + évacuation cartons
+       Valeur: 100€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "packing": "arrival"
+}
+       📋 METADATA: {
+          "impact": "+100€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Déballage + nettoyage + évacuation cartons"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    10. "Démontage de meubles"
+       ID: 1c0eadfd-50e2-42d2-9f35-400abec4dfa5
+       Description: Temps spécialisé inclus, outillage pro
+       Valeur: 80€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "handling": "disassembly"
+}
+       📋 METADATA: {
+          "impact": "+80€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🔧",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Temps spécialisé inclus, outillage pro"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    11. "Distance de portage > 30m"
+       ID: ca6cb6e5-9f5a-4d50-8200-d78d9dedd901
+       Description: Surcoût main d'œuvre, navettes nécessaires
+       Valeur: 7.8%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "distance",
+          "carrying": "long"
+}
+       📋 METADATA: {
+          "impact": "+7.8%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📏",
+                    "group": "distance",
+                    "priority": -47,
+                    "description_short": "Surcoût main d'œuvre, navettes nécessaires"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    12. "Emballage œuvres d'art"
+       ID: c2bb1202-1b12-4f9c-aa88-e44671ce04f1
+       Description: Caissage sur mesure, protection maximale
+       Valeur: 200€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "packing": "artwork"
+}
+       📋 METADATA: {
+          "impact": "+200€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📦",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Caissage sur mesure, protection maximale"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    13. "Emballage professionnel départ"
+       ID: 42b851fa-992a-45ef-9da8-744968fdc6b4
+       Description: Équipe spécialisée, matériel professionnel
+       Valeur: 120€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "packing": "departure"
+}
+       📋 METADATA: {
+          "impact": "+120€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📦",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Équipe spécialisée, matériel professionnel"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    14. "Escalier difficile ou dangereux"
+       ID: 40acdd70-5c1f-4936-a53c-8f52e6695a4c
+       Description: Monte-meuble recommandé, risques élevés
+       Valeur: 8.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "building",
+          "stairs": "difficult"
+}
+       📋 METADATA: {
+          "impact": "+8.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🪜",
+                    "group": "building",
+                    "priority": -48,
+                    "description_short": "Monte-meuble recommandé, risques élevés"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    15. "Fournitures d'emballage"
+       ID: 8746a048-33d8-4216-95a2-1fa1fa418fce
+       Description: Cartons renforcés, papier bulle, sangles pro
+       Valeur: 50€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "packing": "supplies"
+}
+       📋 METADATA: {
+          "impact": "+50€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📦",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Cartons renforcés, papier bulle, sangles pro"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    16. "Gestion administrative"
+       ID: 3edf411c-7f67-4217-9d74-47d11edb88ed
+       Description: Résiliation/transfert tous contrats
+       Valeur: 60€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "annexe": "admin"
+}
+       📋 METADATA: {
+          "impact": "+60€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Résiliation/transfert tous contrats"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    17. "Inventaire avec photos"
+       ID: 76b2bd7a-1acb-4f4e-b215-330765c4e788
+       Description: État des lieux photographique complet
+       Valeur: 80€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "protection": "inventory"
+}
+       📋 METADATA: {
+          "impact": "+80€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📝",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "État des lieux photographique complet"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    18. "Meubles encombrants"
+       ID: a58d62cc-8de6-4ac5-99ec-0428e268c025
+       Description: Armoires, canapés d'angle, piano droit
+       Valeur: 150€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "handling": "bulky"
+}
+       📋 METADATA: {
+          "impact": "+150€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Armoires, canapés d'angle, piano droit"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    19. "Monte-meuble"
+       ID: 5cdd32e3-23d5-413e-a9b4-26a746066ce0
+       Description: Location monte-meuble 200-400€, ajouté automatiquement
+       Valeur: 300€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "lift": "required",
+          "type": "equipment"
+}
+       📋 METADATA: {
+          "impact": "+300€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🏗️",
+                    "group": "equipment",
+                    "priority": 5,
+                    "description_short": "Location monte-meuble 200-400€, ajouté automatiquement"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    20. "Nettoyage après déménagement"
+       ID: 44542f01-5539-4858-b05e-a2adb39c5877
+       Description: Nettoyage complet logement vide
+       Valeur: 120€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "annexe": "cleaning"
+}
+       📋 METADATA: {
+          "impact": "+120€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🧹",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Nettoyage complet logement vide"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    21. "Objets fragiles/précieux"
+       ID: 352eabed-8869-460f-b7f0-99237b003cc1
+       Description: Emballage renforcé + assurance tous risques
+       Valeur: 180€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "protection": "fragile"
+}
+       📋 METADATA: {
+          "impact": "+180€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "💎",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Emballage renforcé + assurance tous risques"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    22. "Objets très lourds"
+       ID: fb522208-5206-482f-9ad5-9abf8cf6f0b1
+       Description: Équipement hydraulique, sangles renforcées
+       Valeur: 200€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "protection": "heavy"
+}
+       📋 METADATA: {
+          "impact": "+200€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🏋️",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Équipement hydraulique, sangles renforcées"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    23. "Passage indirect obligatoire"
+       ID: 24e4e233-655e-4730-9b6b-451b3731789a
+       Description: Sortie non directe, protection sols
+       Valeur: 8.2%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "distance",
+          "access": "indirect"
+}
+       📋 METADATA: {
+          "impact": "+8.2%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "distance",
+                    "priority": -47,
+                    "description_short": "Sortie non directe, protection sols"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    24. "Remontage de meubles"
+       ID: 9b08837b-666e-4ff8-8ea7-223b7c695fb0
+       Description: Remontage garanti conforme
+       Valeur: 100€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "handling": "reassembly"
+}
+       📋 METADATA: {
+          "impact": "+100€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🛠️",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Remontage garanti conforme"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    25. "Restrictions horaires strictes"
+       ID: cd0c6f29-c489-449b-b462-6e6e80594fee
+       Description: Créneaux limités, coordination complexe
+       Valeur: 6.8%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "time": "restricted",
+          "type": "security"
+}
+       📋 METADATA: {
+          "impact": "+6.8%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "⏰",
+                    "group": "security",
+                    "priority": -49,
+                    "description_short": "Créneaux limités, coordination complexe"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    26. "Rue étroite ou inaccessible au camion"
+       ID: 6267e023-e9ae-4c41-8101-5ce4f863363d
+       Description: Camion ne peut pas accéder, portage supplémentaire
+       Valeur: 9%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "road": "narrow",
+          "type": "vehicle_access"
+}
+       📋 METADATA: {
+          "impact": "+9%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🚛",
+                    "group": "vehicle_access",
+                    "priority": -46,
+                    "description_short": "Camion ne peut pas accéder, portage supplémentaire"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    27. "Sol fragile ou délicat"
+       ID: 1c4b4bff-522e-4ddb-a551-5d2f773b5d91
+       Description: Protection supplémentaire obligatoire
+       Valeur: 5.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "security",
+          "floor": "fragile"
+}
+       📋 METADATA: {
+          "impact": "+5.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "💎",
+                    "group": "security",
+                    "priority": -49,
+                    "description_short": "Protection supplémentaire obligatoire"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    28. "Stationnement difficile ou payant"
+       ID: 76d5aa58-d9ad-45c8-8c72-6a03d178d15d
+       Description: Frais de stationnement, temps supplémentaire
+       Valeur: 7.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "vehicle_access",
+          "parking": "difficult"
+}
+       📋 METADATA: {
+          "impact": "+7.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🅿️",
+                    "group": "vehicle_access",
+                    "priority": -46,
+                    "description_short": "Frais de stationnement, temps supplémentaire"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    29. "Stockage temporaire"
+       ID: eb0a68e9-c9fb-4c1d-8e78-fd307fea654d
+       Description: Garde-meuble climatisé, accès 24h/24
+       Valeur: 150€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "annexe": "storage"
+}
+       📋 METADATA: {
+          "impact": "+150€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📦",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Garde-meuble climatisé, accès 24h/24"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    30. "Transport animaux"
+       ID: a059350a-923d-499f-8140-96f8c7e2dd70
+       Description: Véhicule adapté, cage de transport
+       Valeur: 80€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "annexe": "pets"
+}
+       📋 METADATA: {
+          "impact": "+80€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🐾",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Véhicule adapté, cage de transport"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    31. "Transport piano"
+       ID: 7b09890c-9151-41e2-a017-4f478e601fc4
+       Description: Équipement spécialisé, assurance renforcée
+       Valeur: 250€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "handling": "piano"
+}
+       📋 METADATA: {
+          "impact": "+250€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🎹",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Équipement spécialisé, assurance renforcée"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    32. "Zone piétonne avec restrictions"
+       ID: ec4ac13f-3ede-458a-bf77-4e5964bc6614
+       Description: Autorisation mairie requise, frais administratifs
+       Valeur: 8.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "vehicle_access",
+          "zone": "pedestrian"
+}
+       📋 METADATA: {
+          "impact": "+8.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🚶",
+                    "group": "vehicle_access",
+                    "priority": -46,
+                    "description_short": "Autorisation mairie requise, frais administratifs"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+
+🔧 SERVICE: CLEANING (38 règles)
+──────────────────────────────────────────────────────────────────────
+
+  📌 BUSINESS (38 règles):
+
+    1. "Absence d'ascenseur"
+       ID: 49e42e4c-c240-418d-bbdc-aff9a2cefe37
+       Description: Transport matériel par escaliers
+       Valeur: 6%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "access",
+          "elevator": "none"
+}
+       📋 METADATA: {
+          "impact": "+6%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🛗",
+                    "group": "access",
+                    "priority": 49,
+                    "description_short": "Transport matériel par escaliers"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    2. "Accès difficile au bâtiment"
+       ID: c2951072-61a4-4a1a-96ab-e5949cdbdbb3
+       Description: Codes, digicode, interphone complexe
+       Valeur: 5.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "access",
+          "building": "difficult"
+}
+       📋 METADATA: {
+          "impact": "+5.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "access",
+                    "priority": 49,
+                    "description_short": "Codes, digicode, interphone complexe"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    3. "Allergies signalées"
+       ID: a032d730-d1d8-44a0-8eb4-2f845b962bb6
+       Description: Produits hypoallergéniques, précautions spéciales
+       Valeur: 6.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "work",
+          "allergies": "present"
+}
+       📋 METADATA: {
+          "impact": "+6.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "work",
+                    "priority": -43,
+                    "description_short": "Produits hypoallergéniques, précautions spéciales"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    4. "Contrôle de sécurité strict"
+       ID: 4185f3e1-b8d1-4536-88e4-a1896908cbe7
+       Description: Badge, gardien, vérifications d'identité
+       Valeur: 6%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "access",
+          "security": "strict"
+}
+       📋 METADATA: {
+          "impact": "+6%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🔒",
+                    "group": "access",
+                    "priority": 49,
+                    "description_short": "Badge, gardien, vérifications d'identité"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    5. "Créneau horaire spécifique"
+       ID: d7858dc6-712a-405b-b342-353e157d7c57
+       Description: Disponibilité réduite, contraintes client
+       Valeur: 6.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "schedule",
+          "window": "specific"
+}
+       📋 METADATA: {
+          "impact": "+6.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "⏰",
+                    "group": "schedule",
+                    "priority": -42,
+                    "description_short": "Disponibilité réduite, contraintes client"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    6. "Dégâts des eaux récents"
+       ID: 2b9e827e-7990-4779-9ab7-cf72bf7d0016
+       Description: Humidité, moisissures potentielles, équipement spécial
+       Valeur: 9.8%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "location",
+          "damage": "water"
+}
+       📋 METADATA: {
+          "impact": "+9.8%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "💧",
+                    "group": "location",
+                    "priority": -41,
+                    "description_short": "Humidité, moisissures potentielles, équipement spécial"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    7. "Désinfection complète"
+       ID: e1c7b822-878d-44a6-93cc-fac1a232313b
+       Description: Traitement virucide, surfaces contact
+       Valeur: 70€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "disinfection": "complete"
+}
+       📋 METADATA: {
+          "impact": "+70€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🧼",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Traitement virucide, surfaces contact"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    8. "Entretien mobilier"
+       ID: 310ddae6-6f96-46a1-b87c-4fc61e583819
+       Description: Nourrissage cuir, cirage bois, protection
+       Valeur: 35€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "maintenance": "furniture"
+}
+       📋 METADATA: {
+          "impact": "+35€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Nourrissage cuir, cirage bois, protection"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    9. "Équipement industriel requis"
+       ID: edefd89b-117d-4739-9bf5-6ed67a5a4b64
+       Description: Mono-brosse, injecteur-extracteur, haute pression
+       Valeur: 9.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "utilities",
+          "equipment": "industrial"
+}
+       📋 METADATA: {
+          "impact": "+9.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "utilities",
+                    "priority": -40,
+                    "description_short": "Mono-brosse, injecteur-extracteur, haute pression"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    10. "Espace très restreint"
+       ID: 6ff2c0d6-8539-4618-b456-55750c0d0d13
+       Description: Meubles encombrants, accès difficile
+       Valeur: 7%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "location",
+          "space": "limited"
+}
+       📋 METADATA: {
+          "impact": "+7%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "location",
+                    "priority": -41,
+                    "description_short": "Meubles encombrants, accès difficile"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    11. "Évacuation déchets"
+       ID: 41c91949-f9c8-4843-b44f-77b2839f5e39
+       Description: Tri sélectif, évacuation selon réglementation
+       Valeur: 40€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "logistics": "waste"
+}
+       📋 METADATA: {
+          "impact": "+40€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🗑️",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Tri sélectif, évacuation selon réglementation"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    12. "Gestion trousseau de clés"
+       ID: 43e86f13-f2d5-494c-91c0-75aeb00709e8
+       Description: Service récupération/dépôt clés sécurisé
+       Valeur: 15€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "logistics": "keys"
+}
+       📋 METADATA: {
+          "impact": "+15€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "💧",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Service récupération/dépôt clés sécurisé"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    13. "Grand nettoyage de printemps"
+       ID: ada91bb4-1041-43dd-84cb-915250c2679d
+       Description: Nettoyage complet incluant placards, électroménager
+       Valeur: 80€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "specialized": "deep"
+}
+       📋 METADATA: {
+          "impact": "+80€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🧹",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Nettoyage complet incluant placards, électroménager"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    14. "Intervention matinale"
+       ID: e331f21f-caa5-4e07-b6b3-d5e86ee02f4d
+       Description: Majoration horaires atypiques (avant 8h)
+       Valeur: 7%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "time": "early",
+          "type": "schedule"
+}
+       📋 METADATA: {
+          "impact": "+7%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "schedule",
+                    "priority": -42,
+                    "description_short": "Majoration horaires atypiques (avant 8h)"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    15. "Meubles lourds à déplacer"
+       ID: 1bdf8ac3-0fef-4b6e-9e2f-2de56714580c
+       Description: Mobilier encombrant nécessitant 2 personnes
+       Valeur: 7.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "work",
+          "furniture": "heavy"
+}
+       📋 METADATA: {
+          "impact": "+7.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🏋️",
+                    "group": "work",
+                    "priority": -43,
+                    "description_short": "Mobilier encombrant nécessitant 2 personnes"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    16. "Nettoyage argenterie"
+       ID: d9d29af9-3081-4e45-aa88-d97f3a8be3c6
+       Description: Produits spécialisés métaux précieux
+       Valeur: 25€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "maintenance": "silver"
+}
+       📋 METADATA: {
+          "impact": "+25€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🧹",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Produits spécialisés métaux précieux"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    17. "Nettoyage électroménager"
+       ID: 54f28bcd-e602-4148-8df6-175ba3ef6bc8
+       Description: Four, frigo, lave-vaisselle, micro-ondes
+       Valeur: 50€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "specialized": "appliances"
+}
+       📋 METADATA: {
+          "impact": "+50€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🧹",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Four, frigo, lave-vaisselle, micro-ondes"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    18. "Nettoyage tapis et moquettes"
+       ID: c8b12ff6-f3fe-4519-8a8f-83c9987a44aa
+       Description: Injection-extraction, traitement taches
+       Valeur: 60€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "specialized": "carpet"
+}
+       📋 METADATA: {
+          "impact": "+60€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🧹",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Injection-extraction, traitement taches"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    19. "Nettoyage vitres complet"
+       ID: 5c2ae204-c271-428b-9251-ef27072c15ec
+       Description: Toutes vitres accessibles, produits anti-traces
+       Valeur: 40€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "specialized": "windows"
+}
+       📋 METADATA: {
+          "impact": "+40€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🧹",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Toutes vitres accessibles, produits anti-traces"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    20. "Objets fragiles/précieux"
+       ID: bc66e368-2c23-4453-b308-f89d925fdb65
+       Description: Antiquités, œuvres d'art, manipulation délicate
+       Valeur: 7%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "work",
+          "items": "fragile"
+}
+       📋 METADATA: {
+          "impact": "+7%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "💎",
+                    "group": "work",
+                    "priority": -43,
+                    "description_short": "Antiquités, œuvres d'art, manipulation délicate"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    21. "Pas d'accès à l'eau"
+       ID: 0b75ab1c-a7d4-4c23-a8d5-5d6db9c45e9a
+       Description: Approvisionnement eau, équipement autonome
+       Valeur: 9%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "utilities",
+          "water": "none"
+}
+       📋 METADATA: {
+          "impact": "+9%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "💧",
+                    "group": "utilities",
+                    "priority": -40,
+                    "description_short": "Approvisionnement eau, équipement autonome"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    22. "Pas d'électricité"
+       ID: b32ae668-29a4-4d3e-9729-637f22b0cd2d
+       Description: Matériel sur batterie, éclairage portatif
+       Valeur: 8.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "utilities",
+          "power": "none"
+}
+       📋 METADATA: {
+          "impact": "+8.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "⚡",
+                    "group": "utilities",
+                    "priority": -40,
+                    "description_short": "Matériel sur batterie, éclairage portatif"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    23. "Post-construction/travaux"
+       ID: 0253e05d-2287-48bf-b0de-6dfbe17a3a21
+       Description: Poussière, gravats, matériel renforcé
+       Valeur: 9.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "location",
+          "work": "construction"
+}
+       📋 METADATA: {
+          "impact": "+9.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "location",
+                    "priority": -41,
+                    "description_short": "Poussière, gravats, matériel renforcé"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    24. "Présence d'animaux"
+       ID: 670b8b7a-bedd-4e84-9aa8-dc6969738c3e
+       Description: Chiens, chats, poils, produits adaptés nécessaires
+       Valeur: 5.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "pets": "present",
+          "type": "work"
+}
+       📋 METADATA: {
+          "impact": "+5.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🐾",
+                    "group": "work",
+                    "priority": -43,
+                    "description_short": "Chiens, chats, poils, produits adaptés nécessaires"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    25. "Présence de moisissure"
+       ID: 6d58240f-3c9a-4e58-9d1f-4825213a4a7d
+       Description: Traitement antifongique, EPI spéciaux
+       Valeur: 10%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "mold": "present",
+          "type": "location"
+}
+       📋 METADATA: {
+          "impact": "+10%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🦠",
+                    "group": "location",
+                    "priority": -41,
+                    "description_short": "Traitement antifongique, EPI spéciaux"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    26. "Présence d'enfants"
+       ID: f8b7187b-539f-43de-b4f9-54898560d908
+       Description: Produits écologiques, sécurité renforcée
+       Valeur: 6%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "work",
+          "children": "present"
+}
+       📋 METADATA: {
+          "impact": "+6%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "work",
+                    "priority": -43,
+                    "description_short": "Produits écologiques, sécurité renforcée"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    27. "Produits spécifiques requis"
+       ID: 27bdf16d-94aa-46da-b08e-2b3e1c6cc442
+       Description: Produits professionnels, détachants spéciaux
+       Valeur: 7.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "utilities",
+          "products": "special"
+}
+       📋 METADATA: {
+          "impact": "+7.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "utilities",
+                    "priority": -40,
+                    "description_short": "Produits professionnels, détachants spéciaux"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    28. "Protocole sanitaire renforcé"
+       ID: f73b5754-5865-465b-b366-861e429d7801
+       Description: Désinfection selon protocoles sanitaires
+       Valeur: 30€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "disinfection": "covid"
+}
+       📋 METADATA: {
+          "impact": "+30€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Désinfection selon protocoles sanitaires"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    29. "Rangement et organisation"
+       ID: deff0691-fd7f-4930-8a8e-3ab96555ac9e
+       Description: Tri, rangement optimisé, étiquetage
+       Valeur: 60€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "maintenance": "organization"
+}
+       📋 METADATA: {
+          "impact": "+60€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🗄️",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Tri, rangement optimisé, étiquetage"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    30. "Réapprovisionnement produits"
+       ID: 1dd42931-8314-4a0d-8b6d-bbefeece6d2d
+       Description: Achat et approvisionnement produits ménagers
+       Valeur: 20€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "logistics": "supply"
+}
+       📋 METADATA: {
+          "impact": "+20€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Achat et approvisionnement produits ménagers"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    31. "Saleté importante/tenace"
+       ID: 863ea826-b34d-4d6e-a990-e2334ccfdb97
+       Description: Nettoyage intensif, temps supplémentaire
+       Valeur: 8.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "dirt": "heavy",
+          "type": "location"
+}
+       📋 METADATA: {
+          "impact": "+8.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "location",
+                    "priority": -41,
+                    "description_short": "Nettoyage intensif, temps supplémentaire"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    32. "Service d'urgence"
+       ID: 31b86be9-fc6d-43e4-9372-dbe12d944982
+       Description: Intervention d'urgence, mobilisation rapide
+       Valeur: 9%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "schedule",
+          "urgency": "emergency"
+}
+       📋 METADATA: {
+          "impact": "+9%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "⏰",
+                    "group": "schedule",
+                    "priority": -42,
+                    "description_short": "Intervention d'urgence, mobilisation rapide"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    33. "Service en soirée"
+       ID: 4bdacdf9-e723-446d-8c89-6034ad1a844b
+       Description: Majoration horaires atypiques (après 18h)
+       Valeur: 7.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "time": "evening",
+          "type": "schedule"
+}
+       📋 METADATA: {
+          "impact": "+7.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "schedule",
+                    "priority": -42,
+                    "description_short": "Majoration horaires atypiques (après 18h)"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    34. "Service weekend"
+       ID: eed07d02-692b-4d91-9568-793aec0edf28
+       Description: Samedi/dimanche, majoration weekend
+       Valeur: 8.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "day": "weekend",
+          "type": "schedule"
+}
+       📋 METADATA: {
+          "impact": "+8.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📅",
+                    "group": "schedule",
+                    "priority": -42,
+                    "description_short": "Samedi/dimanche, majoration weekend"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    35. "Situation d'accumulation"
+       ID: 8adc228c-823b-4161-ac37-a925c340c131
+       Description: Syndrome de Diogène, tri préalable nécessaire
+       Valeur: 10%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "location",
+          "hoarding": "present"
+}
+       📋 METADATA: {
+          "impact": "+10%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "location",
+                    "priority": -41,
+                    "description_short": "Syndrome de Diogène, tri préalable nécessaire"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    36. "Stationnement limité ou payant"
+       ID: f48f86de-b12f-4a24-8186-9e363315623e
+       Description: Difficulté de stationnement, frais supplémentaires possibles
+       Valeur: 5.5%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "access",
+          "parking": "limited"
+}
+       📋 METADATA: {
+          "impact": "+5.5%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🅿️",
+                    "group": "access",
+                    "priority": 49,
+                    "description_short": "Difficulté de stationnement, frais supplémentaires possibles"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    37. "Traitement anti-allergènes"
+       ID: 73d0f2a4-c8dc-47bd-99dc-573c4e4c3846
+       Description: Produits hypoallergéniques, acariens
+       Valeur: 45€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "disinfection": "allergen"
+}
+       📋 METADATA: {
+          "impact": "+45€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Produits hypoallergéniques, acariens"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    38. "Travail en hauteur"
+       ID: 2e91f72e-a210-4f7c-ae36-25bc4473bde3
+       Description: Échafaudage, harnais, nettoyage vitres hautes
+       Valeur: 9.8%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "utilities",
+          "height": "required"
+}
+       📋 METADATA: {
+          "impact": "+9.8%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🪜",
+                    "group": "utilities",
+                    "priority": -40,
+                    "description_short": "Échafaudage, harnais, nettoyage vitres hautes"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+
+🔧 SERVICE: DELIVERY (6 règles)
+──────────────────────────────────────────────────────────────────────
+
+  📌 BUSINESS (6 règles):
+
+    1. "Livraison étage sans ascenseur"
+       ID: b0fb3788-eb08-4442-a5a1-204f9d606c79
+       Description: Transport par escaliers
+       Valeur: 7%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "building",
+          "elevator": "none"
+}
+       📋 METADATA: {
+          "impact": "+7%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🛗",
+                    "group": "building",
+                    "priority": -48,
+                    "description_short": "Transport par escaliers"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    2. "Majoration réservation urgente"
+       ID: 10169045-64bb-4ff8-89f5-11290de90991
+       Description: Majoration urgente (+20€)
+       Valeur: 20€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "schedule",
+          "urgency": "emergency"
+}
+       📋 METADATA: {
+          "impact": "+20€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "schedule",
+                    "priority": 8,
+                    "description_short": "Majoration urgente (+20€)"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    3. "Majoration weekend livraison"
+       ID: aaa14685-9fe2-48a1-8768-a5ffb63eefe7
+       Description: Majoration weekend (+20€)
+       Valeur: 20€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "day": "weekend",
+          "type": "schedule"
+}
+       📋 METADATA: {
+          "impact": "+20€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📅",
+                    "group": "schedule",
+                    "priority": 8,
+                    "description_short": "Majoration weekend (+20€)"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    4. "Majoration zone étendue"
+       ID: 8c3ead72-e325-4077-8e23-ced85c803033
+       Description: Majoration zone étendue (+15€)
+       Valeur: 15€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "distance",
+          "zone": "extended"
+}
+       📋 METADATA: {
+          "impact": "+15€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "distance",
+                    "priority": 3,
+                    "description_short": "Majoration zone étendue (+15€)"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    5. "Manutention objets lourds"
+       ID: cc5a6bef-898b-4077-8f6e-19c42a6250ac
+       Description: Objets > 30kg, équipement spécialisé
+       Valeur: 30€
+       Catégorie: FIXED
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [fixed]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "handling": "heavy"
+}
+       📋 METADATA: {
+          "impact": "+30€",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "🏋️",
+                    "group": "service",
+                    "priority": 6,
+                    "description_short": "Objets > 30kg, équipement spécialisé"
+          },
+          "category_frontend": "service"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+    6. "Service express (< 2h)"
+       ID: ffec6f5a-30f4-4540-9288-470a8653ecaf
+       Description: Livraison ultra-rapide
+       Valeur: 9%
+       Catégorie: SURCHARGE
+       Active: ✅
+       Priorité: 100
+       ConfigKey: N/A
+       Tags: [percentage]
+       ⚠️ CONDITION: {
+          "type": "service",
+          "speed": "express"
+}
+       📋 METADATA: {
+          "impact": "+9%",
+          "source": "realistic_seed_2025",
+          "display": {
+                    "icon": "📋",
+                    "group": "service",
+                    "priority": -44,
+                    "description_short": "Livraison ultra-rapide"
+          },
+          "category_frontend": "constraint"
+}
+       📅 Validité: 2025-10-15 → jamais
+
+
+📋 PARTIE 3: ANALYSE DES CONFIGURATIONS
+
+══════════════════════════════════════════════════════════════════════
+
+✅ Total des configurations: 67
+
+📊 RÉPARTITION PAR CATÉGORIE:
+──────────────────────────────────────────────────────────────────────
+  BUSINESS_TYPE_PRICING: 31 configs
+  PRICING: 34 configs
+  SERVICE_PARAMS: 2 configs
+
+
+🔧 CATÉGORIE: BUSINESS_TYPE_PRICING (31 configs)
+──────────────────────────────────────────────────────────────────────
+
+  1. CLEANING_EXTRA_HOUR_RATE
+     ID: config_1758896653659_7f9hfn2i6
+     Description: Tarification par type de service métier pour CLEANING_EXTRA_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: NETTOYAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 25
+
+  2. CLEANING_MINIMUM_PRICE
+     ID: config_1758896653675_lt689f7ab
+     Description: Tarification par type de service métier pour CLEANING_MINIMUM_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: NETTOYAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 80
+
+  3. CLEANING_PRICE_PER_M2
+     ID: config_1758896653607_ykhyy43nk
+     Description: Tarification par type de service métier pour CLEANING_PRICE_PER_M2
+     Active: ✅
+     Priorité: 100
+     BusinessType: NETTOYAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 8
+
+  4. CLEANING_WORKER_HOUR_RATE
+     ID: config_1758896653642_fdo1qbcyg
+     Description: Tarification par type de service métier pour CLEANING_WORKER_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: NETTOYAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 20
+
+  5. CLEANING_WORKER_PRICE
+     ID: config_1758896653624_k66elgfh1
+     Description: Tarification par type de service métier pour CLEANING_WORKER_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: NETTOYAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 25
+
+  6. DELIVERY_BASE_PRICE
+     ID: config_1758896653692_ufzrxsl2d
+     Description: Tarification par type de service métier pour DELIVERY_BASE_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: LIVRAISON
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 25
+
+  7. DELIVERY_EXTRA_HOUR_RATE
+     ID: config_1758896653744_kay1wwyp2
+     Description: Tarification par type de service métier pour DELIVERY_EXTRA_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: LIVRAISON
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 22
+
+  8. DELIVERY_PRICE_PER_KM
+     ID: config_1758896653709_maeyvxzd0
+     Description: Tarification par type de service métier pour DELIVERY_PRICE_PER_KM
+     Active: ✅
+     Priorité: 100
+     BusinessType: LIVRAISON
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 1.2
+
+  9. DELIVERY_WEIGHT_SURCHARGE
+     ID: config_1758896653760_lkrbhfqpo
+     Description: Tarification par type de service métier pour DELIVERY_WEIGHT_SURCHARGE
+     Active: ✅
+     Priorité: 100
+     BusinessType: LIVRAISON
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 0.5
+
+  10. DELIVERY_WORKER_HOUR_RATE
+     ID: config_1758896653725_cblfmnwuw
+     Description: Tarification par type de service métier pour DELIVERY_WORKER_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: LIVRAISON
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 18
+
+  11. MOVING_BASE_PRICE_PER_M3
+     ID: config_1758896653490_lq8l2jpq5
+     Description: Tarification par type de service métier pour MOVING_BASE_PRICE_PER_M3
+     Active: ✅
+     Priorité: 100
+     BusinessType: DÉMÉNAGEMENT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 35
+
+  12. MOVING_EXTRA_HOUR_RATE
+     ID: config_1758896653542_hynkz7061
+     Description: Tarification par type de service métier pour MOVING_EXTRA_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: DÉMÉNAGEMENT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 40
+
+  13. MOVING_LIFT_PRICE
+     ID: config_1758896653559_7v46lb99h
+     Description: Tarification par type de service métier pour MOVING_LIFT_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: DÉMÉNAGEMENT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 200
+
+  14. MOVING_VEHICLE_FLAT_FEE
+     ID: config_1758896653590_vqd55rp0d
+     Description: Tarification par type de service métier pour MOVING_VEHICLE_FLAT_FEE
+     Active: ✅
+     Priorité: 100
+     BusinessType: DÉMÉNAGEMENT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 150
+
+  15. MOVING_WORKER_HOUR_RATE
+     ID: config_1758896653524_jn9swk762
+     Description: Tarification par type de service métier pour MOVING_WORKER_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: DÉMÉNAGEMENT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 35
+
+  16. MOVING_WORKER_PRICE
+     ID: config_1758896653507_9irw6opkp
+     Description: Tarification par type de service métier pour MOVING_WORKER_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: DÉMÉNAGEMENT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 120
+
+  17. PACKING_EXTRA_HOUR_RATE
+     ID: config_1758896653915_z7vak2u4r
+     Description: Tarification par type de service métier pour PACKING_EXTRA_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: EMBALLAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 30
+
+  18. PACKING_MATERIAL_COST
+     ID: config_1758896653932_eh4bpy5br
+     Description: Tarification par type de service métier pour PACKING_MATERIAL_COST
+     Active: ✅
+     Priorité: 100
+     BusinessType: EMBALLAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 15
+
+  19. PACKING_PRICE_PER_M3
+     ID: config_1758896653862_937rxmbs1
+     Description: Tarification par type de service métier pour PACKING_PRICE_PER_M3
+     Active: ✅
+     Priorité: 100
+     BusinessType: EMBALLAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 45
+
+  20. PACKING_WORKER_HOUR_RATE
+     ID: config_1758896653899_fuu1dgdjd
+     Description: Tarification par type de service métier pour PACKING_WORKER_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: EMBALLAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 25
+
+  21. PACKING_WORKER_PRICE
+     ID: config_1758896653882_wo4cw3owg
+     Description: Tarification par type de service métier pour PACKING_WORKER_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: EMBALLAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 30
+
+  22. STORAGE_ACCESS_FEE
+     ID: config_1758896654025_x4ppjp8u0
+     Description: Tarification par type de service métier pour STORAGE_ACCESS_FEE
+     Active: ✅
+     Priorité: 100
+     BusinessType: STOCKAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 20
+
+  23. STORAGE_EXTRA_HOUR_RATE
+     ID: config_1758896653986_ewx2m0yqu
+     Description: Tarification par type de service métier pour STORAGE_EXTRA_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: STOCKAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 25
+
+  24. STORAGE_MINIMUM_DURATION_MONTHS
+     ID: config_1758896654007_q0kc5sykk
+     Description: Tarification par type de service métier pour STORAGE_MINIMUM_DURATION_MONTHS
+     Active: ✅
+     Priorité: 100
+     BusinessType: STOCKAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 1
+
+  25. STORAGE_PRICE_PER_M3_PER_MONTH
+     ID: config_1758896653948_lkgpzgeqa
+     Description: Tarification par type de service métier pour STORAGE_PRICE_PER_M3_PER_MONTH
+     Active: ✅
+     Priorité: 100
+     BusinessType: STOCKAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 12
+
+  26. STORAGE_WORKER_HOUR_RATE
+     ID: config_1758896653967_3s1wuo0ti
+     Description: Tarification par type de service métier pour STORAGE_WORKER_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: STOCKAGE
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 20
+
+  27. TRANSPORT_BASE_PRICE
+     ID: config_1758896653778_khyk7slkj
+     Description: Tarification par type de service métier pour TRANSPORT_BASE_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: TRANSPORT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 40
+
+  28. TRANSPORT_EXTRA_HOUR_RATE
+     ID: config_1758896653828_d7w5fcy2h
+     Description: Tarification par type de service métier pour TRANSPORT_EXTRA_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: TRANSPORT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 28
+
+  29. TRANSPORT_PRICE_PER_KM
+     ID: config_1758896653795_1b4kos8y1
+     Description: Tarification par type de service métier pour TRANSPORT_PRICE_PER_KM
+     Active: ✅
+     Priorité: 100
+     BusinessType: TRANSPORT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 1.8
+
+  30. TRANSPORT_VOLUME_SURCHARGE
+     ID: config_1758896653845_7e6hj4ir7
+     Description: Tarification par type de service métier pour TRANSPORT_VOLUME_SURCHARGE
+     Active: ✅
+     Priorité: 100
+     BusinessType: TRANSPORT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 0.3
+
+  31. TRANSPORT_WORKER_HOUR_RATE
+     ID: config_1758896653811_c8i2nmt90
+     Description: Tarification par type de service métier pour TRANSPORT_WORKER_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: TRANSPORT
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 22
+
+
+🔧 CATÉGORIE: PRICING (34 configs)
+──────────────────────────────────────────────────────────────────────
+
+  1. DAILY_RATE_MULTIPLIER
+     ID: config_1758896653157_f1tceujqb
+     Description: Valeur par défaut pour DAILY_RATE_MULTIPLIER
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 0.8
+
+  2. EQUIPMENT_RENTAL_DAILY
+     ID: config_1758896653246_z2m4rg64q
+     Description: Valeur par défaut pour EQUIPMENT_RENTAL_DAILY
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 25
+
+  3. EXTRA_DAY_DISCOUNT_RATE
+     ID: config_1758896653095_1thon0oxd
+     Description: Valeur par défaut pour EXTRA_DAY_DISCOUNT_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 0.08
+
+  4. EXTRA_KM_PRICE
+     ID: config_1758896652875_gdxev43t4
+     Description: Valeur par défaut pour EXTRA_KM_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 1.5
+
+  5. EXTRA_WORKER_DISCOUNT_RATE
+     ID: config_1758896653115_1zt0o2hc5
+     Description: Valeur par défaut pour EXTRA_WORKER_DISCOUNT_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 0.05
+
+  6. EXTRA_WORKER_HOUR_RATE
+     ID: config_1758896652960_igjd2zjv9
+     Description: Valeur par défaut pour EXTRA_WORKER_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 40
+
+  7. FREE_DELIVERY_DISTANCE_KM
+     ID: config_1758896653192_zufh7r3fe
+     Description: Valeur par défaut pour FREE_DELIVERY_DISTANCE_KM
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 5
+
+  8. FUEL_CONSUMPTION_PER_100KM
+     ID: config_1758896653022_4n9swnjw3
+     Description: Valeur par défaut pour FUEL_CONSUMPTION_PER_100KM
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 25
+
+  9. FUEL_PRICE_PER_LITER
+     ID: config_1758896653041_v06x2ukbd
+     Description: Valeur par défaut pour FUEL_PRICE_PER_LITER
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 1.8
+
+  10. HIGHWAY_RATIO
+     ID: config_1758896653076_jm5anzqn1
+     Description: Valeur par défaut pour HIGHWAY_RATIO
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 0.7
+
+  11. HOURLY_RATE_MULTIPLIER
+     ID: config_1758896653134_9khl04yqi
+     Description: Valeur par défaut pour HOURLY_RATE_MULTIPLIER
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 1
+
+  12. INCLUDED_DISTANCE
+     ID: config_1758896653000_gogm8l38w
+     Description: Valeur par défaut pour INCLUDED_DISTANCE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 20
+
+  13. INSURANCE_COVERAGE_MINIMUM
+     ID: config_1758896653380_ui4ife80a
+     Description: Valeur par défaut pour INSURANCE_COVERAGE_MINIMUM
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 100000
+
+  14. INSURANCE_PRICE_HT
+     ID: config_1758896653432_vqa74xa5h
+     Description: Valeur par défaut pour INSURANCE_PRICE_HT
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 30
+
+  15. INSURANCE_PRICE_TTC
+     ID: config_1758896653451_ppa70e5ss
+     Description: Valeur par défaut pour INSURANCE_PRICE_TTC
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 36
+
+  16. LIFT_PRICE
+     ID: config_1758896652911_7ry4fnkfv
+     Description: Valeur par défaut pour LIFT_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 200
+
+  17. MATERIAL_COST_PER_M3
+     ID: config_1758896653267_aacdtaanz
+     Description: Valeur par défaut pour MATERIAL_COST_PER_M3
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 12
+
+  18. MAX_VOLUME_PER_VEHICLE_M3
+     ID: config_1758896653324_m2ytfqpt1
+     Description: Valeur par défaut pour MAX_VOLUME_PER_VEHICLE_M3
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 30
+
+  19. MAX_WORKERS_PER_VEHICLE
+     ID: config_1758896653306_lxjd9e0jx
+     Description: Valeur par défaut pour MAX_WORKERS_PER_VEHICLE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 3
+
+  20. OVERTIME_RATE_MULTIPLIER
+     ID: config_1758896653361_x4678tntv
+     Description: Valeur par défaut pour OVERTIME_RATE_MULTIPLIER
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 1.5
+
+  21. PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM
+     ID: config_1758896653473_fbq7itxkr
+     Description: Valeur par défaut pour PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 150
+
+  22. PROTECTIVE_EQUIPMENT_COST
+     ID: config_1758896653284_17u1m9uop
+     Description: Valeur par défaut pour PROTECTIVE_EQUIPMENT_COST
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 15
+
+  23. QUALITY_GUARANTEE_DAYS
+     ID: config_1758896653396_xooi6jkyv
+     Description: Valeur par défaut pour QUALITY_GUARANTEE_DAYS
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 30
+
+  24. SAFETY_EQUIPMENT_REQUIRED
+     ID: config_1758896653414_611fh5com
+     Description: Valeur par défaut pour SAFETY_EQUIPMENT_REQUIRED
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 1
+
+  25. STANDARD_SERVICE_DURATION_HOURS
+     ID: config_1758896653343_eg6o8tddb
+     Description: Valeur par défaut pour STANDARD_SERVICE_DURATION_HOURS
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 8
+
+  26. TOLL_COST_PER_KM
+     ID: config_1758896653058_1pci9fexg
+     Description: Valeur par défaut pour TOLL_COST_PER_KM
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 0.15
+
+  27. UNIT_PRICE_PER_KM
+     ID: config_1758896652849_958m7zk29
+     Description: Valeur par défaut pour UNIT_PRICE_PER_KM
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 2
+
+  28. UNIT_PRICE_PER_M3
+     ID: config_1758896652798_jjm4np6l1
+     Description: Valeur par défaut pour UNIT_PRICE_PER_M3
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 35
+
+  29. VEHICLE_FLAT_FEE
+     ID: config_1758896652979_cd3bzkl7r
+     Description: Valeur par défaut pour VEHICLE_FLAT_FEE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 150
+
+  30. VOLUME_DISCOUNT_RATE
+     ID: config_1758896653227_x3g7cf0eq
+     Description: Valeur par défaut pour VOLUME_DISCOUNT_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 0.1
+
+  31. VOLUME_DISCOUNT_THRESHOLD_M3
+     ID: config_1758896653209_rarqma5a9
+     Description: Valeur par défaut pour VOLUME_DISCOUNT_THRESHOLD_M3
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 50
+
+  32. WEEKLY_RATE_MULTIPLIER
+     ID: config_1758896653175_d12pju2lv
+     Description: Valeur par défaut pour WEEKLY_RATE_MULTIPLIER
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 0.7
+
+  33. WORKER_HOUR_RATE
+     ID: config_1758896652934_8y48qbr83
+     Description: Valeur par défaut pour WORKER_HOUR_RATE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 35
+
+  34. WORKER_PRICE
+     ID: config_1758896652893_dpgida14r
+     Description: Valeur par défaut pour WORKER_PRICE
+     Active: ✅
+     Priorité: 100
+     BusinessType: GENERIC
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: 120
+
+
+🔧 CATÉGORIE: SERVICE_PARAMS (2 configs)
+──────────────────────────────────────────────────────────────────────
+
+  1. AVAILABLE_PACK_TYPES
+     ID: config_1758896654060_45c9pf37l
+     Description: Types de forfaits activés dans l'application
+     Active: ✅
+     Priorité: 100
+     BusinessType: SYSTEM
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: [
+      "basic",
+      "standard",
+      "premium",
+      "custom"
+]
+
+  2. AVAILABLE_SERVICE_TYPES
+     ID: config_1758896654042_zdw3a1qqa
+     Description: Types de services activés dans l'application
+     Active: ✅
+     Priorité: 100
+     BusinessType: SYSTEM
+     Environment: production
+     Tags: []
+     Created by: system
+     📅 Validité: 2025-09-26 → jamais
+     📋 VALUE: [
+      "MOVING",
+      "PACKING",
+      "CLEANING",
+      "DELIVERY",
+      "SERVICE"
+]
+
+
+📋 PARTIE 4: LIAISON RÈGLES ↔ CONFIGURATIONS
+
+══════════════════════════════════════════════════════════════════════
+
+✅ Règles avec configKey: 0
+
+ℹ️  Aucune règle n'utilise de configKey
+
+
+📋 PARTIE 5: DÉTECTION DES PROBLÈMES POTENTIELS
+
+══════════════════════════════════════════════════════════════════════
+
+⚠️ PROBLÈME 1: Règles sans condition (s'appliquent toujours)
+──────────────────────────────────────────────────────────────────────
+✅ Toutes les règles ont une condition
+
+
+⚠️ PROBLÈME 2: Règles avec condition vide {}
+──────────────────────────────────────────────────────────────────────
+✅ Aucune règle avec condition vide
+
+
+⚠️ PROBLÈME 3: Règles inactives
+──────────────────────────────────────────────────────────────────────
+✅ Toutes les règles sont actives
+
+
+⚠️ PROBLÈME 4: Règles expirées
+──────────────────────────────────────────────────────────────────────
+✅ Aucune règle expirée
+
+
+⚠️ PROBLÈME 5: Règles référençant des configs inexistantes
+──────────────────────────────────────────────────────────────────────
+✅ Toutes les configKey référencent des configs existantes
+
+
+📋 PARTIE 6: RECOMMANDATIONS
+
+══════════════════════════════════════════════════════════════════════
+
+💡 RECOMMANDATIONS BASÉES SUR L'ANALYSE:
+
+4. 🔍 VÉRIFICATION SUGGÉRÉE:
+   → Analyser le code du RuleEngine pour voir comment condition est évalué
+   → Vérifier si condition=null ou condition={} passe toujours à true
+   → Ajouter des logs dans RuleEngine.evaluateCondition()
+
+
+╔══════════════════════════════════════════════════════════════════╗
+║                    FIN DE L'ANALYSE                              ║
+╚══════════════════════════════════════════════════════════════════╝
+

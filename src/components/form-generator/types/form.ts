@@ -1,3 +1,4 @@
+import { ReactNode } from 'react';
 import { IndustryPreset } from './presets';
 
 export interface FormFieldOption {
@@ -23,24 +24,23 @@ export interface FormFieldConditional {
 
 export interface FormField {
   name: string; //   name: "deliveryOption",
-  type: 
-    | "text" 
-    | "email" 
+  type:
+    | "text"
+    | "email"
     | "password"
-    | "number" 
-    | "date" 
-    | "textarea" 
-    | "select" 
-    | "checkbox" 
+    | "number"
+    | "date"
+    | "textarea"
+    | "select"
+    | "checkbox"
     | "radio"
     | "separator" // Pour les séparateurs visuels
     | "custom" // Pour les composants personnalisés
     | "address-pickup" // Pour PickupAddressAutocomplete
     | "address-delivery" // Pour DeliveryAddressAutocomplete
-      | "logistics-modal" // Pour MovingConstraintsAndServicesModal
-  | "service-constraints" // Pour MovingConstraintsAndServicesModal (contraintes d'accès et services) ou CleaningConstraintsModal (contraintes nettoyage)
+    | "access-constraints" // Pour AccessConstraintsModal (système unifié)
     | "whatsapp-consent"; // Pour WhatsAppOptInConsent
-  label?: string; //   label: "Option de livraison",                  
+  label?: ReactNode; //   label: "Option de livraison" | <CustomLabel />,                  
   required?: boolean; //   required: true,
   options?: FormFieldOption[]; //   options: [
   //     { value: "standard", label: "Standard (2-3 jours)" },
@@ -112,7 +112,7 @@ export interface FormConfig {
   // 🌍 Configuration globale avancée (nouveau)
   globalConfig?: GlobalFormConfig;
   layout?: {
-    type?: "default" | "sidebar" | "custom" | "auth" | "package" | "package-edit" | "package-card" | "service-summary";
+    type?: "sidebar" | "custom" | "auth" | "package" | "package-edit" | "package-card" | "service-summary";
     autoSummary?: "moving" | "contact" | React.ComponentType<any>;
     summaryConfig?: any;
     component?: React.ComponentType<any>; // Pour layout custom
@@ -293,6 +293,7 @@ export interface FormConfig {
   
   submitLabel?: string; //   submitLabel: "Valider",
   cancelLabel?: string; //   cancelLabel: "Annuler",
+  hideDefaultSubmit?: boolean; // Masquer le bouton submit par défaut (pour soumission externe)
   onSubmit?: (data: any) => void | Promise<void>; //   onSubmit: (data) => {
   //     console.log(data);
   //   },

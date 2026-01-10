@@ -145,48 +145,12 @@ export const presetData = {
   },
 };
 
-// Fonction helper pour obtenir les données d'un preset
-export const getPresetData = (industry: IndustryPreset) => {
-  return presetData[industry] || presetData.default;
-};
-
-// Fonction helper pour obtenir un preset complet
-export const getPreset = (industry: IndustryPreset): PresetConfig => {
-  switch (industry) {
-    case "catalogueMovingItem":
-      return CatalogueMovingItemPreset;
-    case "catalogueCleaningItem":
-      return CatalogueCleaningItemPreset;
-    case "catalogueDeliveryItem":
-      return CatalogueDeliveryItemPreset;
-    case "demenagement-sur-mesure":
-      return DemenagementSurMesurePreset;
-    case "menage-sur-mesure":
-      return MenageSurMesurePreset;
-    case "contact":
-      return ContactPreset;
-    default:
-      return DefaultPreset;
-  }
-};
-
 // Fonction helper pour obtenir la configuration de summary
 export const getPresetSummary = (
   industry: IndustryPreset,
 ): FormSummaryConfig => {
-  return getPresetData(industry).summary;
-};
-
-// Fonction helper pour obtenir les valeurs par défaut
-export const getPresetDefaults = (
-  industry: IndustryPreset,
-): Record<string, any> => {
-  return getPresetData(industry).defaults;
-};
-
-// Fonction helper pour obtenir les styles
-export const getPresetStyles = (industry: IndustryPreset): string => {
-  return getPresetData(industry).styles;
+  const data = presetData[industry] || presetData.default;
+  return data.summary;
 };
 
 // Liste des presets disponibles
@@ -243,16 +207,3 @@ export const availablePresets: Array<{
   },
 ];
 
-// Helpers pour les catégories de services
-export const getCatalogueServices = () =>
-  availablePresets.filter((p) => p.category === "catalogue");
-export const getDefaultServices = () =>
-  availablePresets.filter((p) => p.category === "default");
-export const getSurMesureServices = () =>
-  availablePresets.filter((p) => p.category === "sur-mesure");
-
-export const isPresetCatalogue = (industry: IndustryPreset): boolean => {
-  return (
-    availablePresets.find((p) => p.id === industry)?.category === "catalogue"
-  );
-};

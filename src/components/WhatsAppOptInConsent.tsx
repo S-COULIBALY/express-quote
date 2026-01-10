@@ -66,7 +66,7 @@ export function WhatsAppOptInConsent({
         : 'text-blue-600 hover:text-blue-700'
 
   return (
-    <div className="mt-2 w-full">
+    <div className="mt-0 sm:mt-2 w-full">
       <div className="flex items-start space-x-3 w-full">
         <input
           type="checkbox"
@@ -82,14 +82,14 @@ export function WhatsAppOptInConsent({
           required={required}
         />
         <div className="flex-1 min-w-0 w-full">
-          <label htmlFor="whatsapp-opt-in" className="text-sm text-gray-600 cursor-pointer block w-full">
+          <label htmlFor="whatsapp-opt-in" className="text-xs sm:text-sm text-gray-600 cursor-pointer block w-full">
             <div className="flex items-start w-full">
-              <span className="flex-1 min-w-0 break-words">
+              <span className="flex-1 min-w-0 break-words leading-tight">
                 J'accepte de recevoir des notifications WhatsApp pour le suivi de mes services
                 {required && ' *'}
               </span>
               <svg 
-                className="w-4 h-4 ml-2 text-green-600 flex-shrink-0" 
+                className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2 text-green-600 flex-shrink-0 mt-0.5" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -103,12 +103,18 @@ export function WhatsAppOptInConsent({
               </svg>
             </div>
           </label>
-          <p className="text-xs text-gray-500 mt-2 leading-relaxed break-words">
-            Vous pourrez recevoir des mises à jour et notifications concernant votre commande via WhatsApp. 
-            Vous pouvez vous désinscrire à tout moment. Pour plus d'informations, consultez notre{' '}
-            <Link href="/legal/privacy" className={linkColorClass}>
-              politique de confidentialité
-            </Link>.
+          <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-2 leading-tight sm:leading-relaxed break-words">
+            <span className="sm:hidden">
+              Mises à jour et notifications via WhatsApp. Désinscription à tout moment. 
+              <Link href="/legal/privacy" className={linkColorClass}> En savoir plus</Link>.
+            </span>
+            <span className="hidden sm:inline">
+              Vous pourrez recevoir des mises à jour et notifications concernant votre commande via WhatsApp. 
+              Vous pouvez vous désinscrire à tout moment. Pour plus d'informations, consultez notre{' '}
+              <Link href="/legal/privacy" className={linkColorClass}>
+                politique de confidentialité
+              </Link>.
+            </span>
           </p>
         </div>
       </div>

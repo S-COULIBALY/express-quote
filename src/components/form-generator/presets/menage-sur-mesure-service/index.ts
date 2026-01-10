@@ -1,5 +1,6 @@
 import { FormConfig } from '../../types';
 import { CatalogueCleaningItem } from '@/types/booking';
+import { ServiceType } from '@/quotation/domain/enums/ServiceType';
 
 export interface MenageSurMesureServicePresetOptions {
   service: CatalogueCleaningItem;
@@ -10,8 +11,15 @@ export interface MenageSurMesureServicePresetOptions {
   sessionStorageKey?: string;
 }
 
-export const getMenageSurMesureServiceConfig = (options: MenageSurMesureServicePresetOptions): FormConfig => {
-  const { service, onPriceCalculated, onSubmitSuccess, onError, editMode, sessionStorageKey } = options;
+export const getMenageSurMesureServiceConfig = (serviceOrOptions: CatalogueCleaningItem | MenageSurMesureServicePresetOptions): FormConfig => {
+  // Support pour les deux signatures : ancien (objet options) et nouveau (service direct)
+  const isOptions = 'service' in serviceOrOptions || 'onPriceCalculated' in serviceOrOptions;
+  const service = isOptions ? (serviceOrOptions as MenageSurMesureServicePresetOptions).service : (serviceOrOptions as CatalogueCleaningItem);
+  const onPriceCalculated = isOptions ? (serviceOrOptions as MenageSurMesureServicePresetOptions).onPriceCalculated : undefined;
+  const onSubmitSuccess = isOptions ? (serviceOrOptions as MenageSurMesureServicePresetOptions).onSubmitSuccess : undefined;
+  const onError = isOptions ? (serviceOrOptions as MenageSurMesureServicePresetOptions).onError : undefined;
+  const editMode = isOptions ? (serviceOrOptions as MenageSurMesureServicePresetOptions).editMode : undefined;
+  const sessionStorageKey = isOptions ? (serviceOrOptions as MenageSurMesureServicePresetOptions).sessionStorageKey : undefined;
 
   // Auto-détection des valeurs par défaut depuis sessionStorage si en mode édition
   const getDefaultValues = () => {
@@ -29,49 +37,36 @@ export const getMenageSurMesureServiceConfig = (options: MenageSurMesureServiceP
     }
     
     return {
-      // Informations générales
-      typeLieu: '',
+      // Planification
+      scheduledDate: '',
+      location: '',
+      horaire: '',
+
+      // Surface & Dimensions
       surface: '',
-      nombrePieces: '',
-      etage: '0',
-      ascenseur: false,
-      
-      // Types de nettoyage
-      nettoyageGeneral: false,
-      nettoyageProfond: false,
-      nettoyageVitres: false,
-      nettoyageSols: false,
-      nettoyageSalleBain: false,
-      nettoyageCuisine: false,
-      nettoyageMeubles: false,
-      nettoyageElectromenager: false,
-      nettoyageExterieur: false,
-      
-      // Fréquence et planification
-      typeFrequence: '',
-      datePremierNettoyage: '',
-      horaireSouhaite: '',
-      dureeEstimee: '',
-      
-      // Produits et équipements
-      produitsFournis: false,
-      produitsEcologiques: false,
-      equipementsSpecifiques: [],
-      preferencesProduits: '',
-      
-      // Contraintes et accès
-      acces: '',
-      parking: false,
-      contraintesHoraires: '',
-      presenceRequise: false,
-      
-      // Contact
-      nom: '',
-      email: '',
-      telephone: '',
-      adresse: '',
-      commentaires: '',
-      
+      roomCount: '',
+      housingType: '',
+      ceilingHeight: '',
+
+
+      // Type de Nettoyage
+      cleaningType: '',
+      frequency: '',
+      cleaningLevel: '',
+      accessConstraints: [],
+
+      // Configuration
+      duration: '',
+      workers: '',
+
+
+      // Accès & Logistique
+      floor: '',
+      elevator: '',
+
+      // Spécificités
+      additionalInfo: '',
+
       // Ajouter les données du service au contexte
       serviceName: service.name,
       serviceDescription: service.description,
@@ -81,8 +76,8 @@ export const getMenageSurMesureServiceConfig = (options: MenageSurMesureServiceP
   };
 
   const config: FormConfig = {
-    title: `Réserver votre ménage sur mesure ${service.name}`,
-    description: "Personnalisez votre nettoyage selon vos besoins",
+    //title: `Réserver votre ménage sur mesure ${service.name}`,
+    //description: "Personnalisez votre nettoyage selon vos besoins",
     serviceType: "cleaning",
     customDefaults: getDefaultValues(),
     
@@ -115,52 +110,87 @@ export const getMenageSurMesureServiceConfig = (options: MenageSurMesureServiceP
             fields: [
               { key: "serviceName", label: "Service sélectionné", format: () => service.name },
               { key: "serviceDescription", label: "Description", format: () => service.description },
-              { 
-                key: "typeLieu", 
-                label: "Type de lieu", 
-                format: (value: any) => value || "À définir",
+              {
+                key: "cleaningType",
+                label: "Type de nettoyage",
+                format: (value: any) => value || "Non spécifié",
                 style: "font-medium text-gray-700"
               },
-              { 
-                key: "surface", 
-                label: "Surface", 
-                format: (value: any) => value ? `${value} m²` : "À définir",
+              {
+                key: "frequency",
+                label: "Fréquence",
+                format: (value: any) => value || "Non spécifiée",
                 style: "font-medium text-gray-700"
               }
             ]
           },
-          // Section Planification
+          // Section Surface & Configuration
           {
-            title: "Planification",
-            icon: "📅",
+            title: "Surface & Configuration",
+            icon: "📏",
             fields: [
-              { key: "datePremierNettoyage", label: "Date du premier nettoyage", format: (value: any) => value || "À définir" },
-              { key: "horaireSouhaite", label: "Horaire souhaité", format: (value: any) => value || "À définir" },
-              { key: "typeFrequence", label: "Fréquence", format: (value: any) => value || "À définir" },
-              { key: "dureeEstimee", label: "Durée estimée", format: (value: any) => value || "À définir" }
+              {
+                key: "surface",
+                label: "Surface",
+                format: (value: any) => `${value || 0} m²`,
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "roomCount",
+                label: "Pièces",
+                format: (value: any) => `${value || 0} pièce${(value || 0) > 1 ? 's' : ''}`,
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "housingType",
+                label: "Type de logement",
+                format: (value: any) => value || "Non spécifié",
+                style: "font-medium text-gray-700"
+              },
             ]
           },
-          // Section Services de nettoyage
+          // Section Configuration du service
           {
-            title: "Services de nettoyage",
-            icon: "🧽",
+            title: "Configuration",
+            icon: "⚙️",
             fields: [
-              { key: "nettoyageGeneral", label: "Nettoyage général", format: (value: any) => value ? "Oui" : "Non" },
-              { key: "nettoyageProfond", label: "Nettoyage en profondeur", format: (value: any) => value ? "Oui" : "Non" },
-              { key: "nettoyageVitres", label: "Nettoyage des vitres", format: (value: any) => value ? "Oui" : "Non" },
-              { key: "nettoyageSols", label: "Nettoyage des sols", format: (value: any) => value ? "Oui" : "Non" },
-              { key: "nettoyageSalleBain", label: "Nettoyage salle de bain", format: (value: any) => value ? "Oui" : "Non" },
-              { key: "nettoyageCuisine", label: "Nettoyage cuisine", format: (value: any) => value ? "Oui" : "Non" }
+              {
+                key: "duration",
+                label: "Durée estimée",
+                format: (value: any) => `${value || 0} heure${(value || 0) > 1 ? 's' : ''}`,
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "workers",
+                label: "Professionnels",
+                format: (value: any) => `${value || 0} professionnel${(value || 0) > 1 ? 's' : ''}`,
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "cleaningLevel",
+                label: "Niveau de nettoyage",
+                format: (value: any) => value || "Non spécifié",
+                style: "font-medium text-gray-700"
+              }
             ]
           },
-          // Section Produits et équipements
+          // Section Accès
           {
-            title: "Produits et équipements",
-            icon: "🧴",
+            title: "Accès",
+            icon: "🚪",
             fields: [
-              { key: "produitsFournis", label: "Produits fournis", format: (value: any) => value ? "Oui" : "Non" },
-              { key: "produitsEcologiques", label: "Produits écologiques", format: (value: any) => value ? "Oui" : "Non" },
-              { key: "equipementsSpecifiques", label: "Équipements spécifiques", format: (value: any) => value?.length > 0 ? value.join(', ') : "Aucun" }
+              {
+                key: "floor",
+                label: "Étage",
+                format: (value: any) => value || "Non spécifié",
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "elevator",
+                label: "Ascenseur",
+                format: (value: any) => value || "Non spécifié",
+                style: "font-medium text-gray-700"
+              },
             ]
           },
           // Section Prix dynamique
@@ -169,9 +199,9 @@ export const getMenageSurMesureServiceConfig = (options: MenageSurMesureServiceP
             icon: "💰",
             fields: [
               { key: "basePrice", label: "Prix de base", format: () => "Sur devis" },
-              { 
-                key: "totalPrice", 
-                label: "Total estimé", 
+              {
+                key: "totalPrice",
+                label: "Total estimé",
                 format: () => "Calcul en cours...", // Sera mis à jour dynamiquement
                 style: "font-bold text-emerald-600"
               }
@@ -183,184 +213,12 @@ export const getMenageSurMesureServiceConfig = (options: MenageSurMesureServiceP
 
     sections: [
       {
-        title: "🏠 Informations générales",
-        columns: 2,
+        title: "📅 Planification",
         fields: [
           {
-            name: "typeLieu",
-            type: "select",
-            label: "Type de lieu",
-            required: true,
-            options: [
-              { value: "appartement", label: "Appartement" },
-              { value: "maison", label: "Maison" },
-              { value: "bureau", label: "Bureau" },
-              { value: "commerce", label: "Commerce" },
-              { value: "entrepot", label: "Entrepôt/Local" },
-              { value: "autre", label: "Autre" }
-            ]
-          },
-          {
-            name: "surface",
-            type: "number",
-            label: "Surface à nettoyer (m²)",
-            required: true,
-            validation: {
-              min: 1,
-              max: 2000,
-              custom: (value: any) => {
-                if (!value || value <= 0) return "La surface doit être supérieure à 0";
-                if (value > 2000) return "La surface ne peut pas dépasser 2000 m²";
-                return true;
-              }
-            },
-            componentProps: {
-              min: 1,
-              max: 2000,
-              placeholder: "Ex: 120"
-            }
-          },
-          {
-            name: "nombrePieces",
-            type: "number",
-            label: "Nombre de pièces",
-            required: true,
-            validation: {
-              min: 1,
-              max: 50,
-              custom: (value: any) => {
-                if (!value || value <= 0) return "Le nombre de pièces doit être supérieur à 0";
-                if (value > 50) return "Le nombre de pièces ne peut pas dépasser 50";
-                return true;
-              }
-            },
-            componentProps: {
-              min: 1,
-              max: 50,
-              placeholder: "Ex: 6"
-            }
-          },
-          {
-            name: "etage",
-            type: "select",
-            label: "Étage",
-            options: [
-              { value: "0", label: "Rez-de-chaussée" },
-              { value: "1", label: "1er étage" },
-              { value: "2", label: "2ème étage" },
-              { value: "3", label: "3ème étage" },
-              { value: "4", label: "4ème étage" },
-              { value: "5+", label: "5ème étage et plus" }
-            ]
-          },
-          {
-            name: "ascenseur",
-            type: "checkbox",
-            label: "Ascenseur disponible",
-            columnSpan: 2
-          }
-        ]
-      },
-      {
-        title: "🧹 Types de nettoyage",
-        columns: 2,
-        fields: [
-          {
-            name: "nettoyageGeneral",
-            type: "checkbox",
-            label: "Nettoyage général",
-            componentProps: {
-              helpText: "Nettoyage de base des surfaces"
-            }
-          },
-          {
-            name: "nettoyageProfond",
-            type: "checkbox",
-            label: "Nettoyage en profondeur",
-            componentProps: {
-              helpText: "Nettoyage approfondi et dégraissage"
-            }
-          },
-          {
-            name: "nettoyageVitres",
-            type: "checkbox",
-            label: "Nettoyage des vitres",
-            componentProps: {
-              helpText: "Nettoyage des fenêtres et miroirs"
-            }
-          },
-          {
-            name: "nettoyageSols",
-            type: "checkbox",
-            label: "Nettoyage des sols",
-            componentProps: {
-              helpText: "Nettoyage et traitement des sols"
-            }
-          },
-          {
-            name: "nettoyageSalleBain",
-            type: "checkbox",
-            label: "Nettoyage salle de bain",
-            componentProps: {
-              helpText: "Nettoyage complet de la salle de bain"
-            }
-          },
-          {
-            name: "nettoyageCuisine",
-            type: "checkbox",
-            label: "Nettoyage cuisine",
-            componentProps: {
-              helpText: "Nettoyage complet de la cuisine"
-            }
-          },
-          {
-            name: "nettoyageMeubles",
-            type: "checkbox",
-            label: "Nettoyage des meubles",
-            componentProps: {
-              helpText: "Nettoyage et dépoussiérage des meubles"
-            }
-          },
-          {
-            name: "nettoyageElectromenager",
-            type: "checkbox",
-            label: "Nettoyage électroménager",
-            componentProps: {
-              helpText: "Nettoyage des appareils électroménagers"
-            }
-          },
-          {
-            name: "nettoyageExterieur",
-            type: "checkbox",
-            label: "Nettoyage extérieur",
-            columnSpan: 2,
-            componentProps: {
-              helpText: "Nettoyage des espaces extérieurs"
-            }
-          }
-        ]
-      },
-      {
-        title: "📅 Fréquence et planification",
-        columns: 2,
-        fields: [
-          {
-            name: "typeFrequence",
-            type: "select",
-            label: "Type de fréquence",
-            required: true,
-            options: [
-              { value: "ponctuel", label: "Ponctuel (une fois)" },
-              { value: "hebdomadaire", label: "Hebdomadaire" },
-              { value: "bi-hebdomadaire", label: "Bi-hebdomadaire" },
-              { value: "mensuel", label: "Mensuel" },
-              { value: "personnalise", label: "Personnalisé" }
-            ]
-          },
-          {
-            name: "datePremierNettoyage",
+            name: "scheduledDate",
             type: "date",
-            label: "Date du premier nettoyage",
+            label: "Date souhaitée",
             required: true,
             validation: {
               custom: (value: any) => {
@@ -372,190 +230,231 @@ export const getMenageSurMesureServiceConfig = (options: MenageSurMesureServiceP
               }
             }
           },
+
           {
-            name: "horaireSouhaite",
+            name: "horaire",
             type: "select",
-            label: "Horaire souhaité",
+            label: "Horaire de RDV",
             required: true,
             options: [
-              { value: "matin", label: "Matin (8h-12h)" },
-              { value: "apres-midi", label: "Après-midi (13h-17h)" },
-              { value: "soir", label: "Soir (18h-22h)" },
-              { value: "flexible", label: "Flexible" }
+              { value: "matin", label: "Matin - 6h" },
+              { value: "matin", label: "Matin - 8h" },
+              { value: "apres-midi", label: "Après-midi - 13h" },
+              { value: "soirée", label: "soirée - 18h" },
+              { value: "flexible", label: "Flexible - selon disponibilité" }
             ]
           },
-          {
-            name: "dureeEstimee",
-            type: "select",
-            label: "Durée estimée",
-            required: true,
-            options: [
-              { value: "1-2h", label: "1-2 heures" },
-              { value: "2-4h", label: "2-4 heures" },
-              { value: "4-6h", label: "4-6 heures" },
-              { value: "6-8h", label: "6-8 heures" },
-              { value: "plus-8h", label: "Plus de 8 heures" }
-            ]
-          }
+          
         ]
       },
       {
-        title: "🧴 Produits et équipements",
-        columns: 2,
+        title: "📍 Lieu d'intervention",
         fields: [
           {
-            name: "produitsFournis",
-            type: "checkbox",
-            label: "Produits fournis par le prestataire",
-            componentProps: {
-              helpText: "Produits de nettoyage professionnels"
-            }
-          },
-          {
-            name: "produitsEcologiques",
-            type: "checkbox",
-            label: "Produits écologiques",
-            componentProps: {
-              helpText: "Produits respectueux de l'environnement"
-            }
-          },
-          {
-            name: "equipementsSpecifiques",
-            type: "custom",
-            label: "Équipements spécifiques",
-            required: false,
-            columnSpan: 2,
-            componentProps: {
-              type: "checkbox-group",
-              options: [
-                { value: "aspirateur", label: "Aspirateur" },
-                { value: "balai-vapeur", label: "Balai vapeur" },
-                { value: "monte-charge", label: "Monte-charge" },
-                { value: "echelle", label: "Échelle" },
-                { value: "autre", label: "Autre" }
-              ]
-            }
-          },
-          {
-            name: "preferencesProduits",
-            type: "textarea",
-            label: "Préférences particulières",
-            columnSpan: 2,
-            componentProps: {
-              rows: 3,
-              placeholder: "Produits spécifiques, allergies, contraintes..."
-            }
-          }
-        ]
-      },
-      {
-        title: "🚪 Contraintes et accès",
-        columns: 2,
-        fields: [
-          {
-            name: "acces",
-            type: "select",
-            label: "Type d'accès",
-            required: true,
-            options: [
-              { value: "libre", label: "Accès libre" },
-              { value: "gardien", label: "Gardien/concierge" },
-              { value: "interphone", label: "Interphone" },
-              { value: "code", label: "Code d'accès" },
-              { value: "autre", label: "Autre" }
-            ]
-          },
-          {
-            name: "parking",
-            type: "checkbox",
-            label: "Parking disponible",
-            componentProps: {
-              helpText: "Place de parking pour l'équipe"
-            }
-          },
-          {
-            name: "contraintesHoraires",
-            type: "textarea",
-            label: "Contraintes horaires",
-            columnSpan: 2,
-            componentProps: {
-              rows: 2,
-              placeholder: "Horaires d'accès, contraintes particulières..."
-            }
-          },
-          {
-            name: "presenceRequise",
-            type: "checkbox",
-            label: "Présence requise pendant le nettoyage",
-            columnSpan: 2,
-            componentProps: {
-              helpText: "Présence obligatoire pendant l'intervention"
-            }
-          }
-        ]
-      },
-      {
-        title: "📍 Adresse du lieu",
-        fields: [
-          {
-            name: "adresse",
+            name: "location",
             type: "address-pickup",
-            label: "Adresse du lieu à nettoyer",
+            label: "Adresse",
             required: true,
-            columnSpan: 2,
-            validation: {
-              custom: (value: any) => value?.trim() || "L'adresse est requise"
-            }
+            columnSpan: 2
+          },
+          {
+            name: "floor",
+            type: "select",
+            label: "Étage",
+            required: true,
+            options: [
+              { value: "-1", label: "Sous-sol" },
+              { value: "0", label: "RDC" },
+              { value: "1", label: "1er étage" },
+              { value: "2", label: "2ème étage" },
+              { value: "3", label: "3ème étage" },
+              { value: "4", label: "4ème étage" },
+              { value: "5", label: "5ème étage" },
+              { value: "6", label: "6ème étage" },
+              { value: "7", label: "7ème étage" },
+              { value: "8", label: "8ème étage" },
+              { value: "9", label: "9ème étage" },
+              { value: "10+", label: "10ème étage et plus" }
+            ]
+          },
+          {
+            name: "elevator",
+            type: "select",
+            label: "Ascenseur",
+            required: true,
+            options: [
+              { value: "no", label: "Aucun" },
+              { value: "small", label: "Petit (1-3 pers)" },
+              { value: "medium", label: "Moyen (3-6 pers)" },
+              { value: "large", label: "Grand (+6 pers)" }
+            ]
           }
         ]
       },
       {
-        title: "📞 Contact",
+        title: "📏 Surface & Dimensions",
         columns: 2,
         fields: [
           {
-            name: "nom",
-            type: "text",
-            label: "Nom complet",
+            name: "surface",
+            type: "number",
+            label: "Surface totale (m²)",
             required: true,
             validation: {
-              custom: (value: any) => value?.trim() || "Le nom est requis"
-            }
-          },
-          {
-            name: "email",
-            type: "email",
-            label: "Email",
-            required: true,
-            validation: {
-              custom: (value: any) => {
-                if (!value) return "L'email est requis";
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                return emailRegex.test(value) || "Format d'email invalide";
-              }
-            }
-          },
-          {
-            name: "telephone",
-            type: "text",
-            label: "Téléphone",
-            required: true,
-            validation: {
-              custom: (value: any) => value?.trim() || "Le téléphone est requis"
+              min: 1,
+              custom: (value: any) => value >= 1 || "Surface minimum 1m²"
             },
             componentProps: {
-              type: "tel",
-              placeholder: "06 12 34 56 78"
+              helpText: "Surface totale à nettoyer en mètres carrés"
             }
           },
           {
-            name: "commentaires",
+            name: "roomCount",
+            type: "number",
+            label: "Nombre de pièces",
+            required: true,
+            validation: {
+              min: 1,
+              custom: (value: any) => value >= 1 || "Minimum 1 pièce"
+            },
+            componentProps: {
+              helpText: "Nombre total de pièces à nettoyer"
+            }
+          },
+          {
+            name: "housingType",
+            type: "select",
+            label: "Type de logement",
+            required: true,
+            options: [
+              { value: "apartment", label: "Appartement" },
+              { value: "house", label: "Maison" },
+              { value: "office", label: "Bureau" },
+              { value: "commercial", label: "Local commercial" },
+              { value: "other", label: "Autre" }
+            ]
+          },
+          {
+            name: "ceilingHeight",
+            type: "select",
+            label: "Hauteur sous plafond",
+            required: true,
+            options: [
+              { value: "standard", label: "Standard (2.5-3m)" },
+              { value: "high", label: "Élevé (3-4m)" },
+              { value: "very-high", label: "Très élevé (4m+)" }
+            ],
+            componentProps: {
+              helpText: "Nécessaire pour l'équipement (échelles, perches)"
+            }
+          }
+        ]
+      },
+      {
+        title: "🧹 Type de Nettoyage",
+        columns: 2,
+        fields: [
+          {
+            name: "cleaningType",
+            type: "select",
+            label: "Type de service",
+            required: true,
+            options: [
+              { value: "maintenance", label: "Entretien régulier" },
+              { value: "deep-cleaning", label: "Nettoyage approfondi" },
+              { value: "post-construction", label: "Fin de chantier" },
+              { value: "moving", label: "Avant/après déménagement" },
+              { value: "spring-cleaning", label: "Grand nettoyage" },
+              { value: "commercial", label: "Nettoyage commercial" },
+              { value: "other", label: "Autre" }
+            ]
+          },
+          {
+            name: "frequency",
+            type: "select",
+            label: "Fréquence souhaitée",
+            required: true,
+            options: [
+              { value: "one-time", label: "Ponctuel" },
+              { value: "weekly", label: "Hebdomadaire" },
+              { value: "bi-weekly", label: "Bi-hebdomadaire" },
+              { value: "monthly", label: "Mensuel" },
+              { value: "quarterly", label: "Trimestriel" }
+            ]
+          },
+          {
+            name: "cleaningLevel",
+            type: "select",
+            label: "Niveau de nettoyage",
+            required: true,
+            options: [
+              { value: "standard", label: "Standard" },
+              { value: "thorough", label: "Approfondi" },
+              { value: "premium", label: "Premium" }
+            ],
+            componentProps: {
+              helpText: "Standard: nettoyage de base / Approfondi: détails / Premium: perfection"
+            }
+          },
+          {
+            name: "accessConstraints",
+            type: "access-constraints",
+            label: "Spécificités",
+            componentProps: {
+              type: "pickup",
+              buttonLabel: "Spécificités & Contraintes",
+              modalTitle: "Contraintes d'accès & Services Supplémentaires",
+              showServices: true,
+              serviceType: ServiceType.CLEANING
+            }
+          }
+        ]
+      },
+      {
+        title: "⚙️ Configuration du service",
+        columns: 2,
+        fields: [
+          {
+            name: "workers",
+            type: "number",
+            label: "Nombre de travailleurs",
+            required: true,
+            validation: {
+              min: 1,
+              custom: (value: any) => value >= 1 || "Minimum 1 travailleur"
+            },
+            componentProps: {
+              helpText: "Nombre de travailleurs souhaité (sera optimisé selon la surface)"
+            }
+          },
+
+          {
+            name: "duration",
+            type: "number",
+            label: "Durée/travailleur (en heures)",
+            required: true,
+            validation: {
+              min: 1,
+              custom: (value: any) => value >= 1 || "Minimum 1 heure"
+            },
+            componentProps: {
+              helpText: "Durée estimée par vous (sera ajustée par nos professionnels)"
+            }
+          }
+
+        ]
+      },
+      {
+        title: "📝 Informations supplémentaires",
+        fields: [
+          {
+            name: "additionalInfo",
             type: "textarea",
-            label: "Commentaires supplémentaires",
+            label: "votre message",
             columnSpan: 2,
             componentProps: {
               rows: 3,
-              placeholder: "Informations complémentaires sur vos besoins..."
+              placeholder: "Précisez vos besoins spécifiques, vos coordonnées et détaillez les contraintes sélectionnées si nécessaire"
             }
           }
         ]
@@ -576,18 +475,27 @@ export const getMenageSurMesureServiceConfig = (options: MenageSurMesureServiceP
     // Handlers qui utilisent les callbacks
     onChange: onPriceCalculated ? async (fieldName: string, value: any, formData: any) => {
       const priceRelevantFields = [
-        'typeLieu', 'surface', 'nombrePieces', 'etage', 'ascenseur',
-        'nettoyageGeneral', 'nettoyageProfond', 'nettoyageVitres', 'nettoyageSols',
-        'nettoyageSalleBain', 'nettoyageCuisine', 'nettoyageMeubles',
-        'nettoyageElectromenager', 'nettoyageExterieur', 'typeFrequence',
-        'dureeEstimee', 'produitsFournis', 'produitsEcologiques'
+        // Planification
+        'scheduledDate', 'location', 'horaire', 'floor', 'elevator',
+        // Surface & Dimensions
+        'surface', 'roomCount', 'housingType', 'ceilingHeight',
+        // Type de Nettoyage
+        'cleaningType', 'frequency', 'cleaningLevel', 'accessConstraints',
+        // Configuration
+        'duration', 'workers',
+        // Spécificités
+        'additionalInfo'
       ];
-      
+
       if (priceRelevantFields.includes(fieldName)) {
         try {
-          // Le hook externe gérera le calcul réel
-          onPriceCalculated(0, formData);
+          console.log('🔄 [PRESET] Changement de champ détecté:', fieldName, '=', value);
+          console.log('📊 [PRESET] FormData complet:', formData);
+
+          // Déclencher le callback avec le prix calculé (sera géré par DetailForm)
+          onPriceCalculated(formData.calculatedPrice || service.price, formData);
         } catch (error) {
+          console.error('❌ [PRESET] Erreur onChange:', error);
           onError?.(error);
         }
       }

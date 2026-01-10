@@ -13,7 +13,6 @@ export interface NormalizedQuoteData {
     basePrice?: number;
     totalPrice?: number;
     calculatedPrice?: number;
-    formData?: Record<string, any>;
     __presetSnapshot?: {
         workers: number;
         distance: number;

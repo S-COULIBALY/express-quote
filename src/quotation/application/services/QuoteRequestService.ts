@@ -30,20 +30,26 @@ export class QuoteRequestService {
      * Crée une nouvelle demande de devis
      */
     async createQuoteRequest(data: Record<string, any>): Promise<QuoteRequest> {
-        logger.info(`🔄 Création d'une demande de devis - serviceType: ${data.serviceType}`);
+        logger.info('\n\n\n═══ DEBUT QuoteRequestService.createQuoteRequest ═══');
+        logger.info(`📁 [QuoteRequestService.ts] ▶️ Début création demande de devis - serviceType: ${data.serviceType}`);
         
         try {
             // Validation des données (inclut la normalisation)
             const validatedData = this.validationService.validateQuoteRequestData(data);
+            logger.info('📁 [QuoteRequestService.ts] ✅ Données validées');
             
             // ✅ CORRECTION : Passer seulement quoteData au constructeur, pas tout l'objet validé
             const quoteRequest = new QuoteRequest(validatedData.serviceType, validatedData.quoteData);
             const savedQuoteRequest = await this.quoteRequestRepository.save(quoteRequest);
             
-            logger.info(`✅ Demande de devis créée: ${savedQuoteRequest.getId()} (${savedQuoteRequest.getTemporaryId()})`);
+            logger.info(`📁 [QuoteRequestService.ts] ✅ Demande de devis créée: ${savedQuoteRequest.getId()} (${savedQuoteRequest.getTemporaryId()})`);
+            logger.info('📁 [QuoteRequestService.ts] ⏹ Fin QuoteRequestService.createQuoteRequest');
+            logger.info('═══⏹ FIN QuoteRequestService.createQuoteRequest ═══\n\n\n');
             return savedQuoteRequest;
         } catch (error) {
-            logger.error(`❌ Erreur lors de la création de la demande de devis: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+            logger.error(`📁 [QuoteRequestService.ts] ❌ Erreur lors de la création de la demande de devis: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+            logger.info('📁 [QuoteRequestService.ts] ⏹ Fin QuoteRequestService.createQuoteRequest (erreur)');
+            logger.info('═══⏹ FIN QuoteRequestService.createQuoteRequest ═══\n\n\n');
             throw error;
         }
     }

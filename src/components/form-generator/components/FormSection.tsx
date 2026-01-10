@@ -22,12 +22,6 @@ export const FormSection: React.FC<FormSectionProps> = ({
   onFieldChange,
   layoutType
 }) => {
-  console.log('📄 [ÉTAPE 9] FormSection - Rendu section:', {
-    sectionTitle: section.title,
-    fieldsCount: section.fields.length,
-    columns: section.columns,
-    layoutType: layoutType
-  });
   const [isExpanded, setIsExpanded] = useState(
     section.defaultExpanded ?? true
   );
@@ -45,7 +39,7 @@ export const FormSection: React.FC<FormSectionProps> = ({
   const effectiveColumns = section.columns ?? (layoutType === "sidebar" ? 2 : 1);
 
   return (
-    <div className={`space-y-2 sm:space-y-4 ${section.className || ""}`}>
+    <div className={`space-y-6 sm:space-y-4 ${section.className || ""}`}>
       {/* En-tête de section */}
       {(section.title || section.description) && (
         <div className="border-b border-gray-200 pb-1 sm:pb-3">
@@ -96,10 +90,10 @@ export const FormSection: React.FC<FormSectionProps> = ({
       {isExpanded && (
         <div className={`${
           effectiveColumns === 3
-            ? "grid grid-cols-3 gap-2 sm:gap-4"
+            ? "grid grid-cols-3 gap-x-2 gap-y-6 sm:gap-4"
             : effectiveColumns === 2 
-              ? "grid grid-cols-2 gap-2 sm:gap-4" 
-              : "space-y-2 sm:space-y-4 max-w-md"
+              ? "grid grid-cols-2 gap-x-2 gap-y-6 sm:gap-4" 
+              : "space-y-6 sm:space-y-4 max-w-md"
         }`}>
           {section.fields.map((field, index) => {
             // Vérifier les conditions d'affichage
@@ -149,7 +143,6 @@ export const FormSection: React.FC<FormSectionProps> = ({
                   errors={errors}
                   value={formData?.[field.name]}
                   onChange={(value) => {
-                    console.log('🔄 [ÉTAPE 9.1] FormSection relay - Field change:', field.name, '=', value);
                     onFieldChange?.(field.name, value);
                   }}
                   formData={formData}

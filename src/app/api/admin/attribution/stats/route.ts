@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
           critical: criticalAlerts.critical,
           warnings: criticalAlerts.warnings
         },
-        activeAttributions: activeAttributions.map(attr => ({
+        activeAttributions: activeAttributions.map((attr: any) => ({
           id: attr.id,
           bookingId: attr.bookingId,
           serviceType: attr.serviceType,
@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
           acceptedProfessionalId: attr.acceptedProfessionalId,
           maxDistanceKm: attr.maxDistanceKm
         })),
-        professionalSessions: professionalSessions.map(session => ({
+        professionalSessions: professionalSessions.map((session: any) => ({
           id: session.id,
           professionalId: session.professionalId,
           professionalName: session.professional?.companyName || 'Professionnel',
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
           lastPoll: session.lastPoll || session.lastActivity,
           unreadUpdates: session.unreadUpdatesCount || 0
         })),
-        recentUpdates: recentUpdates.map(update => ({
+        recentUpdates: recentUpdates.map((update: any) => ({
           id: update.id,
           attributionId: update.attributionId,
           updateType: update.updateType,
@@ -299,7 +299,7 @@ async function calculateAverageResponseTime(prisma: any): Promise<number> {
 
     if (recentAttributions.length === 0) return 0;
 
-    const totalMinutes = recentAttributions.reduce((sum, attr) => {
+    const totalMinutes = recentAttributions.reduce((sum: any, attr: any) => {
       const diff = new Date(attr.updatedAt).getTime() - new Date(attr.createdAt).getTime();
       return sum + (diff / (1000 * 60)); // Convertir en minutes
     }, 0);
@@ -543,15 +543,15 @@ async function calculateBusinessMetrics(prisma: any) {
     });
 
     // Calculer les valeurs réelles
-    const totalValue = activeAttributions.reduce((sum, attr) =>
+    const totalValue = activeAttributions.reduce((sum: any, attr: any) =>
       sum + (attr.booking?.totalAmount || 0), 0
     );
 
-    const lostValue = lostAttributions.reduce((sum, attr) =>
+    const lostValue = lostAttributions.reduce((sum: any, attr: any) =>
       sum + (attr.booking?.totalAmount || 0), 0
     );
 
-    const completedValue = completedAttributions.reduce((sum, attr) =>
+    const completedValue = completedAttributions.reduce((sum: any, attr: any) =>
       sum + (attr.booking?.totalAmount || 0), 0
     );
 

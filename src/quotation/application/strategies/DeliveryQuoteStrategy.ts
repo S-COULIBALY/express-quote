@@ -1,3 +1,4 @@
+import { devLog } from '../../../lib/conditional-logger';
 import { injectable, inject } from "inversify";
 import { QuoteStrategy } from "../../domain/interfaces/QuoteStrategy";
 import { QuoteContext } from "../../domain/valueObjects/QuoteContext";
@@ -7,6 +8,7 @@ import { ServiceType } from "../../domain/enums/ServiceType";
 import { ConfigurationService } from "../services/ConfigurationService";
 import { RuleEngine } from "../../domain/services/RuleEngine";
 import { calculationDebugLogger } from "../../../lib/calculation-debug-logger";
+import { logger } from "../../../lib/logger";
 import {
   UnifiedDataService,
   ServiceType as UnifiedServiceType,
@@ -32,15 +34,16 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
     this.ruleEngine = ruleEngine || new RuleEngine([]);
     this.rules = this.ruleEngine.getRules();
 
-    // ✅ NOUVEAU: Service unifié pour accès aux données
+    // Service unifié pour accès aux données
     this.unifiedDataService = UnifiedDataService.getInstance();
 
-    // ✅ NOUVEAU: Charger les règles métier au démarrage
+    // Charger les règles métier au démarrage
     this.initializeRules();
   }
 
   /**
-   * ✅ NOUVEAU: Initialise les règles métier depuis le système unifié
+   * Initialise les règles métier depuis le système unifié
+   * Charge toutes les règles actives DELIVERY
    */
   private async initializeRules(): Promise<void> {
     try {
@@ -49,20 +52,46 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
           UnifiedServiceType.DELIVERY,
         );
       if (businessRules.length > 0) {
-        console.log(
+        devLog.debug('Strategy',
           `✅ [DELIVERY-STRATEGY] ${businessRules.length} règles métier chargées depuis UnifiedDataService`,
         );
         // Remplacer le RuleEngine avec les nouvelles règles
         this.ruleEngine = new RuleEngine(businessRules);
       } else {
-        console.log(
+        devLog.debug('Strategy',
           "⚠️ [DELIVERY-STRATEGY] Aucune règle métier trouvée, utilisation des règles par défaut",
         );
       }
     } catch (error) {
-      console.warn(
+      devLog.warn('Strategy',
         "⚠️ [DELIVERY-STRATEGY] Erreur lors du chargement des règles métier:",
         error,
+      );
+      // Garder le RuleEngine existant en cas d'erreur
+    }
+  }
+
+  /**
+   * Recharge les règles métier depuis le système unifié
+   * Le filtrage se fait automatiquement : seules les règles SÉLECTIONNÉES s'appliquent
+   */
+  private async initializeRulesWithContext(context: QuoteContext): Promise<void> {
+    try {
+      const businessRules =
+        await this.unifiedDataService.getBusinessRulesForEngine(
+          UnifiedServiceType.DELIVERY
+        );
+
+      if (businessRules.length > 0) {
+        devLog.debug('Strategy',
+          `✅ [DELIVERY-STRATEGY] ${businessRules.length} règles métier chargées`
+        );
+        // Remplacer le RuleEngine avec toutes les règles
+        this.ruleEngine = new RuleEngine(businessRules);
+      }
+    } catch (error) {
+      devLog.warn('Strategy',
+        "⚠️ [DELIVERY-STRATEGY] Erreur lors du rechargement des règles métier:", error
       );
       // Garder le RuleEngine existant en cas d'erreur
     }
@@ -75,10 +104,16 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
   async calculate(context: QuoteContext): Promise<Quote> {
     const startTime = Date.now();
     const data = context.getAllData();
+    const serviceType = context.getServiceType();
+
+    // Log de début
+    devLog.debug('DeliveryStrategy', `🎯 Calcul ${serviceType}`);
 
     calculationDebugLogger.startPriceCalculation(this.serviceType, data);
 
     try {
+      // Recharger les règles métier
+      await this.initializeRulesWithContext(context);
       if (!this.hasModifications(context)) {
         const defaultQuote = new Quote(
           new Money(data.defaultPrice || 0),
@@ -97,18 +132,50 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       const enrichedContext = await this.enrichContext(context);
       const basePrice = await this.getBasePrice(enrichedContext);
 
-      const { finalPrice, discounts } = this.ruleEngine.execute(
+      // Appliquer les règles métier via le RuleEngine (startRulesEngine appelé dans RuleEngine.execute)
+      const ruleResult = this.ruleEngine.execute(
         enrichedContext,
         new Money(basePrice),
       );
 
+      devLog.debug('Strategy', 
+        `\n📊 [DELIVERY-STRATEGY] Résultat du RuleEngine (nouvelle architecture):`,
+      );
+      devLog.debug('Strategy', 
+        `   └─ Prix de base: ${ruleResult.basePrice.getAmount().toFixed(2)}€`,
+      );
+      devLog.debug('Strategy', 
+        `   └─ Prix final: ${ruleResult.finalPrice.getAmount().toFixed(2)}€`,
+      );
+      devLog.debug('Strategy', 
+        `   └─ Total réductions: ${ruleResult.totalReductions.getAmount().toFixed(2)}€`,
+      );
+      devLog.debug('Strategy', 
+        `   └─ Total surcharges: ${ruleResult.totalSurcharges.getAmount().toFixed(2)}€`,
+      );
+      devLog.debug('Strategy', 
+        `      → Contraintes logistiques: ${ruleResult.totalConstraints.getAmount().toFixed(2)}€`,
+      );
+      devLog.debug('Strategy', 
+        `      → Services supplémentaires: ${ruleResult.totalAdditionalServices.getAmount().toFixed(2)}€`,
+      );
+      devLog.debug('Strategy', 
+        `   └─ Nombre total de règles: ${ruleResult.appliedRules.length}`,
+      );
+
+      const discounts = (ruleResult as any).discounts || [];
+
+      // ✅ NOUVEAU: Stocker le RuleExecutionResult dans le contexte pour traçabilité
+      context.setValue('__ruleExecutionResult', ruleResult);
+
       const quote = new Quote(
         new Money(basePrice),
-        finalPrice,
+        ruleResult.finalPrice,
         discounts,
         this.serviceType,
       );
       calculationDebugLogger.logFinalCalculation(quote, Date.now() - startTime);
+      calculationDebugLogger.finishRulesEngine({ finalPrice: quote.getTotalPrice().getAmount(), appliedRules: discounts });
 
       return quote;
     } catch (error) {
@@ -118,6 +185,9 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
         data,
       );
       throw error;
+    } finally {
+      // Log de fin
+      devLog.debug('DeliveryStrategy', `✅ Calcul terminé en ${Date.now() - startTime}ms`);
     }
   }
 
@@ -128,20 +198,20 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
     const volume = data.volume || 0;
     const urgency = data.urgency || "normal";
 
-    console.log(
+    devLog.debug('Strategy', 
       "\n🚚 [DELIVERY-STRATEGY] ═══════════════════════════════════════════════════",
     );
-    console.log(
+    devLog.debug('Strategy', 
       "🚚 [DELIVERY-STRATEGY] ═══ DÉBUT CALCUL PRIX DE BASE DELIVERY ═══",
     );
-    console.log(
+    devLog.debug('Strategy', 
       "🚚 [DELIVERY-STRATEGY] ═══════════════════════════════════════════════════",
     );
-    console.log(
+    devLog.debug('Strategy', 
       "📊 [DELIVERY-STRATEGY] Type de service:",
       context.getServiceType(),
     );
-    console.log("📋 [DELIVERY-STRATEGY] Données d'entrée:", {
+    devLog.debug('Strategy', "📋 [DELIVERY-STRATEGY] Données d'entrée:", {
       defaultPrice: data.defaultPrice,
       distance,
       weight,
@@ -154,84 +224,108 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       "DELIVERY_BASE_PRICE",
     );
     let basePrice = Math.max(data.defaultPrice || 0, minimumPrice);
+    if (minimumPrice > (data.defaultPrice || 0)) {
+      calculationDebugLogger.logPriceComponent('Prix minimum', minimumPrice, `max(${data.defaultPrice || 0}€, ${minimumPrice}€)`, { minimumPrice }, 'max(defaultPrice, minimumPrice)');
+    }
 
     if (data.defaultPrice && data.defaultPrice < minimumPrice) {
-      console.log(
+      devLog.debug('Strategy', 
         `⚠️  [DELIVERY-STRATEGY] Prix initial (${data.defaultPrice.toFixed(2)}€) < minimum (${minimumPrice.toFixed(2)}€)`,
       );
-      console.log(
+      devLog.debug('Strategy', 
         `✅ [DELIVERY-STRATEGY] Application du prix minimum: ${minimumPrice.toFixed(2)}€`,
       );
     }
 
-    console.log(
+    devLog.debug('Strategy', 
       `\n💰 [DELIVERY-STRATEGY] PRIX DE BASE INITIAL: ${basePrice.toFixed(2)}€`,
     );
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    devLog.debug('Strategy', "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // ✅ AMÉLIORATION: Détails distance
-    console.log("\n📏 [DELIVERY-STRATEGY] ─── Calcul Distance ───");
+    devLog.debug('Strategy', "\n📏 [DELIVERY-STRATEGY] ─── Calcul Distance ───");
     let distanceCost = 0;
     if (distance > 0) {
       const pricePerKm = await configAccessService.get<number>(
         "DELIVERY_PRICE_PER_KM",
       );
       distanceCost = distance * pricePerKm;
-      console.log(`   🛣️  Distance à parcourir: ${distance}km`);
-      console.log(`   💶 Tarif par km: ${pricePerKm.toFixed(2)}€/km`);
-      console.log(
+      calculationDebugLogger.logPriceComponent(
+        'Distance',
+        distanceCost,
+        `${distance}km × ${pricePerKm.toFixed(2)}€`,
+        { pricePerKm },
+        'distance * pricePerKm'
+      );
+      devLog.debug('Strategy', `   🛣️  Distance à parcourir: ${distance}km`);
+      devLog.debug('Strategy', `   💶 Tarif par km: ${pricePerKm.toFixed(2)}€/km`);
+      devLog.debug('Strategy', 
         `   └─ Coût distance: ${distance}km × ${pricePerKm.toFixed(2)}€ = ${distanceCost.toFixed(2)}€`,
       );
       basePrice += distanceCost;
-      console.log(`   ✅ Sous-total après distance: ${basePrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   ✅ Sous-total après distance: ${basePrice.toFixed(2)}€`);
     } else {
-      console.log(
+      devLog.debug('Strategy', 
         "   ℹ️  Aucune distance spécifiée (utilisation prix de base uniquement)",
       );
     }
 
     // ✅ AMÉLIORATION: Détails poids
-    console.log("\n⚖️  [DELIVERY-STRATEGY] ─── Calcul Poids ───");
+    devLog.debug('Strategy', "\n⚖️  [DELIVERY-STRATEGY] ─── Calcul Poids ───");
     let weightCost = 0;
     if (weight > 0) {
       const weightSurcharge = await configAccessService.get<number>(
         "DELIVERY_WEIGHT_SURCHARGE",
       );
       weightCost = weight * weightSurcharge;
-      console.log(`   ⚖️  Poids de la livraison: ${weight}kg`);
-      console.log(`   💶 Supplément par kg: ${weightSurcharge.toFixed(2)}€/kg`);
-      console.log(
+      calculationDebugLogger.logPriceComponent(
+        'Poids',
+        weightCost,
+        `${weight}kg × ${weightSurcharge.toFixed(2)}€`,
+        { weightSurcharge },
+        'weight * weightSurcharge'
+      );
+      devLog.debug('Strategy', `   ⚖️  Poids de la livraison: ${weight}kg`);
+      devLog.debug('Strategy', `   💶 Supplément par kg: ${weightSurcharge.toFixed(2)}€/kg`);
+      devLog.debug('Strategy', 
         `   └─ Coût poids: ${weight}kg × ${weightSurcharge.toFixed(2)}€ = ${weightCost.toFixed(2)}€`,
       );
       basePrice += weightCost;
-      console.log(`   ✅ Sous-total après poids: ${basePrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   ✅ Sous-total après poids: ${basePrice.toFixed(2)}€`);
     } else {
-      console.log("   ℹ️  Aucun poids spécifié (pas de supplément)");
+      devLog.debug('Strategy', "   ℹ️  Aucun poids spécifié (pas de supplément)");
     }
 
     // ✅ AMÉLIORATION: Détails volume
-    console.log("\n📦 [DELIVERY-STRATEGY] ─── Calcul Volume ───");
+    devLog.debug('Strategy', "\n📦 [DELIVERY-STRATEGY] ─── Calcul Volume ───");
     let volumeCost = 0;
     if (volume > 0) {
       volumeCost = await this.calculateVolumeCost(volume);
+      calculationDebugLogger.logPriceComponent(
+        'Volume',
+        volumeCost,
+        `${volume}m³ × prix_m3`,
+        { volume },
+        'volume * pricePerM3'
+      );
       const volumePrice = await this.unifiedDataService.getConfigurationValue(
         ConfigurationCategory.PRICING,
         "DELIVERY_VOLUME_PRICE_PER_M3",
         1.5,
       );
-      console.log(`   📦 Volume de la livraison: ${volume}m³`);
-      console.log(`   💶 Tarif par m³: ${volumePrice.toFixed(2)}€/m³`);
-      console.log(
+      devLog.debug('Strategy', `   📦 Volume de la livraison: ${volume}m³`);
+      devLog.debug('Strategy', `   💶 Tarif par m³: ${volumePrice.toFixed(2)}€/m³`);
+      devLog.debug('Strategy', 
         `   └─ Coût volume: ${volume}m³ × ${volumePrice.toFixed(2)}€ = ${volumeCost.toFixed(2)}€`,
       );
       basePrice += volumeCost;
-      console.log(`   ✅ Sous-total après volume: ${basePrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   ✅ Sous-total après volume: ${basePrice.toFixed(2)}€`);
     } else {
-      console.log("   ℹ️  Aucun volume spécifié (pas de supplément)");
+      devLog.debug('Strategy', "   ℹ️  Aucun volume spécifié (pas de supplément)");
     }
 
     // ✅ AMÉLIORATION: Détails urgence
-    console.log("\n⚡ [DELIVERY-STRATEGY] ─── Calcul Urgence ───");
+    devLog.debug('Strategy', "\n⚡ [DELIVERY-STRATEGY] ─── Calcul Urgence ───");
     const priceBeforeUrgency = basePrice;
     let urgencyMultiplier = 1;
     let urgencyLabel = "NORMALE";
@@ -243,13 +337,20 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
         1.5,
       );
       urgencyLabel = "EXPRESS";
-      console.log(`   ⚡ Mode de livraison: EXPRESS`);
-      console.log(`   💶 Multiplicateur: ×${urgencyMultiplier}`);
-      console.log(
+      devLog.debug('Strategy', `   ⚡ Mode de livraison: EXPRESS`);
+      devLog.debug('Strategy', `   💶 Multiplicateur: ×${urgencyMultiplier}`);
+      devLog.debug('Strategy', 
         `   └─ Calcul: ${priceBeforeUrgency.toFixed(2)}€ × ${urgencyMultiplier} = ${(priceBeforeUrgency * urgencyMultiplier).toFixed(2)}€`,
       );
       basePrice *= urgencyMultiplier;
-      console.log(`   ✅ Sous-total après urgence: ${basePrice.toFixed(2)}€`);
+      calculationDebugLogger.logPriceComponent(
+        `Urgence (${urgencyLabel})`,
+        basePrice - priceBeforeUrgency,
+        `${priceBeforeUrgency.toFixed(2)}€ × ${urgencyMultiplier}`,
+        { urgencyMultiplier, urgencyLabel },
+        'priceBeforeUrgency * urgencyMultiplier - priceBeforeUrgency'
+      );
+      devLog.debug('Strategy', `   ✅ Sous-total après urgence: ${basePrice.toFixed(2)}€`);
     } else if (urgency === "urgent") {
       urgencyMultiplier = await this.unifiedDataService.getConfigurationValue(
         ConfigurationCategory.PRICING,
@@ -257,32 +358,32 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
         2.0,
       );
       urgencyLabel = "URGENT";
-      console.log(`   🚨 Mode de livraison: URGENT`);
-      console.log(`   💶 Multiplicateur: ×${urgencyMultiplier}`);
-      console.log(
+      devLog.debug('Strategy', `   🚨 Mode de livraison: URGENT`);
+      devLog.debug('Strategy', `   💶 Multiplicateur: ×${urgencyMultiplier}`);
+      devLog.debug('Strategy', 
         `   └─ Calcul: ${priceBeforeUrgency.toFixed(2)}€ × ${urgencyMultiplier} = ${(priceBeforeUrgency * urgencyMultiplier).toFixed(2)}€`,
       );
       basePrice *= urgencyMultiplier;
-      console.log(`   ✅ Sous-total après urgence: ${basePrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   ✅ Sous-total après urgence: ${basePrice.toFixed(2)}€`);
     } else {
-      console.log(`   🕐 Mode de livraison: NORMALE (pas de supplément)`);
-      console.log(`   💶 Multiplicateur: ×1 (aucun)`);
+      devLog.debug('Strategy', `   🕐 Mode de livraison: NORMALE (pas de supplément)`);
+      devLog.debug('Strategy', `   💶 Multiplicateur: ×1 (aucun)`);
     }
 
     // ✅ AMÉLIORATION: Résumé avant promotions
-    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("💰 [DELIVERY-STRATEGY] ═══ PRIX DE BASE AVANT PROMOTIONS ═══");
-    console.log(`   📊 Prix total: ${basePrice.toFixed(2)}€`);
-    console.log("\n   📝 Détail du calcul:");
-    console.log(`      • Prix de départ: ${data.defaultPrice || 0}€`);
-    console.log(
+    devLog.debug('Strategy', "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    devLog.debug('Strategy', "💰 [DELIVERY-STRATEGY] ═══ PRIX DE BASE AVANT PROMOTIONS ═══");
+    devLog.debug('Strategy', `   📊 Prix total: ${basePrice.toFixed(2)}€`);
+    devLog.debug('Strategy', "\n   📝 Détail du calcul:");
+    devLog.debug('Strategy', `      • Prix de départ: ${data.defaultPrice || 0}€`);
+    devLog.debug('Strategy', 
       `      • Distance: +${distanceCost.toFixed(2)}€ (${distance}km)`,
     );
-    console.log(`      • Poids: +${weightCost.toFixed(2)}€ (${weight}kg)`);
-    console.log(`      • Volume: +${volumeCost.toFixed(2)}€ (${volume}m³)`);
-    console.log(`      • Urgence: ×${urgencyMultiplier} (${urgencyLabel})`);
-    console.log(`      = ${basePrice.toFixed(2)}€`);
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    devLog.debug('Strategy', `      • Poids: +${weightCost.toFixed(2)}€ (${weight}kg)`);
+    devLog.debug('Strategy', `      • Volume: +${volumeCost.toFixed(2)}€ (${volume}m³)`);
+    devLog.debug('Strategy', `      • Urgence: ×${urgencyMultiplier} (${urgencyLabel})`);
+    devLog.debug('Strategy', `      = ${basePrice.toFixed(2)}€`);
+    devLog.debug('Strategy', "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // ✅ NOUVEAU: APPLICATION DES PROMOTIONS
     const priceBeforePromotion = basePrice;
@@ -290,16 +391,20 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
     basePrice = promotionResult.finalPrice;
 
     if (promotionResult.discountAmount > 0) {
-      console.log(
+      devLog.debug('Strategy', 
         `\n🎁 [DELIVERY-STRATEGY] Promotion appliquée: -${promotionResult.discountAmount.toFixed(2)}€`,
       );
-      console.log(`   📊 Prix final après promotion: ${basePrice.toFixed(2)}€`);
+      devLog.debug('Strategy', `   📊 Prix final après promotion: ${basePrice.toFixed(2)}€`);
     }
 
-    console.log(
-      `\n💰 [DELIVERY-STRATEGY] ═══ PRIX DE BASE FINAL: ${basePrice.toFixed(2)}€ ═══`,
-    );
-    console.log(
+    calculationDebugLogger.logBasePriceCalculation(context.getServiceType(), {
+      baseStart: data.defaultPrice || 0,
+      distanceCost,
+      weightCost,
+      volumeCost,
+      urgencyMultiplier
+    }, basePrice);
+    devLog.debug('Strategy', 
       "🚚 [DELIVERY-STRATEGY] ═══════════════════════════════════════════════════\n",
     );
 
@@ -315,7 +420,7 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       );
       return volume * volumePrice;
     } catch (error) {
-      console.warn(
+      devLog.warn('Strategy', 
         "⚠️ [DELIVERY-STRATEGY] Erreur récupération prix volume, utilisation fallback:",
         error,
       );
@@ -362,7 +467,7 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       );
       return Math.ceil(distance / travelSpeed);
     } catch (error) {
-      console.warn(
+      devLog.warn('Strategy', 
         "⚠️ [DELIVERY-STRATEGY] Erreur récupération vitesse, utilisation fallback:",
         error,
       );
@@ -379,7 +484,7 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       );
       return distance * fuelCostPerKm;
     } catch (error) {
-      console.warn(
+      devLog.warn('Strategy', 
         "⚠️ [DELIVERY-STRATEGY] Erreur récupération coût carburant, utilisation fallback:",
         error,
       );
@@ -403,7 +508,7 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       ]);
       return distance > tollThreshold ? distance * tollCostPerKm : 0;
     } catch (error) {
-      console.warn(
+      devLog.warn('Strategy', 
         "⚠️ [DELIVERY-STRATEGY] Erreur récupération coût péage, utilisation fallback:",
         error,
       );
@@ -438,15 +543,15 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
           : isPromotionActive;
     }
 
-    console.log("🎁 [DELIVERY-STRATEGY] ═══ APPLICATION DES PROMOTIONS ═══");
-    console.log(
+    devLog.debug('Strategy', "🎁 [DELIVERY-STRATEGY] ═══ APPLICATION DES PROMOTIONS ═══");
+    devLog.debug('Strategy', 
       `📊 [DELIVERY-STRATEGY] Promotion active: ${isPromotionActive}`,
     );
-    console.log(`📊 [DELIVERY-STRATEGY] Code promo: ${promotionCode}`);
-    console.log(
+    devLog.debug('Strategy', `📊 [DELIVERY-STRATEGY] Code promo: ${promotionCode}`);
+    devLog.debug('Strategy', 
       `📊 [DELIVERY-STRATEGY] Type: ${promotionType}, Valeur: ${promotionValue}`,
     );
-    console.log(
+    devLog.debug('Strategy', 
       `💰 [DELIVERY-STRATEGY] Prix de base avant promotion: ${basePrice.toFixed(2)}€`,
     );
 
@@ -460,7 +565,7 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
       !promotionValue ||
       !promotionType
     ) {
-      console.log("❌ [DELIVERY-STRATEGY] Aucune promotion active");
+      devLog.debug('Strategy', "❌ [DELIVERY-STRATEGY] Aucune promotion active");
       return { finalPrice, discountAmount };
     }
 
@@ -468,22 +573,22 @@ export class DeliveryQuoteStrategy implements QuoteStrategy {
     if (promotionType === "PERCENT") {
       discountAmount = (basePrice * promotionValue) / 100;
       finalPrice = basePrice - discountAmount;
-      console.log(
+      devLog.debug('Strategy', 
         `✅ [DELIVERY-STRATEGY] Promotion pourcentage appliquée: -${promotionValue}% = -${discountAmount.toFixed(2)}€`,
       );
     } else if (promotionType === "FIXED") {
       discountAmount = promotionValue;
       finalPrice = Math.max(0, basePrice - promotionValue); // Éviter les prix négatifs
-      console.log(
+      devLog.debug('Strategy', 
         `✅ [DELIVERY-STRATEGY] Promotion fixe appliquée: -${promotionValue}€`,
       );
     } else {
-      console.log(
+      devLog.debug('Strategy', 
         `⚠️ [DELIVERY-STRATEGY] Type de promotion non reconnu: ${promotionType}`,
       );
     }
 
-    console.log(
+    devLog.debug('Strategy', 
       `💰 [DELIVERY-STRATEGY] Prix final après promotion: ${finalPrice.toFixed(2)}€`,
     );
     return { finalPrice, discountAmount };

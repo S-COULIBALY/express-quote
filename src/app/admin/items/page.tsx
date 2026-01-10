@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { toast } from 'react-hot-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -385,7 +386,7 @@ export default function AdminItemsPage() {
       
     } catch (err) {
       console.error('Erreur sauvegarde:', err)
-      alert('Erreur lors de la sauvegarde')
+      toast.error('Erreur lors de la sauvegarde')
     }
   }
 
@@ -405,7 +406,7 @@ export default function AdminItemsPage() {
       await fetchStats(true) // Refresh stats aussi
     } catch (err) {
       console.error('Erreur suppression:', err)
-      alert('Erreur lors de la suppression')
+      toast.error('Erreur lors de la suppression')
     }
   }
 
@@ -434,7 +435,7 @@ export default function AdminItemsPage() {
 
     } catch (err) {
       console.error('Erreur toggle:', err)
-      alert('Erreur lors de la mise à jour')
+      toast.error('Erreur lors de la mise à jour')
     }
   }
 
@@ -463,7 +464,7 @@ export default function AdminItemsPage() {
 
     } catch (err) {
       console.error('Erreur toggle popular:', err)
-      alert('Erreur lors de la mise à jour')
+      toast.error('Erreur lors de la mise à jour')
     }
   }
 
@@ -488,7 +489,7 @@ export default function AdminItemsPage() {
       const result = await response.json()
 
       if (result.success) {
-        alert(`${result.data.count || 0} items par défaut créés avec succès !`)
+        toast.success(`${result.data.count || 0} items par défaut créés avec succès !`)
         await fetchItems(true) // Force refresh
         await fetchStats(true) // Force refresh
       } else {
@@ -497,7 +498,7 @@ export default function AdminItemsPage() {
 
     } catch (err) {
       console.error('Erreur création defaults:', err)
-      alert('Erreur lors de la création des items par défaut')
+      toast.error('Erreur lors de la création des items par défaut')
     }
   }
 

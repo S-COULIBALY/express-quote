@@ -37,6 +37,9 @@ import {
 // ✅ RÉUTILISATION - Hook existant
 import { useCentralizedPricing } from "@/hooks/shared/useCentralizedPricing";
 
+// ✅ Import AutoDetectionService pour validation
+import { AutoDetectionService, AddressData } from "@/quotation/domain/services/AutoDetectionService";
+
 // Import des fallbacks pour les contraintes/services
 import {
   movingConstraintsFallback,
@@ -123,6 +126,73 @@ export function UnifiedTestingFramework() {
 
   // ✅ RÉUTILISATION - Hook existant
   const { calculatePrice } = useCentralizedPricing();
+
+  /**
+   * 🎯 Valide la cohérence des contraintes avec AutoDetectionService
+   * Vérifie que les contraintes attendues correspondent aux contraintes détectées automatiquement
+   */
+  const validateScenarioConstraints = (scenario: TestScenario): {
+    isValid: boolean;
+    warnings: string[];
+  } => {
+    const warnings: string[] = [];
+
+    // Vérifier uniquement pour les scénarios MOVING avec données logistiques
+    if (scenario.serviceType !== "MOVING" || !scenario.input.pickupFloor) {
+      return { isValid: true, warnings };
+    }
+
+    // Construire les données d'adresse pour pickup
+    const pickupData: AddressData = {
+      floor: scenario.input.pickupFloor || 0,
+      elevator: scenario.input.pickupElevator ? 'medium' : 'no',
+      carryDistance: scenario.input.pickupCarryDistance
+        ? (scenario.input.pickupCarryDistance > 30 ? '30+' : scenario.input.pickupCarryDistance > 10 ? '10-30' : '0-10')
+        : undefined,
+      constraints: scenario.input.logisticsConstraints?.pickupLogisticsConstraints || []
+    };
+
+    // Construire les données d'adresse pour delivery
+    const deliveryData: AddressData = {
+      floor: scenario.input.deliveryFloor || 0,
+      elevator: scenario.input.deliveryElevator ? 'medium' : 'no',
+      carryDistance: scenario.input.deliveryCarryDistance
+        ? (scenario.input.deliveryCarryDistance > 30 ? '30+' : scenario.input.deliveryCarryDistance > 10 ? '10-30' : '0-10')
+        : undefined,
+      constraints: scenario.input.logisticsConstraints?.deliveryLogisticsConstraints || []
+    };
+
+    // Détecter avec AutoDetectionService
+    const pickupFurnitureLift = AutoDetectionService.detectFurnitureLift(pickupData, scenario.input.volume);
+    const deliveryFurnitureLift = AutoDetectionService.detectFurnitureLift(deliveryData, scenario.input.volume);
+    const pickupCarrying = AutoDetectionService.detectLongCarryingDistance(pickupData);
+    const deliveryCarrying = AutoDetectionService.detectLongCarryingDistance(deliveryData);
+
+    // Vérifier monte-meuble pickup
+    if (pickupFurnitureLift.furnitureLiftRequired && !pickupData.constraints?.includes('furniture_lift_required')) {
+      warnings.push(`⚠️ Pickup: Monte-meuble requis détecté (${pickupFurnitureLift.furnitureLiftReason}) mais absent des contraintes`);
+    }
+
+    // Vérifier monte-meuble delivery
+    if (deliveryFurnitureLift.furnitureLiftRequired && !deliveryData.constraints?.includes('furniture_lift_required')) {
+      warnings.push(`⚠️ Delivery: Monte-meuble requis détecté (${deliveryFurnitureLift.furnitureLiftReason}) mais absent des contraintes`);
+    }
+
+    // Vérifier longue distance pickup
+    if (pickupCarrying.longCarryingDistance && !pickupData.constraints?.includes('long_carrying_distance')) {
+      warnings.push(`⚠️ Pickup: Longue distance de portage détectée mais absente des contraintes`);
+    }
+
+    // Vérifier longue distance delivery
+    if (deliveryCarrying.longCarryingDistance && !deliveryData.constraints?.includes('long_carrying_distance')) {
+      warnings.push(`⚠️ Delivery: Longue distance de portage détectée mais absente des contraintes`);
+    }
+
+    return {
+      isValid: warnings.length === 0,
+      warnings
+    };
+  };
 
   // Scénarios prédéfinis
   const predefinedScenarios: TestScenario[] = [
@@ -384,6 +454,19 @@ export function UnifiedTestingFramework() {
     const startTime = Date.now();
 
     try {
+      // ✅ Valider la cohérence des contraintes AVANT l'exécution
+      const validation = validateScenarioConstraints(scenario);
+      if (!validation.isValid) {
+        console.warn(`🔍 [Validation] Scénario ${scenario.name}:`, validation.warnings);
+        validation.warnings.forEach(warning => {
+          toast({
+            title: "⚠️ Avertissement de validation",
+            description: warning,
+            variant: "default",
+          });
+        });
+      }
+
       // Calculer le prix via l'API
       const result = await calculatePrice(scenario.input as any); // Type cast pour compatibilité
       const executionTime = Date.now() - startTime;
@@ -1380,7 +1463,6 @@ export function UnifiedTestingFramework() {
                         className="rounded border-orange-300 text-orange-600 focus:ring-orange-500"
                       />
                       <span className="text-sm text-slate-700 flex items-center gap-1">
-                        <span>{constraint.icon}</span>
                         <span>{constraint.name}</span>
                         {constraint.value && (
                           <span className="text-xs text-orange-600 font-medium">
@@ -1435,7 +1517,6 @@ export function UnifiedTestingFramework() {
                         className="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
                       />
                       <span className="text-sm text-slate-700 flex items-center gap-1">
-                        <span>{service.icon}</span>
                         <span>{service.name}</span>
                         {service.value && (
                           <span className="text-xs text-blue-600 font-medium">
@@ -1526,23 +1607,21 @@ export function UnifiedTestingFramework() {
 
                           {/* Résumé compact des contraintes et services */}
                           <div className="flex flex-wrap gap-2 mb-2">
-                            {scenario.input.constraints &&
-                              scenario.input.constraints.length > 0 && (
+                            {(scenario.input.constraints?.length ?? 0) > 0 && (
                                 <Badge
                                   variant="outline"
                                   className="bg-orange-50 border-orange-300 text-orange-700 text-xs"
                                 >
-                                  🚧 {scenario.input.constraints.length}{" "}
+                                  🚧 {scenario.input.constraints?.length ?? 0}{" "}
                                   contraintes
                                 </Badge>
                               )}
-                            {scenario.input.services &&
-                              scenario.input.services.length > 0 && (
+                            {(scenario.input.services?.length ?? 0) > 0 && (
                                 <Badge
                                   variant="outline"
                                   className="bg-blue-50 border-blue-300 text-blue-700 text-xs"
                                 >
-                                  ⚙️ {scenario.input.services.length} services
+                                  ⚙️ {scenario.input.services?.length ?? 0} services
                                 </Badge>
                               )}
                             {scenario.expectedPrice && (
@@ -1685,16 +1764,15 @@ export function UnifiedTestingFramework() {
                           </div>
 
                           {/* Contraintes détaillées */}
-                          {scenario.input.constraints &&
-                            scenario.input.constraints.length > 0 && (
+                          {(scenario.input.constraints?.length ?? 0) > 0 && (
                               <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-lg p-4 border border-orange-200">
                                 <h5 className="font-semibold text-orange-800 mb-3 flex items-center gap-2">
                                   <div className="h-1 w-1 bg-orange-500 rounded-full"></div>
                                   Contraintes Sélectionnées (
-                                  {scenario.input.constraints.length})
+                                  {scenario.input.constraints?.length ?? 0})
                                 </h5>
                                 <div className="flex flex-wrap gap-2">
-                                  {scenario.input.constraints.map(
+                                  {scenario.input.constraints?.map?.(
                                     (constraintId) => {
                                       const constraint = getConstraintData(
                                         constraintId,
@@ -1710,11 +1788,6 @@ export function UnifiedTestingFramework() {
                                           variant="outline"
                                           className="bg-white border-orange-300 text-orange-800 text-xs"
                                         >
-                                          {constraint?.icon && (
-                                            <span className="mr-1">
-                                              {constraint.icon}
-                                            </span>
-                                          )}
                                           {name}
                                           {constraint?.value && (
                                             <span className="ml-1 font-bold">
@@ -1730,16 +1803,15 @@ export function UnifiedTestingFramework() {
                             )}
 
                           {/* Services détaillés */}
-                          {scenario.input.services &&
-                            scenario.input.services.length > 0 && (
+                          {(scenario.input.services?.length ?? 0) > 0 && (
                               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
                                 <h5 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
                                   <div className="h-1 w-1 bg-blue-500 rounded-full"></div>
                                   Services Sélectionnés (
-                                  {scenario.input.services.length})
+                                  {scenario.input.services?.length ?? 0})
                                 </h5>
                                 <div className="flex flex-wrap gap-2">
-                                  {scenario.input.services.map((serviceId) => {
+                                  {scenario.input.services?.map?.((serviceId) => {
                                     const service = getServiceData(
                                       serviceId,
                                       scenario.serviceType,
@@ -1754,11 +1826,6 @@ export function UnifiedTestingFramework() {
                                         variant="outline"
                                         className="bg-white border-blue-300 text-blue-800 text-xs"
                                       >
-                                        {service?.icon && (
-                                          <span className="mr-1">
-                                            {service.icon}
-                                          </span>
-                                        )}
                                         {name}
                                         {service?.value && (
                                           <span className="ml-1 font-bold">
@@ -1949,21 +2016,20 @@ export function UnifiedTestingFramework() {
                             </div>
 
                             {/* Contraintes et services testés */}
-                            {(scenario.input.constraints?.length > 0 ||
-                              scenario.input.services?.length > 0) && (
+                            {((scenario.input.constraints?.length ?? 0) > 0 ||
+                              (scenario.input.services?.length ?? 0) > 0) && (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Contraintes */}
-                                {scenario.input.constraints &&
-                                  scenario.input.constraints.length > 0 && (
+                                {(scenario.input.constraints?.length ?? 0) > 0 && (
                                     <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-lg p-4 border border-orange-200">
                                       <h5 className="font-semibold text-orange-800 mb-3 flex items-center gap-2">
                                         <div className="h-1 w-1 bg-orange-500 rounded-full"></div>
                                         Contraintes Testées (
-                                        {scenario.input.constraints.length})
+                                        {scenario.input.constraints?.length ?? 0})
                                       </h5>
                                       <div className="flex flex-wrap gap-2">
                                         {scenario.input.constraints
-                                          .slice(0, 6)
+                                          ?.slice(0, 6)
                                           .map((constraintId) => {
                                             const constraint =
                                               getConstraintData(
@@ -1980,20 +2046,17 @@ export function UnifiedTestingFramework() {
                                                 variant="outline"
                                                 className="bg-white border-orange-300 text-orange-800 text-xs"
                                               >
-                                                {constraint?.icon} {name}
+                                                {name}
                                               </Badge>
                                             );
                                           })}
-                                        {scenario.input.constraints &&
-                                          scenario.input.constraints.length >
-                                            6 && (
+                                        {(scenario.input.constraints?.length ?? 0) > 6 && (
                                             <Badge
                                               variant="outline"
                                               className="text-xs bg-white border-orange-300 text-orange-700"
                                             >
                                               +
-                                              {scenario.input.constraints
-                                                .length - 6}{" "}
+                                              {(scenario.input.constraints?.length ?? 0) - 6}{" "}
                                               autres
                                             </Badge>
                                           )}
@@ -2002,17 +2065,16 @@ export function UnifiedTestingFramework() {
                                   )}
 
                                 {/* Services */}
-                                {scenario.input.services &&
-                                  scenario.input.services.length > 0 && (
+                                {(scenario.input.services?.length ?? 0) > 0 && (
                                     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
                                       <h5 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
                                         <div className="h-1 w-1 bg-blue-500 rounded-full"></div>
                                         Services Testés (
-                                        {scenario.input.services.length})
+                                        {scenario.input.services?.length ?? 0})
                                       </h5>
                                       <div className="flex flex-wrap gap-2">
                                         {scenario.input.services
-                                          .slice(0, 6)
+                                          ?.slice(0, 6)
                                           .map((serviceId) => {
                                             const service = getServiceData(
                                               serviceId,
@@ -2028,17 +2090,17 @@ export function UnifiedTestingFramework() {
                                                 variant="outline"
                                                 className="bg-white border-blue-300 text-blue-800 text-xs"
                                               >
-                                                {service?.icon} {name}
+                                                {name}
                                               </Badge>
                                             );
                                           })}
-                                        {scenario.input.services.length > 6 && (
+                                        {(scenario.input.services?.length ?? 0) > 6 && (
                                           <Badge
                                             variant="outline"
                                             className="text-xs bg-white border-blue-300 text-blue-700"
                                           >
                                             +
-                                            {scenario.input.services.length - 6}{" "}
+                                            {(scenario.input.services?.length ?? 0) - 6}{" "}
                                             autres
                                           </Badge>
                                         )}

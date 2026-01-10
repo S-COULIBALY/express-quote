@@ -29,7 +29,7 @@ async function verifyDatabase() {
     const categoriesCount = await prisma.category.count();
     const packsCount = await prisma.pack.count();
     const configCount = await prisma.configuration.count();
-    const rulesCount = await prisma.rule.count();
+    const rulesCount = await prisma.rules.count();
     
     console.log(`📊 Table 'category': ${categoriesCount} enregistrements`);
     console.log(`📊 Table 'pack': ${packsCount} enregistrements`);

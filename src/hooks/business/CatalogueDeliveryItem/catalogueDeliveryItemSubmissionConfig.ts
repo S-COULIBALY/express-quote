@@ -73,7 +73,6 @@ export const createCatalogueDeliveryItemSubmissionConfig = (service: CatalogueDe
   },
 
   getSuccessRedirectUrl: (responseData: any, extraData?: CatalogueDeliveryItemSubmissionExtraData) => {
-    const bookingId = responseData.bookingId || responseData.id;
-    return `/delivery/success?bookingId=${bookingId}`;
+    return `/booking/${responseData.temporaryId || responseData.id}`;
   }
 }); 

@@ -15,6 +15,55 @@
  * - Détection automatique distance de portage selon distance déclarée
  * - Calcul automatique des surcharges associées
  * - Support pour adresses de départ ET d'arrivée
+ * - Gestion de la consommation des contraintes (évite double facturation)
+ * - Inférence automatique des contraintes manquantes (principe : "Mieux vaut inférer trop que facturer deux fois")
+ *
+ * 🔗 INTÉGRATION DANS LE FLUX DE CALCUL :
+ * 
+ * 1. FRONTEND → API
+ *    - Le frontend envoie les données du formulaire via POST /api/price/calculate
+ *    - Les contraintes sont envoyées comme arrays d'UUIDs (pickupLogisticsConstraints, deliveryLogisticsConstraints)
+ *
+ * 2. PriceService → QuoteCalculator → Strategy
+ *    - PriceService crée un QuoteContext avec les données du formulaire
+ *    - QuoteCalculator sélectionne la stratégie appropriée (MovingQuoteStrategy, CleaningQuoteStrategy, etc.)
+ *    - La stratégie charge les règles depuis la BDD via UnifiedDataService.getBusinessRulesForEngine()
+ *
+ * 3. Strategy → RuleEngine → RuleContextEnricher
+ *    - RuleEngine reçoit les règles (Rule[]) chargées depuis la BDD
+ *    - RuleContextEnricher.enrichContext() appelle AutoDetectionService.detectFurnitureLift()
+ *    - AutoDetectionService analyse les données d'adresse et détecte le besoin de monte-meuble
+ *    - Si monte-meuble requis, le service infère automatiquement toutes les contraintes consommables non déclarées
+ *    - Les contraintes déclarées, inférées et consommées sont retournées dans le résultat
+ *
+ * 4. RuleEngine → RuleApplicationService
+ *    - RuleApplicationService applique les règles en ignorant celles dont l'ID est dans consumed_constraints
+ *    - Cela évite la double facturation (monte-meuble + contraintes résolues)
+ *    - Les contraintes inférées sont tracées via inferenceMetadata pour audit
+ *
+ * 📊 STRUCTURE DES RÈGLES EN BDD (table `rules`) :
+ * 
+ * ```typescript
+ * {
+ *   id: string,                    // UUID de la règle (ex: '40acdd70-5c1f-4936-a53c-8f52e6695a4c')
+ *   name: string,                  // Nom de la règle (ex: 'Escalier difficile ou dangereux')
+ *   description: string?,         // Description optionnelle
+ *   value: number,                 // Valeur de la règle (montant ou pourcentage)
+ *   isActive: boolean,             // Règle active ou non
+ *   category: RuleCategory,        // Catégorie (SURCHARGE, DISCOUNT, etc.)
+ *   condition: Json?,              // Conditions d'application (JSON)
+ *   percentBased: boolean,         // Calcul en pourcentage ou montant fixe
+ *   serviceType: ServiceType,      // Type de service (MOVING, CLEANING, etc.)
+ *   ruleType: RuleType?,           // Type de règle (CONSTRAINT, BUSINESS, PRICING, etc.)
+ *   priority: number?,             // Priorité d'application (défaut: 100)
+ *   validFrom: DateTime?,          // Date de début de validité
+ *   validTo: DateTime?,            // Date de fin de validité
+ *   tags: string[],                // Tags pour filtrage
+ *   configKey: string?,            // Clé de configuration
+ *   metadata: Json?,                // Métadonnées (category_frontend, scope, etc.)
+ *   scope: RuleScope                // Portée (PICKUP, DELIVERY, BOTH, GLOBAL)
+ * }
+ * ```
  *
  * 🔧 UTILISATION :
  * ```typescript
@@ -32,9 +81,28 @@
  *   // Ajouter contrainte distance de portage à l'arrivée
  * }
  * ```
+ *
+ * ⚙️ CONFIGURATION :
+ * - FURNITURE_LIFT_FLOOR_THRESHOLD = 5 (étage > 5 = monte-meuble requis)
+ * - Les UUIDs des contraintes consommables sont définis dans RuleUUIDs.ts
+ * - Ces UUIDs doivent correspondre exactement aux IDs dans la table `rules` de la BDD
  */
 
 import { DefaultValues } from '../configuration/DefaultValues';
+import {
+  RULE_UUID_ESCALIER_DIFFICILE,
+  RULE_UUID_COULOIRS_ETROITS,
+  RULE_UUID_MEUBLES_ENCOMBRANTS,
+  RULE_UUID_OBJETS_LOURDS,
+  RULE_UUID_DISTANCE_PORTAGE,
+  RULE_UUID_PASSAGE_INDIRECT,
+  RULE_UUID_ACCES_MULTINIVEAU,
+  RULE_UUID_ASCENSEUR_TROP_PETIT,
+  RULE_UUID_ASCENSEUR_PANNE,
+  RULE_UUID_ASCENSEUR_INTERDIT,
+  CONSUMED_BY_FURNITURE_LIFT,
+  CRITICAL_CONSTRAINTS_REQUIRING_LIFT
+} from '../constants/RuleUUIDs';
 
 /**
  * 📋 INTERFACES
@@ -71,6 +139,36 @@ export interface AddressDetectionResult {
   furnitureLiftReason?: string;
   longCarryingDistance: boolean;
   carryingDistanceReason?: string;
+  
+  /**
+   * 🎯 Contraintes déclarées par le client
+   * Contraintes explicitement sélectionnées par l'utilisateur dans le formulaire
+   */
+  declaredConstraints?: string[];
+  
+  /**
+   * 🎯 Contraintes inférées automatiquement
+   * Contraintes déduites par le système si monte-meuble requis mais non déclarées par le client
+   * Représentent les oublis compensés par le moteur
+   */
+  inferredConstraints?: string[];
+  
+  /**
+   * 🎯 Contraintes consommées par le monte-meubles
+   * Total des contraintes résolues par le monte-meuble (déclarées + inférées)
+   * Ces contraintes ne doivent PAS être facturées séparément
+   * car le monte-meubles résout déjà ces problèmes
+   */
+  consumedConstraints?: string[];
+  
+  /**
+   * 📊 Métadonnées pour la traçabilité de l'inférence
+   */
+  inferenceMetadata?: {
+    reason: string;
+    inferredAt: Date;
+    allowInference: boolean;
+  };
 }
 
 /**
@@ -98,8 +196,8 @@ export class AutoDetectionService {
   /**
    * CONSTANTES DE CONFIGURATION
    */
-  private static readonly FURNITURE_LIFT_FLOOR_THRESHOLD = 3; // Étage à partir duquel le monte-meuble est requis
-  private static readonly FURNITURE_LIFT_SURCHARGE = 200; // Surcharge pour monte-meuble (en €)
+  private static readonly FURNITURE_LIFT_FLOOR_THRESHOLD = 5; // Étage à partir duquel le monte-meuble est requis (> 5)
+  private static readonly FURNITURE_LIFT_SURCHARGE = 300; // Surcharge pour monte-meuble (en €)
   private static readonly LONG_CARRYING_DISTANCE_THRESHOLD = '30+'; // Seuil distance de portage
   private static readonly LONG_CARRYING_DISTANCE_SURCHARGE = 50; // Surcharge distance portage (en €)
 
@@ -204,24 +302,65 @@ export class AutoDetectionService {
    * 🚪 DÉTECTION MONTE-MEUBLE POUR UNE ADRESSE
    *
    * Logique unifiée et harmonisée basée sur :
-   * - Étage (> 3 = requis)
+   * - Étage (> 5 = requis, seuil configuré via FURNITURE_LIFT_FLOOR_THRESHOLD)
    * - Type d'ascenseur (no/small/medium/large)
    * - État de l'ascenseur (indisponible/inadapté/interdit)
    * - Volume (petits volumes peuvent être exemptés)
    *
+   * 📋 INTÉGRATION AVEC LE FLUX DE CALCUL :
+   * - Les règles sont chargées depuis la BDD via UnifiedDataService.getBusinessRulesForEngine()
+   * - Les UUIDs des contraintes consommables sont définis dans RuleUUIDs.ts (CONSUMED_BY_FURNITURE_LIFT)
+   * - Ces UUIDs correspondent aux IDs des règles dans la table `rules` de la BDD
+   * - Le service implémente l'inférence : si monte-meuble requis, toutes les contraintes consommables
+   *   sont automatiquement inférées et consommées, même si non déclarées par le client
+   * - Les contraintes consommées sont passées au RuleEngine via RuleContextEnricher
+   * - Le RuleEngine ignore les règles dont l'ID est dans consumed_constraints
+   *
+   * 🔗 STRUCTURE DES RÈGLES EN BDD :
+   * - id: UUID de la règle (correspond aux constantes dans RuleUUIDs.ts)
+   * - name: Nom de la règle (ex: "Escalier difficile ou dangereux")
+   * - condition: JSON avec les conditions d'application
+   * - metadata: JSON avec métadonnées (category_frontend, scope, etc.)
+   * - ruleType: Type de règle (CONSTRAINT, BUSINESS, PRICING, etc.)
+   * - scope: Portée de la règle (PICKUP, DELIVERY, BOTH, GLOBAL)
+   *
+   * 🎯 INFÉRENCE AUTOMATIQUE :
+   * Principe : "Mieux vaut inférer trop que facturer deux fois"
+   * - Si monte-meuble requis ET allowInference = true, toutes les contraintes de CONSUMED_BY_FURNITURE_LIFT
+   *   non déclarées sont automatiquement inférées et consommées
+   * - Cela évite la double facturation si le client oublie de cocher une contrainte
+   *
    * @param addressData Données de l'adresse à analyser
    * @param volume Volume du déménagement (optionnel)
-   * @returns Résultat de la détection monte-meuble
+   * @param options Options pour activer/désactiver l'inférence
+   * @returns Résultat de la détection monte-meuble avec contraintes déclarées/inférées/consommées
    */
   static detectFurnitureLift(
     addressData: AddressData,
-    volume?: number
+    volume?: number,
+    options?: {
+      allowInference?: boolean;        // Activer l'inférence automatique (défaut: true)
+      submissionContext?: 'draft' | 'final';  // Contexte de soumission (draft = pas d'inférence)
+    }
   ): AddressDetectionResult {
     const floor = addressData.floor || 0;
     const elevator = addressData.elevator || 'no';
     const elevatorUnavailable = addressData.elevatorUnavailable || false;
     const elevatorUnsuitable = addressData.elevatorUnsuitable || false;
     const elevatorForbiddenMoving = addressData.elevatorForbiddenMoving || false;
+    const constraints = addressData.constraints || [];
+
+    // 🎯 Déterminer si l'inférence doit être activée
+    // Par défaut, activée sauf si explicitement désactivée ou en mode draft
+    const shouldInfer = options?.allowInference !== false && 
+                        options?.submissionContext !== 'draft';
+
+    // 🎯 Contraintes déclarées par le client
+    const declaredConstraints = constraints || [];
+    
+    // 🎯 Liste des contraintes potentiellement consommées par le monte-meubles
+    const consumedConstraints: string[] = [];
+    const inferredConstraints: string[] = [];
 
     // CAS 1: Ascenseur medium/large fonctionnel → PAS de monte-meuble
     if (
@@ -232,23 +371,57 @@ export class AutoDetectionService {
     ) {
       return {
         furnitureLiftRequired: false,
-        longCarryingDistance: false
+        longCarryingDistance: false,
+        declaredConstraints: [],
+        inferredConstraints: [],
+        consumedConstraints: []
       };
     }
 
     // CAS 2: Aucun ascenseur - Logique harmonisée
     if (elevator === 'no') {
       if (floor > this.FURNITURE_LIFT_FLOOR_THRESHOLD) {
+        const reason = `Étage ${floor} sans ascenseur (seuil: ${this.FURNITURE_LIFT_FLOOR_THRESHOLD})`;
+        
+        // ✅ INFÉRENCE: Si monte-meuble requis, inférer toutes les contraintes consommables non déclarées
+        if (shouldInfer) {
+          // Contraintes inférées (toutes celles de CONSUMED_BY_FURNITURE_LIFT non déclarées)
+          const inferred = CONSUMED_BY_FURNITURE_LIFT.filter(
+            c => !declaredConstraints.includes(c)
+          );
+          inferredConstraints.push(...inferred);
+        }
+        
+        // ✅ CONSOMMATION: Contraintes déclarées qui sont consommables
+        const declaredConsumable = declaredConstraints.filter(
+          c => (CONSUMED_BY_FURNITURE_LIFT as readonly string[]).includes(c)
+        );
+        consumedConstraints.push(...declaredConsumable);
+        
+        // ✅ CONSOMMATION: Ajouter les contraintes inférées
+        consumedConstraints.push(...inferredConstraints);
+
         return {
           furnitureLiftRequired: true,
-          furnitureLiftReason: `Étage ${floor} sans ascenseur (seuil: ${this.FURNITURE_LIFT_FLOOR_THRESHOLD})`,
-          longCarryingDistance: false
+          furnitureLiftReason: reason,
+          longCarryingDistance: false,
+          declaredConstraints: [...declaredConstraints],
+          inferredConstraints: [...inferredConstraints],
+          consumedConstraints: [...consumedConstraints],
+          inferenceMetadata: shouldInfer ? {
+            reason: 'Monte-meuble requis, inférence automatique activée',
+            inferredAt: new Date(),
+            allowInference: true
+          } : undefined
         };
       }
       // Étage <= seuil → pas de monte-meuble
       return {
         furnitureLiftRequired: false,
-        longCarryingDistance: false
+        longCarryingDistance: false,
+        declaredConstraints: [...declaredConstraints],
+        inferredConstraints: [],
+        consumedConstraints: []
       };
     }
 
@@ -262,28 +435,83 @@ export class AutoDetectionService {
       // Étage > seuil → monte-meuble requis
       if (floor > this.FURNITURE_LIFT_FLOOR_THRESHOLD) {
         let reason = `Étage ${floor} avec ascenseur ${elevator}`;
-        if (elevatorUnavailable) reason += ' (indisponible)';
-        if (elevatorUnsuitable) reason += ' (inadapté)';
-        if (elevatorForbiddenMoving) reason += ' (interdit déménagement)';
+
+        // ✅ CONSOMMATION: Problèmes d'ascenseur (déclarés)
+        // Si elevator === 'small', c'est implicitement inadapté pour les meubles
+        // Utiliser les UUIDs réels au lieu des strings
+        if (elevator === 'small' && constraints.includes(RULE_UUID_ASCENSEUR_TROP_PETIT)) {
+          consumedConstraints.push(RULE_UUID_ASCENSEUR_TROP_PETIT);
+        }
+
+        if (elevatorUnavailable) {
+          reason += ' (indisponible)';
+          if (constraints.includes(RULE_UUID_ASCENSEUR_PANNE)) {
+            consumedConstraints.push(RULE_UUID_ASCENSEUR_PANNE);
+          }
+        }
+        if (elevatorUnsuitable) {
+          reason += ' (inadapté)';
+          if (constraints.includes(RULE_UUID_ASCENSEUR_TROP_PETIT)) {
+            consumedConstraints.push(RULE_UUID_ASCENSEUR_TROP_PETIT);
+          }
+        }
+        if (elevatorForbiddenMoving) {
+          reason += ' (interdit déménagement)';
+          if (constraints.includes(RULE_UUID_ASCENSEUR_INTERDIT)) {
+            consumedConstraints.push(RULE_UUID_ASCENSEUR_INTERDIT);
+          }
+        }
+
+        // ✅ CONSOMMATION: Contraintes déclarées qui sont consommables
+        const declaredConsumable = declaredConstraints.filter(
+          c => (CONSUMED_BY_FURNITURE_LIFT as readonly string[]).includes(c)
+        );
+        consumedConstraints.push(...declaredConsumable);
+
+        // ✅ INFÉRENCE: Si monte-meuble requis, inférer toutes les contraintes consommables non déclarées
+        if (shouldInfer) {
+          // Contraintes inférées (toutes celles de CONSUMED_BY_FURNITURE_LIFT non déclarées)
+          const inferred = CONSUMED_BY_FURNITURE_LIFT.filter(
+            c => !declaredConstraints.includes(c)
+          );
+          inferredConstraints.push(...inferred);
+        }
+        
+        // ✅ CONSOMMATION: Ajouter les contraintes inférées
+        consumedConstraints.push(...inferredConstraints);
 
         return {
           furnitureLiftRequired: true,
           furnitureLiftReason: reason,
-          longCarryingDistance: false
+          longCarryingDistance: false,
+          declaredConstraints: [...declaredConstraints],
+          inferredConstraints: [...inferredConstraints],
+          consumedConstraints: [...consumedConstraints],
+          inferenceMetadata: shouldInfer ? {
+            reason: 'Monte-meuble requis, inférence automatique activée',
+            inferredAt: new Date(),
+            allowInference: true
+          } : undefined
         };
       }
 
       // Étage <= seuil → pas de monte-meuble (même avec petit ascenseur)
       return {
         furnitureLiftRequired: false,
-        longCarryingDistance: false
+        longCarryingDistance: false,
+        declaredConstraints: [...declaredConstraints],
+        inferredConstraints: [],
+        consumedConstraints: []
       };
     }
 
     // Par défaut : pas de monte-meuble
     return {
       furnitureLiftRequired: false,
-      longCarryingDistance: false
+      longCarryingDistance: false,
+      declaredConstraints: [...declaredConstraints],
+      inferredConstraints: [],
+      consumedConstraints: []
     };
   }
 
@@ -463,34 +691,22 @@ export class AutoDetectionService {
     const reasons: string[] = [];
     const constraints = addressData.constraints || [];
 
-    // Raisons liées à l'ascenseur
-    if (constraints.includes('elevator_unavailable')) {
-      reasons.push('ascenseur indisponible');
-    }
-    if (constraints.includes('difficult_stairs')) {
+    // Raisons liées à l'ascenseur et contraintes (utilise les UUIDs)
+    if (constraints.includes(RULE_UUID_ESCALIER_DIFFICILE)) {
       reasons.push('escalier difficile');
     }
-    if (constraints.includes('narrow_corridors')) {
+    if (constraints.includes(RULE_UUID_COULOIRS_ETROITS)) {
       reasons.push('couloirs étroits');
     }
-    if (constraints.includes('elevator_unsuitable_size')) {
-      reasons.push('ascenseur trop petit');
-    }
-    if (constraints.includes('elevator_forbidden_moving')) {
-      reasons.push('ascenseur interdit déménagement');
-    }
-    if (constraints.includes('indirect_exit')) {
+    if (constraints.includes(RULE_UUID_PASSAGE_INDIRECT)) {
       reasons.push('sortie indirecte');
     }
 
-    // Raisons liées aux objets
-    if (constraints.includes('bulky_furniture')) {
+    // Raisons liées aux objets (utilise les UUIDs)
+    if (constraints.includes(RULE_UUID_MEUBLES_ENCOMBRANTS)) {
       reasons.push('meubles encombrants');
     }
-    if (constraints.includes('fragile_valuable_items')) {
-      reasons.push('objets fragiles/précieux');
-    }
-    if (constraints.includes('heavy_items')) {
+    if (constraints.includes(RULE_UUID_OBJETS_LOURDS)) {
       reasons.push('objets très lourds');
     }
 
@@ -528,16 +744,8 @@ export class AutoDetectionService {
       return true;
     }
 
-    // Avertir si contraintes critiques détectées
-    const criticalConstraints = [
-      'elevator_unavailable',
-      'elevator_unsuitable_size',
-      'difficult_stairs',
-      'heavy_items',
-      'bulky_furniture'
-    ];
-
-    return constraints.some(c => criticalConstraints.includes(c));
+    // Avertir si contraintes critiques détectées (utilise les UUIDs)
+    return constraints.some(c => (CRITICAL_CONSTRAINTS_REQUIRING_LIFT as readonly string[]).includes(c));
   }
 
   /**

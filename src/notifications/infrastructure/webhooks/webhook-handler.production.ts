@@ -462,10 +462,12 @@ export class WebhookHandler {
     try {
       switch (event.eventType) {
         case 'delivered':
-          await this.repository.update(notificationId, {
-            deliveredAt: event.timestamp,
-            providerResponse: event.metadata
-          });
+          // Transition SENT → DELIVERED
+          await this.repository.markAsDelivered(
+            notificationId,
+            event.timestamp,
+            event.metadata
+          );
           break;
           
         case 'failed':
@@ -478,17 +480,20 @@ export class WebhookHandler {
           break;
           
         case 'opened':
-          // Mettre à jour les métriques d'engagement
-          await this.repository.update(notificationId, {
-            providerResponse: {
+        case 'read':
+          // Transition DELIVERED → READ (ou SENT → READ si pas de DELIVERED)
+          await this.repository.markAsRead(
+            notificationId,
+            event.timestamp,
+            {
               ...event.metadata,
               openedAt: event.timestamp
             }
-          });
+          );
           break;
           
         case 'clicked':
-          // Mettre à jour les métriques d'engagement
+          // Mettre à jour les métriques d'engagement (ne change pas le statut)
           await this.repository.update(notificationId, {
             providerResponse: {
               ...event.metadata,

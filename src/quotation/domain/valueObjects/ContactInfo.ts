@@ -36,7 +36,7 @@ export class ContactInfo {
         if (!this.validateEmail(this.email)) {
             throw new Error('Invalid email format');
         }
-        if (!this.phone) {
+        if (!this.phone || this.phone.trim() === '') {
             throw new Error('Phone number is required');
         }
     }

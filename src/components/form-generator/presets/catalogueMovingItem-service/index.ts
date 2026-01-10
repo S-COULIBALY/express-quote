@@ -1,6 +1,7 @@
 import { FormConfig } from '../../types';
 import { CatalogueMovingItem } from '@/types/booking';
 import { CatalogueMovingItemPreset } from './catalogueMovingItemPresets';
+import { ServiceType } from '@/quotation/domain/enums/ServiceType';
 
 export interface CatalogueMovingItemPresetOptions {
   pack: CatalogueMovingItem;
@@ -11,8 +12,20 @@ export interface CatalogueMovingItemPresetOptions {
   sessionStorageKey?: string;
 }
 
-export const getCatalogueMovingItemConfig = (options: CatalogueMovingItemPresetOptions): FormConfig => {
-  const { pack, onPriceCalculated, onSubmitSuccess, onError, editMode, sessionStorageKey } = options;
+export const getCatalogueMovingItemConfig = (packOrOptions: CatalogueMovingItem | CatalogueMovingItemPresetOptions): FormConfig => {
+  // Support pour les deux signatures : ancien (objet options) et nouveau (pack direct)
+  const isOptions = 'pack' in packOrOptions || 'onPriceCalculated' in packOrOptions;
+  const pack = isOptions ? (packOrOptions as CatalogueMovingItemPresetOptions).pack : (packOrOptions as CatalogueMovingItem);
+  const onPriceCalculated = isOptions ? (packOrOptions as CatalogueMovingItemPresetOptions).onPriceCalculated : undefined;
+  const onSubmitSuccess = isOptions ? (packOrOptions as CatalogueMovingItemPresetOptions).onSubmitSuccess : undefined;
+  const onError = isOptions ? (packOrOptions as CatalogueMovingItemPresetOptions).onError : undefined;
+  const editMode = isOptions ? (packOrOptions as CatalogueMovingItemPresetOptions).editMode : undefined;
+  const sessionStorageKey = isOptions ? (packOrOptions as CatalogueMovingItemPresetOptions).sessionStorageKey : undefined;
+
+  // Vérification de sécurité: pack doit être défini
+  if (!pack) {
+    throw new Error('getCatalogueMovingItemConfig: pack is required');
+  }
 
   // Auto-détection des valeurs par défaut depuis sessionStorage si en mode édition
   const getDefaultValues = () => {
@@ -30,24 +43,28 @@ export const getCatalogueMovingItemConfig = (options: CatalogueMovingItemPresetO
     }
     
     // Utiliser les valeurs par défaut du CatalogueMovingItemPreset + données du pack
+    if (!pack) {
+      return CatalogueMovingItemPreset.defaultValues;
+    }
+
     return {
       ...CatalogueMovingItemPreset.defaultValues,
-      duration: pack.duration.toString(),
-      workers: pack.workers.toString(),
+      duration: pack.duration?.toString() || '',
+      workers: pack.workers?.toString() || '',
       // ✅ Ajouter les valeurs par défaut du pack pour la comparaison hasModifications()
-      defaultDuration: pack.duration,
-      defaultWorkers: pack.workers,
-      defaultPrice: pack.price,
+      defaultDuration: pack.duration || 0,
+      defaultWorkers: pack.workers || 0,
+      defaultPrice: pack.price || 0,
       // Ajouter les données du pack au contexte
-      packName: pack.name,
-      packDescription: pack.description
+      packName: pack.name || '',
+      packDescription: pack.description || ''
     };
   };
 
   // Configuration de base utilisant CatalogueMovingItemPreset
   const baseConfig: FormConfig = {
-    title: `Réserver votre ${pack.name}`,
-    description: "Personnalisez votre réservation selon vos besoins",
+    //title: `Réserver votre ${pack.name}`,
+    //description: "Personnalisez votre réservation selon vos besoins",
     serviceType: "package",
     customDefaults: getDefaultValues(),
     
@@ -59,12 +76,12 @@ export const getCatalogueMovingItemConfig = (options: CatalogueMovingItemPresetO
       showModificationsSummary: true,
       initialPrice: pack.price,
       serviceInfo: {
-        name: pack.name,
-        description: pack.description,
+        name: "Détail du forfait initial",
+        description: "Détails de votre forfait déménagement",
         icon: "📦",
         features: pack.includes || [
-          `${pack.duration} jour${pack.duration > 1 ? 's' : ''} de déménagement`,
-          `${pack.workers} déménageur${pack.workers > 1 ? 's' : ''} professionnel${pack.workers > 1 ? 's' : ''}`,
+          "Durée personnalisable selon vos besoins",
+          "Équipe de déménageurs professionnels",
           `${pack.includedDistance || 20} km inclus`,
           "Matériel de déménagement fourni",
           "Assurance transport incluse"
@@ -91,6 +108,31 @@ export const getCatalogueMovingItemConfig = (options: CatalogueMovingItemPresetO
                 key: "workers", 
                 label: "Déménageurs", 
                 format: (value: any) => `${value || pack.workers} déménageur${(value || pack.workers) > 1 ? 's' : ''}`,
+                style: "font-medium text-gray-700"
+              }
+            ]
+          },
+          // Section Configuration actuelle (temps réel)
+          {
+            title: "Configuration actuelle",
+            icon: "⚙️",
+            fields: [
+              { 
+                key: "duration", 
+                label: "Durée sélectionnée", 
+                format: (value: any) => `${value || pack.duration} jour${(value || pack.duration) > 1 ? 's' : ''}`,
+                style: "font-semibold text-emerald-600"
+              },
+              { 
+                key: "workers", 
+                label: "Nombre de déménageurs", 
+                format: (value: any) => `${value || pack.workers} déménageur${(value || pack.workers) > 1 ? 's' : ''}`,
+                style: "font-semibold text-emerald-600"
+              },
+              { 
+                key: "scheduledDate", 
+                label: "Date prévue", 
+                format: (value: any) => value ? new Date(value).toLocaleDateString('fr-FR') : "Non définie",
                 style: "font-medium text-gray-700"
               }
             ]
@@ -133,6 +175,19 @@ export const getCatalogueMovingItemConfig = (options: CatalogueMovingItemPresetO
                 return selectedDate >= today || "La date ne peut pas être dans le passé";
               }
             }
+          },
+          {
+            name: "horaire",
+            type: "select",
+            label: "Horaire de RDV",
+            required: true,
+            options: [
+              { value: "matin-6h", label: "Matin - 6h" },
+              { value: "matin-8h", label: "Matin - 8h" },
+              { value: "apres-midi-13h", label: "Après-midi - 13h" },
+              { value: "soiree-18h", label: "Soirée - 18h" },
+              { value: "flexible", label: "Flexible - selon disponibilité" }
+            ]
           }
         ]
       },
@@ -198,13 +253,15 @@ export const getCatalogueMovingItemConfig = (options: CatalogueMovingItemPresetO
           },
           {
             name: "pickupLogisticsConstraints",
-            type: "logistics-modal",
-            label: "Contraintes d'accès au départ",
+            type: "access-constraints",
+            label: "Spécificités Départ",
             className: "pickup-field",
             componentProps: {
-              id: "pickup",
-              buttonLabel: "Contraintes d'accès au départ",
-              modalTitle: "Contraintes d'accès et services - Logement de départ"
+              type: "pickup",
+              buttonLabel: "Contraintes & Spécificités",
+              modalTitle: "Contraintes d'accès & Services Supplémentaires - Départ",
+              showServices: true,
+              serviceType: ServiceType.MOVING // 🔧 CORRECTION: Spécifier le type de service (PACKING pour déménagement catalogue)
             }
           },
           // Séparateur entre départ et arrivée
@@ -272,38 +329,27 @@ export const getCatalogueMovingItemConfig = (options: CatalogueMovingItemPresetO
           },
           {
             name: "deliveryLogisticsConstraints",
-            type: "logistics-modal",
-            label: "Contraintes d'accès à l'arrivée",
+            type: "access-constraints",
+            label: "Spécificités Arrivée",
             className: "delivery-field",
             componentProps: {
-              id: "delivery",
-              buttonLabel: "Contraintes d'accès à l'arrivée",
-              modalTitle: "Contraintes d'accès et services - Logement d'arrivée"
+              type: "delivery",
+              buttonLabel: "Contraintes & Spécificités",
+              modalTitle: "Contraintes d'accès & Services Supplémentaires - Arrivée",
+              showServices: true,
+              serviceType: ServiceType.MOVING // 🔧 CORRECTION: Spécifier le type de service (PACKING pour déménagement catalogue)
             }
-          }
+          },
         ]
       },
       {
-        title: "⚙️ Configuration du pack",
+        title: "⚙️ Configuration votre forfait",
         columns: 2,
         fields: [
           {
-            name: "duration",
-            type: "number",
-            label: "Durée (en jours)",
-            required: true,
-            validation: {
-              min: pack.duration,
-              custom: (value: any) => value >= pack.duration || `Minimum ${pack.duration} jour${pack.duration > 1 ? 's' : ''}`
-            },
-            componentProps: {
-              helpText: `Minimum ${pack.duration} jour${pack.duration > 1 ? 's' : ''} pour ce pack`
-            }
-          },
-          {
             name: "workers", 
             type: "number",
-            label: "Nombre de travailleurs",
+            label: "Nombre de déménageurs",
             required: true,
             validation: {
               min: pack.workers,
@@ -312,7 +358,22 @@ export const getCatalogueMovingItemConfig = (options: CatalogueMovingItemPresetO
             componentProps: {
               helpText: `Minimum ${pack.workers} travailleur${pack.workers > 1 ? 's' : ''} pour ce pack`
             }
+          },
+
+          {
+            name: "duration",
+            type: "number",
+            label: "Durée/déménageur (en Heures)",
+            required: true,
+            validation: {
+              min: pack.duration,
+              custom: (value: any) => value >= pack.duration || `Minimum ${pack.duration} jour${pack.duration > 1 ? 's' : ''}`
+            },
+            componentProps: {
+              helpText: `Minimum ${pack.duration} jour${pack.duration > 1 ? 's' : ''} pour ce pack`
+            }
           }
+
         ]
       },
       {

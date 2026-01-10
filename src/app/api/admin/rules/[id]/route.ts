@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { Rule } from '@prisma/client'
+import { rules } from '@prisma/client'
 
 export async function PUT(
   request: Request,
@@ -30,7 +30,7 @@ export async function PUT(
     if (data.configKey !== undefined) updateData.configKey = data.configKey
     if (data.metadata !== undefined) updateData.metadata = data.metadata
 
-    const rule = await prisma.rule.update({
+    const rule = await prisma.rules.update({
       where: { id: params.id },
       data: updateData
     })
@@ -60,7 +60,7 @@ export async function DELETE(
   try {
     // 🔓 AUTHENTIFICATION DÉSACTIVÉE TEMPORAIREMENT
     // ✅ Suppression douce - désactiver au lieu de supprimer
-    const rule = await prisma.rule.update({
+    const rule = await prisma.rules.update({
       where: { id: params.id },
       data: {
         isActive: false,

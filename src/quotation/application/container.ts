@@ -45,12 +45,15 @@ let isLoaded = false;
  * @param forceReload Force le rechargement (utile en dev)
  */
 export async function loadStrategies(forceReload = false) {
-  logger.info("🔄 Chargement automatique des stratégies (Next.js compatible)...");
+  logger.info('\n\n\n═══ DEBUT container.loadStrategies ═══');
+  logger.info("📁 [container.ts] ▶️ Début chargement automatique des stratégies (Next.js compatible)");
 
   try {
     // Vérifier si déjà chargé et pas de rechargement forcé
     if (!forceReload && isLoaded && loadedStrategies.size > 0) {
-      logger.info("✅ Stratégies déjà chargées");
+      logger.info("📁 [container.ts] ✅ Stratégies déjà chargées");
+      logger.info('📁 [container.ts] ⏹ Fin container.loadStrategies');
+      logger.info('═══⏹ FIN container.loadStrategies ═══\n\n\n');
       return;
     }
 
@@ -72,12 +75,16 @@ export async function loadStrategies(forceReload = false) {
     await loadAllStrategiesWithDynamicImports();
 
     isLoaded = true;
-    logger.info(`✅ ${loadedStrategies.size} stratégies chargées avec succès`);
-    logger.info(`📋 Stratégies disponibles: [${Array.from(loadedStrategies).join(', ')}]`);
+    logger.info(`📁 [container.ts] ✅ ${loadedStrategies.size} stratégies chargées avec succès`);
+    logger.info(`📁 [container.ts] 📋 Stratégies disponibles: [${Array.from(loadedStrategies).join(', ')}]`);
+    logger.info('📁 [container.ts] ⏹ Fin container.loadStrategies');
+    logger.info('═══⏹ FIN container.loadStrategies ═══\n\n\n');
 
   } catch (err: any) {
-    logger.error(`❌ Erreur lors du chargement des stratégies:`, err.message);
-    logger.error(`❌ Stack:`, err.stack?.substring(0, 500));
+    logger.error(`📁 [container.ts] ❌ Erreur lors du chargement des stratégies:`, err.message);
+    logger.error(`📁 [container.ts] ❌ Stack:`, err.stack?.substring(0, 500));
+    logger.info('📁 [container.ts] ⏹ Fin container.loadStrategies');
+    logger.info('═══⏹ FIN container.loadStrategies ═══\n\n\n');
     throw err;
   }
 }
@@ -86,8 +93,11 @@ export async function loadStrategies(forceReload = false) {
  * Configure les services de base nécessaires aux stratégies
  */
 async function setupBaseServices() {
+  logger.info('\n\n\n═══ DEBUT container.setupBaseServices ═══');
+  logger.info("📁 [container.ts] ▶️ Début configuration des services de base");
+  
   try {
-    logger.info("🔄 Configuration des services de base...");
+    logger.info("📁 [container.ts] 🔄 Configuration des services de base...");
     
     // Charger les configurations depuis la base de données
     const configLoader = new ConfigurationLoaderService(prisma);
@@ -97,7 +107,7 @@ async function setupBaseServices() {
     
     // Charger le service de configuration avec les données de la BD
     const configService = await configLoader.getConfigurationService();
-    
+
     // Créer les moteurs de règles
     const movingRules = createMovingRules();
     const templateRules = createTemplateRules();
@@ -119,14 +129,16 @@ async function setupBaseServices() {
       container.bind(key).toConstantValue(value);
     });
     
-    logger.info("✅ Services de base configurés avec succès");
-    logger.info(`📊 ConfigurationService initialisé avec ${configService ? 'configurations chargées' : 'configurations par défaut'}`);
+    logger.info("📁 [container.ts] ✅ Services de base configurés avec succès");
+    logger.info(`📁 [container.ts] 📊 ConfigurationService initialisé avec ${configService ? 'configurations chargées' : 'configurations par défaut'}`);
+    logger.info('📁 [container.ts] ⏹ Fin container.setupBaseServices');
+    logger.info('═══⏹ FIN container.setupBaseServices ═══\n\n\n');
     
   } catch (error) {
-    logger.error("❌ Erreur lors de la configuration des services de base:", error);
+    logger.error("📁 [container.ts] ❌ Erreur lors de la configuration des services de base:", error);
     
     // Fallback avec configurations par défaut
-    logger.info("🔄 Utilisation du fallback avec configurations par défaut...");
+    logger.info("📁 [container.ts] 🔄 Utilisation du fallback avec configurations par défaut...");
     const configService = new ConfigurationService([]);
     const movingRules = createMovingRules();
     const templateRules = createTemplateRules();
@@ -146,7 +158,9 @@ async function setupBaseServices() {
       container.bind(key).toConstantValue(value);
     });
     
-    logger.info("✅ Services de base configurés avec fallback");
+    logger.info("📁 [container.ts] ✅ Services de base configurés avec fallback");
+    logger.info('📁 [container.ts] ⏹ Fin container.setupBaseServices');
+    logger.info('═══⏹ FIN container.setupBaseServices ═══\n\n\n');
   }
 }
 
@@ -154,13 +168,13 @@ async function setupBaseServices() {
  * Charge toutes les stratégies via les imports dynamiques Next.js
  */
 async function loadAllStrategiesWithDynamicImports() {
-  logger.info(`📁 Chargement de ${STRATEGY_MODULES.length} module(s) de stratégies`);
+  logger.info(`📁 [container.ts] 📁 Chargement de ${STRATEGY_MODULES.length} module(s) de stratégies`);
 
   const loadPromises = STRATEGY_MODULES.map(async (strategyModule) => {
     try {
       await loadStrategyModule(strategyModule);
     } catch (err: any) {
-      logger.error(`❌ Erreur lors du chargement de ${strategyModule.path}:`, err.message);
+      logger.error(`📁 [container.ts] ❌ Erreur lors du chargement de ${strategyModule.path}:`, err.message);
     }
   });
 
@@ -248,19 +262,16 @@ async function loadStrategyClass(
     allServiceTypes.forEach(serviceType => {
       try {
         if (container.isBound(serviceType)) {
-          logger.debug(`🔄 Unbinding existing strategy: ${serviceType}`);
           container.unbind(serviceType);
         }
       } catch { /* ignorer */ }
 
-      logger.debug(`🎯 Binding strategy ${exportName} to serviceType: ${serviceType}`);
       container.bind<QuoteStrategy>(serviceType).toConstantValue(instance);
       loadedStrategies.add(serviceType);
-      logger.debug(`✅ Successfully bound ${serviceType} to ${exportName}`);
     });
 
     logger.info(
-      `✅ Stratégie chargée : ${exportName} pour [${allServiceTypes.join(', ')}] (${modulePath})`
+      `📁 [container.ts] ✅ Stratégie chargée : ${exportName} pour [${allServiceTypes.join(', ')}]`
     );
     
   } catch (err: any) {
@@ -300,7 +311,7 @@ export async function addStrategy(
 export function getStrategy(serviceType: string): QuoteStrategy {
   try {
     // Log pour debug
-    logger.info(`🔍 Recherche de stratégie pour: ${serviceType}`);
+    logger.info(`📁 [container.ts] 🔍 Recherche de stratégie pour: ${serviceType}`);
 
     // Vérifier que le conteneur est initialisé
     if (!container) {
@@ -310,27 +321,19 @@ export function getStrategy(serviceType: string): QuoteStrategy {
 
     // Log des stratégies disponibles dans le container
     try {
-      const availableBindings = container.getAllNamed ?
-        `Bindings disponibles dans le container (si getAll supporté)` :
-        `Container initialisé mais getAll non disponible`;
-      logger.info(`📋 Container état: ${availableBindings}`);
-
-      // Vérifier si le binding existe
       const isBound = container.isBound(serviceType);
-      logger.info(`🔍 Binding existe pour ${serviceType}: ${isBound}`);
+      if (!isBound) {
+        throw new Error(`Aucun binding trouvé pour: ${serviceType}`);
+      }
     } catch (bindingCheckError) {
       logger.warn(`⚠️ Impossible de vérifier les bindings: ${bindingCheckError}`);
     }
 
-    // Essayer de récupérer la stratégie
-    logger.info(`🎯 Tentative de récupération de la stratégie: ${serviceType}`);
     const strategy = container.get<QuoteStrategy>(serviceType);
-    
+
     if (!strategy) {
       throw new Error(`Stratégie trouvée mais nulle pour: ${serviceType}`);
     }
-
-    logger.info(`✅ Stratégie trouvée: ${strategy.constructor.name}`);
     return strategy;
   } catch (error: any) {
     logger.error(`❌ Erreur getStrategy pour "${serviceType}":`, error.message);

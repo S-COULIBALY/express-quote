@@ -28,76 +28,136 @@ export class BookingController extends BaseApiController {
   }
 
   /**
-   * POST /api/bookings - Crée une nouvelle réservation
-   * Gère deux flux : création directe ou via QuoteRequest
+   * POST /api/bookings/finalize - Finalise une réservation après paiement Stripe confirmé
+   * ⚠️ Appelé UNIQUEMENT par le webhook Stripe (checkout.session.completed)
    */
-  async createBooking(request: NextRequest): Promise<NextResponse> {
+  async finalizeBooking(request: NextRequest): Promise<NextResponse> {
     return this.handleRequest(request, async (data) => {
-      logger.info('🔄 Création d\'une nouvelle réservation', { data });
+      // ✅ LOG DÉTAILLÉ: Données reçues du webhook Stripe
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('📥 [TRACE UTILISATEUR] ÉTAPE 1 (FINALIZE BOOKING): Données reçues');
+      console.log('═══════════════════════════════════════════════════════════════');
+      logger.info('📥 [TRACE UTILISATEUR] ÉTAPE 1 (FINALIZE BOOKING): Données reçues du webhook Stripe:', {
+        source: 'BookingController.finalizeBooking',
+        sessionId: data.sessionId,
+        temporaryId: data.temporaryId,
+        paymentIntentId: data.paymentIntentId,
+        paymentStatus: data.paymentStatus,
+        amount: data.amount,
+        customerData: {
+          firstName: data.customerData?.firstName,
+          lastName: data.customerData?.lastName,
+          email: data.customerData?.email,
+          phone: data.customerData?.phone,
+          phoneIsEmpty: !data.customerData?.phone || data.customerData.phone.trim() === '',
+          phoneLength: data.customerData?.phone?.length || 0
+        },
+        _trace: data._trace || null,
+        warning: (!data.customerData?.phone || data.customerData.phone.trim() === '') ? '⚠️ Téléphone manquant ou vide dans customerData' : null
+      });
       
-      // Vérifier si on a les données client pour créer directement
-      if (data.customer || (data.firstName && data.email)) {
-        // Flux direct : créer la réservation avec BookingService
-        const quoteRequest = await this.bookingService.createQuoteRequest(data);
-        const booking = await this.bookingService.createBookingAfterPayment(data.sessionId || 'direct');
-        
-        return {
-          success: true,
-          data: {
-            id: booking.getId(),
-            type: booking.getType(),
-            status: booking.getStatus(),
-            customer: {
-              id: booking.getCustomer().getId(),
-              firstName: booking.getCustomer().getContactInfo().getFirstName(),
-              lastName: booking.getCustomer().getContactInfo().getLastName(),
-              email: booking.getCustomer().getEmail()
-            },
-            totalAmount: booking.getTotalAmount().getAmount(),
-            createdAt: booking.getCreatedAt()
-          }
-        };
-      } else if (data.temporaryId && data.customerData) {
-        // 🆕 NOUVEAU FLUX : Confirmation de réservation avec QuoteRequest existante + données client
-        const booking = await this.bookingService.createAndConfirmBooking(
-          data.temporaryId,
-          data.customerData
-        );
-        
-        return {
-          success: true,
-          data: {
-            id: booking.getId(),
-            type: booking.getType(),
-            status: booking.getStatus(),
-            customer: {
-              id: booking.getCustomer().getId(),
-              firstName: booking.getCustomer().getContactInfo().getFirstName(),
-              lastName: booking.getCustomer().getContactInfo().getLastName(),
-              email: booking.getCustomer().getEmail()
-            },
-            totalAmount: booking.getTotalAmount().getAmount(),
-            createdAt: booking.getCreatedAt(),
-            message: '🎉 Réservation confirmée! Documents envoyés par email.'
-          }
-        };
-      } else {
-        // Flux QuoteRequest : créer d'abord une demande de devis
-        const quoteRequest = await this.bookingService.createQuoteRequest(data);
-        
-        return {
-          success: true,
-          data: {
-            temporaryId: quoteRequest.getTemporaryId(),
-            id: quoteRequest.getId(),
-            type: quoteRequest.getType(),
-            status: quoteRequest.getStatus(),
-            expiresAt: quoteRequest.getExpiresAt(),
-            message: 'Demande de devis créée. Utilisez /api/bookings/{id}/finalize pour compléter.'
-          }
-        };
+      // Log console pour visibilité immédiate
+      console.log('📥 [TRACE UTILISATEUR] customerData reçu:', JSON.stringify(data.customerData, null, 2));
+
+      // Validation: Paiement doit être confirmé
+      if (data.paymentStatus !== 'succeeded' && data.paymentStatus !== 'paid') {
+        throw new Error(`Paiement non confirmé (status: ${data.paymentStatus})`);
       }
+
+      // Validation: temporaryId requis
+      if (!data.temporaryId) {
+        throw new Error('temporaryId manquant');
+      }
+
+      // Validation: sessionId requis
+      if (!data.sessionId) {
+        throw new Error('sessionId manquant');
+      }
+
+      // Créer le Booking APRÈS paiement confirmé
+      const booking = await this.bookingService.createBookingAfterPayment(
+        data.sessionId,
+        data.temporaryId,
+        data.customerData
+      );
+
+      logger.info('✅ Booking créé après paiement confirmé:', {
+        bookingId: booking.getId(),
+        temporaryId: data.temporaryId,
+        sessionId: data.sessionId
+      });
+
+      // 📧 NOTIFICATIONS envoyées ici dans createBookingAfterPayment:
+      // - Email client (confirmation + reçu)
+      // - Email professionnel (nouvelle mission)
+      // - Notification admin (monitoring)
+
+      return this.buildBookingResponse(booking, {
+        message: '🎉 Réservation confirmée! Documents envoyés par email.'
+      });
     });
+  }
+
+  /**
+   * Méthode privée: Construction de réponse standardisée pour un Booking
+   * Retourne directement les données (sera enveloppé par successResponse)
+   */
+  private buildBookingResponse(booking: any, additionalData?: any) {
+    const totalAmount = booking.getTotalAmount().getAmount();
+    const depositAmount = totalAmount * 0.3; // Acompte de 30%
+
+    return {
+      id: booking.getId(),
+      type: booking.getType(),
+      status: booking.getStatus(),
+      customer: {
+        id: booking.getCustomer().getId(),
+        firstName: booking.getCustomer().getContactInfo().getFirstName(),
+        lastName: booking.getCustomer().getContactInfo().getLastName(),
+        email: booking.getCustomer().getEmail()
+      },
+      totalAmount,
+      depositAmount, // ✅ Ajout de l'acompte payé (30%)
+      createdAt: booking.getCreatedAt(),
+      ...additionalData
+    };
+  }
+
+  /**
+   * Méthode privée: Gestion centralisée des erreurs Booking
+   */
+  private handleBookingError(error: unknown): NextResponse {
+    if (error instanceof BookingNotFoundError) {
+      return NextResponse.json(
+        { success: false, error: 'Réservation non trouvée' },
+        { status: 404 }
+      );
+    }
+    if (error instanceof BookingUpdateNotAllowedError) {
+      return NextResponse.json(
+        { success: false, error: 'Modification non autorisée' },
+        { status: 422 }
+      );
+    }
+    if (error instanceof BookingAlreadyCancelledError) {
+      return NextResponse.json(
+        { success: false, error: 'Cette réservation est déjà annulée' },
+        { status: 422 }
+      );
+    }
+    if (error instanceof BookingCannotBeCancelledError) {
+      return NextResponse.json(
+        { success: false, error: 'Cette réservation ne peut plus être annulée' },
+        { status: 422 }
+      );
+    }
+    if (error instanceof BookingDeletionNotAllowedError) {
+      return NextResponse.json(
+        { success: false, error: 'Suppression non autorisée' },
+        { status: 422 }
+      );
+    }
+    throw error;
   }
 
   /**
@@ -122,11 +182,56 @@ export class BookingController extends BaseApiController {
       
       const result = await this.bookingService.searchBookings(criteria);
       
-      return {
-        success: true,
-        data: {
-          bookings: result.bookings.map(booking => ({
-            id: booking.getId(),
+      // Vérifier que le résultat est valide
+      if (!result || !result.bookings) {
+        logger.warn('⚠️ Résultat de recherche invalide:', result);
+        // Retourner directement les données (handleRequest enveloppera dans success: true, data: ...)
+        return {
+          bookings: [],
+          totalCount: 0,
+          hasMore: false
+        };
+      }
+      
+      // Récupérer les transactions pour chaque booking pour calculer le montant réellement payé
+      const { prisma } = await import('@/lib/prisma');
+      
+      const bookingsWithPayments = await Promise.all(
+        (result.bookings || []).map(async (booking) => {
+          const bookingId = booking.getId();
+          
+          // Récupérer les transactions complétées pour ce booking
+          const transactions = await prisma.transaction.findMany({
+            where: {
+              bookingId,
+              status: 'COMPLETED'
+            },
+            select: {
+              amount: true
+            }
+          });
+          
+          // Calculer le montant total payé
+          const paidAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+          const totalAmount = booking.getTotalAmount().getAmount();
+          const depositAmount = totalAmount * 0.3; // Acompte de 30%
+          
+          // Récupérer scheduledDate depuis l'entité ou depuis quoteData
+          let scheduledDate = booking.getScheduledDate();
+          
+          if (!scheduledDate) {
+            const quoteRequestData = (booking as any).quoteRequestData;
+            if (quoteRequestData?.quoteData) {
+              const quoteData = quoteRequestData.quoteData;
+              const dateStr = quoteData.scheduledDate || quoteData.serviceDate || quoteData.moveDate;
+              if (dateStr) {
+                scheduledDate = new Date(dateStr);
+              }
+            }
+          }
+          
+          return {
+            id: bookingId,
             type: booking.getType(),
             status: booking.getStatus(),
             customer: {
@@ -135,12 +240,21 @@ export class BookingController extends BaseApiController {
               lastName: booking.getCustomer().getContactInfo().getLastName(),
               email: booking.getCustomer().getEmail()
             },
-            totalAmount: booking.getTotalAmount().getAmount(),
-            createdAt: booking.getCreatedAt()
-          })),
-          totalCount: result.totalCount,
-          hasMore: result.hasMore
-        }
+            totalAmount,
+            paidAmount, // Montant réellement payé basé sur les transactions
+            createdAt: booking.getCreatedAt().toISOString(),
+            phone: booking.getCustomer().getContactInfo().getPhone(),
+            scheduledDate: scheduledDate ? scheduledDate.toISOString() : undefined,
+            depositAmount
+          };
+        })
+      );
+      
+      // Retourner directement les données (handleRequest enveloppera dans success: true, data: ...)
+      return {
+        bookings: bookingsWithPayments,
+        totalCount: result.totalCount || 0,
+        hasMore: result.hasMore || false
       };
     });
   }
@@ -156,32 +270,25 @@ export class BookingController extends BaseApiController {
       try {
         const booking = await this.bookingService.getBookingById(id);
         
-        return {
-          success: true,
-          data: {
-            id: booking.getId(),
-            type: booking.getType(),
-            status: booking.getStatus(),
-            customer: {
-              id: booking.getCustomer().getId(),
-              firstName: booking.getCustomer().getContactInfo().getFirstName(),
-              lastName: booking.getCustomer().getContactInfo().getLastName(),
-              email: booking.getCustomer().getEmail(),
-              phone: booking.getCustomer().getContactInfo().getPhone()
-            },
-            totalAmount: booking.getTotalAmount().getAmount(),
-            createdAt: booking.getCreatedAt(),
-            updatedAt: booking.getUpdatedAt()
-          }
-        };
+        // Récupérer les données du QuoteRequest si disponibles
+        const quoteRequestData = (booking as any).quoteRequestData || null;
+
+        return this.buildBookingResponse(booking, {
+          phone: booking.getCustomer().getContactInfo().getPhone(),
+          updatedAt: booking.getUpdatedAt(),
+          scheduledDate: (booking as any).scheduledDate || null,
+          quoteRequest: quoteRequestData ? {
+            id: quoteRequestData.id,
+            temporaryId: quoteRequestData.temporaryId,
+            type: quoteRequestData.type,
+            status: quoteRequestData.status,
+            quoteData: quoteRequestData.quoteData,
+            createdAt: quoteRequestData.createdAt,
+            expiresAt: quoteRequestData.expiresAt
+          } : null
+        });
       } catch (error) {
-        if (error instanceof BookingNotFoundError) {
-          return NextResponse.json(
-            { success: false, error: 'Réservation non trouvée' },
-            { status: 404 }
-          );
-        }
-        throw error;
+        return this.handleBookingError(error);
       }
     });
   }
@@ -196,37 +303,12 @@ export class BookingController extends BaseApiController {
       
       try {
         const booking = await this.bookingService.updateBooking(id, data);
-        
-        return {
-          success: true,
-          data: {
-            id: booking.getId(),
-            type: booking.getType(),
-            status: booking.getStatus(),
-            customer: {
-              id: booking.getCustomer().getId(),
-              firstName: booking.getCustomer().getContactInfo().getFirstName(),
-              lastName: booking.getCustomer().getContactInfo().getLastName(),
-              email: booking.getCustomer().getEmail()
-            },
-            totalAmount: booking.getTotalAmount().getAmount(),
-            updatedAt: booking.getUpdatedAt()
-          }
-        };
+
+        return this.buildBookingResponse(booking, {
+          updatedAt: booking.getUpdatedAt()
+        });
       } catch (error) {
-        if (error instanceof BookingNotFoundError) {
-          return NextResponse.json(
-            { success: false, error: 'Réservation non trouvée' },
-            { status: 404 }
-          );
-        }
-        if (error instanceof BookingUpdateNotAllowedError) {
-          return NextResponse.json(
-            { success: false, error: 'Modification non autorisée pour cette réservation' },
-            { status: 422 }
-          );
-        }
-        throw error;
+        return this.handleBookingError(error);
       }
     });
   }
@@ -241,25 +323,13 @@ export class BookingController extends BaseApiController {
       
       try {
         await this.bookingService.deleteBooking(id);
-        
+
         return {
           success: true,
           message: 'Réservation supprimée avec succès'
         };
       } catch (error) {
-        if (error instanceof BookingNotFoundError) {
-          return NextResponse.json(
-            { success: false, error: 'Réservation non trouvée' },
-            { status: 404 }
-          );
-        }
-        if (error instanceof BookingDeletionNotAllowedError) {
-          return NextResponse.json(
-            { success: false, error: 'Suppression non autorisée pour cette réservation' },
-            { status: 422 }
-          );
-        }
-        throw error;
+        return this.handleBookingError(error);
       }
     });
   }
@@ -275,32 +345,14 @@ export class BookingController extends BaseApiController {
       
       try {
         await this.bookingService.cancelBooking(id, reason);
-        
+
         return {
           success: true,
           message: 'Réservation annulée avec succès',
           cancelledAt: new Date().toISOString()
         };
       } catch (error) {
-        if (error instanceof BookingNotFoundError) {
-          return NextResponse.json(
-            { success: false, error: 'Réservation non trouvée' },
-            { status: 404 }
-          );
-        }
-        if (error instanceof BookingAlreadyCancelledError) {
-          return NextResponse.json(
-            { success: false, error: 'Cette réservation est déjà annulée' },
-            { status: 422 }
-          );
-        }
-        if (error instanceof BookingCannotBeCancelledError) {
-          return NextResponse.json(
-            { success: false, error: 'Cette réservation ne peut plus être annulée' },
-            { status: 422 }
-          );
-        }
-        throw error;
+        return this.handleBookingError(error);
       }
     });
   }
@@ -482,13 +534,7 @@ export class BookingController extends BaseApiController {
           }
         };
       } catch (error) {
-        if (error instanceof BookingNotFoundError) {
-          return NextResponse.json(
-            { success: false, error: 'Réservation non trouvée' },
-            { status: 404 }
-          );
-        }
-        throw error;
+        return this.handleBookingError(error);
       }
     });
   }
@@ -500,10 +546,10 @@ export class BookingController extends BaseApiController {
     return this.handleRequest(request, async () => {
       const { id } = params;
       logger.info(`🔍 Récupération des services pour la réservation ${id}`);
-      
+
       try {
         const booking = await this.bookingService.getBookingById(id);
-        
+
         // Pour l'instant, retourner les services stockés dans additionalInfo
         // En production, il faudrait une table services séparée
         const services = []; // À implémenter selon le schéma DB
@@ -518,13 +564,7 @@ export class BookingController extends BaseApiController {
           }
         };
       } catch (error) {
-        if (error instanceof BookingNotFoundError) {
-          return NextResponse.json(
-            { success: false, error: 'Réservation non trouvée' },
-            { status: 404 }
-          );
-        }
-        throw error;
+        return this.handleBookingError(error);
       }
     });
   }

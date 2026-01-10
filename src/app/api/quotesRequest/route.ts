@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { QuoteRequestController } from '@/quotation/interfaces/http/controllers/QuoteRequestController';
 import { QuoteRequestService } from '@/quotation/application/services/QuoteRequestService';
 import { PrismaQuoteRequestRepository } from '@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository';
+import { devLog } from '@/lib/conditional-logger';
 
 /**
  * POST /api/quotesRequest/
  * Crée une nouvelle demande de devis
  */
 export async function POST(request: NextRequest) {
+    devLog.debug('API', '📡 POST /api/quotesRequest');
+    
     try {
         // Initialiser les dépendances
         const repository = new PrismaQuoteRequestRepository();
@@ -51,10 +54,11 @@ export async function POST(request: NextRequest) {
         await controller.createQuoteRequest(httpRequest, httpResponse as any);
 
         // Retourner la réponse Next.js
+        devLog.debug('API', '✅ Demande de devis créée');
         return NextResponse.json(responseData, { status: statusCode });
 
     } catch (error) {
-        console.error('Erreur dans POST /api/quotesRequest:', error);
+        devLog.error('API', '❌ Erreur API:', error);
         return NextResponse.json(
             { 
                 error: 'Erreur interne du serveur',

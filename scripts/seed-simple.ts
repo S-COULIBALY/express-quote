@@ -177,12 +177,12 @@ async function main() {
   ];
 
   for (const rule of rules) {
-    const existing = await prisma.rule.findFirst({
+    const existing = await prisma.rules.findFirst({
       where: { name: rule.name }
     });
 
     if (!existing) {
-      await prisma.rule.create({
+      await prisma.rules.create({
         data: rule
       });
     }
@@ -254,7 +254,7 @@ async function main() {
   console.log(`   - ${await prisma.internalStaff.count()} staff interne`);
   console.log(`   - ${await prisma.professional.count()} professionnels`);
   console.log(`   - ${await prisma.customer.count()} clients`);
-  console.log(`   - ${await prisma.rule.count()} règles métier`);
+  console.log(`   - ${await prisma.rules.count()} règles métier`);
   console.log(`   - ${await prisma.configuration.count()} configurations`);
   console.log(`   - ${await prisma.notificationMetrics.count()} métriques`);
 

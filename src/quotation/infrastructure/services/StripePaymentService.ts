@@ -55,8 +55,8 @@ export class StripePaymentService implements IPaymentService {
           },
         ],
         mode: 'payment',
-        success_url: `${this.frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${this.frontendUrl}/payment/cancel`,
+        success_url: `${this.frontendUrl}/success?payment_intent={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${this.frontendUrl}/catalogue`,
         customer_email: customerEmail,
         metadata: {
           bookingId,

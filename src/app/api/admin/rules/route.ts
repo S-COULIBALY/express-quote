@@ -70,21 +70,21 @@ interface EnrichedRule {
 
 async function calculateStatistics(): Promise<RuleStatistics> {
   const [total, byCategory, byServiceType, byRuleType, active] = await Promise.all([
-    prisma.rule.count(),
-    prisma.rule.groupBy({
+    prisma.rules.count(),
+    prisma.rules.groupBy({
       by: ['category'],
       _count: true,
     }),
-    prisma.rule.groupBy({
+    prisma.rules.groupBy({
       by: ['serviceType'],
       _count: true,
     }),
     // ✅ NOUVEAU - Statistiques par type de règle
-    prisma.rule.groupBy({
+    prisma.rules.groupBy({
       by: ['ruleType'],
       _count: true,
     }),
-    prisma.rule.count({ where: { isActive: true } })
+     prisma.rules.count({ where: { isActive: true } })
   ])
 
   return {
@@ -181,7 +181,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       }
     }
 
-    const rules = await prisma.rule.findMany({
+    const rules = await prisma.rules.findMany({
       where: whereClause,
       orderBy: [
         { ruleType: 'asc' }, // ✅ NOUVEAU - Tri par type de règle en premier
@@ -271,7 +271,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       percentBased = body.type === 'percentage'
     }
 
-    const rule = await prisma.rule.create({
+    const rule = await prisma.rules.create({
       data: {
         name: body.name,
         description: body.description || null,
@@ -289,7 +289,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         tags: body.tags || [],
         configKey: body.configKey || null,
         metadata: body.metadata || {}
-      }
+      } as any
     })
 
     const enrichedRule = await enrichRule(rule)
@@ -324,7 +324,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
     }
 
     // Vérification de l'existence de la règle
-    const existingRule = await prisma.rule.findUnique({
+    const existingRule = await prisma.rules.findUnique({
       where: { id: body.id }
     })
 
@@ -383,7 +383,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
     if (body.configKey !== undefined) updateData.configKey = body.configKey
     if (body.metadata !== undefined) updateData.metadata = body.metadata
 
-    const rule = await prisma.rule.update({
+    const rule = await prisma.rules.update({
       where: { id: body.id },
       data: updateData
     })
@@ -421,7 +421,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     }
 
     // Vérification de l'existence de la règle
-    const existingRule = await prisma.rule.findUnique({
+    const existingRule = await prisma.rules.findUnique({
       where: { id }
     })
 
@@ -434,7 +434,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     }
 
     // Suppression douce (désactivation) plutôt que suppression physique
-    const rule = await prisma.rule.update({
+    const rule = await prisma.rules.update({
       where: { id },
       data: { isActive: false }
     })

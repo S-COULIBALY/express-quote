@@ -280,7 +280,7 @@ export const formatErrorForUser = (error: any): {
   }>;
 } => {
   const appError = error instanceof QuoteRequestError ? error : handleApiError(error);
-  
+
   const baseActions = [
     {
       label: 'Accueil',
@@ -288,7 +288,7 @@ export const formatErrorForUser = (error: any): {
       action: () => { window.location.href = '/'; }
     }
   ];
-  
+
   switch (appError.code) {
     case 'QUOTE_EXPIRED':
       return {
@@ -303,7 +303,7 @@ export const formatErrorForUser = (error: any): {
           ...baseActions
         ]
       };
-      
+
     case 'QUOTE_NOT_FOUND':
       return {
         title: 'Devis introuvable',
@@ -317,7 +317,7 @@ export const formatErrorForUser = (error: any): {
           ...baseActions
         ]
       };
-      
+
     case 'NETWORK_ERROR':
       return {
         title: 'Problème de connexion',
@@ -331,7 +331,7 @@ export const formatErrorForUser = (error: any): {
           ...baseActions
         ]
       };
-      
+
     default:
       return {
         title: 'Erreur',
@@ -346,4 +346,49 @@ export const formatErrorForUser = (error: any): {
         ] : baseActions
       };
   }
+};
+
+/**
+ * Options pour le retry automatique
+ */
+interface RetryOptions {
+  maxAttempts: number;
+  delay: number;
+  backoff?: boolean;
+}
+
+/**
+ * Retry automatique avec backoff exponentiel
+ * Utilisé par useUnifiedSubmission pour retry automatique
+ */
+export const retryAsync = async <T>(
+  fn: () => Promise<T>,
+  options: RetryOptions
+): Promise<T> => {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= options.maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      // Ne pas retry sur les erreurs de validation
+      if (error instanceof QuoteRequestError && !error.retryable) {
+        throw error;
+      }
+
+      // Si ce n'est pas la dernière tentative, attendre avant de réessayer
+      if (attempt < options.maxAttempts) {
+        const delayMs = options.backoff
+          ? options.delay * attempt
+          : options.delay;
+
+        console.log(`⚠️ Tentative ${attempt}/${options.maxAttempts} échouée. Nouvelle tentative dans ${delayMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw lastError;
 }; 

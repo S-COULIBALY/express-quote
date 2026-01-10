@@ -82,29 +82,17 @@ async function getSuccessPageUrl() {
     const { getCurrentBooking } = await import('@/actions/bookingManager');
     const booking = await getCurrentBooking();
     
-    // Si pas de réservation ou pas d'éléments, utiliser la page de succès par défaut
-    if (!booking || !booking.items || booking.items.length === 0) {
-      return `${window.location.origin}/services/success`;
+    // Si pas de réservation, rediriger vers le catalogue
+    if (!booking || !booking.id) {
+      return `${window.location.origin}/catalogue`;
     }
     
-    // Déterminer le type du premier élément
-    const firstItem = booking.items[0];
-    const itemType = firstItem.type.toLowerCase();
-    
-    if (itemType === 'service') {
-      return `${window.location.origin}/services/success`;
-    } else if (itemType === 'pack') {
-      return `${window.location.origin}/packs/success`;
-    } else if (itemType === 'moving' || itemType === 'moving_quote') {
-      return `${window.location.origin}/moving/success`;
-    }
-    
-    // Par défaut, utiliser la page de succès des services
-    return `${window.location.origin}/services/success`;
+    // Rediriger vers la page de détail de la réservation
+    return `${window.location.origin}/bookings/${booking.id}`;
   } catch (error) {
     console.error('Error getting success page URL:', error);
-    // En cas d'erreur, utiliser la page de succès par défaut
-    return `${window.location.origin}/services/success`;
+    // En cas d'erreur, rediriger vers le catalogue
+    return `${window.location.origin}/catalogue`;
   }
 }
 
@@ -129,6 +117,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   const elements = useElements();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // ✅ États pour les données client (OBLIGATOIRES)
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [stripeError, setStripeError] = useState<boolean>(false);
   const [elementReady, setElementReady] = useState<boolean>(false);
   const [authError, setAuthError] = useState<boolean>(false);
@@ -255,17 +248,30 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       return;
     }
 
+    // ✅ Validation des champs obligatoires
+    if (!customerEmail || !customerName || !customerPhone) {
+      setErrorMessage('Veuillez remplir tous les champs obligatoires (email, nom, téléphone).');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
       setIsLoading(true);
-      
-      // Démarrer le processus de paiement
+
+      // ✅ Démarrer le processus de paiement AVEC les billing details
       const result = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: returnUrl || await getSuccessPageUrl()
+          return_url: returnUrl || await getSuccessPageUrl(),
+          payment_method_data: {
+            billing_details: {
+              name: customerName,
+              email: customerEmail,
+              phone: customerPhone
+            }
+          }
         },
         redirect: 'if_required'
       });
@@ -327,6 +333,61 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit}>
+      {/* ✅ SECTION: Informations client (OBLIGATOIRE) */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+          <svg className="w-4 h-4 mr-1 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          Vos informations <span className="text-red-500 ml-1">*</span>
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="customerName" className="block text-sm text-gray-700 mb-1">
+              Nom complet <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="customerName"
+              type="text"
+              required
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Jean Dupont"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label htmlFor="customerEmail" className="block text-sm text-gray-700 mb-1">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="customerEmail"
+              type="email"
+              required
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              placeholder="jean.dupont@example.com"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label htmlFor="customerPhone" className="block text-sm text-gray-700 mb-1">
+              Téléphone <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="customerPhone"
+              type="tel"
+              required
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              placeholder="+33 6 12 34 56 78"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ SECTION: Paiement par carte */}
       <div className="mb-6">
         <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
           <svg className="w-4 h-4 mr-1 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -334,11 +395,31 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
           </svg>
           Informations de paiement
         </h3>
-        
+
         <div className="mb-4">
-          <PaymentElement 
-            onReady={handleElementReady} 
+          <PaymentElement
+            onReady={handleElementReady}
             onLoadError={handleElementError}
+            options={{
+              fields: {
+                billingDetails: {
+                  name: 'never',  // On va créer notre propre champ
+                  email: 'never', // On va créer notre propre champ
+                  phone: 'never', // On va créer notre propre champ
+                  address: {
+                    country: 'never',
+                    postalCode: 'never'
+                  }
+                }
+              },
+              // ✅ FORCER la collecte des billing_details (nom, email, téléphone)
+              layout: {
+                type: 'tabs',
+                defaultCollapsed: false,
+                radios: false,
+                spacedAccordionItems: true
+              }
+            }}
           />
         </div>
         
@@ -415,6 +496,17 @@ export const StripeElementsProvider: React.FC<StripeElementsProps> = ({ clientSe
           colorDanger: '#ef4444',
           fontFamily: 'ui-sans-serif, system-ui, sans-serif',
           borderRadius: '0.375rem',
+        }
+      },
+      // ✅ FORCER la collecte des billing_details
+      defaultValues: {
+        billingDetails: {
+          name: '',
+          email: '',
+          phone: '',
+          address: {
+            country: 'FR'
+          }
         }
       }
     };

@@ -79,7 +79,7 @@ export const createMenageSurMesureSubmissionConfig = (service: MenageSurMesureDa
   },
 
   getSuccessRedirectUrl: (responseData: any) => {
-    return `/summary/quote/${responseData.temporaryId || responseData.id}`;
+    return `/booking/${responseData.temporaryId || responseData.id}`;
   },
 
   getNotificationData: (formData: any, responseData: any, extraData?: MenageSurMesureSubmissionExtraData) => {

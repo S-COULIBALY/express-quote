@@ -52,7 +52,7 @@ export const createCatalogueCleaningItemSubmissionConfig = (
   },
 
   getSuccessRedirectUrl: (responseData: any) => {
-    return `/services/summary?quoteRequestId=${encodeURIComponent(responseData.id)}`;
+    return `/booking/${responseData.temporaryId || responseData.id}`;
   },
 
   getNotificationData: async (

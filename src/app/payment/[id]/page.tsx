@@ -20,10 +20,8 @@ export default function PaymentRedirect() {
       return;
     }
 
-    // Pour l'instant, rediriger vers la page de succès
-    // En production, il faudrait récupérer le temporaryId depuis l'API
-    // et rediriger vers /summary/quote/[temporaryId]
-    router.replace(`/success/${bookingId}`);
+    // Rediriger directement vers la page de détail de la réservation
+    router.replace(`/bookings/${bookingId}`);
   }, [bookingId, router]);
 
   return (

@@ -1,5 +1,6 @@
 import { FormConfig } from '../../types';
 import { CatalogueDeliveryItem } from '@/types/booking';
+import { ServiceType } from '@/quotation/domain/enums/ServiceType';
 
 export interface CatalogueDeliveryItemServicePresetOptions {
   service: CatalogueDeliveryItem;
@@ -10,8 +11,15 @@ export interface CatalogueDeliveryItemServicePresetOptions {
   sessionStorageKey?: string;
 }
 
-export const getCatalogueDeliveryItemServiceConfig = (options: CatalogueDeliveryItemServicePresetOptions): FormConfig => {
-  const { service, onPriceCalculated, onSubmitSuccess, onError, editMode, sessionStorageKey } = options;
+export const getCatalogueDeliveryItemServiceConfig = (serviceOrOptions: CatalogueDeliveryItem | CatalogueDeliveryItemServicePresetOptions): FormConfig => {
+  // Support pour les deux signatures : ancien (objet options) et nouveau (service direct)
+  const isOptions = 'service' in serviceOrOptions || 'onPriceCalculated' in serviceOrOptions;
+  const service = isOptions ? (serviceOrOptions as CatalogueDeliveryItemServicePresetOptions).service : (serviceOrOptions as CatalogueDeliveryItem);
+  const onPriceCalculated = isOptions ? (serviceOrOptions as CatalogueDeliveryItemServicePresetOptions).onPriceCalculated : undefined;
+  const onSubmitSuccess = isOptions ? (serviceOrOptions as CatalogueDeliveryItemServicePresetOptions).onSubmitSuccess : undefined;
+  const onError = isOptions ? (serviceOrOptions as CatalogueDeliveryItemServicePresetOptions).onError : undefined;
+  const editMode = isOptions ? (serviceOrOptions as CatalogueDeliveryItemServicePresetOptions).editMode : undefined;
+  const sessionStorageKey = isOptions ? (serviceOrOptions as CatalogueDeliveryItemServicePresetOptions).sessionStorageKey : undefined;
 
   // Auto-détection des valeurs par défaut depuis sessionStorage si en mode édition
   const getDefaultValues = () => {
@@ -29,33 +37,174 @@ export const getCatalogueDeliveryItemServiceConfig = (options: CatalogueDelivery
     }
     
       return {
-    pickupTime: '',
-    deliveryTime: '',
-    packageType: 'colis',
-    weight: '',
-    isFragile: false,
-    deliveryType: 'standard',
-    // Ajouter les données du service au contexte
-    serviceName: service.name,
-    serviceDescription: service.description,
-    basePrice: service.price,
-    defaultPrice: service.price
-  };
+        // Planning et Service
+        scheduledDate: '',
+        deliveryType: 'standard',
+        
+        // Objet à livrer
+        packageType: 'colis',
+        weight: '',
+        isFragile: false,
+        
+        // Adresse de récupération
+        pickupAddress: '',
+        pickupTime: '',
+        pickupFloor: '',
+        pickupElevator: '',
+        pickupLogisticsConstraints: [],
+        
+        // Adresse de livraison
+        deliveryAddress: '',
+        deliveryTime: '',
+        deliveryFloor: '',
+        deliveryElevator: '',
+        deliveryLogisticsConstraints: [],
+        
+        // Informations supplémentaires
+        additionalInfo: '',
+        
+        // Ajouter les données du service au contexte
+        serviceName: service.name,
+        serviceDescription: service.description,
+        basePrice: service.price,
+        defaultPrice: service.price
+      };
   };
 
   const config: FormConfig = {
-    title: `Réserver votre livraison ${service.name}`,
-    description: "Personnalisez votre livraison selon vos besoins",
+    //title: `Réserver votre livraison ${service.name}`,
+    //description: "Personnalisez votre livraison selon vos besoins",
     serviceType: "general",
     customDefaults: getDefaultValues(),
     
     layout: {
       type: "sidebar",
+      // Nouvelles fonctionnalités du SidebarLayout amélioré
       showPriceCalculation: true,
       showConstraintsByAddress: true,
       showModificationsSummary: true,
-      onPriceCalculated: onPriceCalculated ? (price: number) => onPriceCalculated(price, {}) : undefined,
-      initialPrice: service.price
+      initialPrice: service.price || 0,
+      serviceInfo: {
+        name: service.name,
+        description: service.description,
+        icon: "🚚",
+        features: service.includes || [
+          "Service de livraison personnalisé",
+          "Devis adapté à vos besoins",
+          "Équipe professionnelle",
+          "Suivi en temps réel",
+          "Assurance responsabilité civile"
+        ]
+      },
+      summaryConfig: {
+        title: service.name,
+        sections: [
+          // Section Service enrichie avec les données dynamiques
+          {
+            title: "Service",
+            icon: "🚚",
+            fields: [
+              { key: "serviceName", label: "Service sélectionné", format: () => service.name },
+              { key: "serviceDescription", label: "Description", format: () => service.description },
+              {
+                key: "deliveryType",
+                label: "Type de livraison",
+                format: (value: any) => value || "Non spécifié",
+                style: "font-medium text-gray-700"
+              }
+            ]
+          },
+          // Section Objet à livrer
+          {
+            title: "Objet à livrer",
+            icon: "📦",
+            fields: [
+              {
+                key: "packageType",
+                label: "Type de colis",
+                format: (value: any) => value || "Non spécifié",
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "weight",
+                label: "Poids",
+                format: (value: any) => `${value || 0} kg`,
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "isFragile",
+                label: "Objet fragile",
+                format: (value: any) => value ? "Oui" : "Non",
+                style: "font-medium text-gray-700"
+              }
+            ]
+          },
+          // Section Récupération
+          {
+            title: "Récupération",
+            icon: "📍",
+            fields: [
+              {
+                key: "pickupAddress",
+                label: "Adresse de récupération",
+                format: (value: any) => value || "Non spécifiée",
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "pickupTime",
+                label: "Heure d'enlèvement",
+                format: (value: any) => value || "Non spécifiée",
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "pickupFloor",
+                label: "Étage",
+                format: (value: any) => value || "Non spécifié",
+                style: "font-medium text-gray-700"
+              }
+            ]
+          },
+          // Section Livraison
+          {
+            title: "Livraison",
+            icon: "🚚",
+            fields: [
+              {
+                key: "deliveryAddress",
+                label: "Adresse de livraison",
+                format: (value: any) => value || "Non spécifiée",
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "deliveryTime",
+                label: "Heure de livraison",
+                format: (value: any) => value || "Non spécifiée",
+                style: "font-medium text-gray-700"
+              },
+              {
+                key: "deliveryFloor",
+                label: "Étage",
+                format: (value: any) => value || "Non spécifié",
+                style: "font-medium text-gray-700"
+              }
+            ]
+          },
+          // Section Prix dynamique
+          {
+            title: "Prix",
+            icon: "💰",
+            fields: [
+              { key: "basePrice", label: "Prix de base", format: () => "Sur devis" },
+              {
+                key: "totalPrice",
+                label: "Total estimé",
+                format: () => "Calcul en cours...", // Sera mis à jour dynamiquement
+                style: "font-bold text-emerald-600"
+              }
+            ]
+          }
+        ]
+      }
     },
 
     sections: [
@@ -188,6 +337,19 @@ export const getCatalogueDeliveryItemServiceConfig = (options: CatalogueDelivery
               { value: "yes", label: "Oui" },
               { value: "no", label: "Non" }
             ]
+          },
+          {
+            name: "pickupLogisticsConstraints",
+            type: "access-constraints",
+            label: "Spécificités Enlèvement",
+            className: "pickup-field",
+            componentProps: {
+              type: "pickup",
+              buttonLabel: "Contraintes & Spécificités",
+              modalTitle: "Contraintes d'accès & Services Supplémentaires - Récupération",
+              showServices: true,
+              serviceType: ServiceType.DELIVERY // 🔧 CORRECTION: Spécifier le type de service
+            }
           }
         ]
       },
@@ -242,6 +404,19 @@ export const getCatalogueDeliveryItemServiceConfig = (options: CatalogueDelivery
               { value: "yes", label: "Oui" },
               { value: "no", label: "Non" }
             ]
+          },
+          {
+            name: "deliveryLogisticsConstraints",
+            type: "access-constraints",
+            label: "Spécificités Livraison",
+            className: "delivery-field",
+            componentProps: {
+              type: "delivery",
+              buttonLabel: "Contraintes & Spécificités",
+              modalTitle: "Contraintes d'accès & Services Supplémentaires - Livraison",
+              showServices: true,
+              serviceType: ServiceType.DELIVERY // 🔧 CORRECTION: Spécifier le type de service
+            }
           }
         ]
       },
@@ -273,19 +448,34 @@ export const getCatalogueDeliveryItemServiceConfig = (options: CatalogueDelivery
       }
     ],
 
-    // Handlers qui utilisent les callbacks (fonctionnalité préservée)
+    // Handlers qui utilisent les callbacks
     onChange: onPriceCalculated ? async (fieldName: string, value: any, formData: any) => {
       const priceRelevantFields = [
-        'packageType', 'weight', 'isFragile', 'deliveryType',
-        'pickupAddress', 'deliveryAddress', 'pickupFloor', 'deliveryFloor',
-        'pickupElevator', 'deliveryElevator', 'pickupTime', 'deliveryTime'
+        // Planning et Service
+        'scheduledDate', 'deliveryType',
+        
+        // Objet à livrer
+        'packageType', 'weight', 'isFragile',
+        
+        // Adresse de récupération
+        'pickupAddress', 'pickupTime', 'pickupFloor', 'pickupElevator', 'pickupLogisticsConstraints',
+        
+        // Adresse de livraison
+        'deliveryAddress', 'deliveryTime', 'deliveryFloor', 'deliveryElevator', 'deliveryLogisticsConstraints',
+        
+        // Informations supplémentaires
+        'additionalInfo'
       ];
-      
+
       if (priceRelevantFields.includes(fieldName)) {
         try {
-          // Le hook externe gérera le calcul réel (avec distance déjà calculée dans DetailForm)
-          onPriceCalculated(0, formData);
+          console.log('🔄 [PRESET] Changement de champ détecté:', fieldName, '=', value);
+          console.log('📊 [PRESET] FormData complet:', formData);
+
+          // Déclencher le callback avec le prix calculé (sera géré par DetailForm)
+          onPriceCalculated(formData.calculatedPrice || service.price, formData);
         } catch (error) {
+          console.error('❌ [PRESET] Erreur onChange:', error);
           onError?.(error);
         }
       }
@@ -314,4 +504,22 @@ export const getCatalogueDeliveryItemServiceConfig = (options: CatalogueDelivery
   };
 
   return config;
-}; 
+};
+
+// Export des presets complets pour compatibilité
+import { 
+  CatalogueDeliveryItemPreset,
+  catalogueDeliveryItemSummaryConfig,
+  catalogueDeliveryItemDefaultValues,
+  catalogueDeliveryItemStyles
+} from './catalogueDeliveryItemPresets';
+
+export { 
+  CatalogueDeliveryItemPreset,
+  catalogueDeliveryItemSummaryConfig,
+  catalogueDeliveryItemDefaultValues,
+  catalogueDeliveryItemStyles
+};
+
+// Export par défaut
+export default CatalogueDeliveryItemPreset; 

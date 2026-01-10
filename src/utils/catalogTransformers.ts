@@ -35,33 +35,42 @@ export const getPresetForCategory = (category: string, subcategory?: string): 'c
 };
 
 // Transformation catalogue → CatalogueMovingItem (pour déménagement/transport)
-export const transformCatalogDataToCatalogueMovingItem = (catalogData: CatalogData): CatalogueMovingItem => {
+export const transformCatalogDataToCatalogueMovingItem = (catalogData: CatalogData): CatalogueMovingItem | null => {
   const { catalogSelection, item, template } = catalogData;
-  
+
+  // Vérification: item ou template requis pour packs catalogue
+  if (!item && !template) {
+    console.warn('transformCatalogDataToCatalogueMovingItem: ni item ni template disponible');
+    return null;
+  }
+
+  // Utiliser item si disponible, sinon fallback sur template
+  const sourceData = item || template!;
+
   const transformedData = {
-    id: item.id,
+    id: sourceData.id,
     bookingId: '', // Sera généré lors de la création du booking
-    name: catalogSelection.marketingTitle || item.name,
-    description: catalogSelection.marketingDescription || item.description || '',
-    price: catalogSelection.marketingPrice || item.price,
+    name: catalogSelection.marketingTitle || sourceData.name,
+    description: catalogSelection.marketingDescription || sourceData.description || '',
+    price: catalogSelection.marketingPrice || sourceData.price,
     originalPrice: catalogSelection.originalPrice,
-    duration: item.duration || template?.duration || 1,
-    workers: item.workers || template?.workers || 2,
-    features: item.features || template?.features || [],
-    includedDistance: item.includedDistance || template?.includedDistance || 20,
-    distanceUnit: item.distanceUnit || template?.distanceUnit || 'km',
-    includes: item.includes || template?.includes || [
-      `${item.duration || 1} jour${(item.duration || 1) > 1 ? 's' : ''} de déménagement`,
-      `${item.workers || 2} déménageur${(item.workers || 2) > 1 ? 's' : ''} professionnel${(item.workers || 2) > 1 ? 's' : ''}`,
-      `${item.includedDistance || 20} km inclus`,
+    duration: sourceData.duration || 1,
+    workers: sourceData.workers || 2,
+    features: sourceData.features || [],
+    includedDistance: sourceData.includedDistance || 20,
+    distanceUnit: sourceData.distanceUnit || 'km',
+    includes: sourceData.includes || [
+      `${sourceData.duration || 1} jour${(sourceData.duration || 1) > 1 ? 's' : ''} de déménagement`,
+      `${sourceData.workers || 2} déménageur${(sourceData.workers || 2) > 1 ? 's' : ''} professionnel${(sourceData.workers || 2) > 1 ? 's' : ''}`,
+      `${sourceData.includedDistance || 20} km inclus`,
       "Matériel de déménagement fourni",
       "Assurance transport incluse"
     ],
-    popular: item.popular || catalogSelection.isFeatured,
-    imagePath: item.imagePath,
+    popular: sourceData.popular || catalogSelection.isFeatured,
+    imagePath: sourceData.imagePath,
     
     // Propriétés requises pour Pack
-    scheduledDate: new Date(), // Sera mis à jour par le formulaire
+    scheduledDate: null, // Pas de date par défaut - sera rempli par l'utilisateur
     pickupAddress: '', // Sera rempli par l'utilisateur
     deliveryAddress: '', // Sera rempli par l'utilisateur
     additionalInfo: '',
@@ -99,12 +108,6 @@ export const transformCatalogDataToCatalogueMovingItem = (catalogData: CatalogDa
     isPromotionActive: catalogSelection.isPromotionActive
   };
 
-  console.log('📦 [TRANSFORMER] CatalogueMovingItem avec __presetSnapshot:', {
-    name: transformedData.name,
-    price: transformedData.price,
-    __presetSnapshot: transformedData.__presetSnapshot
-  });
-
   return transformedData;
 };
 
@@ -132,7 +135,7 @@ export const transformCatalogDataToCatalogueCleaningItem = (catalogData: Catalog
     
     // Propriétés requises pour Service
     categoryId: catalogSelection.category, // Utiliser la catégorie comme categoryId
-    scheduledDate: new Date(), // Sera mis à jour par le formulaire
+    scheduledDate: null, // Pas de date par défaut - sera rempli par l'utilisateur
     location: '', // Sera rempli par l'utilisateur
     additionalInfo: '',
     createdAt: new Date(),
@@ -154,12 +157,6 @@ export const transformCatalogDataToCatalogueCleaningItem = (catalogData: Catalog
     promotionType: catalogSelection.promotionType,
     isPromotionActive: catalogSelection.isPromotionActive
   };
-
-  console.log('🏠 [TRANSFORMER] CatalogueCleaningItem avec __presetSnapshot:', {
-    name: transformedData.name,
-    price: transformedData.price,
-    __presetSnapshot: transformedData.__presetSnapshot
-  });
 
   return transformedData;
 };
@@ -192,7 +189,7 @@ export const transformCatalogDataToCatalogueDeliveryItem = (catalogData: Catalog
     deliveryAddress: '', // Sera rempli par l'utilisateur
     pickupTime: '', // Sera rempli par l'utilisateur
     deliveryTime: '', // Sera rempli par l'utilisateur
-    scheduledDate: new Date(), // Sera mis à jour par le formulaire
+    scheduledDate: null, // Pas de date par défaut - sera rempli par l'utilisateur
     additionalInfo: '',
     
     // Données catalogue pour traçabilité
@@ -290,19 +287,8 @@ export const transformCatalogDataToMenageSurMesure = (catalogData: CatalogData):
 
 // Fonction pour obtenir le chemin de redirection après soumission
 export const getSuccessRedirectPath = (category: string, bookingId: string): string => {
-  switch (category.toUpperCase()) {
-    case 'DEMENAGEMENT':
-    case 'TRANSPORT':
-      return `/moving/success?bookingId=${bookingId}`;
-    case 'MENAGE':
-    case 'NETTOYAGE':
-      return `/cleaning/success?bookingId=${bookingId}`;
-    case 'LIVRAISON':
-    case 'DELIVERY':
-      return `/delivery/success?bookingId=${bookingId}`;
-    default:
-      return `/success?bookingId=${bookingId}`;
-  }
+  // Rediriger vers la page de détail de la réservation
+  return `/bookings/${bookingId}`;
 };
 
 // Fonction pour obtenir l'icône selon la catégorie

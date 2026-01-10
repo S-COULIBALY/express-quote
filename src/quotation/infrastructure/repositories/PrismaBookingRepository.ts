@@ -8,7 +8,7 @@ import { Database } from '../config/database';
 import { Quote } from '../../domain/entities/Quote';
 import { QuoteType, QuoteStatus } from '../../domain/enums/QuoteType';
 import { QuoteContext } from '../../domain/valueObjects/QuoteContext';
-import { Discount } from '../../domain/valueObjects/Discount';
+import { AppliedRule } from '../../domain/valueObjects/AppliedRule';
 import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
 import { BookingSearchCriteriaVO } from '../../domain/valueObjects/BookingSearchCriteria';
 
@@ -42,7 +42,9 @@ export class PrismaBookingRepository implements IBookingRepository {
         professionalId: booking.getProfessional()?.getId() || null,
         totalAmount: booking.getTotalAmount().getAmount(),
         paymentMethod: (booking as any).paymentMethod || null,
-        conversation: convertToJsonValue((booking as any).conversation)
+        updatedAt: new Date(),
+        quoteRequestId: (booking as any).quoteRequestId || null,
+        additionalInfo: (booking as any).additionalInfo ? convertToJsonValue((booking as any).additionalInfo) : undefined
       };
 
       if (existingBooking) {
@@ -61,27 +63,32 @@ export class PrismaBookingRepository implements IBookingRepository {
             id
           },
           include: {
-            customer: true,
-            professional: true
+            Customer: true,
+            Professional: true
           }
         });
 
         // Conversion des données en entités du domaine
-        const contactInfo = new ContactInfo(
-          createdBooking.customer.firstName,
-          createdBooking.customer.lastName,
-          createdBooking.customer.email,
-          createdBooking.customer.phone || ''
-        );
+        // Utiliser une valeur par défaut si le téléphone est manquant
+        const phone = createdBooking.Customer.phone && createdBooking.Customer.phone.trim() !== '' 
+          ? createdBooking.Customer.phone 
+          : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
         
+        const contactInfo = new ContactInfo(
+          createdBooking.Customer.firstName,
+          createdBooking.Customer.lastName,
+          createdBooking.Customer.email,
+          phone
+        );
+
         const customer = new Customer(
-          createdBooking.customer.id,
+          createdBooking.Customer.id,
           contactInfo
         );
-        
+
         let professional: Professional | undefined;
-        if (createdBooking.professional) {
-          professional = this.mapDbToProfessional(createdBooking.professional);
+        if (createdBooking.Professional) {
+          professional = this.mapDbToProfessional(createdBooking.Professional);
         }
 
         // Construction de la réservation avec l'ID généré
@@ -101,8 +108,50 @@ export class PrismaBookingRepository implements IBookingRepository {
       const booking = await this.prisma.booking.findUnique({
         where: { id },
         include: {
-          customer: true,
-          professional: true
+          Customer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true
+            }
+          },
+          Professional: {
+            select: {
+              id: true,
+              companyName: true,
+              businessType: true,
+              email: true,
+              phone: true,
+              address: true,
+              city: true,
+              postalCode: true,
+              country: true,
+              website: true,
+              logoUrl: true,
+              description: true,
+              taxIdNumber: true,
+              insuranceNumber: true,
+              verified: true,
+              verifiedAt: true,
+              rating: true,
+              servicedAreas: true,
+              specialties: true,
+              availabilities: true
+            }
+          },
+          QuoteRequest: {
+            select: {
+              id: true,
+              temporaryId: true,
+              type: true,
+              status: true,
+              quoteData: true,
+              createdAt: true,
+              expiresAt: true
+            }
+          }
         }
       });
 
@@ -111,24 +160,36 @@ export class PrismaBookingRepository implements IBookingRepository {
       }
 
       // Conversion des données en entités du domaine
+      // Utiliser une valeur par défaut si le téléphone est manquant
+      const phone = booking.Customer.phone && booking.Customer.phone.trim() !== '' 
+        ? booking.Customer.phone 
+        : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
+      
       const contactInfo = new ContactInfo(
-        booking.customer.firstName,
-        booking.customer.lastName,
-        booking.customer.email,
-        booking.customer.phone || ''
+        booking.Customer.firstName,
+        booking.Customer.lastName,
+        booking.Customer.email,
+        phone
       );
       
       const customer = new Customer(
-        booking.customer.id,
+        booking.Customer.id,
         contactInfo
       );
       
       let professional: Professional | undefined;
-      if (booking.professional) {
-        professional = this.mapDbToProfessional(booking.professional);
+      if (booking.Professional) {
+        professional = this.mapDbToProfessional(booking.Professional);
       }
 
-      return this.mapDbToBooking(booking, customer, professional);
+      const bookingEntity = this.mapDbToBooking(booking, customer, professional);
+      
+      // Stocker les données du QuoteRequest dans l'entité pour accès ultérieur
+      if (booking.QuoteRequest) {
+        (bookingEntity as any).quoteRequestData = booking.QuoteRequest;
+      }
+      
+      return bookingEntity;
     } catch (error) {
       console.error(`Erreur lors de la recherche de la réservation par ID ${id}:`, error);
       throw new Error(`Erreur lors de la recherche de la réservation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
@@ -143,28 +204,33 @@ export class PrismaBookingRepository implements IBookingRepository {
       const bookings = await this.prisma.booking.findMany({
         where: { customerId },
         include: {
-          customer: true,
-          professional: true
+          Customer: true,
+          Professional: true
         },
         orderBy: { createdAt: 'desc' }
       });
 
       return Promise.all(bookings.map(async (booking) => {
+        // Utiliser une valeur par défaut si le téléphone est manquant
+        const phone = booking.Customer.phone && booking.Customer.phone.trim() !== '' 
+          ? booking.Customer.phone 
+          : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
+        
         const contactInfo = new ContactInfo(
-          booking.customer.firstName,
-          booking.customer.lastName,
-          booking.customer.email,
-          booking.customer.phone || ''
+          booking.Customer.firstName,
+          booking.Customer.lastName,
+          booking.Customer.email,
+          phone
         );
         
         const customer = new Customer(
-          booking.customer.id,
+          booking.Customer.id,
           contactInfo
         );
         
         let professional: Professional | undefined;
-        if (booking.professional) {
-          professional = this.mapDbToProfessional(booking.professional);
+        if (booking.Professional) {
+          professional = this.mapDbToProfessional(booking.Professional);
         }
 
         return this.mapDbToBooking(booking, customer, professional);
@@ -183,28 +249,33 @@ export class PrismaBookingRepository implements IBookingRepository {
       const bookings = await this.prisma.booking.findMany({
         where: { professionalId },
         include: {
-          customer: true,
-          professional: true
+          Customer: true,
+          Professional: true
         },
         orderBy: { createdAt: 'desc' }
       });
 
       return Promise.all(bookings.map(async (booking) => {
+        // Utiliser une valeur par défaut si le téléphone est manquant
+        const phone = booking.Customer.phone && booking.Customer.phone.trim() !== '' 
+          ? booking.Customer.phone 
+          : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
+        
         const contactInfo = new ContactInfo(
-          booking.customer.firstName,
-          booking.customer.lastName,
-          booking.customer.email,
-          booking.customer.phone || ''
+          booking.Customer.firstName,
+          booking.Customer.lastName,
+          booking.Customer.email,
+          phone
         );
         
         const customer = new Customer(
-          booking.customer.id,
+          booking.Customer.id,
           contactInfo
         );
         
         let professional: Professional | undefined;
-        if (booking.professional) {
-          professional = this.mapDbToProfessional(booking.professional);
+        if (booking.Professional) {
+          professional = this.mapDbToProfessional(booking.Professional);
         }
 
         return this.mapDbToBooking(booking, customer, professional);
@@ -223,28 +294,33 @@ export class PrismaBookingRepository implements IBookingRepository {
       const bookings = await this.prisma.booking.findMany({
         where: { status },
         include: {
-          customer: true,
-          professional: true
+          Customer: true,
+          Professional: true
         },
         orderBy: { createdAt: 'desc' }
       });
 
       return Promise.all(bookings.map(async (booking) => {
+        // Utiliser une valeur par défaut si le téléphone est manquant
+        const phone = booking.Customer.phone && booking.Customer.phone.trim() !== '' 
+          ? booking.Customer.phone 
+          : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
+        
         const contactInfo = new ContactInfo(
-          booking.customer.firstName,
-          booking.customer.lastName,
-          booking.customer.email,
-          booking.customer.phone || ''
+          booking.Customer.firstName,
+          booking.Customer.lastName,
+          booking.Customer.email,
+          phone
         );
         
         const customer = new Customer(
-          booking.customer.id,
+          booking.Customer.id,
           contactInfo
         );
         
         let professional: Professional | undefined;
-        if (booking.professional) {
-          professional = this.mapDbToProfessional(booking.professional);
+        if (booking.Professional) {
+          professional = this.mapDbToProfessional(booking.Professional);
         }
 
         return this.mapDbToBooking(booking, customer, professional);
@@ -277,28 +353,33 @@ export class PrismaBookingRepository implements IBookingRepository {
     try {
       const bookings = await this.prisma.booking.findMany({
         include: {
-          customer: true,
-          professional: true
+          Customer: true,
+          Professional: true
         },
         orderBy: { createdAt: 'desc' }
       });
 
       return Promise.all(bookings.map(async (booking) => {
+        // Utiliser une valeur par défaut si le téléphone est manquant
+        const phone = booking.Customer.phone && booking.Customer.phone.trim() !== '' 
+          ? booking.Customer.phone 
+          : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
+        
         const contactInfo = new ContactInfo(
-          booking.customer.firstName,
-          booking.customer.lastName,
-          booking.customer.email,
-          booking.customer.phone || ''
+          booking.Customer.firstName,
+          booking.Customer.lastName,
+          booking.Customer.email,
+          phone
         );
         
         const customer = new Customer(
-          booking.customer.id,
+          booking.Customer.id,
           contactInfo
         );
         
         let professional: Professional | undefined;
-        if (booking.professional) {
-          professional = this.mapDbToProfessional(booking.professional);
+        if (booking.Professional) {
+          professional = this.mapDbToProfessional(booking.Professional);
         }
 
         return this.mapDbToBooking(booking, customer, professional);
@@ -356,7 +437,7 @@ export class PrismaBookingRepository implements IBookingRepository {
       totalAmount: new Money(dbBooking.totalAmount)
     };
 
-    return new Booking(
+    const bookingEntity = new Booking(
       dbBooking.type,
       customer,
       new Quote(quoteProps),
@@ -365,6 +446,26 @@ export class PrismaBookingRepository implements IBookingRepository {
       professional,
       dbBooking.id
     );
+
+    // Hydrater les propriétés persistées (statut, timestamps, acompte, scheduledDate) sans déclencher de transitions métier
+    const bookingAsAny = bookingEntity as any;
+    if (dbBooking.status) {
+      bookingAsAny.status = dbBooking.status;
+    }
+    if (dbBooking.createdAt) {
+      bookingAsAny.createdAt = new Date(dbBooking.createdAt);
+    }
+    if (dbBooking.updatedAt) {
+      bookingAsAny.updatedAt = new Date(dbBooking.updatedAt);
+    }
+    if (dbBooking.scheduledDate) {
+      bookingAsAny.scheduledDate = new Date(dbBooking.scheduledDate);
+    }
+    if (typeof dbBooking.depositAmount === 'number') {
+      bookingAsAny.depositAmount = new Money(dbBooking.depositAmount);
+    }
+
+    return bookingEntity;
   }
 
   /**
@@ -395,7 +496,8 @@ export class PrismaBookingRepository implements IBookingRepository {
         professionalId: booking.getProfessional()?.getId() || null,
         totalAmount: booking.getTotalAmount().getAmount(),
         paymentMethod: (booking as any).paymentMethod || null,
-        conversation: convertToJsonValue((booking as any).conversation)
+        updatedAt: new Date(),
+        quoteRequestId: (booking as any).quoteRequestId || null
       };
 
       // Mise à jour de la réservation
@@ -492,10 +594,16 @@ export class PrismaBookingRepository implements IBookingRepository {
           skip: criteria.offset,
           take: criteria.limit,
           include: {
-            customer: true,
-            professional: true,
-            moving: true,
-            items: true
+            Customer: true,
+            Professional: true,
+            Moving: true,
+            items: true,
+            QuoteRequest: {
+              select: {
+                id: true,
+                quoteData: true
+              }
+            }
           }
         }),
         this.prisma.booking.count({ where })
@@ -938,33 +1046,45 @@ export class PrismaBookingRepository implements IBookingRepository {
    * Méthode utilitaire pour convertir les données Prisma en entité Booking
    */
   private async convertPrismaToBooking(prismaBooking: any): Promise<Booking> {
-    // Cette méthode existe déjà dans le code existant
-    // Je vais la réutiliser ou créer une version simplifiée
-    // Pour l'instant, je vais retourner une version basique
+    // Conversion des données Prisma en entité Booking
+    // Utilise les noms de relations avec majuscules (Customer, Professional, Moving)
     
-    // TODO: Implémenter la conversion complète selon la logique existante
-    // Cette méthode devrait être similaire à celle utilisée dans findById
+    // Utiliser une valeur par défaut si le téléphone est manquant
+    const phone = prismaBooking.Customer?.phone && prismaBooking.Customer.phone.trim() !== '' 
+      ? prismaBooking.Customer.phone 
+      : '+33600000000'; // Valeur par défaut pour les clients sans téléphone
     
-    // Conversion basique pour l'instant
     const customer = new Customer(
-      prismaBooking.customerId || prismaBooking.customer?.id || 'temp-' + Date.now(),
+      prismaBooking.customerId || prismaBooking.Customer?.id || 'temp-' + Date.now(),
       new ContactInfo(
-        prismaBooking.customer?.firstName || '',
-        prismaBooking.customer?.lastName || '',
-        prismaBooking.customer?.email || '',
-        prismaBooking.customer?.phone || ''
+        prismaBooking.Customer?.firstName || '',
+        prismaBooking.Customer?.lastName || '',
+        prismaBooking.Customer?.email || '',
+        phone
       )
     );
     
-    const professional = prismaBooking.professional ? new Professional(
-      prismaBooking.professional.companyName,
-      prismaBooking.professional.businessType,
-      new ContactInfo(
-        prismaBooking.professional.firstName || '',
-        prismaBooking.professional.lastName || '',
-        prismaBooking.professional.email,
-        prismaBooking.professional.phone
-      )
+    const professional = prismaBooking.Professional ? new Professional(
+      prismaBooking.Professional.companyName,
+      prismaBooking.Professional.businessType,
+      prismaBooking.Professional.email,
+      prismaBooking.Professional.phone,
+      prismaBooking.Professional.address,
+      prismaBooking.Professional.city,
+      prismaBooking.Professional.postalCode,
+      prismaBooking.Professional.country,
+      prismaBooking.Professional.website,
+      prismaBooking.Professional.logoUrl,
+      prismaBooking.Professional.description,
+      prismaBooking.Professional.taxIdNumber,
+      prismaBooking.Professional.insuranceNumber,
+      prismaBooking.Professional.verified,
+      prismaBooking.Professional.verifiedAt,
+      prismaBooking.Professional.rating,
+      prismaBooking.Professional.servicedAreas,
+      prismaBooking.Professional.specialties,
+      prismaBooking.Professional.availabilities,
+      prismaBooking.Professional.id
     ) : undefined;
     
     const quote = new Quote({
@@ -972,15 +1092,15 @@ export class PrismaBookingRepository implements IBookingRepository {
       status: QuoteStatus.ACCEPTED,
       customer: {
         id: customer.getId(),
-        firstName: prismaBooking.customer?.firstName || '',
-        lastName: prismaBooking.customer?.lastName || '',
-        email: prismaBooking.customer?.email || '',
-        phone: prismaBooking.customer?.phone || ''
+        firstName: prismaBooking.Customer?.firstName || '',
+        lastName: prismaBooking.Customer?.lastName || '',
+        email: prismaBooking.Customer?.email || '',
+        phone: prismaBooking.Customer?.phone || ''
       },
       totalAmount: new Money(prismaBooking.totalAmount || 0, 'EUR')
     });
     
-    return new Booking(
+    const booking = new Booking(
       prismaBooking.type,
       customer,
       quote,
@@ -989,5 +1109,43 @@ export class PrismaBookingRepository implements IBookingRepository {
       professional,
       prismaBooking.id
     );
+    
+    // Hydrater les propriétés persistées
+    const bookingAsAny = booking as any;
+    if (prismaBooking.status) {
+      bookingAsAny.status = prismaBooking.status;
+    }
+    if (prismaBooking.createdAt) {
+      bookingAsAny.createdAt = new Date(prismaBooking.createdAt);
+    }
+    if (prismaBooking.updatedAt) {
+      bookingAsAny.updatedAt = new Date(prismaBooking.updatedAt);
+    }
+    
+    // Récupérer scheduledDate depuis la table Booking ou depuis quoteData
+    let scheduledDate = prismaBooking.scheduledDate;
+    if (!scheduledDate && prismaBooking.QuoteRequest?.quoteData) {
+      const quoteData = prismaBooking.QuoteRequest.quoteData as any;
+      scheduledDate = quoteData.scheduledDate || quoteData.serviceDate || quoteData.moveDate;
+    }
+    if (scheduledDate) {
+      bookingAsAny.scheduledDate = new Date(scheduledDate);
+    }
+    
+    if (typeof prismaBooking.depositAmount === 'number') {
+      bookingAsAny.depositAmount = new Money(prismaBooking.depositAmount, 'EUR');
+    }
+    
+    // Stocker les données du QuoteRequest pour accès ultérieur
+    if (prismaBooking.QuoteRequest) {
+      bookingAsAny.quoteRequestData = prismaBooking.QuoteRequest;
+    }
+    
+    // Stocker additionalInfo pour accès ultérieur
+    if (prismaBooking.additionalInfo) {
+      bookingAsAny.additionalInfo = prismaBooking.additionalInfo;
+    }
+    
+    return booking;
   }
 } 

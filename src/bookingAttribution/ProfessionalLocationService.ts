@@ -53,7 +53,7 @@ export class ProfessionalLocationService {
     const professionals = await this.prisma.professional.findMany({
       where: {
         verified: true,
-        isAvailable: true,
+        is_available: true,
         latitude: { not: null },
         longitude: { not: null },
         address: { not: null },
@@ -70,8 +70,8 @@ export class ProfessionalLocationService {
         longitude: true,
         city: true,
         address: true,
-        serviceTypes: true,
-        maxDistanceKm: true
+        service_types: true,
+        max_distance_km: true
       }
     });
 
@@ -83,7 +83,7 @@ export class ProfessionalLocationService {
     for (const prof of professionals) {
       try {
         // Vérifier si le professionnel gère ce type de service
-        const serviceTypes = Array.isArray(prof.serviceTypes) ? prof.serviceTypes : [];
+        const serviceTypes = Array.isArray(prof.service_types) ? prof.service_types : [];
         if (!serviceTypes.includes(serviceType)) {
           continue;
         }
@@ -97,7 +97,7 @@ export class ProfessionalLocationService {
         );
 
         // Filtrage initial par distance géodésique (plus rapide)
-        const profMaxDistance = Math.min(maxDistanceKm, prof.maxDistanceKm || maxDistanceKm);
+        const profMaxDistance = Math.min(maxDistanceKm, prof.max_distance_km || maxDistanceKm);
         if (geodesicDistance > profMaxDistance) {
           continue;
         }
@@ -174,13 +174,43 @@ export class ProfessionalLocationService {
   }
 
   /**
-   * Convertit des coordonnées en adresse (approximation)
-   * En production, utiliser Google Geocoding API
+   * Convertit des coordonnées en adresse (reverse geocoding)
+   * Utilise l'API Google Geocoding
    */
   private async getAddressFromCoordinates(latitude: number, longitude: number): Promise<string> {
-    // Pour l'instant, on retourne une adresse approximative
-    // En production, il faudrait utiliser l'API Google Geocoding
-    return `${latitude},${longitude}`;
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return `${latitude},${longitude}`;
+      }
+
+      const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}&region=fr`;
+      const response = await fetch(geocodingUrl);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.results && data.results.length > 0) {
+        return data.results[0].formatted_address;
+      }
+
+      return `${latitude},${longitude}`;
+    } catch (error) {
+      console.error('❌ Erreur reverse geocoding:', error);
+      return `${latitude},${longitude}`;
+    }
+  }
+
+  /**
+   * Vérifie si des coordonnées sont dans un rayon de 50km autour de Paris (centre: 48.8566, 2.3522)
+   */
+  isWithinParisRadius(latitude: number, longitude: number, maxDistanceKm: number = 50): boolean {
+    const PARIS_CENTER = { latitude: 48.8566, longitude: 2.3522 };
+    const distance = this.calculateGeodeticDistance(
+      PARIS_CENTER.latitude,
+      PARIS_CENTER.longitude,
+      latitude,
+      longitude
+    );
+    return distance <= maxDistanceKm;
   }
 
   /**
@@ -198,13 +228,40 @@ export class ProfessionalLocationService {
 
   /**
    * Géocode une adresse pour obtenir les coordonnées
-   * Utilise l'API Google Geocoding existante si disponible
+   * Utilise l'API Google Geocoding
    */
   async geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
-    // TODO: Implémenter avec l'API Google Geocoding
-    // Pour l'instant, retourner null
-    console.warn('Geocoding non implémenté, utiliser les coordonnées manuelles');
-    return null;
+    try {
+      // Vérifier que l'API key est configurée
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        console.warn('⚠️ GOOGLE_MAPS_API_KEY non configurée, géocodage impossible');
+        return null;
+      }
+
+      // Appeler l'API Google Geocoding
+      const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}&region=fr`;
+      
+      const response = await fetch(geocodingUrl);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.results && data.results.length > 0) {
+        const location = data.results[0].geometry.location;
+        const coordinates = {
+          latitude: location.lat,
+          longitude: location.lng
+        };
+        
+        console.log(`✅ Adresse géocodée: ${address} → (${coordinates.latitude}, ${coordinates.longitude})`);
+        return coordinates;
+      }
+
+      console.warn(`⚠️ Géocodage échoué pour adresse: ${address}, status: ${data.status}`);
+      return null;
+    } catch (error) {
+      console.error('❌ Erreur géocodage:', error);
+      return null;
+    }
   }
 
   /**
@@ -214,20 +271,20 @@ export class ProfessionalLocationService {
     professionalId: string, 
     serviceLatitude: number, 
     serviceLongitude: number,
-    maxDistanceKm: number = 150
+    maxDistanceKm: number = 100
   ): Promise<boolean> {
     const professional = await this.prisma.professional.findUnique({
       where: { id: professionalId },
       select: {
         latitude: true,
         longitude: true,
-        maxDistanceKm: true,
+        max_distance_km: true,
         verified: true,
-        isAvailable: true
+        is_available: true
       }
     });
 
-    if (!professional || !professional.verified || !professional.isAvailable) {
+    if (!professional || !professional.verified || !professional.is_available) {
       return false;
     }
 
@@ -242,7 +299,7 @@ export class ProfessionalLocationService {
       professional.longitude
     );
 
-    const effectiveMaxDistance = Math.min(maxDistanceKm, professional.maxDistanceKm || maxDistanceKm);
+    const effectiveMaxDistance = Math.min(maxDistanceKm, professional.max_distance_km || maxDistanceKm);
     
     return distance <= effectiveMaxDistance;
   }
@@ -255,7 +312,7 @@ export class ProfessionalLocationService {
       by: ['city'],
       where: {
         verified: true,
-        isAvailable: true,
+        is_available: true,
         city: { not: null }
       },
       _count: {
@@ -271,7 +328,7 @@ export class ProfessionalLocationService {
 
     return result.map(item => ({
       city: item.city || 'Non spécifié',
-      count: item._count.city
+      count: item._count?.city || 0
     }));
   }
 }

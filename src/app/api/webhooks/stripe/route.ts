@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { PrismaClient } from '@prisma/client';
+import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
 import { abandonTracker } from '@/lib/abandonTracking';
 import { incentiveSystem } from '@/lib/incentiveSystem';
@@ -12,6 +13,11 @@ import { PrismaCustomerRepository } from '@/quotation/infrastructure/repositorie
 import { PrismaMovingRepository } from '@/quotation/infrastructure/repositories/PrismaMovingRepository';
 import { PrismaItemRepository } from '@/quotation/infrastructure/repositories/PrismaItemRepository';
 import { PrismaQuoteRequestRepository } from '@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository';
+
+// Stripe client pour récupérer les détails complets
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2024-11-20.acacia'
+});
 
 // Import du système de notifications
 let notificationSystemPromise: Promise<any> | null = null;
@@ -45,21 +51,17 @@ function getBookingService(): BookingService {
     // Injection de dépendances selon l'architecture DDD
     const bookingRepository = new PrismaBookingRepository();
     const customerRepository = new PrismaCustomerRepository();
-    const movingRepository = new PrismaMovingRepository();
-    const itemRepository = new PrismaItemRepository();
     const quoteRequestRepository = new PrismaQuoteRequestRepository();
-    
+
     const customerService = new CustomerService(customerRepository);
     bookingServiceInstance = new BookingService(
       bookingRepository,
-      movingRepository,
-      itemRepository,
       customerRepository,
       undefined, // QuoteCalculator - sera injecté par défaut
       quoteRequestRepository,
       customerService
     );
-    
+
     logger.info('🏗️ BookingService initialisé pour webhook Stripe');
   }
   
@@ -75,18 +77,33 @@ export async function POST(req: NextRequest) {
     const body = await req.text();
     const signature = headers().get('stripe-signature') || '';
 
-    // Vérification de la signature Stripe
+    // 🔒 SÉCURITÉ: Vérification de la signature Stripe
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!endpointSecret) {
-      logger.error('STRIPE_WEBHOOK_SECRET non configuré');
-      return NextResponse.json({ error: 'Configuration manquante' }, { status: 500 });
-    }
 
-    // En production, utiliser la vérification Stripe réelle
-    // const event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
-    
-    // Simulation pour le développement
-    const event = JSON.parse(body);
+    let event;
+
+    // Si STRIPE_WEBHOOK_SECRET est configuré, vérifier la signature (RECOMMANDÉ)
+    if (endpointSecret && endpointSecret.trim() !== '') {
+      try {
+        event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
+        logger.info('✅ Signature Stripe vérifiée');
+      } catch (err) {
+        const error = err as Error;
+        logger.error('❌ SÉCURITÉ: Signature Stripe invalide', {
+          error: error.message,
+          signature: signature.substring(0, 20) + '...'
+        });
+        return NextResponse.json(
+          { error: 'Signature invalide' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // ⚠️ MODE DÉVELOPPEMENT: Accepter sans vérification (NON RECOMMANDÉ EN PRODUCTION)
+      logger.warn('⚠️ STRIPE_WEBHOOK_SECRET non configuré - webhook accepté sans vérification de signature');
+      logger.warn('⚠️ CONFIGUREZ STRIPE_WEBHOOK_SECRET pour activer la sécurité en production');
+      event = JSON.parse(body);
+    }
 
     logger.info(`📥 Webhook Stripe reçu: ${event.type}`, {
       eventId: event.id,
@@ -95,30 +112,34 @@ export async function POST(req: NextRequest) {
 
     // Traitement selon le type d'événement
     switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(event);
+        break;
+
       case 'payment_intent.payment_failed':
         await handlePaymentFailed(event);
         break;
-      
+
       case 'payment_intent.canceled':
         await handlePaymentCanceled(event);
         break;
-      
+
       case 'checkout.session.expired':
         await handleCheckoutExpired(event);
         break;
-      
+
       case 'payment_intent.succeeded':
         await handlePaymentSucceeded(event);
         break;
-      
+
       case 'payment_method.attached':
         await handlePaymentMethodAttached(event);
         break;
-      
+
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event);
         break;
-      
+
       default:
         logger.info(`Type d'événement non traité: ${event.type}`);
     }
@@ -128,6 +149,91 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     logger.error('Erreur webhook Stripe:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+  }
+}
+
+/**
+ * Gérer la finalisation du checkout (paiement réussi)
+ * 🎯 C'est ici que le Booking est créé APRÈS confirmation du paiement
+ */
+async function handleCheckoutCompleted(event: any): Promise<void> {
+  try {
+    const session = event.data.object;
+
+    logger.info('💳 Checkout completed:', {
+      sessionId: session.id,
+      paymentStatus: session.payment_status,
+      amount: session.amount_total / 100,
+      metadata: session.metadata
+    });
+
+    // Récupérer les métadonnées
+    const {
+      temporaryId,
+      customerFirstName,
+      customerLastName,
+      customerEmail,
+      customerPhone,
+      quoteType,
+      amount
+    } = session.metadata;
+
+    // Validation: vérifier que le paiement est bien réussi
+    if (session.payment_status !== 'paid') {
+      logger.warn(`⚠️ Paiement non confirmé (status: ${session.payment_status})`);
+      return;
+    }
+
+    // Validation: temporaryId requis
+    if (!temporaryId) {
+      logger.error('❌ temporaryId manquant dans les métadonnées Stripe');
+      return;
+    }
+
+    // Appeler /api/bookings/finalize pour créer le Booking
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/bookings/finalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: session.id,
+        temporaryId,
+        paymentIntentId: session.payment_intent,
+        paymentStatus: session.payment_status,
+        amount: session.amount_total / 100,
+        customerData: {
+          firstName: customerFirstName,
+          lastName: customerLastName,
+          email: customerEmail,
+          phone: customerPhone
+        },
+        quoteType,
+        metadata: session.metadata
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      logger.error('❌ Erreur création Booking:', errorData);
+      throw new Error(`Échec création Booking: ${errorData.error}`);
+    }
+
+    const bookingData = await response.json();
+
+    logger.info('✅ Booking créé avec succès:', {
+      bookingId: bookingData.data?.id,
+      temporaryId,
+      sessionId: session.id
+    });
+
+    // 📧 Les notifications sont envoyées dans createBookingAfterPayment:
+    // - Email client (confirmation + reçu)
+    // - Email professionnel (nouvelle mission)
+    // - Notification admin (monitoring)
+
+  } catch (error) {
+    logger.error('❌ Erreur handleCheckoutCompleted:', error);
+    throw error;
   }
 }
 
@@ -299,18 +405,332 @@ async function handleCheckoutExpired(event: any): Promise<void> {
 
 /**
  * Gérer les paiements réussis
+ * 🎯 Créer le Booking APRÈS confirmation du paiement (nouveau flux)
  */
 async function handlePaymentSucceeded(event: any): Promise<void> {
   try {
     const paymentIntent = event.data.object;
-    const bookingId = paymentIntent.metadata?.bookingId;
-    
-    if (!bookingId) return;
+    const { temporaryId, bookingId } = paymentIntent.metadata || {};
+
+    logger.info('💳 PaymentIntent succeeded:', {
+      paymentIntentId: paymentIntent.id,
+      amount: paymentIntent.amount / 100,
+      temporaryId,
+      bookingId,
+      metadata: paymentIntent.metadata
+    });
+
+    // CAS 1: Nouveau flux - temporaryId présent → créer le Booking
+    if (temporaryId) {
+      // ✅ VÉRIFICATION: Vérifier si le booking existe déjà (créé par checkout.session.completed)
+      const existingBooking = await prisma.booking.findFirst({
+        where: {
+          transactions: {
+            some: {
+              paymentIntentId: paymentIntent.id
+            }
+          }
+        },
+        include: {
+          transactions: true
+        }
+      });
+
+      if (existingBooking) {
+        logger.info('✅ Booking déjà créé via checkout.session.completed, ignorer payment_intent.succeeded', {
+          bookingId: existingBooking.id,
+          paymentIntentId: paymentIntent.id
+        });
+        return;
+      }
+
+      logger.info('🆕 Nouveau flux détecté - création du Booking après paiement');
+
+      // 🔒 VALIDATION SÉCURITÉ: Recalculer le prix côté serveur et vérifier le montant payé
+      const {
+        serverCalculatedPrice,
+        depositAmount,
+        calculationId,
+        quoteType: paymentIntentQuoteType
+      } = paymentIntent.metadata;
+
+      // Si le prix serveur est présent dans les metadata, valider le montant
+      if (serverCalculatedPrice && depositAmount) {
+        const expectedAmount = Math.round(parseFloat(depositAmount) * 100); // En centimes
+        const actualAmount = paymentIntent.amount;
+        const difference = Math.abs(actualAmount - expectedAmount);
+
+        // Tolérance de 1€ pour arrondis (100 centimes)
+        if (difference > 100) {
+          logger.error('🚨 ALERTE SÉCURITÉ: Montant payé différent du montant attendu', {
+            temporaryId,
+            expectedAmount: expectedAmount / 100,
+            actualAmount: actualAmount / 100,
+            difference: difference / 100,
+            paymentIntentId: paymentIntent.id,
+            calculationId
+          });
+
+          // ⚠️ BLOQUER LA CRÉATION DU BOOKING
+          throw new Error(
+            `Montant invalide: attendu ${expectedAmount / 100}€, reçu ${actualAmount / 100}€. ` +
+            `Différence: ${difference / 100}€. PaymentIntent: ${paymentIntent.id}`
+          );
+        }
+
+        logger.info('✅ Montant validé', {
+          expectedAmount: expectedAmount / 100,
+          actualAmount: actualAmount / 100,
+          difference: difference / 100
+        });
+      } else {
+        logger.warn('⚠️ Prix serveur absent des metadata - impossible de valider le montant', {
+          temporaryId,
+          paymentIntentId: paymentIntent.id
+        });
+      }
+
+      // ✅ CORRECTION: Récupérer le PaymentIntent complet avec TOUTES les données
+      // ⚠️ NOTE: charges.data.payment_method ne peut PAS être expansé (erreur Stripe)
+      // On récupère les données depuis latest_charge et payment_method directement
+      const fullPaymentIntent = await stripe.paymentIntents.retrieve(paymentIntent.id, {
+        expand: [
+          'charges.data.billing_details',
+          'charges.data.payment_method_details',
+          'payment_method',                    // ✅ PaymentMethod attaché au PaymentIntent
+          'latest_charge',                     // ✅ Charge la plus récente
+          'latest_charge.billing_details'      // ✅ Billing details de la charge
+          // ❌ 'charges.data.payment_method' - NE PEUT PAS ÊTRE EXPANSÉ
+        ]
+      }) as any;
+      
+      console.log('🔍 [WEBHOOK] PaymentIntent récupéré:', {
+        id: fullPaymentIntent.id,
+        payment_method: fullPaymentIntent.payment_method,
+        has_charges: !!fullPaymentIntent.charges?.data?.length,
+        latest_charge: fullPaymentIntent.latest_charge ? {
+          id: fullPaymentIntent.latest_charge.id,
+          billing_details: fullPaymentIntent.latest_charge.billing_details,
+          payment_method: fullPaymentIntent.latest_charge.payment_method
+        } : null
+      });
+
+      // ✅ CORRECTION: Récupérer les infos client depuis MULTIPLES sources
+      // 1. latest_charge.billing_details (le plus récent et fiable)
+      const latestCharge = fullPaymentIntent.latest_charge;
+      let latestChargeBillingDetails: { name?: string; email?: string; phone?: string } = {};
+      if (latestCharge && typeof latestCharge === 'object' && 'billing_details' in latestCharge) {
+        latestChargeBillingDetails = (latestCharge as any).billing_details || {};
+      }
+      
+      // 2. charges.data[0].billing_details (première charge)
+      const charge = fullPaymentIntent.charges?.data?.[0];
+      const billingDetails = charge?.billing_details || {};
+      
+      // 3. PaymentMethod attaché au PaymentIntent (peut être expansé)
+      const paymentMethod = fullPaymentIntent.payment_method;
+      let paymentMethodBillingDetails: { name?: string; email?: string; phone?: string } = {};
+      if (paymentMethod && typeof paymentMethod === 'object' && 'billing_details' in paymentMethod) {
+        paymentMethodBillingDetails = (paymentMethod as any).billing_details || {};
+      }
+      
+      // 4. Si latest_charge a un payment_method ID, on peut le récupérer séparément
+      let latestChargePaymentMethodBillingDetails: { name?: string; email?: string; phone?: string } = {};
+      if (latestCharge && typeof latestCharge === 'object' && 'payment_method' in latestCharge) {
+        const latestChargePaymentMethodId = (latestCharge as any).payment_method;
+        // Si c'est un ID (string), on peut le récupérer séparément si nécessaire
+        // Pour l'instant, on utilise les autres sources
+      }
+
+      // ✅ Combiner les sources par ordre de priorité (le plus récent en premier)
+      const combinedBillingDetails = {
+        name: latestChargeBillingDetails.name || 
+              paymentMethodBillingDetails.name || 
+              billingDetails.name || '',
+        email: latestChargeBillingDetails.email || 
+               paymentMethodBillingDetails.email || 
+               billingDetails.email || '',
+        phone: latestChargeBillingDetails.phone || 
+               paymentMethodBillingDetails.phone || 
+               billingDetails.phone || ''
+      };
+      
+      console.log('🔍 [WEBHOOK] Billing details récupérés depuis toutes les sources:', {
+        latestCharge: latestChargeBillingDetails,
+        paymentMethod: paymentMethodBillingDetails,
+        charge: billingDetails,
+        combined: combinedBillingDetails
+      });
+
+      const customerName = combinedBillingDetails.name || '';
+      const [firstName, ...lastNameParts] = customerName.split(' ').filter(Boolean);
+      const lastName = lastNameParts.join(' ') || '';
+
+      // Fallback sur metadata si pas de billing_details
+      const {
+        customerFirstName,
+        customerLastName,
+        customerEmail,
+        customerPhone,
+        quoteType,
+        amount
+      } = paymentIntent.metadata;
+
+      // Log détaillé pour tracer l'origine des données utilisateur
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('📋 [TRACE UTILISATEUR] Données client récupérées depuis Stripe');
+      console.log('═══════════════════════════════════════════════════════════════');
+      logger.info('📋 [TRACE UTILISATEUR] Données client récupérées depuis Stripe:', {
+        source: 'payment_intent.succeeded webhook',
+        paymentIntentId: paymentIntent.id,
+        chargeBillingDetails: {
+          name: billingDetails.name,
+          email: billingDetails.email,
+          phone: billingDetails.phone,
+          address: billingDetails.address,
+          exists: !!charge
+        },
+        paymentMethodBillingDetails: {
+          name: paymentMethodBillingDetails.name,
+          email: paymentMethodBillingDetails.email,
+          phone: paymentMethodBillingDetails.phone,
+          exists: !!paymentMethod
+        },
+        combined: {
+          name: combinedBillingDetails.name,
+          email: combinedBillingDetails.email,
+          phone: combinedBillingDetails.phone,
+          isEmpty: !combinedBillingDetails.name && !combinedBillingDetails.email && !combinedBillingDetails.phone
+        },
+        metadata: {
+          customerFirstName,
+          customerLastName,
+          customerEmail,
+          customerPhone,
+          hasMetadata: !!(customerFirstName || customerLastName || customerEmail || customerPhone)
+        },
+        extracted: {
+          firstName: firstName || customerFirstName || 'Client',
+          lastName: lastName || customerLastName || 'Anonymous',
+          email: combinedBillingDetails.email || customerEmail || 'noreply@example.com',
+          phone: combinedBillingDetails.phone || customerPhone || '',
+          phoneIsEmpty: !(combinedBillingDetails.phone || customerPhone)
+        },
+        warning: !(combinedBillingDetails.phone || customerPhone) ? '⚠️ Téléphone manquant - utilisation de valeur par défaut' : null
+      });
+      
+      // Log console pour visibilité immédiate
+      console.log('📋 [TRACE UTILISATEUR] Données extraites:', {
+        firstName: firstName || customerFirstName || 'Client',
+        lastName: lastName || customerLastName || 'Anonymous',
+        email: combinedBillingDetails.email || customerEmail || 'noreply@example.com',
+        phone: combinedBillingDetails.phone || customerPhone || '',
+        phoneIsEmpty: !(combinedBillingDetails.phone || customerPhone),
+        sources: {
+          latestCharge: latestChargeBillingDetails,
+          paymentMethod: paymentMethodBillingDetails,
+          charge: billingDetails
+        },
+        metadata: {
+          customerFirstName,
+          customerLastName,
+          customerEmail,
+          customerPhone
+        },
+        warning: !(combinedBillingDetails.email || customerEmail) ? '⚠️ Email manquant' : null,
+        warningPhone: !(combinedBillingDetails.phone || customerPhone) ? '⚠️ Téléphone manquant' : null
+      });
+
+      // Appeler /api/bookings/finalize pour créer le Booking
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/bookings/finalize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: paymentIntent.id, // PaymentIntent ID utilisé comme sessionId
+          paymentIntentId: paymentIntent.id,
+          temporaryId,
+          paymentStatus: 'paid',
+          amount: paymentIntent.amount / 100, // ⚠️ ATTENTION: C'est l'ACOMPTE, pas le prix total!
+          customerData: {
+            firstName: firstName || customerFirstName || 'Client',
+            lastName: lastName || customerLastName || 'Anonymous',
+            email: combinedBillingDetails.email || customerEmail || 'noreply@example.com',
+            phone: combinedBillingDetails.phone || customerPhone || ''
+          },
+          quoteType,
+          metadata: paymentIntent.metadata
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        logger.error('❌ Erreur création Booking:', errorData);
+        throw new Error(`Échec création Booking: ${errorData.error}`);
+      }
+
+      const bookingData = await response.json();
+
+      // La structure de réponse est : { success: true, data: { success: true, data: { id: ... } } }
+      // ou : { success: true, data: { id: ... } }
+      const bookingId = bookingData.data?.data?.id || bookingData.data?.id;
+      const bookingTotalAmount = bookingData.data?.data?.totalAmount || bookingData.data?.totalAmount;
+
+      logger.info('✅ Booking créé avec succès:', {
+        bookingId: bookingId,
+        bookingTotalAmount,
+        temporaryId,
+        paymentIntentId: paymentIntent.id
+      });
+
+      // 🔒 VALIDATION FINALE: Vérifier que le prix total du Booking correspond au prix serveur
+      if (serverCalculatedPrice && bookingTotalAmount) {
+        const expectedTotal = parseFloat(serverCalculatedPrice);
+        const actualTotal = parseFloat(bookingTotalAmount);
+        const priceDifference = Math.abs(expectedTotal - actualTotal);
+        const tolerance = expectedTotal * 0.01; // 1% de tolérance
+
+        if (priceDifference > tolerance) {
+          logger.error('🚨 ALERTE SÉCURITÉ: Prix total du Booking diverge du prix serveur', {
+            temporaryId,
+            bookingId,
+            expectedTotal,
+            actualTotal,
+            difference: priceDifference.toFixed(2),
+            differencePercent: ((priceDifference / expectedTotal) * 100).toFixed(2) + '%',
+            paymentIntentId: paymentIntent.id,
+            calculationId
+          });
+
+          // ⚠️ NE PAS bloquer (le paiement est déjà validé) mais ALERTER
+          // TODO: Envoyer une notification à l'admin pour investigation manuelle
+        } else {
+          logger.info('✅ Prix total du Booking validé', {
+            expectedTotal,
+            actualTotal,
+            difference: priceDifference.toFixed(2)
+          });
+        }
+      } else {
+        logger.warn('⚠️ Impossible de valider le prix total - données manquantes', {
+          serverCalculatedPrice,
+          bookingTotalAmount
+        });
+      }
+
+      return;
+    }
+
+    // CAS 2: Ancien flux - bookingId présent → mettre à jour le Booking existant
+    if (!bookingId) {
+      logger.warn('⚠️ Ni temporaryId ni bookingId dans les métadonnées');
+      return;
+    }
 
     // Récupérer la réservation avec les détails du client
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { 
+      include: {
         customer: true,
         quoteRequest: {
           select: {
@@ -364,11 +784,11 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
         amount: paymentIntent.amount / 100, // Convertir centimes en euros
         status: 'completed'
       });
-      
+
       logger.info('🎉 Paiement traité via BookingService avec génération de documents');
     } catch (serviceError) {
       logger.warn('⚠️ Erreur lors du traitement via BookingService, fallback vers notifications directes:', serviceError);
-      
+
       // Fallback : utiliser l'ancien système si BookingService échoue
       try {
         await sendPaymentConfirmationNotifications(booking, paymentIntent);

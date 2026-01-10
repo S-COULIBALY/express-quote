@@ -1,11 +1,12 @@
 /**
  * 📅 API CONFIRMATION DE RÉSERVATION - Système enrichi avec pièces jointes
  * Route métier pour les confirmations de réservation avec support des PDFs
+ * ✅ INTÉGRÉ AVEC SYSTÈME DE QUEUE BULLMQ
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-// import { POST as mainPost } from '../../route'; // Temporairement désactivé
 import { logger } from '@/lib/logger';
+import { getGlobalNotificationService } from '@/notifications/interfaces/http/GlobalNotificationService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     });
 
     // NOUVEAU FLUX : Toujours générer les documents puis envoyer
-    return await handleBookingConfirmationWithAutoGeneration(body);
+    return await handleBookingConfirmationWithAttachments(body);
   } catch (error) {
     logger.error('❌ Erreur dans la route booking-confirmation', error as Error);
     
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * Traite les confirmations de réservation avec pièces jointes PDF
+ * ✅ Utilise le système de queue BullMQ pour traitement asynchrone
  */
 async function handleBookingConfirmationWithAttachments(data: any) {
   const {
@@ -48,11 +50,13 @@ async function handleBookingConfirmationWithAttachments(data: any) {
     customerPhone,
     serviceType,
     sessionId,
+    viewBookingUrl,
+    supportUrl,
     attachments = [],
     attachedDocuments = []
   } = data;
 
-  logger.info('📎 Envoi confirmation avec pièces jointes', {
+  logger.info('📎 Envoi confirmation avec pièces jointes via queue', {
     email: email?.replace(/(.{3}).*(@.*)/, '$1***$2'),
     bookingId,
     attachmentsCount: attachments.length,
@@ -61,43 +65,90 @@ async function handleBookingConfirmationWithAttachments(data: any) {
     )
   });
 
-  // TODO: Intégrer avec le vrai système de notifications (BullMQ + React Email)
-  // Pour l'instant, simulation de l'envoi
+  try {
+    // ✅ Obtenir le service de notification avec queue
+    const notificationService = await getGlobalNotificationService();
 
-  // Préparer les pièces jointes
+    // Préparer les pièces jointes pour le service
   const processedAttachments = attachments.map((att: any) => ({
     filename: att.filename,
-    content: Buffer.from(att.content, 'base64'),
-    contentType: att.mimeType || 'application/pdf',
-    documentType: att.documentType
-  }));
+      content: att.content ? Buffer.from(att.content, 'base64') : undefined,
+      path: att.path, // Si le fichier est déjà sur le disque
+      contentType: att.mimeType || att.contentType || 'application/pdf',
+      size: att.content ? Buffer.from(att.content, 'base64').length : att.size
+    })).filter(att => att.content || att.path); // Filtrer les attachments valides
 
-  logger.info('📧 Envoi d\'email de confirmation enrichi', {
+    // ✅ Ajouter à la queue email avec pièces jointes
+    logger.info('📧 Ajout email de confirmation à la queue', {
+      to: email?.replace(/(.{3}).*(@.*)/, '$1***$2'),
+      attachmentsCount: processedAttachments.length
+    });
+
+    const emailResult = await notificationService.sendEmail({
     to: email,
-    subject: `Confirmation de réservation ${bookingReference}`,
-    attachments: processedAttachments.length,
-    documentsIncluded: attachedDocuments.map((doc: any) => doc.type)
+      template: 'booking-confirmation',
+      data: {
+        customerName,
+        customerPhone,
+        bookingReference: bookingReference || `EQ-${bookingId?.slice(-8).toUpperCase()}`,
+        serviceType: serviceType || 'CUSTOM',
+        serviceName: serviceType || 'Service Express Quote',
+        serviceDate: serviceDate || new Date().toISOString().split('T')[0],
+        serviceTime: serviceTime || '09:00',
+        primaryAddress: serviceAddress || 'Adresse à définir',
+        totalAmount,
+        viewBookingUrl: viewBookingUrl || `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${bookingId}`,
+        supportUrl: supportUrl || `${process.env.NEXT_PUBLIC_APP_URL}/contact`,
+        companyName: 'Express Quote'
+      },
+      attachments: processedAttachments,
+      priority: 'HIGH',
+      metadata: {
+        bookingId,
+        sessionId,
+        source: 'booking-confirmation-api',
+        documentsAttached: attachedDocuments.map((doc: any) => ({
+          type: doc.type,
+          filename: doc.filename
+        }))
+      }
   });
 
-  // Simuler l'envoi d'email
-  await new Promise(resolve => setTimeout(resolve, 150));
-
-  // Simuler l'envoi SMS
+    // ✅ Ajouter à la queue SMS si numéro disponible
+    let smsResult = null;
   if (customerPhone) {
-    logger.info('📱 Envoi SMS de confirmation', {
-      phone: customerPhone?.replace(/(.{3}).*(.{2})/, '$1****$2'),
-      bookingReference
-    });
+      logger.info('📱 Ajout SMS de confirmation à la queue', {
+        phone: customerPhone?.replace(/(.{3}).*(.{2})/, '$1****$2')
+      });
+
+      try {
+        // Utiliser sendBookingConfirmationSMS qui génère le message optimisé
+        smsResult = await notificationService.sendBookingConfirmationSMS(customerPhone, {
+          customerName,
+          bookingId: bookingId || bookingReference || 'N/A',
+          serviceDate: serviceDate || new Date().toISOString().split('T')[0],
+          serviceTime: serviceTime || '09:00',
+          totalAmount: totalAmount || 0,
+          serviceType: serviceType || 'CUSTOM'
+        });
+      } catch (smsError) {
+        logger.error('❌ Erreur lors de l\'ajout SMS à la queue', {
+          error: smsError instanceof Error ? smsError.message : 'Erreur inconnue',
+          bookingId
+        });
+        // Ne pas faire échouer si SMS échoue
+      }
   }
 
   const response = {
     success: true,
-    messageId: `confirmation_${Date.now()}`,
-    emailSent: true,
-    smsSent: !!customerPhone,
-    attachmentsSent: processedAttachments.length,
+      emailQueued: emailResult.success,
+      smsQueued: smsResult?.success || false,
+      emailJobId: emailResult.id,
+      smsJobId: smsResult?.id || null,
+      attachmentsQueued: processedAttachments.length,
     timestamp: new Date().toISOString(),
-    message: `Confirmation de réservation envoyée à ${customerName}`,
+      message: `Notifications ajoutées à la queue pour ${customerName}`,
     details: {
       bookingReference,
       serviceDate,
@@ -111,10 +162,29 @@ async function handleBookingConfirmationWithAttachments(data: any) {
     }
   };
 
-  logger.info('✅ Confirmation enrichie envoyée avec succès', {
-    messageId: response.messageId,
-    attachmentsSent: response.attachmentsSent
+    logger.info('✅ Confirmations ajoutées à la queue avec succès', {
+      emailJobId: emailResult.id,
+      smsJobId: smsResult?.id,
+      attachmentsQueued: processedAttachments.length
   });
 
   return NextResponse.json(response);
+
+  } catch (error) {
+    logger.error('❌ Erreur lors de l\'ajout des notifications à la queue', {
+      error: error instanceof Error ? error.message : 'Erreur inconnue',
+      stack: error instanceof Error ? error.stack : undefined,
+      bookingId,
+      email: email?.replace(/(.{3}).*(@.*)/, '$1***$2')
+    });
+
+    // Fallback : retourner une réponse partielle si au moins l'email a été ajouté
+    return NextResponse.json({
+      success: false,
+      error: 'Erreur lors de l\'ajout des notifications à la queue',
+      message: error instanceof Error ? error.message : 'Erreur inconnue',
+      bookingId,
+      timestamp: new Date().toISOString()
+    }, { status: 500 });
+  }
 }

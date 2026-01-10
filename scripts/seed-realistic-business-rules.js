@@ -10,12 +10,135 @@
  */
 
 const { PrismaClient } = require('@prisma/client');
+const { randomUUID } = require('crypto');
 const prisma = new PrismaClient();
+
+/**
+ * Enrichit les métadonnées d'une règle avec des informations cohérentes
+ */
+function enrichRuleMetadata(rule) {
+  // Déterminer le groupe en fonction du type de condition
+  const group = rule.condition.type;
+  
+  // Analyse du nom et de la description pour choisir l'icône la plus appropriée
+  let specificIcon = '📋'; // Icône par défaut
+
+  // Règles spécifiques basées sur le nom
+  if (rule.name.toLowerCase().includes('ascenseur')) {
+    specificIcon = '🛗';
+  } else if (rule.name.toLowerCase().includes('monte-meuble')) {
+    specificIcon = '🏗️';
+  } else if (rule.name.toLowerCase().includes('escalier')) {
+    specificIcon = '🪜';
+  } else if (rule.name.toLowerCase().includes('stationnement') || rule.name.toLowerCase().includes('parking')) {
+    specificIcon = '🅿️';
+  } else if (rule.name.toLowerCase().includes('zone piétonne')) {
+    specificIcon = '🚶';
+  } else if (rule.name.toLowerCase().includes('distance') || rule.name.toLowerCase().includes('portage')) {
+    specificIcon = '📏';
+  } else if (rule.name.toLowerCase().includes('sécurité') || rule.name.toLowerCase().includes('contrôle')) {
+    specificIcon = '🔒';
+  } else if (rule.name.toLowerCase().includes('horaire') || rule.name.toLowerCase().includes('urgence')) {
+    specificIcon = '⏰';
+  } else if (rule.name.toLowerCase().includes('emballage')) {
+    specificIcon = '📦';
+  } else if (rule.name.toLowerCase().includes('démontage')) {
+    specificIcon = '🔧';
+  } else if (rule.name.toLowerCase().includes('remontage')) {
+    specificIcon = '🛠️';
+  } else if (rule.name.toLowerCase().includes('nettoyage')) {
+    specificIcon = '🧹';
+  } else if (rule.name.toLowerCase().includes('désinfection')) {
+    specificIcon = '🧼';
+  } else if (rule.name.toLowerCase().includes('inventaire')) {
+    specificIcon = '📝';
+  } else if (rule.name.toLowerCase().includes('stockage')) {
+    specificIcon = '📦';
+  } else if (rule.name.toLowerCase().includes('animaux')) {
+    specificIcon = '🐾';
+  } else if (rule.name.toLowerCase().includes('fragile')) {
+    specificIcon = '💎';
+  } else if (rule.name.toLowerCase().includes('lourd')) {
+    specificIcon = '🏋️';
+  } else if (rule.name.toLowerCase().includes('weekend')) {
+    specificIcon = '📅';
+  } else if (rule.name.toLowerCase().includes('moisissure')) {
+    specificIcon = '🦠';
+  } else if (rule.name.toLowerCase().includes('eau')) {
+    specificIcon = '💧';
+  } else if (rule.name.toLowerCase().includes('électricité')) {
+    specificIcon = '⚡';
+  } else if (rule.name.toLowerCase().includes('hauteur')) {
+    specificIcon = '🪜';
+  } else if (rule.name.toLowerCase().includes('vitres')) {
+    specificIcon = '🪟';
+  } else if (rule.name.toLowerCase().includes('argenterie')) {
+    specificIcon = '✨';
+  } else if (rule.name.toLowerCase().includes('rangement')) {
+    specificIcon = '🗄️';
+  } else if (rule.name.toLowerCase().includes('clés')) {
+    specificIcon = '🔑';
+  } else if (rule.name.toLowerCase().includes('déchets')) {
+    specificIcon = '🗑️';
+  } else if (rule.name.toLowerCase().includes('camion')) {
+    specificIcon = '🚛';
+  } else if (rule.name.toLowerCase().includes('piano')) {
+    specificIcon = '🎹';
+  }
+
+  // Construire les métadonnées enrichies
+  return {
+    source: 'realistic_seed_2025',
+    impact: rule.percentBased ? `+${rule.value}%` : `+${rule.value}€`,
+    category_frontend: rule.category === 'FIXED' ? 'service' : 'constraint',
+    display: {
+      icon: specificIcon,
+      priority: getPriorityForRule(rule),
+      group: group,
+      description_short: rule.description
+    }
+  };
+}
+
+/**
+ * Détermine la priorité d'affichage d'une règle
+ */
+function getPriorityForRule(rule) {
+  // Priorités par type de condition
+  const typePriorities = {
+    security: 1,    // Sécurité en premier
+    building: 2,    // Contraintes bâtiment
+    distance: 3,    // Distance et accès
+    vehicle_access: 4,
+    equipment: 5,
+    service: 6,
+    work: 7,
+    schedule: 8,
+    location: 9,
+    utilities: 10
+  };
+
+  // Ajuster en fonction du type de service
+  let basePriority = typePriorities[rule.condition.type] || 99;
+  
+  // Les contraintes avant les services
+  if (rule.category === 'SURCHARGE') {
+    basePriority -= 50;
+  }
+
+  return basePriority;
+}
 
 async function seedRealisticRules() {
   console.log('🌱 ═══ SEED RÈGLES MÉTIER RÉALISTES (2025) ═══\n');
 
   try {
+    // 0. ═══════════════════════════════════════════════════════════════
+    // NETTOYAGE DES RÈGLES EXISTANTES
+    // ═══════════════════════════════════════════════════════════════
+    console.log('🧹 Suppression des règles existantes...');
+    const deletedRules = await prisma.rules.deleteMany({});
+    console.log(`  ✓ ${deletedRules.count} règles supprimées\n`);
     // 1. ═══════════════════════════════════════════════════════════════
     // RÈGLES DÉMÉNAGEMENT - Contraintes et Services
     // ═══════════════════════════════════════════════════════════════
@@ -23,28 +146,28 @@ async function seedRealisticRules() {
 
     const movingConstraints = [
       // Contraintes d'accès véhicule
-      { name: 'Zone piétonne avec restrictions', serviceType: 'MOVING', category: 'SURCHARGE', value: 40.0, percentBased: true, condition: { type: 'vehicle_access', zone: 'pedestrian' }, description: 'Autorisation mairie requise, frais administratifs' },
-      { name: 'Rue étroite ou inaccessible au camion', serviceType: 'MOVING', category: 'SURCHARGE', value: 50.0, percentBased: true, condition: { type: 'vehicle_access', road: 'narrow' }, description: 'Camion ne peut pas accéder, portage supplémentaire' },
-      { name: 'Stationnement difficile ou payant', serviceType: 'MOVING', category: 'SURCHARGE', value: 30.0, percentBased: true, condition: { type: 'vehicle_access', parking: 'difficult' }, description: 'Frais de stationnement, temps supplémentaire' },
-      { name: 'Circulation complexe', serviceType: 'MOVING', category: 'SURCHARGE', value: 25.0, percentBased: true, condition: { type: 'vehicle_access', traffic: 'complex' }, description: 'Temps de trajet augmenté, détours obligatoires' },
+      { name: 'Zone piétonne avec restrictions', serviceType: 'MOVING', category: 'SURCHARGE', value: 8.5, percentBased: true, condition: { type: 'vehicle_access', zone: 'pedestrian' }, description: 'Autorisation mairie requise, frais administratifs' },
+      { name: 'Rue étroite ou inaccessible au camion', serviceType: 'MOVING', category: 'SURCHARGE', value: 9.0, percentBased: true, condition: { type: 'vehicle_access', road: 'narrow' }, description: 'Camion ne peut pas accéder, portage supplémentaire' },
+      { name: 'Stationnement difficile ou payant', serviceType: 'MOVING', category: 'SURCHARGE', value: 7.5, percentBased: true, condition: { type: 'vehicle_access', parking: 'difficult' }, description: 'Frais de stationnement, temps supplémentaire' },
+      { name: 'Circulation complexe', serviceType: 'MOVING', category: 'SURCHARGE', value: 6.5, percentBased: true, condition: { type: 'vehicle_access', traffic: 'complex' }, description: 'Temps de trajet augmenté, détours obligatoires' },
 
       // Contraintes bâtiment
-      { name: 'Ascenseur en panne ou hors service', serviceType: 'MOVING', category: 'SURCHARGE', value: 35.0, percentBased: true, condition: { type: 'building', elevator: 'unavailable' }, description: 'Transport par escaliers obligatoire' },
-      { name: 'Ascenseur trop petit pour les meubles', serviceType: 'MOVING', category: 'SURCHARGE', value: 30.0, percentBased: true, condition: { type: 'building', elevator: 'small' }, description: 'Démontage obligatoire ou escaliers' },
-      { name: 'Ascenseur interdit pour déménagement', serviceType: 'MOVING', category: 'SURCHARGE', value: 35.0, percentBased: true, condition: { type: 'building', elevator: 'forbidden' }, description: 'Règlement copropriété, escaliers obligatoires' },
-      { name: 'Escalier difficile ou dangereux', serviceType: 'MOVING', category: 'SURCHARGE', value: 40.0, percentBased: true, condition: { type: 'building', stairs: 'difficult' }, description: 'Monte-meuble recommandé, risques élevés' },
-      { name: 'Couloirs étroits ou encombrés', serviceType: 'MOVING', category: 'SURCHARGE', value: 25.0, percentBased: true, condition: { type: 'building', corridors: 'narrow' }, description: 'Démontage supplémentaire, temps augmenté' },
+      { name: 'Ascenseur en panne ou hors service', serviceType: 'MOVING', category: 'SURCHARGE', value: 8.0, percentBased: true, condition: { type: 'building', elevator: 'unavailable' }, description: 'Transport par escaliers obligatoire' },
+      { name: 'Ascenseur trop petit pour les meubles', serviceType: 'MOVING', category: 'SURCHARGE', value: 7.5, percentBased: true, condition: { type: 'building', elevator: 'small' }, description: 'Démontage obligatoire ou escaliers' },
+      { name: 'Ascenseur interdit pour déménagement', serviceType: 'MOVING', category: 'SURCHARGE', value: 8.0, percentBased: true, condition: { type: 'building', elevator: 'forbidden' }, description: 'Règlement copropriété, escaliers obligatoires' },
+      { name: 'Escalier difficile ou dangereux', serviceType: 'MOVING', category: 'SURCHARGE', value: 8.5, percentBased: true, condition: { type: 'building', stairs: 'difficult' }, description: 'Monte-meuble recommandé, risques élevés' },
+      { name: 'Couloirs étroits ou encombrés', serviceType: 'MOVING', category: 'SURCHARGE', value: 6.5, percentBased: true, condition: { type: 'building', corridors: 'narrow' }, description: 'Démontage supplémentaire, temps augmenté' },
 
       // Distance et portage
-      { name: 'Distance de portage > 30m', serviceType: 'MOVING', category: 'SURCHARGE', value: 35.0, percentBased: true, condition: { type: 'distance', carrying: 'long' }, description: 'Surcoût main d\'œuvre, navettes nécessaires' },
-      { name: 'Passage indirect obligatoire', serviceType: 'MOVING', category: 'SURCHARGE', value: 40.0, percentBased: true, condition: { type: 'distance', access: 'indirect' }, description: 'Sortie non directe, protection sols' },
-      { name: 'Accès complexe multi-niveaux', serviceType: 'MOVING', category: 'SURCHARGE', value: 50.0, percentBased: true, condition: { type: 'distance', access: 'multilevel' }, description: 'Plusieurs étages à traverser, temps multiplié' },
+      { name: 'Distance de portage > 30m', serviceType: 'MOVING', category: 'SURCHARGE', value: 7.8, percentBased: true, condition: { type: 'distance', carrying: 'long' }, description: 'Surcoût main d\'œuvre, navettes nécessaires' },
+      { name: 'Passage indirect obligatoire', serviceType: 'MOVING', category: 'SURCHARGE', value: 8.2, percentBased: true, condition: { type: 'distance', access: 'indirect' }, description: 'Sortie non directe, protection sols' },
+      { name: 'Accès complexe multi-niveaux', serviceType: 'MOVING', category: 'SURCHARGE', value: 9.5, percentBased: true, condition: { type: 'distance', access: 'multilevel' }, description: 'Plusieurs étages à traverser, temps multiplié' },
 
       // Sécurité et autorisations
-      { name: 'Contrôle d\'accès strict', serviceType: 'MOVING', category: 'SURCHARGE', value: 20.0, percentBased: true, condition: { type: 'security', access: 'strict' }, description: 'Autorisation préalable, badges nécessaires' },
-      { name: 'Autorisation administrative', serviceType: 'MOVING', category: 'SURCHARGE', value: 30.0, percentBased: true, condition: { type: 'security', permit: 'required' }, description: 'Démarches mairie, réservation voirie' },
-      { name: 'Restrictions horaires strictes', serviceType: 'MOVING', category: 'SURCHARGE', value: 25.0, percentBased: true, condition: { type: 'security', time: 'restricted' }, description: 'Créneaux limités, coordination complexe' },
-      { name: 'Sol fragile ou délicat', serviceType: 'MOVING', category: 'SURCHARGE', value: 15.0, percentBased: true, condition: { type: 'security', floor: 'fragile' }, description: 'Protection supplémentaire obligatoire' },
+      { name: 'Contrôle d\'accès strict', serviceType: 'MOVING', category: 'SURCHARGE', value: 6.0, percentBased: true, condition: { type: 'security', access: 'strict' }, description: 'Autorisation préalable, badges nécessaires' },
+      { name: 'Autorisation administrative', serviceType: 'MOVING', category: 'SURCHARGE', value: 7.0, percentBased: true, condition: { type: 'security', permit: 'required' }, description: 'Démarches mairie, réservation voirie' },
+      { name: 'Restrictions horaires strictes', serviceType: 'MOVING', category: 'SURCHARGE', value: 6.8, percentBased: true, condition: { type: 'security', time: 'restricted' }, description: 'Créneaux limités, coordination complexe' },
+      { name: 'Sol fragile ou délicat', serviceType: 'MOVING', category: 'SURCHARGE', value: 5.5, percentBased: true, condition: { type: 'security', floor: 'fragile' }, description: 'Protection supplémentaire obligatoire' },
 
       // Monte-meuble (coût fixe)
       { name: 'Monte-meuble', serviceType: 'MOVING', category: 'FIXED', value: 300.0, percentBased: false, condition: { type: 'equipment', lift: 'required' }, description: 'Location monte-meuble 200-400€, ajouté automatiquement' }
@@ -82,39 +205,39 @@ async function seedRealisticRules() {
 
     const cleaningConstraints = [
       // Contraintes d'accès
-      { name: 'Stationnement limité ou payant', serviceType: 'CLEANING', category: 'SURCHARGE', value: 10.0, percentBased: true, condition: { type: 'access', parking: 'limited' }, description: 'Difficulté de stationnement, frais supplémentaires possibles' },
-      { name: 'Absence d\'ascenseur', serviceType: 'CLEANING', category: 'SURCHARGE', value: 15.0, percentBased: true, condition: { type: 'access', elevator: 'none' }, description: 'Transport matériel par escaliers' },
-      { name: 'Accès difficile au bâtiment', serviceType: 'CLEANING', category: 'SURCHARGE', value: 10.0, percentBased: true, condition: { type: 'access', building: 'difficult' }, description: 'Codes, digicode, interphone complexe' },
-      { name: 'Contrôle de sécurité strict', serviceType: 'CLEANING', category: 'SURCHARGE', value: 15.0, percentBased: true, condition: { type: 'access', security: 'strict' }, description: 'Badge, gardien, vérifications d\'identité' },
+      { name: 'Stationnement limité ou payant', serviceType: 'CLEANING', category: 'SURCHARGE', value: 5.5, percentBased: true, condition: { type: 'access', parking: 'limited' }, description: 'Difficulté de stationnement, frais supplémentaires possibles' },
+      { name: 'Absence d\'ascenseur', serviceType: 'CLEANING', category: 'SURCHARGE', value: 6.0, percentBased: true, condition: { type: 'access', elevator: 'none' }, description: 'Transport matériel par escaliers' },
+      { name: 'Accès difficile au bâtiment', serviceType: 'CLEANING', category: 'SURCHARGE', value: 5.5, percentBased: true, condition: { type: 'access', building: 'difficult' }, description: 'Codes, digicode, interphone complexe' },
+      { name: 'Contrôle de sécurité strict', serviceType: 'CLEANING', category: 'SURCHARGE', value: 6.0, percentBased: true, condition: { type: 'access', security: 'strict' }, description: 'Badge, gardien, vérifications d\'identité' },
 
       // Contraintes de travail
-      { name: 'Présence d\'animaux', serviceType: 'CLEANING', category: 'SURCHARGE', value: 10.0, percentBased: true, condition: { type: 'work', pets: 'present' }, description: 'Chiens, chats, poils, produits adaptés nécessaires' },
-      { name: 'Présence d\'enfants', serviceType: 'CLEANING', category: 'SURCHARGE', value: 15.0, percentBased: true, condition: { type: 'work', children: 'present' }, description: 'Produits écologiques, sécurité renforcée' },
-      { name: 'Allergies signalées', serviceType: 'CLEANING', category: 'SURCHARGE', value: 20.0, percentBased: true, condition: { type: 'work', allergies: 'present' }, description: 'Produits hypoallergéniques, précautions spéciales' },
-      { name: 'Objets fragiles/précieux', serviceType: 'CLEANING', category: 'SURCHARGE', value: 25.0, percentBased: true, condition: { type: 'work', items: 'fragile' }, description: 'Antiquités, œuvres d\'art, manipulation délicate' },
-      { name: 'Meubles lourds à déplacer', serviceType: 'CLEANING', category: 'SURCHARGE', value: 30.0, percentBased: true, condition: { type: 'work', furniture: 'heavy' }, description: 'Mobilier encombrant nécessitant 2 personnes' },
+      { name: 'Présence d\'animaux', serviceType: 'CLEANING', category: 'SURCHARGE', value: 5.5, percentBased: true, condition: { type: 'work', pets: 'present' }, description: 'Chiens, chats, poils, produits adaptés nécessaires' },
+      { name: 'Présence d\'enfants', serviceType: 'CLEANING', category: 'SURCHARGE', value: 6.0, percentBased: true, condition: { type: 'work', children: 'present' }, description: 'Produits écologiques, sécurité renforcée' },
+      { name: 'Allergies signalées', serviceType: 'CLEANING', category: 'SURCHARGE', value: 6.5, percentBased: true, condition: { type: 'work', allergies: 'present' }, description: 'Produits hypoallergéniques, précautions spéciales' },
+      { name: 'Objets fragiles/précieux', serviceType: 'CLEANING', category: 'SURCHARGE', value: 7.0, percentBased: true, condition: { type: 'work', items: 'fragile' }, description: 'Antiquités, œuvres d\'art, manipulation délicate' },
+      { name: 'Meubles lourds à déplacer', serviceType: 'CLEANING', category: 'SURCHARGE', value: 7.5, percentBased: true, condition: { type: 'work', furniture: 'heavy' }, description: 'Mobilier encombrant nécessitant 2 personnes' },
 
       // Contraintes horaires
-      { name: 'Créneau horaire spécifique', serviceType: 'CLEANING', category: 'SURCHARGE', value: 20.0, percentBased: true, condition: { type: 'schedule', window: 'specific' }, description: 'Disponibilité réduite, contraintes client' },
-      { name: 'Intervention matinale', serviceType: 'CLEANING', category: 'SURCHARGE', value: 25.0, percentBased: true, condition: { type: 'schedule', time: 'early' }, description: 'Majoration horaires atypiques (avant 8h)' },
-      { name: 'Service en soirée', serviceType: 'CLEANING', category: 'SURCHARGE', value: 30.0, percentBased: true, condition: { type: 'schedule', time: 'evening' }, description: 'Majoration horaires atypiques (après 18h)' },
-      { name: 'Service weekend', serviceType: 'CLEANING', category: 'SURCHARGE', value: 40.0, percentBased: true, condition: { type: 'schedule', day: 'weekend' }, description: 'Samedi/dimanche, majoration weekend' },
-      { name: 'Service d\'urgence', serviceType: 'CLEANING', category: 'SURCHARGE', value: 50.0, percentBased: true, condition: { type: 'schedule', urgency: 'emergency' }, description: 'Intervention d\'urgence, mobilisation rapide' },
+      { name: 'Créneau horaire spécifique', serviceType: 'CLEANING', category: 'SURCHARGE', value: 6.5, percentBased: true, condition: { type: 'schedule', window: 'specific' }, description: 'Disponibilité réduite, contraintes client' },
+      { name: 'Intervention matinale', serviceType: 'CLEANING', category: 'SURCHARGE', value: 7.0, percentBased: true, condition: { type: 'schedule', time: 'early' }, description: 'Majoration horaires atypiques (avant 8h)' },
+      { name: 'Service en soirée', serviceType: 'CLEANING', category: 'SURCHARGE', value: 7.5, percentBased: true, condition: { type: 'schedule', time: 'evening' }, description: 'Majoration horaires atypiques (après 18h)' },
+      { name: 'Service weekend', serviceType: 'CLEANING', category: 'SURCHARGE', value: 8.5, percentBased: true, condition: { type: 'schedule', day: 'weekend' }, description: 'Samedi/dimanche, majoration weekend' },
+      { name: 'Service d\'urgence', serviceType: 'CLEANING', category: 'SURCHARGE', value: 9.0, percentBased: true, condition: { type: 'schedule', urgency: 'emergency' }, description: 'Intervention d\'urgence, mobilisation rapide' },
 
       // Contraintes liées au lieu
-      { name: 'Saleté importante/tenace', serviceType: 'CLEANING', category: 'SURCHARGE', value: 40.0, percentBased: true, condition: { type: 'location', dirt: 'heavy' }, description: 'Nettoyage intensif, temps supplémentaire' },
-      { name: 'Post-construction/travaux', serviceType: 'CLEANING', category: 'SURCHARGE', value: 60.0, percentBased: true, condition: { type: 'location', work: 'construction' }, description: 'Poussière, gravats, matériel renforcé' },
-      { name: 'Dégâts des eaux récents', serviceType: 'CLEANING', category: 'SURCHARGE', value: 80.0, percentBased: true, condition: { type: 'location', damage: 'water' }, description: 'Humidité, moisissures potentielles, équipement spécial' },
-      { name: 'Présence de moisissure', serviceType: 'CLEANING', category: 'SURCHARGE', value: 100.0, percentBased: true, condition: { type: 'location', mold: 'present' }, description: 'Traitement antifongique, EPI spéciaux' },
-      { name: 'Espace très restreint', serviceType: 'CLEANING', category: 'SURCHARGE', value: 25.0, percentBased: true, condition: { type: 'location', space: 'limited' }, description: 'Meubles encombrants, accès difficile' },
-      { name: 'Situation d\'accumulation', serviceType: 'CLEANING', category: 'SURCHARGE', value: 150.0, percentBased: true, condition: { type: 'location', hoarding: 'present' }, description: 'Syndrome de Diogène, tri préalable nécessaire' },
+      { name: 'Saleté importante/tenace', serviceType: 'CLEANING', category: 'SURCHARGE', value: 8.5, percentBased: true, condition: { type: 'location', dirt: 'heavy' }, description: 'Nettoyage intensif, temps supplémentaire' },
+      { name: 'Post-construction/travaux', serviceType: 'CLEANING', category: 'SURCHARGE', value: 9.5, percentBased: true, condition: { type: 'location', work: 'construction' }, description: 'Poussière, gravats, matériel renforcé' },
+      { name: 'Dégâts des eaux récents', serviceType: 'CLEANING', category: 'SURCHARGE', value: 9.8, percentBased: true, condition: { type: 'location', damage: 'water' }, description: 'Humidité, moisissures potentielles, équipement spécial' },
+      { name: 'Présence de moisissure', serviceType: 'CLEANING', category: 'SURCHARGE', value: 10.0, percentBased: true, condition: { type: 'location', mold: 'present' }, description: 'Traitement antifongique, EPI spéciaux' },
+      { name: 'Espace très restreint', serviceType: 'CLEANING', category: 'SURCHARGE', value: 7.0, percentBased: true, condition: { type: 'location', space: 'limited' }, description: 'Meubles encombrants, accès difficile' },
+      { name: 'Situation d\'accumulation', serviceType: 'CLEANING', category: 'SURCHARGE', value: 10.0, percentBased: true, condition: { type: 'location', hoarding: 'present' }, description: 'Syndrome de Diogène, tri préalable nécessaire' },
 
       // Contraintes matérielles
-      { name: 'Pas d\'accès à l\'eau', serviceType: 'CLEANING', category: 'SURCHARGE', value: 50.0, percentBased: true, condition: { type: 'utilities', water: 'none' }, description: 'Approvisionnement eau, équipement autonome' },
-      { name: 'Pas d\'électricité', serviceType: 'CLEANING', category: 'SURCHARGE', value: 40.0, percentBased: true, condition: { type: 'utilities', power: 'none' }, description: 'Matériel sur batterie, éclairage portatif' },
-      { name: 'Produits spécifiques requis', serviceType: 'CLEANING', category: 'SURCHARGE', value: 30.0, percentBased: true, condition: { type: 'utilities', products: 'special' }, description: 'Produits professionnels, détachants spéciaux' },
-      { name: 'Équipement industriel requis', serviceType: 'CLEANING', category: 'SURCHARGE', value: 60.0, percentBased: true, condition: { type: 'utilities', equipment: 'industrial' }, description: 'Mono-brosse, injecteur-extracteur, haute pression' },
-      { name: 'Travail en hauteur', serviceType: 'CLEANING', category: 'SURCHARGE', value: 80.0, percentBased: true, condition: { type: 'utilities', height: 'required' }, description: 'Échafaudage, harnais, nettoyage vitres hautes' }
+      { name: 'Pas d\'accès à l\'eau', serviceType: 'CLEANING', category: 'SURCHARGE', value: 9.0, percentBased: true, condition: { type: 'utilities', water: 'none' }, description: 'Approvisionnement eau, équipement autonome' },
+      { name: 'Pas d\'électricité', serviceType: 'CLEANING', category: 'SURCHARGE', value: 8.5, percentBased: true, condition: { type: 'utilities', power: 'none' }, description: 'Matériel sur batterie, éclairage portatif' },
+      { name: 'Produits spécifiques requis', serviceType: 'CLEANING', category: 'SURCHARGE', value: 7.5, percentBased: true, condition: { type: 'utilities', products: 'special' }, description: 'Produits professionnels, détachants spéciaux' },
+      { name: 'Équipement industriel requis', serviceType: 'CLEANING', category: 'SURCHARGE', value: 9.5, percentBased: true, condition: { type: 'utilities', equipment: 'industrial' }, description: 'Mono-brosse, injecteur-extracteur, haute pression' },
+      { name: 'Travail en hauteur', serviceType: 'CLEANING', category: 'SURCHARGE', value: 9.8, percentBased: true, condition: { type: 'utilities', height: 'required' }, description: 'Échafaudage, harnais, nettoyage vitres hautes' }
     ];
 
     const cleaningServices = [
@@ -152,9 +275,9 @@ async function seedRealisticRules() {
       { name: 'Majoration zone étendue', serviceType: 'DELIVERY', category: 'FIXED', value: 15.0, percentBased: false, condition: { type: 'distance', zone: 'extended' }, description: 'Majoration zone étendue (+15€)' },
 
       // Services supplémentaires
-      { name: 'Service express (< 2h)', serviceType: 'DELIVERY', category: 'SURCHARGE', value: 50.0, percentBased: true, condition: { type: 'service', speed: 'express' }, description: 'Livraison ultra-rapide' },
+      { name: 'Service express (< 2h)', serviceType: 'DELIVERY', category: 'SURCHARGE', value: 9.0, percentBased: true, condition: { type: 'service', speed: 'express' }, description: 'Livraison ultra-rapide' },
       { name: 'Manutention objets lourds', serviceType: 'DELIVERY', category: 'FIXED', value: 30.0, percentBased: false, condition: { type: 'service', handling: 'heavy' }, description: 'Objets > 30kg, équipement spécialisé' },
-      { name: 'Livraison étage sans ascenseur', serviceType: 'DELIVERY', category: 'SURCHARGE', value: 25.0, percentBased: true, condition: { type: 'building', elevator: 'none' }, description: 'Transport par escaliers' }
+      { name: 'Livraison étage sans ascenseur', serviceType: 'DELIVERY', category: 'SURCHARGE', value: 7.0, percentBased: true, condition: { type: 'building', elevator: 'none' }, description: 'Transport par escaliers' }
     ];
 
     // 4. ═══════════════════════════════════════════════════════════════
@@ -166,8 +289,10 @@ async function seedRealisticRules() {
 
     // Insérer règles déménagement
     for (const rule of [...movingConstraints, ...movingServices]) {
-      await prisma.rule.create({
+      await prisma.rules.create({
         data: {
+          id: randomUUID(),
+          updatedAt: new Date(),
           name: rule.name,
           description: rule.description,
           value: rule.value,
@@ -180,12 +305,7 @@ async function seedRealisticRules() {
           priority: 100,
           validFrom: new Date(),
           tags: rule.percentBased ? ['percentage'] : ['fixed'],
-          metadata: {
-            source: 'realistic_seed_2025',
-            impact: rule.percentBased ? `+${rule.value}%` : `+${rule.value}€`,
-            category_frontend: rule.serviceType === 'MOVING' ?
-              (rule.category === 'FIXED' ? 'service' : 'constraint') : 'constraint'
-          }
+          metadata: enrichRuleMetadata(rule)
         }
       });
       totalInserted++;
@@ -193,8 +313,10 @@ async function seedRealisticRules() {
 
     // Insérer règles nettoyage
     for (const rule of [...cleaningConstraints, ...cleaningServices]) {
-      await prisma.rule.create({
+      await prisma.rules.create({
         data: {
+          id: randomUUID(),
+          updatedAt: new Date(),
           name: rule.name,
           description: rule.description,
           value: rule.value,
@@ -207,11 +329,7 @@ async function seedRealisticRules() {
           priority: 100,
           validFrom: new Date(),
           tags: rule.percentBased ? ['percentage'] : ['fixed'],
-          metadata: {
-            source: 'realistic_seed_2025',
-            impact: rule.percentBased ? `+${rule.value}%` : `+${rule.value}€`,
-            category_frontend: rule.category === 'FIXED' ? 'service' : 'constraint'
-          }
+          metadata: enrichRuleMetadata(rule)
         }
       });
       totalInserted++;
@@ -219,8 +337,10 @@ async function seedRealisticRules() {
 
     // Insérer règles livraison
     for (const rule of deliveryRules) {
-      await prisma.rule.create({
+      await prisma.rules.create({
         data: {
+          id: randomUUID(),
+          updatedAt: new Date(),
           name: rule.name,
           description: rule.description,
           value: rule.value,
@@ -233,11 +353,7 @@ async function seedRealisticRules() {
           priority: 100,
           validFrom: new Date(),
           tags: rule.percentBased ? ['percentage'] : ['fixed'],
-          metadata: {
-            source: 'realistic_seed_2025',
-            impact: rule.percentBased ? `+${rule.value}%` : `+${rule.value}€`,
-            category_frontend: 'constraint'
-          }
+          metadata: enrichRuleMetadata(rule)
         }
       });
       totalInserted++;
@@ -249,7 +365,7 @@ async function seedRealisticRules() {
     console.log('\n📊 ═══ RAPPORT FINAL ═══');
     console.log(`✅ Total règles insérées: ${totalInserted}`);
 
-    const countByService = await prisma.rule.groupBy({
+    const countByService = await prisma.rules.groupBy({
       by: ['serviceType'],
       _count: { serviceType: true },
       where: { isActive: true }
@@ -260,7 +376,7 @@ async function seedRealisticRules() {
       console.log(`   ${serviceType}: ${_count.serviceType} règles`);
     });
 
-    const countByType = await prisma.rule.groupBy({
+    const countByType = await prisma.rules.groupBy({
       by: ['percentBased'],
       _count: { percentBased: true },
       where: { isActive: true }

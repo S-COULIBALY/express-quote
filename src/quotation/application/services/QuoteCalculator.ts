@@ -1,8 +1,9 @@
-import { container, loadStrategies, getStrategy } from "../container";
+import { loadStrategies, getStrategy } from "../container";
 import { QuoteStrategy } from "../../domain/interfaces/QuoteStrategy";
 import { QuoteContext } from "../../domain/valueObjects/QuoteContext";
 import { Quote } from "../../domain/valueObjects/Quote";
 import { logger } from "../../../lib/logger";
+import { devLog } from "../../../lib/conditional-logger";
 
 let strategiesLoaded = false;
 
@@ -32,7 +33,14 @@ export class QuoteCalculator {
    * @returns Le devis calculé
    */
   public async calculateQuote(serviceType: string, context: QuoteContext): Promise<Quote> {
-    logger.info(`📊 Début calcul pour service: ${serviceType}`);
+    // ✅ LOG STRATÉGIQUE: Tracer le début du calcul
+    try {
+      if (typeof devLog !== 'undefined') {
+        devLog.debug('QuoteCalculator', `🧮 [calculateQuote] Recherche stratégie pour ${serviceType}`);
+      }
+    } catch (e) {
+      logger.debug(`📁 [QuoteCalculator] Recherche stratégie pour ${serviceType}`);
+    }
     
     try {
       // En mode développement, recharger les stratégies à chaque appel
@@ -42,19 +50,19 @@ export class QuoteCalculator {
 
       // Charger les stratégies si nécessaire
       if (!strategiesLoaded) {
-        logger.info("🔄 Chargement des stratégies...");
+        logger.info("📁 [QuoteCalculator.ts] 🔄 Chargement des stratégies...");
         try {
           await loadStrategies(process.env.NODE_ENV === "development");
           strategiesLoaded = true;
-          logger.info("✅ Stratégies chargées avec succès");
+          logger.info("📁 [QuoteCalculator.ts] ✅ Stratégies chargées avec succès");
         } catch (loadError: any) {
-          logger.error(`❌ Échec du chargement des stratégies:`, loadError.message);
+          logger.error(`📁 [QuoteCalculator.ts] ❌ Échec du chargement des stratégies:`, loadError.message);
           throw new Error(`Impossible de charger les stratégies: ${loadError.message}`);
         }
       }
 
       // Obtenir la stratégie appropriée
-      logger.info(`🔍 Recherche de stratégie pour: ${serviceType}`);
+      logger.info(`📁 [QuoteCalculator.ts] 🔍 Recherche de stratégie pour: ${serviceType}`);
       const strategy = getStrategy(serviceType);
       
       if (!strategy) {
@@ -63,11 +71,11 @@ export class QuoteCalculator {
       
       // Vérifier que la stratégie peut gérer ce type de service
       if (!strategy.canHandle(serviceType)) {
-        logger.error(`❌ Stratégie ${strategy.serviceType} ne peut pas gérer ${serviceType}`);
+        logger.error(`❌ Stratégie ${strategy.serviceType} ne peut pas gérer ${serviceType} \n\n`);
         throw new Error(`La stratégie ${strategy.serviceType} ne peut pas gérer le service ${serviceType}`);
       }
 
-      logger.info(`📊 Calcul du devis avec la stratégie: ${strategy.constructor.name}`);
+      logger.info(`📁 [QuoteCalculator.ts] 📊 Calcul du devis avec la stratégie: ${strategy.constructor.name}`);
       
       // Calculer le devis
       const quote = await strategy.calculate(context);
@@ -76,12 +84,19 @@ export class QuoteCalculator {
         throw new Error("La stratégie a retourné un devis vide");
       }
       
-      logger.info(`✅ Devis calculé avec succès: ${quote.getTotalPrice().getAmount()}€`);
+      // ✅ LOG STRATÉGIQUE: Tracer le résultat
+      try {
+        if (typeof devLog !== 'undefined') {
+          devLog.debug('QuoteCalculator', `✅ [calculateQuote] Devis calculé: ${quote.getTotalPrice().getAmount()}€`);
+        }
+      } catch (e) {
+        logger.debug(`📁 [QuoteCalculator] ✅ Devis calculé: ${quote.getTotalPrice().getAmount()}€`);
+      }
       
       return quote;
     } catch (error: any) {
-      logger.error(`❌ Erreur lors du calcul du devis pour "${serviceType}":`, error.message);
-      logger.error(`❌ Stack trace:`, error.stack?.substring(0, 500));
+      logger.error(`❌ [QuoteCalculator] Erreur calcul devis "${serviceType}":`, error.message);
+      logger.error(`📁 [QuoteCalculator.ts] ❌ Stack trace:`, error.stack?.substring(0, 500));
       throw new Error(`Impossible de calculer le devis pour "${serviceType}": ${error.message}`);
     }
   }

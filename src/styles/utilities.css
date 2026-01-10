@@ -79,23 +79,23 @@
 
 /* 🎨 CLASSES POUR LES BOUTONS */
 .btn-primary-ios {
-  background: var(--gradient-primary) !important;
-  border: none !important;
-  border-radius: var(--ios18-border-radius) !important;
-  color: white !important;
-  font-family: var(--font-family-primary) !important;
-  font-weight: 600 !important;
-  font-size: 16px !important;
-  padding: 14px 24px !important;
-  transition: var(--ios18-transition) !important;
-  box-shadow: 0 2px 8px rgba(27, 94, 32, 0.4) !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+  background: var(--gradient-primary);
+  border: none;
+  border-radius: var(--ios18-border-radius);
+  color: white;
+  font-family: var(--font-family-primary);
+  font-weight: 600;
+  font-size: 16px;
+  padding: 14px 24px;
+  transition: var(--ios18-transition);
+  box-shadow: 0 2px 8px rgba(27, 94, 32, 0.4);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary-ios:hover {
-  background: var(--gradient-accent) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 16px rgba(27, 94, 32, 0.5) !important;
+  background: var(--gradient-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(27, 94, 32, 0.5);
 }
 
 /* 📱 OPTIMISATIONS MOBILE-FIRST */
@@ -252,8 +252,8 @@
 }
 
 .btn-primary-ios:active {
-  transform: translateY(0) scale(0.98) !important;
-  box-shadow: 0 2px 6px rgba(27, 94, 32, 0.3) !important;
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 6px rgba(27, 94, 32, 0.3);
 }
 
 /* 🎨 CLASSES POUR LES CARTES */
@@ -452,8 +452,8 @@
 /* 📱 RESPONSIVE SUPPORT */
 @media (max-width: 768px) {
   .btn-primary-ios {
-    min-height: 44px !important; /* Zone tactile iOS recommandée */
-    font-size: 16px !important; /* Évite le zoom sur iOS */
+    min-height: 44px; /* Zone tactile iOS recommandée */
+    font-size: 16px; /* Évite le zoom sur iOS */
   }
   
   .form-field-ios {

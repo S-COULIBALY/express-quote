@@ -425,7 +425,7 @@ class RecoveryAutomationProcessor {
     switch (session.stage) {
       case 'quote_created':
       case 'quote_viewed':
-        return `${baseUrl}/summary/quote/${session.temporaryId}`;
+        return `${baseUrl}/booking/${session.temporaryId}`;
       case 'payment_initiated':
         return `${baseUrl}/payment/${session.id}`;
       default:

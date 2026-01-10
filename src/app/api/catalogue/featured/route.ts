@@ -25,10 +25,10 @@ export async function GET(request: NextRequest) {
     const response = await controller.getAllCatalogues(modifiedRequest)
     const data = await response.json()
 
-    logger.info('🔍 Données reçues du controller:', {
+    logger.info('🔍 Données reçues du controller', 'Controller', {
       hasData: !!data,
       success: data.success,
-      hasCatalogues: !!data.data?.catalogues,
+      hasCatalogues: data.data?.catalogues,
       cataloguesCount: data.data?.catalogues?.length || 0
     })
 
@@ -54,12 +54,6 @@ export async function GET(request: NextRequest) {
       isFeatured: boolean;
       isNewOffer: boolean;
     }) => {
-      logger.info('🔄 Transformation catalogue:', {
-        id: catalogue.id,
-        category: catalogue.category,
-        hasMarketingData: !!(catalogue.marketingTitle || catalogue.marketingSubtitle)
-      })
-
       // Mapping intelligent des données
       const categoryTitles = {
         'DEMENAGEMENT': 'Déménagement',
@@ -108,19 +102,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    logger.info('✅ Transformation terminée:', {
-      itemsTransformed: catalogItems.length,
-      sampleItem: catalogItems[0] ? {
-        id: catalogItems[0].id,
-        title: catalogItems[0].title,
-        category: catalogItems[0].category
-      } : null
-    })
-
     return NextResponse.json(catalogItems)
 
   } catch (error) {
-    logger.error('❌ Erreur dans GET /api/catalogue/featured:', error)
+    logger.error('❌ Erreur dans GET /api/catalogue/featured', 'Error', error)
 
     // En cas d'erreur, retourner un tableau vide pour éviter de casser l'interface
     return NextResponse.json([])

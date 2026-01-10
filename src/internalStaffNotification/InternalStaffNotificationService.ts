@@ -11,6 +11,7 @@
 import { Booking } from '@/quotation/domain/entities/Booking';
 import { InternalStaffService, InternalStaffMember } from '@/quotation/application/services/InternalStaffService';
 import { logger } from '@/lib/logger';
+import { getGlobalNotificationService } from '@/notifications/interfaces/http/GlobalNotificationService';
 
 export interface InternalStaffNotificationData {
   bookingId: string;
@@ -273,7 +274,8 @@ export class InternalStaffNotificationService {
   }
 
   /**
-   * Envoie une notification individuelle via l'API appropriée
+   * Envoie une notification individuelle via le système de queue
+   * ✅ INTÉGRÉ AVEC SYSTÈME DE QUEUE BULLMQ
    */
   private async sendIndividualNotification(
     staffMember: InternalStaffMember,
@@ -281,76 +283,124 @@ export class InternalStaffNotificationService {
     documents: any[]
   ): Promise<NotificationResult> {
     try {
-      // Déterminer l'API selon le trigger
-      const apiEndpoint = this.getNotificationEndpoint(notificationData.trigger);
+      // ✅ Obtenir le service de notification avec queue
+      const notificationService = await getGlobalNotificationService();
 
-      // Préparer les pièces jointes
+      // Préparer les pièces jointes pour le service
       const attachments = documents.map(doc => ({
         filename: doc.filename,
-        content: doc.base64Content || doc.content,
+        content: doc.base64Content ? Buffer.from(doc.base64Content, 'base64') : doc.content,
+        path: doc.path, // Si le fichier est déjà sur le disque
         contentType: doc.mimeType || 'application/pdf',
         size: doc.size
-      }));
+      })).filter(att => att.content || att.path); // Filtrer les attachments valides
 
-      // Payload spécifique pour équipe interne
-      const requestBody = {
-        // Destinataire
-        email: staffMember.email,
-        professionalName: `${staffMember.firstName} ${staffMember.lastName}`,
+      // Déterminer le template selon le trigger
+      const template = this.getTemplateForTrigger(notificationData.trigger);
+
+      this.notificationLogger.info('📧 Ajout notification équipe interne à la queue', {
+        staffEmail: this.maskEmail(staffMember.email),
         role: staffMember.role,
-        department: staffMember.department,
-
-        // Données booking (accès complet)
-        bookingId: notificationData.bookingId,
-        bookingReference: notificationData.bookingReference,
-        serviceType: notificationData.serviceType,
-        totalAmount: notificationData.fullBookingData.totalAmount,
-        serviceDate: notificationData.fullBookingData.scheduledDate,
-        serviceTime: notificationData.fullBookingData.scheduledTime,
-        serviceAddress: notificationData.fullBookingData.locationAddress,
-
-        // Données client (accès complet)
-        customerName: notificationData.fullClientData.customerName,
-        customerEmail: notificationData.fullClientData.customerEmail,
-        customerPhone: notificationData.fullClientData.customerPhone,
-
-        // Context
-        trigger: notificationData.trigger,
-        reason: notificationData.reason,
-        isInternalStaff: true, // Flag pour template spécialisé
-
-        // Documents
-        attachments
-      };
-
-      const response = await fetch(`${this.baseUrl}/api/notifications/business/${apiEndpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'InternalStaffNotificationService/1.0'
-        },
-        body: JSON.stringify(requestBody)
+        template,
+        attachmentsCount: attachments.length
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
+      // ✅ Ajouter à la queue email avec pièces jointes
+      const result = await notificationService.sendEmail({
+        to: staffMember.email,
+        template: template,
+        data: {
+          // Destinataire
+          professionalName: `${staffMember.firstName} ${staffMember.lastName}`,
+          role: staffMember.role,
+          department: staffMember.department,
 
-      const result = await response.json();
+          // Données booking (accès complet)
+          bookingId: notificationData.bookingId,
+          bookingReference: notificationData.bookingReference,
+          serviceType: notificationData.serviceType,
+          totalAmount: notificationData.fullBookingData.totalAmount,
+          serviceDate: notificationData.fullBookingData.scheduledDate,
+          serviceTime: notificationData.fullBookingData.scheduledTime,
+          serviceAddress: notificationData.fullBookingData.locationAddress,
+          deliveryAddress: notificationData.fullBookingData.deliveryAddress,
+          priority: notificationData.fullBookingData.priority,
+
+          // Données client (accès complet)
+          customerName: notificationData.fullClientData.customerName,
+          customerEmail: notificationData.fullClientData.customerEmail,
+          customerPhone: notificationData.fullClientData.customerPhone,
+          customerAdditionalInfo: notificationData.fullClientData.customerAdditionalInfo,
+
+          // Context
+          trigger: notificationData.trigger,
+          reason: notificationData.reason,
+          confirmationDate: notificationData.confirmationDate,
+          paymentDate: notificationData.paymentDate,
+          isInternalStaff: true // Flag pour template spécialisé
+        },
+        attachments: attachments,
+        priority: this.getPriorityForTrigger(notificationData.trigger),
+        metadata: {
+          bookingId: notificationData.bookingId,
+          staffMemberId: staffMember.id,
+          role: staffMember.role,
+          department: staffMember.department,
+          trigger: notificationData.trigger,
+          source: 'internal-staff-notification'
+        }
+      });
 
       return {
-        success: true,
+        success: result.success,
         staffMember,
-        messageId: result.messageId || result.id
+        messageId: result.id,
+        error: result.error
       };
 
     } catch (error) {
+      this.notificationLogger.error('❌ Erreur lors de l\'ajout notification équipe interne à la queue', {
+        staffEmail: this.maskEmail(staffMember.email),
+        role: staffMember.role,
+        error: error instanceof Error ? error.message : 'Erreur inconnue',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
       return {
         success: false,
         staffMember,
         error: error instanceof Error ? error.message : 'Erreur inconnue'
       };
+    }
+  }
+
+  /**
+   * Détermine le template selon le trigger
+   */
+  private getTemplateForTrigger(trigger: string): string {
+    switch (trigger) {
+      case 'BOOKING_CONFIRMED':
+        return 'professional-document';
+      case 'PAYMENT_COMPLETED':
+        return 'accounting-documents';
+      case 'SERVICE_STARTED':
+        return 'professional-document';
+      default:
+        return 'professional-document';
+    }
+  }
+
+  /**
+   * Détermine la priorité selon le trigger
+   */
+  private getPriorityForTrigger(trigger: string): 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW' {
+    switch (trigger) {
+      case 'PAYMENT_COMPLETED':
+        return 'HIGH'; // Paiements sont prioritaires
+      case 'SERVICE_STARTED':
+        return 'URGENT'; // Services en cours sont urgents
+      default:
+        return 'NORMAL';
     }
   }
 

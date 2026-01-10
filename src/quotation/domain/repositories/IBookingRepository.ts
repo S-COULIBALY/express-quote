@@ -10,7 +10,7 @@ export interface BookingSearchResult {
     limit: number;
 }
 
-export interface IBookingRepository {
+export default interface IBookingRepository {
     save(booking: Booking): Promise<Booking>;
     findById(id: string): Promise<Booking | null>;
     findByCustomerId(customerId: string): Promise<Booking[]>;
@@ -54,4 +54,6 @@ export interface IBookingRepository {
         byStatus: Record<BookingStatus, number>;
         totalAmount: number;
     }>;
-} 
+}
+
+export type { IBookingRepository }; 

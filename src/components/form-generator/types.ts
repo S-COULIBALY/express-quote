@@ -102,10 +102,6 @@ export interface ServiceSummaryOptions {
 }
 
 // Interfaces pour les layouts
-export interface DefaultLayoutOptions {
-  // Options pour le layout par défaut
-}
-
 export interface SidebarLayoutOptions {
   autoSummary?: "moving" | "pack" | "contact" | React.ComponentType;
   summaryConfig?: Record<string, unknown>;

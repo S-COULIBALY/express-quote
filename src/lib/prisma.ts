@@ -7,7 +7,8 @@ declare global {
 
 // Utiliser l'instance existante si disponible (en développement) ou en créer une nouvelle
 export const prisma = global.prisma || new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  // Remove verbose SQL query logs; keep only warnings/errors in dev, errors in prod
+  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
 });
 
 // S'assurer que la connexion est établie
