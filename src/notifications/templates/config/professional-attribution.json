@@ -1,0 +1,139 @@
+{
+  "id": "professional-attribution",
+  "name": "Attribution de mission",
+  "type": "EMAIL_HTML",
+  "category": "SYSTEM",
+  "description": "Email envoyé aux professionnels pour proposer une nouvelle mission",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "professionalEmail",
+      "type": "string",
+      "description": "Email du professionnel",
+      "required": true,
+      "example": "pro@example.com"
+    },
+    {
+      "name": "professionalName",
+      "type": "string",
+      "description": "Nom du professionnel",
+      "required": false,
+      "example": "Jean Pro"
+    },
+    {
+      "name": "attributionId",
+      "type": "string",
+      "description": "ID de l'attribution",
+      "required": true,
+      "example": "ATT-123456"
+    },
+    {
+      "name": "serviceType",
+      "type": "string",
+      "description": "Type de service",
+      "required": true,
+      "example": "MOVING"
+    },
+    {
+      "name": "serviceName",
+      "type": "string",
+      "description": "Nom du service",
+      "required": false,
+      "example": "Déménagement complet"
+    },
+    {
+      "name": "totalAmount",
+      "type": "number",
+      "description": "Montant total",
+      "required": true,
+      "example": 850
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "description": "Devise",
+      "required": false,
+      "example": "EUR"
+    },
+    {
+      "name": "scheduledDate",
+      "type": "string",
+      "description": "Date prévue",
+      "required": true,
+      "example": "15/09/2025"
+    },
+    {
+      "name": "scheduledTime",
+      "type": "string",
+      "description": "Heure prévue",
+      "required": true,
+      "example": "14:00"
+    },
+    {
+      "name": "locationCity",
+      "type": "string",
+      "description": "Ville",
+      "required": true,
+      "example": "Paris"
+    },
+    {
+      "name": "locationDistrict",
+      "type": "string",
+      "description": "Arrondissement",
+      "required": true,
+      "example": "75001"
+    },
+    {
+      "name": "distanceKm",
+      "type": "number",
+      "description": "Distance en km",
+      "required": true,
+      "example": 5
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "description": "Description de la mission",
+      "required": true,
+      "example": "Déménagement complet avec emballage"
+    },
+    {
+      "name": "requirements",
+      "type": "array",
+      "description": "Exigences",
+      "required": true,
+      "example": ["Permis B", "Expérience 2 ans minimum"]
+    },
+    {
+      "name": "acceptUrl",
+      "type": "string",
+      "description": "URL d'acceptation",
+      "required": true,
+      "example": "https://express-quote.com/accept/ATT-123456"
+    },
+    {
+      "name": "refuseUrl",
+      "type": "string",
+      "description": "URL de refus",
+      "required": true,
+      "example": "https://express-quote.com/refuse/ATT-123456"
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "Nouvelle mission disponible - {{serviceName}}",
+      "body": "<h1>Nouvelle Mission Disponible</h1>\n<p>Bonjour {{professionalName}},</p>\n<p>Une nouvelle mission vous est proposée :</p>\n<p><strong>Service :</strong> {{serviceName}}</p>\n<p><strong>Date :</strong> {{scheduledDate}} à {{scheduledTime}}</p>\n<p><strong>Lieu :</strong> {{locationCity}} ({{locationDistrict}})</p>\n<p><strong>Distance :</strong> {{distanceKm}} km</p>\n<p><strong>Montant :</strong> {{totalAmount}} {{currency}}</p>\n<p><strong>Description :</strong> {{description}}</p>\n<p><strong>Exigences :</strong> {{requirements}}</p>\n<p><a href=\"{{acceptUrl}}\">Accepter la mission</a> | <a href=\"{{refuseUrl}}\">Refuser</a></p>\n<p>L'équipe Express Quote</p>"
+    }
+  },
+  "tags": ["professional", "attribution", "mission", "email"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}

@@ -52,7 +52,17 @@
 import 'server-only';  // ✅ CRITICAL: Marquer ce fichier comme server-only pour Next.js
 
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';  // ✅ IMPORTANT: Import statique ES6
+// Import dynamique de react-dom/server pour éviter que Next.js l'inclue dans le bundle client
+let renderToStaticMarkup: typeof import('react-dom/server').renderToStaticMarkup;
+
+function getRenderToStaticMarkup() {
+  if (!renderToStaticMarkup) {
+    // Import dynamique au runtime pour éviter l'analyse statique de Next.js
+    const ReactDOMServer = require('react-dom/server');
+    renderToStaticMarkup = ReactDOMServer.renderToStaticMarkup;
+  }
+  return renderToStaticMarkup;
+}
 import {
   QuoteConfirmation,
   BookingConfirmation,
@@ -201,7 +211,7 @@ export class ReactEmailRenderer {
 
       try {
         // ✅ SOLUTION: Import statique + rendu synchrone
-        html = renderToStaticMarkup(element);
+        html = getRenderToStaticMarkup()(element);
 
         console.log('[ReactEmailRenderer] Step 4: HTML rendered in', Date.now() - startTime, 'ms');
         console.log('[ReactEmailRenderer] Step 5: HTML length:', html?.length);

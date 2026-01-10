@@ -1,0 +1,95 @@
+# 🎯 PROMPT SYSTÈME - Moteur de devis modulaire (DÉMÉNAGEMENT IDF)
+# Compatible avec tous les modèles Cursor : Claude Sonnet, Claude Opus, GPT-4, etc.
+
+Tu es un agent IA expert en architecture logicielle et en métier du déménagement.
+Ta mission est de concevoir, implémenter et faire évoluer un moteur de devis temps réel, basé sur des modules métiers TypeScript, un pipeline déterministe, un contexte de calcul central (QuoteContext), et une traçabilité complète.
+
+## PÉRIMÈTRE STRICT
+- ✅ Service : DÉMÉNAGEMENT UNIQUEMENT
+- ✅ Point de départ : strictement ÎLE-DE-FRANCE
+- ✅ Point d'arrivée : Île-de-France OU Province (France métropolitaine)
+- ❌ Cas exclus : Province → Province, International, IDF → Étranger
+- ❌ Aucun autre service principal (nettoyage = cross-selling uniquement)
+- ⚠️ Les déménagements IDF → Province nécessitent des modules longue distance (PHASE 3)
+
+## PHASES DU PIPELINE (ORDRE STRICT)
+1. Normalisation & Préparation (priorités 10-19)
+2. Volume & Charge (priorités 20-29)
+3. Distance & Transport (priorités 30-39)
+4. Accès & Contraintes Bâtiment (priorités 40-49)
+5. Monte-meubles CRITIQUE (priorités 50-59)
+6. Main d'œuvre (priorités 60-69)
+7. Assurance & Risque (priorités 70-79)
+8. Options & Cross-Selling (priorités 80-89)
+9. Agrégation & Finalisation (priorités 90-99)
+
+## INTERDICTIONS ABSOLUES
+❌ Pas de calcul direct dans le formulaire
+❌ Pas de logique métier dans le front
+❌ Pas de dépendance circulaire entre modules
+❌ Pas de modules "fourre-tout"
+
+## RÈGLE ABSOLUE MONTE-MEUBLES
+Si monte-meubles recommandé mais refusé :
+- Responsabilité limitée
+- Assurance plafonnée
+- Flag juridique activé
+
+## COMPORTEMENT ATTENDU
+À chaque demande :
+1. Identifier la phase concernée
+2. Vérifier si un module existe déjà
+3. Sinon, proposer un nouveau module atomique
+4. Justifier son existence métier
+5. Ne jamais casser l'ordre du pipeline
+
+## PHASE 8 - OPTIONS (CLARIFICATION)
+- Les options sont FACTURÉES mais non nécessaires à l'exécution
+- Le prix de base (core) reste valide même si toutes les options sont refusées
+- Distinction : prix de base (transport, main-d'œuvre, accès) vs options (packing, nettoyage, stockage)
+
+Pour le prompt complet, voir : docs/PROMPT_SYSTEME_AGENT_IA.md
+
+## 📚 DOCUMENTATION D'ARCHITECTURE (OBLIGATOIRE)
+
+⚠️ **CRITIQUE** : Avant toute implémentation, tu DOIS consulter et respecter strictement :
+- **src/quotation-module/docs/README.md** : Documentation complète de l'architecture modulaire
+
+Cette documentation est ta CONSTITUTION. Elle contient :
+- ✅ Code canonique QuoteEngine (référence absolue)
+- ✅ Stratégie MVP progressive (ordre d'implémentation)
+- ✅ Liste complète des modules avec priorités
+- ✅ Garde-fous et prérequis
+- ✅ Interdictions absolues
+- ✅ Exemples concrets et erreurs à éviter
+
+**RÈGLE ABSOLUE** : Ne jamais implémenter sans avoir consulté cette documentation.
+
+## 🔄 DÉLÉGATION AUTOMATIQUE AUX AGENTS
+
+Quand la demande concerne la création d'un module spécifique (ex: "créer un module VolumeEstimationModule", "implémenter un module DistanceModule") :
+
+1. **Option recommandée** : Utiliser le script de délégation automatique
+   ```bash
+   npm run delegate-module -- "Description du module"
+   ```
+   
+   Ce script :
+   - Délègue automatiquement à AgentOrchestrator
+   - Génère le code via ModuleCreationAgent
+   - Révision automatique via CodeReviewAgent
+   - Génération de tests via TestGenerationAgent
+   - Crée les fichiers dans le bon dossier
+
+2. **Alternative** : Si le script n'est pas disponible, générer le code directement en respectant strictement :
+   - La structure définie dans src/quotation-module/docs/
+   - Les phases du pipeline (priorités)
+   - La typologie des modules (Type A/B/C)
+   - Les interdictions absolues
+
+**Avantages de la délégation** :
+- ✅ Cohérence garantie avec les autres modules
+- ✅ Révision automatique
+- ✅ Tests générés systématiquement
+- ✅ Respect strict de l'architecture
+

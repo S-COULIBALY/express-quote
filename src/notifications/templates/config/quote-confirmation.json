@@ -1,0 +1,63 @@
+{
+  "id": "quote-confirmation-email",
+  "name": "Confirmation de devis par email",
+  "type": "EMAIL_HTML",
+  "category": "TRANSACTIONAL",
+  "description": "Email de confirmation de devis",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "customerName",
+      "type": "string",
+      "description": "Nom du client",
+      "required": true,
+      "example": "Jean Dupont"
+    },
+    {
+      "name": "quoteReference",
+      "type": "string",
+      "description": "Référence du devis",
+      "required": true,
+      "example": "Q-123456"
+    },
+    {
+      "name": "serviceName",
+      "type": "string",
+      "description": "Nom du service",
+      "required": true,
+      "example": "Déménagement complet"
+    },
+    {
+      "name": "totalAmount",
+      "type": "number",
+      "description": "Montant total",
+      "required": true,
+      "example": 850
+    },
+    {
+      "name": "viewQuoteUrl",
+      "type": "string",
+      "description": "URL pour voir le devis",
+      "required": true,
+      "example": "https://express-quote.com/quote/Q-123456"
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "Confirmation de votre devis - {{quoteReference}}",
+      "body": "<h1>Confirmation de devis</h1>\n<p>Bonjour {{customerName}},</p>\n<p>Votre devis {{quoteReference}} a été créé avec succès.</p>\n<p>Service: {{serviceName}}</p>\n<p>Montant: {{totalAmount}}€</p>\n<p>L'équipe Express Quote</p>"
+    }
+  },
+  "tags": ["quote", "confirmation", "email"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}
+

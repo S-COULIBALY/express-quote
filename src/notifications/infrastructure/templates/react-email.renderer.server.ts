@@ -5,7 +5,7 @@
  * et éviter que Next.js essaie de l'inclure dans le bundle client.
  *
  * ⚠️ IMPORTANT: Ce fichier doit UNIQUEMENT être importé dans:
- * - API routes (app/api/**/route.ts)
+ * - API routes (dans le dossier app/api)
  * - Server Components
  * - Code backend (services, repositories)
  *
@@ -17,13 +17,12 @@
 
 import 'server-only';
 
-// Import du renderer React Email (qui utilise react-dom/server)
-import { ReactEmailRenderer } from './react-email.renderer';
-
 /**
  * 🎨 Instance singleton du renderer React Email (server-side only)
+ * Utilise un import dynamique pour éviter que Next.js inclue react-dom/server dans le bundle client
  */
-export function getReactEmailRenderer(): ReactEmailRenderer {
+export async function getReactEmailRenderer() {
+  const { ReactEmailRenderer } = await import('./react-email.renderer');
   return ReactEmailRenderer.getInstance();
 }
 
@@ -34,6 +33,8 @@ export function renderReactEmailTemplate(
   templateId: string,
   data: any
 ): { html: string; text: string; subject: string } {
+  // Import dynamique pour éviter que Next.js inclue react-dom/server dans le bundle client
+  const { ReactEmailRenderer } = require('./react-email.renderer');
   const renderer = ReactEmailRenderer.getInstance();
   return renderer.renderTemplate(templateId, data);
 }
@@ -42,6 +43,8 @@ export function renderReactEmailTemplate(
  * ✅ Vérifier si un template React Email existe
  */
 export function hasReactEmailTemplate(templateId: string): boolean {
+  // Import dynamique pour éviter que Next.js inclue react-dom/server dans le bundle client
+  const { ReactEmailRenderer } = require('./react-email.renderer');
   const renderer = ReactEmailRenderer.getInstance();
   return renderer.hasTemplate(templateId);
 }
@@ -50,6 +53,8 @@ export function hasReactEmailTemplate(templateId: string): boolean {
  * 📋 Lister tous les templates React Email disponibles
  */
 export function getAvailableReactEmailTemplates(): string[] {
+  // Import dynamique pour éviter que Next.js inclue react-dom/server dans le bundle client
+  const { ReactEmailRenderer } = require('./react-email.renderer');
   const renderer = ReactEmailRenderer.getInstance();
   return renderer.getAvailableTemplates();
 }

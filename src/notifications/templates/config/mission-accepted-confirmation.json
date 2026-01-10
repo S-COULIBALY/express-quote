@@ -1,0 +1,125 @@
+{
+  "id": "mission-accepted-confirmation",
+  "name": "Confirmation d'acceptation de mission",
+  "type": "EMAIL_HTML",
+  "category": "TRANSACTIONAL",
+  "description": "Email de confirmation envoyé après l'acceptation d'une mission",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "professionalName",
+      "type": "string",
+      "description": "Nom du professionnel",
+      "required": true,
+      "example": "Jean Pro"
+    },
+    {
+      "name": "professionalEmail",
+      "type": "string",
+      "description": "Email du professionnel",
+      "required": true,
+      "example": "pro@example.com"
+    },
+    {
+      "name": "attributionId",
+      "type": "string",
+      "description": "ID de l'attribution",
+      "required": true,
+      "example": "ATT-123456"
+    },
+    {
+      "name": "bookingReference",
+      "type": "string",
+      "description": "Référence de réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "serviceType",
+      "type": "string",
+      "description": "Type de service",
+      "required": true,
+      "example": "MOVING"
+    },
+    {
+      "name": "serviceName",
+      "type": "string",
+      "description": "Nom du service",
+      "required": false,
+      "example": "Déménagement complet"
+    },
+    {
+      "name": "totalAmount",
+      "type": "number",
+      "description": "Montant total",
+      "required": true,
+      "example": 850
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "description": "Devise",
+      "required": false,
+      "example": "EUR"
+    },
+    {
+      "name": "scheduledDate",
+      "type": "string",
+      "description": "Date prévue",
+      "required": true,
+      "example": "15/09/2025"
+    },
+    {
+      "name": "scheduledTime",
+      "type": "string",
+      "description": "Heure prévue",
+      "required": true,
+      "example": "14:00"
+    },
+    {
+      "name": "location",
+      "type": "string",
+      "description": "Lieu",
+      "required": true,
+      "example": "123 Rue de la Paix, 75001 Paris"
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "description": "Description de la mission",
+      "required": true,
+      "example": "Déménagement complet avec emballage"
+    },
+    {
+      "name": "requirements",
+      "type": "array",
+      "description": "Exigences",
+      "required": true,
+      "example": ["Permis B", "Expérience 2 ans minimum"]
+    },
+    {
+      "name": "customerInitials",
+      "type": "string",
+      "description": "Initiales du client",
+      "required": true,
+      "example": "JD"
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "Mission acceptée - {{serviceName}} - {{scheduledDate}}",
+      "body": "<h1>Mission Acceptée</h1>\n<p>Bonjour {{professionalName}},</p>\n<p>Votre acceptation de la mission a été confirmée.</p>\n<p><strong>Service :</strong> {{serviceName}}</p>\n<p><strong>Date :</strong> {{scheduledDate}} à {{scheduledTime}}</p>\n<p><strong>Lieu :</strong> {{location}}</p>\n<p><strong>Montant :</strong> {{totalAmount}} {{currency}}</p>\n<p><strong>Description :</strong> {{description}}</p>\n<p><strong>Exigences :</strong> {{requirements}}</p>\n<p><strong>Client :</strong> {{customerInitials}}</p>\n<p>Les informations complètes du client seront disponibles 24h avant le service.</p>\n<p>L'équipe Express Quote</p>"
+    }
+  },
+  "tags": ["mission", "accepted", "confirmation", "professional", "email"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}

@@ -22,6 +22,7 @@ const nextConfig = {
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['@heroicons/react', '@headlessui/react'],
+    serverComponentsExternalPackages: ['react-dom/server'],
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -76,6 +77,13 @@ const nextConfig = {
         chunks: 'all',
         maxInitialRequests: 25,
         minSize: 20000
+      }
+    }
+    // Exclure react-dom/server du bundle client
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'react-dom/server': false,
       }
     }
     config.resolve.fallback = {

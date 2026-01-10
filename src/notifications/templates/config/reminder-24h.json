@@ -1,0 +1,104 @@
+{
+  "id": "reminder-24h",
+  "name": "Rappel 24h avant service",
+  "type": "EMAIL_HTML",
+  "category": "REMINDER",
+  "description": "Email de rappel important envoyé 24h avant l'intervention",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "customerName",
+      "type": "string",
+      "description": "Nom du client",
+      "required": true,
+      "example": "Jean Dupont"
+    },
+    {
+      "name": "customerEmail",
+      "type": "string",
+      "description": "Email du client",
+      "required": true,
+      "example": "jean.dupont@example.com"
+    },
+    {
+      "name": "bookingId",
+      "type": "string",
+      "description": "ID de la réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "bookingReference",
+      "type": "string",
+      "description": "Référence de réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "serviceType",
+      "type": "string",
+      "description": "Type de service",
+      "required": true,
+      "example": "MOVING"
+    },
+    {
+      "name": "serviceName",
+      "type": "string",
+      "description": "Nom du service",
+      "required": true,
+      "example": "Déménagement complet"
+    },
+    {
+      "name": "serviceDate",
+      "type": "string",
+      "description": "Date du service",
+      "required": true,
+      "example": "15/09/2025"
+    },
+    {
+      "name": "serviceTime",
+      "type": "string",
+      "description": "Heure du service",
+      "required": true,
+      "example": "14:00"
+    },
+    {
+      "name": "serviceAddress",
+      "type": "string",
+      "description": "Adresse du service",
+      "required": true,
+      "example": "123 Rue de la Paix, 75001 Paris"
+    },
+    {
+      "name": "estimatedDuration",
+      "type": "number",
+      "description": "Durée estimée en heures",
+      "required": true,
+      "example": 4
+    },
+    {
+      "name": "teamSize",
+      "type": "number",
+      "description": "Taille de l'équipe",
+      "required": true,
+      "example": 2
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "Rappel : Votre service Express Quote demain - {{serviceDate}}",
+      "body": "<h1>Rappel Important - Service Demain</h1>\n<p>Bonjour {{customerName}},</p>\n<p>Nous vous rappelons que votre service <strong>{{serviceName}}</strong> est prévu demain le {{serviceDate}} à {{serviceTime}}.</p>\n<p><strong>Adresse :</strong> {{serviceAddress}}</p>\n<p><strong>Durée estimée :</strong> {{estimatedDuration}} heures</p>\n<p><strong>Équipe :</strong> {{teamSize}} personnes</p>\n<p>Merci de vous assurer d'être présent à l'heure indiquée.</p>\n<p>L'équipe Express Quote</p>"
+    }
+  },
+  "tags": ["reminder", "24h", "service", "email"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}

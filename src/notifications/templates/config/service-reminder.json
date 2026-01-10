@@ -1,0 +1,84 @@
+{
+  "id": "service-reminder-email",
+  "name": "Rappel de service par email",
+  "type": "EMAIL_HTML",
+  "category": "REMINDER",
+  "description": "Email de rappel envoyé 24h avant le service avec instructions détaillées",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "customerName",
+      "type": "string",
+      "description": "Nom du client",
+      "required": true,
+      "example": "Jean Dupont"
+    },
+    {
+      "name": "bookingReference",
+      "type": "string",
+      "description": "Référence de réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "serviceName",
+      "type": "string",
+      "description": "Nom du service",
+      "required": true,
+      "example": "Déménagement complet"
+    },
+    {
+      "name": "serviceDate",
+      "type": "string",
+      "description": "Date du service",
+      "required": true,
+      "example": "15/09/2025"
+    },
+    {
+      "name": "serviceTime",
+      "type": "string",
+      "description": "Heure du service",
+      "required": true,
+      "example": "14:00"
+    },
+    {
+      "name": "primaryAddress",
+      "type": "string",
+      "description": "Adresse principale",
+      "required": true,
+      "example": "123 Rue de la Paix, 75001 Paris"
+    },
+    {
+      "name": "finalChecklist",
+      "type": "array",
+      "description": "Liste de vérification finale",
+      "required": false,
+      "example": ["Emballer les objets fragiles", "Préparer les clés"]
+    },
+    {
+      "name": "hoursUntilService",
+      "type": "number",
+      "description": "Heures jusqu'au service",
+      "required": true,
+      "example": 24
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "Rappel de votre service Express Quote - {{serviceDate}}",
+      "body": "<h1>Rappel de Service Express Quote</h1>\n\n<p>Bonjour {{customerName}},</p>\n\n<p>Nous vous rappelons votre service prévu très bientôt.</p>\n\n<h2>Détails de votre service :</h2>\n<ul>\n  <li><strong>Réservation :</strong> {{bookingReference}}</li>\n  <li><strong>Service :</strong> {{serviceName}}</li>\n  <li><strong>Date :</strong> {{serviceDate}}</li>\n  <li><strong>Heure :</strong> {{serviceTime}}</li>\n  <li><strong>Adresse :</strong> {{primaryAddress}}</li>\n</ul>\n\n<h2>Checklist de préparation :</h2>\n<p>{{finalChecklist}}</p>\n\n<p>Nous avons hâte de vous servir ! Notre équipe sera ponctuelle et professionnelle.</p>\n\n<p>Besoin d'aide ? Contactez-nous au 01 23 45 67 89 ou par email à contact@express-quote.fr</p>\n\n<p>L'équipe Express Quote</p>"
+    }
+  },
+  "tags": ["reminder", "service", "email"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}
+

@@ -1,0 +1,153 @@
+{
+  "id": "professional-document",
+  "name": "Document professionnel",
+  "type": "EMAIL_HTML",
+  "category": "SYSTEM",
+  "description": "Email pour les responsables internes avec instructions par rôle",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "professionalName",
+      "type": "string",
+      "description": "Nom du professionnel",
+      "required": true,
+      "example": "Jean Pro"
+    },
+    {
+      "name": "role",
+      "type": "string",
+      "description": "Rôle du professionnel",
+      "required": true,
+      "example": "Responsable technique"
+    },
+    {
+      "name": "department",
+      "type": "string",
+      "description": "Département",
+      "required": false,
+      "example": "Technique"
+    },
+    {
+      "name": "bookingId",
+      "type": "string",
+      "description": "ID de la réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "bookingReference",
+      "type": "string",
+      "description": "Référence de réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "serviceType",
+      "type": "string",
+      "description": "Type de service",
+      "required": true,
+      "example": "MOVING"
+    },
+    {
+      "name": "serviceName",
+      "type": "string",
+      "description": "Nom du service",
+      "required": false,
+      "example": "Déménagement complet"
+    },
+    {
+      "name": "totalAmount",
+      "type": "number",
+      "description": "Montant total",
+      "required": true,
+      "example": 850
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "description": "Devise",
+      "required": false,
+      "example": "EUR"
+    },
+    {
+      "name": "customerName",
+      "type": "string",
+      "description": "Nom du client",
+      "required": true,
+      "example": "Jean Dupont"
+    },
+    {
+      "name": "customerEmail",
+      "type": "string",
+      "description": "Email du client",
+      "required": true,
+      "example": "jean.dupont@example.com"
+    },
+    {
+      "name": "customerPhone",
+      "type": "string",
+      "description": "Téléphone du client",
+      "required": true,
+      "example": "06 12 34 56 78"
+    },
+    {
+      "name": "serviceDate",
+      "type": "string",
+      "description": "Date du service",
+      "required": true,
+      "example": "15/09/2025"
+    },
+    {
+      "name": "serviceTime",
+      "type": "string",
+      "description": "Heure du service",
+      "required": false,
+      "example": "14:00"
+    },
+    {
+      "name": "serviceAddress",
+      "type": "string",
+      "description": "Adresse du service",
+      "required": true,
+      "example": "123 Rue de la Paix, 75001 Paris"
+    },
+    {
+      "name": "trigger",
+      "type": "string",
+      "description": "Déclencheur",
+      "required": true,
+      "example": "Nouvelle intervention"
+    },
+    {
+      "name": "reason",
+      "type": "string",
+      "description": "Raison",
+      "required": true,
+      "example": "Intervention programmée"
+    },
+    {
+      "name": "priority",
+      "type": "string",
+      "description": "Priorité",
+      "required": false,
+      "example": "HIGH"
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "Document professionnel - {{bookingReference}} - {{trigger}}",
+      "body": "<h1>Document Professionnel</h1>\n<p>Bonjour {{professionalName}},</p>\n<p><strong>Rôle :</strong> {{role}}</p>\n<p><strong>Déclencheur :</strong> {{trigger}}</p>\n<p><strong>Raison :</strong> {{reason}}</p>\n<p><strong>Réservation :</strong> {{bookingReference}}</p>\n<p><strong>Service :</strong> {{serviceName}}</p>\n<p><strong>Client :</strong> {{customerName}} ({{customerEmail}}, {{customerPhone}})</p>\n<p><strong>Date :</strong> {{serviceDate}} à {{serviceTime}}</p>\n<p><strong>Adresse :</strong> {{serviceAddress}}</p>\n<p><strong>Montant :</strong> {{totalAmount}} {{currency}}</p>\n<p>L'équipe Express Quote</p>"
+    }
+  },
+  "tags": ["professional", "document", "system", "email"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}

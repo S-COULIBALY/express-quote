@@ -1,0 +1,14 @@
+# Configuration locale Claude Code
+# Ne pas versionner les fichiers locaux spécifiques à chaque développeur
+
+# Fichiers locaux
+settings.local.json
+
+# Logs et cache
+*.log
+cache/
+temp/
+
+# Garder les fichiers d'instructions (partagés)
+!instructions.md
+!README.md

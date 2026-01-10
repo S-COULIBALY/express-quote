@@ -1,0 +1,83 @@
+{
+  "id": "reminder-1h",
+  "name": "Rappel 1h avant service",
+  "type": "EMAIL_HTML",
+  "category": "REMINDER",
+  "description": "Email de rappel urgent envoyé 1 heure avant l'intervention",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "customerName",
+      "type": "string",
+      "description": "Nom du client",
+      "required": true,
+      "example": "Jean Dupont"
+    },
+    {
+      "name": "customerEmail",
+      "type": "string",
+      "description": "Email du client",
+      "required": true,
+      "example": "jean.dupont@example.com"
+    },
+    {
+      "name": "bookingId",
+      "type": "string",
+      "description": "ID de la réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "serviceType",
+      "type": "string",
+      "description": "Type de service",
+      "required": true,
+      "example": "MOVING"
+    },
+    {
+      "name": "serviceName",
+      "type": "string",
+      "description": "Nom du service",
+      "required": true,
+      "example": "Déménagement complet"
+    },
+    {
+      "name": "serviceDate",
+      "type": "string",
+      "description": "Date du service",
+      "required": true,
+      "example": "15/09/2025"
+    },
+    {
+      "name": "serviceTime",
+      "type": "string",
+      "description": "Heure du service",
+      "required": true,
+      "example": "14:00"
+    },
+    {
+      "name": "serviceAddress",
+      "type": "string",
+      "description": "Adresse du service",
+      "required": true,
+      "example": "123 Rue de la Paix, 75001 Paris"
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "URGENT : Votre service Express Quote dans 1 heure - {{serviceTime}}",
+      "body": "<h1>⚠️ RAPPEL URGENT - Service dans 1 heure</h1>\n<p>Bonjour {{customerName}},</p>\n<p><strong>URGENT :</strong> Votre service <strong>{{serviceName}}</strong> est prévu dans 1 heure, à {{serviceTime}}.</p>\n<p><strong>Adresse :</strong> {{serviceAddress}}</p>\n<p>Merci de vous assurer d'être présent. En cas de problème, contactez-nous immédiatement au 01 23 45 67 89.</p>\n<p>L'équipe Express Quote</p>"
+    }
+  },
+  "tags": ["reminder", "1h", "urgent", "service", "email"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}

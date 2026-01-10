@@ -1,0 +1,125 @@
+{
+  "id": "accounting-documents-email",
+  "name": "Documents comptables",
+  "type": "EMAIL_HTML",
+  "category": "SYSTEM",
+  "description": "Email pour la comptabilité avec résumé financier détaillé",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "accountingName",
+      "type": "string",
+      "description": "Nom du comptable",
+      "required": true,
+      "example": "Comptabilité Express Quote"
+    },
+    {
+      "name": "accountingEmail",
+      "type": "string",
+      "description": "Email du comptable",
+      "required": false,
+      "example": "comptabilite@express-quote.fr"
+    },
+    {
+      "name": "bookingId",
+      "type": "string",
+      "description": "ID de la réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "bookingReference",
+      "type": "string",
+      "description": "Référence de réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "serviceType",
+      "type": "string",
+      "description": "Type de service",
+      "required": true,
+      "example": "MOVING"
+    },
+    {
+      "name": "serviceName",
+      "type": "string",
+      "description": "Nom du service",
+      "required": false,
+      "example": "Déménagement complet"
+    },
+    {
+      "name": "totalAmount",
+      "type": "number",
+      "description": "Montant total",
+      "required": true,
+      "example": 850
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "description": "Devise",
+      "required": true,
+      "example": "EUR"
+    },
+    {
+      "name": "customerName",
+      "type": "string",
+      "description": "Nom du client",
+      "required": true,
+      "example": "Jean Dupont"
+    },
+    {
+      "name": "customerEmail",
+      "type": "string",
+      "description": "Email du client",
+      "required": true,
+      "example": "jean.dupont@example.com"
+    },
+    {
+      "name": "bookingDate",
+      "type": "string",
+      "description": "Date de réservation",
+      "required": true,
+      "example": "2025-01-15"
+    },
+    {
+      "name": "paymentDate",
+      "type": "string",
+      "description": "Date de paiement",
+      "required": false,
+      "example": "2025-01-16"
+    },
+    {
+      "name": "documentsCount",
+      "type": "number",
+      "description": "Nombre de documents",
+      "required": true,
+      "example": 3
+    },
+    {
+      "name": "documentTypes",
+      "type": "array",
+      "description": "Types de documents",
+      "required": true,
+      "example": ["QUOTE", "INVOICE", "PAYMENT_RECEIPT"]
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "Documents comptables - Réservation {{bookingReference}}",
+      "body": "<h1>Documents Comptables</h1>\n<p>Bonjour {{accountingName}},</p>\n<p>De nouveaux documents comptables ont été générés pour la réservation <strong>{{bookingReference}}</strong>.</p>\n<p><strong>Client :</strong> {{customerName}} ({{customerEmail}})</p>\n<p><strong>Service :</strong> {{serviceName}}</p>\n<p><strong>Montant :</strong> {{totalAmount}} {{currency}}</p>\n<p><strong>Date réservation :</strong> {{bookingDate}}</p>\n<p><strong>Nombre de documents :</strong> {{documentsCount}}</p>\n<p><strong>Types :</strong> {{documentTypes}}</p>\n<p>L'équipe Express Quote</p>"
+    }
+  },
+  "tags": ["accounting", "documents", "system", "email"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "appointment-reminder-sms",
+  "name": "Rappel de rendez-vous",
+  "type": "SMS",
+  "category": "REMINDER",
+  "description": "SMS de rappel envoyé 24h avant le rendez-vous",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "customer.name",
+      "type": "string",
+      "description": "Prénom du client",
+      "required": true,
+      "example": "Pierre"
+    },
+    {
+      "name": "appointment.service",
+      "type": "string",
+      "description": "Service réservé",
+      "required": true,
+      "example": "Nettoyage"
+    },
+    {
+      "name": "appointment.time",
+      "type": "string",
+      "description": "Heure du rendez-vous",
+      "required": true,
+      "example": "14h30"
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "Rappel RDV Express Quote",
+      "body": "Bonjour {{customer.name}}, rappel RDV {{appointment.service}} demain à {{appointment.time}}. Express Quote"
+    }
+  },
+  "tags": ["reminder", "appointment", "sms"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}
+

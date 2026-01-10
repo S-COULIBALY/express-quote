@@ -1,0 +1,76 @@
+{
+  "id": "reminder-7d",
+  "name": "Rappel 7 jours avant service",
+  "type": "EMAIL_HTML",
+  "category": "REMINDER",
+  "description": "Email de rappel préventif envoyé 7 jours avant l'intervention",
+  "isActive": true,
+  "defaultLanguage": "fr",
+  "variables": [
+    {
+      "name": "customerName",
+      "type": "string",
+      "description": "Nom du client",
+      "required": true,
+      "example": "Jean Dupont"
+    },
+    {
+      "name": "customerEmail",
+      "type": "string",
+      "description": "Email du client",
+      "required": true,
+      "example": "jean.dupont@example.com"
+    },
+    {
+      "name": "bookingId",
+      "type": "string",
+      "description": "ID de la réservation",
+      "required": true,
+      "example": "BK-123456"
+    },
+    {
+      "name": "serviceType",
+      "type": "string",
+      "description": "Type de service",
+      "required": true,
+      "example": "MOVING"
+    },
+    {
+      "name": "serviceName",
+      "type": "string",
+      "description": "Nom du service",
+      "required": true,
+      "example": "Déménagement complet"
+    },
+    {
+      "name": "serviceDate",
+      "type": "string",
+      "description": "Date du service",
+      "required": true,
+      "example": "15/09/2025"
+    },
+    {
+      "name": "serviceTime",
+      "type": "string",
+      "description": "Heure du service",
+      "required": true,
+      "example": "14:00"
+    }
+  ],
+  "content": {
+    "fr": {
+      "version": "1.0.0",
+      "subject": "Rappel : Votre service Express Quote dans 7 jours - {{serviceDate}}",
+      "body": "<h1>Rappel Préventif - Service dans 7 jours</h1>\n<p>Bonjour {{customerName}},</p>\n<p>Nous vous rappelons que votre service <strong>{{serviceName}}</strong> est prévu dans 7 jours, le {{serviceDate}} à {{serviceTime}}.</p>\n<p>Merci de commencer à vous préparer et de nous contacter si vous avez des questions.</p>\n<p>L'équipe Express Quote</p>"
+    }
+  },
+  "tags": ["reminder", "7d", "service", "email"],
+  "metrics": {
+    "totalUsage": 0,
+    "deliveryRate": 0,
+    "avgCompilationTime": 0,
+    "renderErrorRate": 0,
+    "performanceScore": 100,
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  }
+}
