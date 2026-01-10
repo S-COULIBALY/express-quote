@@ -75,8 +75,8 @@ export async function GET(
     // Statistiques des réponses
     response.responses = {
       total: attribution.responses?.length || 0,
-      accepted: attribution.responses?.filter(r => r.responseType === 'ACCEPTED').length || 0,
-      refused: attribution.responses?.filter(r => r.responseType === 'REFUSED').length || 0
+      accepted: attribution.responses?.filter((r: any) => r.responseType === 'ACCEPTED').length || 0,
+      refused: attribution.responses?.filter((r: any) => r.responseType === 'REFUSED').length || 0
     };
 
     // Si demande spécifique d'un professionnel, ajouter ses infos

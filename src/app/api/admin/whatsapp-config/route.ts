@@ -95,16 +95,8 @@ export async function PATCH(request: NextRequest) {
         result = await whatsappConfigService.updateDocumentConfig(data.document as DocumentConfigDTO);
         break;
 
-      case 'updateSessionConfig':
-        result = await whatsappConfigService.updateSessionConfig(data.session as SessionConfigDTO);
-        break;
-
-      case 'updateAnalyticsConfig':
-        result = await whatsappConfigService.updateAnalyticsConfig(data.analytics as AnalyticsConfigDTO);
-        break;
-
-      case 'testConnection':
-        result = await whatsappConfigService.testConnection(data.credentials);
+      case 'updateRecipientConfig':
+        result = await whatsappConfigService.updateRecipientConfig(data.recipient as any);
         break;
         
       default:

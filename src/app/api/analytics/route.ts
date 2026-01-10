@@ -193,7 +193,7 @@ export async function GET(request: NextRequest) {
           createdAt: { gte: startDate, lte: endDate }
         },
         include: {
-          customer: {
+          Customer: {
             select: { firstName: true, lastName: true }
           }
         },
@@ -285,7 +285,7 @@ export async function GET(request: NextRequest) {
 
       recentActivity: recentActivity.map(booking => ({
         id: booking.id,
-        customer: `${booking.customer?.firstName} ${booking.customer?.lastName}`,
+        customer: `${booking.Customer?.firstName} ${booking.Customer?.lastName}`,
         amount: booking.totalAmount,
         status: booking.status,
         createdAt: booking.createdAt

@@ -1,9 +1,9 @@
 import { injectable, inject } from 'tsyringe';
 import { NotificationMetricsService } from '../../infrastructure/services/NotificationMetricsService';
 import { WhatsAppAnalytics } from '../../infrastructure/services/whatsapp/WhatsAppAnalytics';
-import { IBookingRepository } from '../../domain/repositories/IBookingRepository';
-import { ICustomerRepository } from '../../domain/repositories/ICustomerRepository';
-import { IQuoteRequestRepository } from '../../domain/repositories/IQuoteRequestRepository';
+import type IBookingRepository from '../../domain/repositories/IBookingRepository';
+import type ICustomerRepository from '../../domain/repositories/ICustomerRepository';
+import type IQuoteRequestRepository from '../../domain/repositories/IQuoteRequestRepository';
 import { logger } from '@/lib/logger';
 import { Booking } from '../../domain/entities/Booking';
 import { Customer } from '../../domain/entities/Customer';

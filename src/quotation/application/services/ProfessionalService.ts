@@ -1,4 +1,4 @@
-import { IProfessionalRepository } from "@/quotation/domain/repositories/IProfessionalRepository";
+import type IProfessionalRepository from "@/quotation/domain/repositories/IProfessionalRepository";
 import { Professional, ProfessionalType } from "../../domain/entities/Professional";
 import {
   ProfessionalDTO,
@@ -10,7 +10,7 @@ import {
 import { ContactInfo } from "../../domain/valueObjects/ContactInfo";
 import { inject, injectable } from "tsyringe";
 import { Logger } from "@/lib/logger";
-import { ILogger } from "@/notifications/core/interfaces/ILogger";
+import type { ILogger } from "@/notifications/core/interfaces/ILogger";
 
 /**
  * Service pour la gestion des professionnels

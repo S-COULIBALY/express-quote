@@ -28,23 +28,23 @@ export async function POST(request: NextRequest) {
       userAgent: request.headers.get('user-agent') || 'unknown'
     };
 
-    // Enregistrer dans la base de données
-    await prisma.abandonEvent.create({
-      data: {
-        id: abandonEvent.id,
-        sessionId: abandonEvent.sessionId,
-        userId: abandonEvent.userId,
-        stage: abandonEvent.stage,
-        timestamp: new Date(abandonEvent.timestamp),
-        timeSpent: abandonEvent.timeSpent,
-        data: abandonEvent.data,
-        metadata: abandonEvent.metadata,
-        userAgent: enrichedEvent.userAgent,
-        ipAddress: enrichedEvent.ipAddress,
-        recoveryAttempts: abandonEvent.recoveryAttempts || 0,
-        isRecovered: abandonEvent.isRecovered || false
-      }
-    });
+    // TODO: Enregistrer dans la base de données (modèle abandonEvent à créer dans Prisma)
+    // await prisma.abandonEvent.create({
+    //   data: {
+    //     id: abandonEvent.id,
+    //     sessionId: abandonEvent.sessionId,
+    //     userId: abandonEvent.userId,
+    //     stage: abandonEvent.stage,
+    //     timestamp: new Date(abandonEvent.timestamp),
+    //     timeSpent: abandonEvent.timeSpent,
+    //     data: abandonEvent.data,
+    //     metadata: abandonEvent.metadata,
+    //     userAgent: enrichedEvent.userAgent,
+    //     ipAddress: enrichedEvent.ipAddress,
+    //     recoveryAttempts: abandonEvent.recoveryAttempts || 0,
+    //     isRecovered: abandonEvent.isRecovered || false
+    //   }
+    // });
 
     // Déclencher le processus de récupération
     await triggerRecoveryProcess(enrichedEvent);
@@ -89,12 +89,13 @@ export async function GET(request: NextRequest) {
     if (sessionId) where.sessionId = sessionId;
     if (stage) where.stage = stage;
 
-    // Récupérer les événements
-    const events = await prisma.abandonEvent.findMany({
-      where,
-      orderBy: { timestamp: 'desc' },
-      take: 100
-    });
+    // TODO: Récupérer les événements (modèle abandonEvent à créer dans Prisma)
+    const events: any[] = [];
+    // const events = await prisma.abandonEvent.findMany({
+    //   where,
+    //   orderBy: { timestamp: 'desc' },
+    //   take: 100
+    // });
 
     // Calculer les statistiques
     const stats = await calculateAbandonStats(where, dateFrom);
@@ -205,16 +206,16 @@ async function scheduleDelayedRecovery(event: any): Promise<void> {
  */
 async function sendDelayedRecovery(event: any): Promise<void> {
   try {
-    // Vérifier si l'utilisateur n'a pas déjà récupéré
-    const latestEvent = await prisma.abandonEvent.findFirst({
-      where: { sessionId: event.sessionId },
-      orderBy: { timestamp: 'desc' }
-    });
+    // TODO: Vérifier si l'utilisateur n'a pas déjà récupéré (modèle abandonEvent à créer dans Prisma)
+    // const latestEvent = await prisma.abandonEvent.findFirst({
+    //   where: { sessionId: event.sessionId },
+    //   orderBy: { timestamp: 'desc' }
+    // });
 
-    if (latestEvent?.isRecovered) {
-      logger.info('Récupération annulée - utilisateur déjà récupéré');
-      return;
-    }
+    // if (latestEvent?.isRecovered) {
+    //   logger.info('Récupération annulée - utilisateur déjà récupéré');
+    //   return;
+    // }
 
     // Envoyer la récupération
     await fetch('/api/recovery/delayed', {
@@ -239,37 +240,27 @@ async function sendDelayedRecovery(event: any): Promise<void> {
  */
 async function calculateAbandonStats(where: any, dateFrom: Date) {
   try {
+    // TODO: Implémenter les statistiques (modèle abandonEvent à créer dans Prisma)
     // Grouper par stage
-    const abandonsByStage = await prisma.abandonEvent.groupBy({
-      by: ['stage'],
-      where,
-      _count: { id: true },
-      _avg: { timeSpent: true }
-    });
+    // const abandonsByStage = await prisma.abandonEvent.groupBy({
+    //   by: ['stage'],
+    //   where,
+    //   _count: { id: true },
+    //   _avg: { timeSpent: true }
+    // });
 
     // Taux de récupération
-    const totalAbandons = await prisma.abandonEvent.count({ where });
-    const recoveredAbandons = await prisma.abandonEvent.count({
-      where: { ...where, isRecovered: true }
-    });
+    // const totalAbandons = await prisma.abandonEvent.count({ where });
+    // const recoveredAbandons = await prisma.abandonEvent.count({
+    //   where: { ...where, isRecovered: true }
+    // });
 
-    const recoveryRate = totalAbandons > 0 ? (recoveredAbandons / totalAbandons) * 100 : 0;
-
-    // Abandons par heure
-    const hourlyAbandons = await prisma.abandonEvent.groupBy({
-      by: ['timestamp'],
-      where,
-      _count: { id: true }
-    });
-
-    // Top des pages d'abandon
-    const topAbandonPages = await prisma.abandonEvent.groupBy({
-      by: ['metadata'],
-      where,
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-      take: 10
-    });
+    const totalAbandons = 0;
+    const recoveredAbandons = 0;
+    const recoveryRate = 0;
+    const abandonsByStage: any[] = [];
+    const hourlyAbandons: any[] = [];
+    const topAbandonPages: any[] = [];
 
     return {
       totalAbandons,
