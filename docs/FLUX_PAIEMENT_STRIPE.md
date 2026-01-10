@@ -633,7 +633,7 @@ cd /c/Users/scoul/express-quote
 
 ~/stripe.exe listen \
   --forward-to localhost:3000/api/webhooks/stripe \
-  --api-key sk_test_51RAsKlCAjld4plYvySwn456xGJZaJCIEKOZRIPfXH4MuIXsLRyKpzRiGMmW41r0JF2F5XjPOwiLRuagAU2IdorZE00cBnxYMVQ
+  --api-key sk_test_***REDACTED***
 ```
 
 **Paramètres** :
@@ -649,7 +649,7 @@ cd /c/Users/scoul/express-quote
 
 ~/stripe.exe listen \
   --forward-to localhost:3000/api/webhooks/stripe \
-  --api-key sk_test_51RAsKlCAjld4plYvySwn456xGJZaJCIEKOZRIPfXH4MuIXsLRyKpzRiGMmW41r0JF2F5XjPOwiLRuagAU2IdorZE00cBnxYMVQ \
+  --api-key sk_test_***REDACTED*** \
   > stripe-cli.log 2>&1 &
 ```
 
