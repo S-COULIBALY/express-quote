@@ -28,6 +28,7 @@ Un PaymentIntent est un **objet Stripe qui représente l'intention de collecter 
 
 **Analogie**:
 Imagine que tu vas au restaurant. Quand tu commandes, le serveur crée une **addition** (= PaymentIntent). Cette addition :
+
 - Contient le montant à payer
 - Reste ouverte jusqu'à ce que tu paies
 - Peut être annulée si tu changes d'avis
@@ -37,31 +38,35 @@ Imagine que tu vas au restaurant. Quand tu commandes, le serveur crée une **add
 
 ```javascript
 const paymentIntent = await stripe.paymentIntents.create({
-  amount: 69688,              // 696.88€ en centimes (Stripe travaille en centimes)
-  currency: 'eur',            // Devise: euros
+  amount: 69688, // 696.88€ en centimes (Stripe travaille en centimes)
+  currency: "eur", // Devise: euros
   automatic_payment_methods: {
-    enabled: true,            // Accepte carte, Apple Pay, Google Pay, etc.
+    enabled: true, // Accepte carte, Apple Pay, Google Pay, etc.
   },
-  metadata: {                 // Données personnalisées (comme des post-its)
-    temporaryId: 'abc123',    // ID de notre devis
-    customerEmail: 'john@example.com',
-    quoteType: 'MOVING',
+  metadata: {
+    // Données personnalisées (comme des post-its)
+    temporaryId: "abc123", // ID de notre devis
+    customerEmail: "john@example.com",
+    quoteType: "MOVING",
   },
-  description: 'Déménagement Paris → Lyon', // Description lisible
+  description: "Déménagement Paris → Lyon", // Description lisible
   // receipt_email: 'john@example.com',      // Email pour le reçu (optionnel)
 });
 ```
 
 **Données OBLIGATOIRES**:
+
 - ✅ `amount`: Le montant en **centimes** (100€ = 10000 centimes)
 - ✅ `currency`: La devise (eur, usd, gbp, etc.)
 
 **Données OPTIONNELLES mais utiles**:
+
 - `metadata`: Tes propres données (utiles pour retrouver la commande plus tard)
 - `description`: Texte descriptif
 - `receipt_email`: Email pour envoyer le reçu automatiquement
 
 **Ce que Stripe RENVOIE**:
+
 ```javascript
 {
   id: 'pi_3SORyuCAjld4plYv0uX9FWNT',  // ← ID unique du PaymentIntent
@@ -83,6 +88,7 @@ Le `PaymentIntent ID` (ex: `pi_3SORyuCAjld4plYv0uX9FWNT`) est **l'identifiant un
 - 📧 Il est utilisé dans les **URLs de redirection** après paiement
 
 **Exemple concret**:
+
 ```
 1. PaymentIntent créé → pi_xxx
 2. URL de succès → /success?payment_intent=pi_xxx
@@ -100,6 +106,7 @@ Sans cet ID, impossible de savoir **quel paiement** correspond à **quelle rése
 Un webhook est une **notification automatique envoyée par Stripe vers ton serveur** quand un événement se produit (paiement réussi, échec, remboursement, etc.).
 
 **Analogie du facteur** 🚴:
+
 - Tu commandes un colis en ligne (= tu initie un paiement)
 - Le site marchant prépare le colis (= Stripe traite le paiement)
 - Quand le colis est prêt, le site **envoie un facteur** chez toi pour te le livrer (= webhook)
@@ -111,11 +118,11 @@ Un webhook est une **notification automatique envoyée par Stripe vers ton serve
 **Les différents types de webhooks Stripe** (événements):
 
 ```javascript
-'checkout.session.completed'    // Session de paiement terminée
-'payment_intent.succeeded'      // ✅ Paiement réussi (le plus important)
-'payment_intent.payment_failed' // ❌ Paiement échoué
-'payment_intent.canceled'       // 🚫 Paiement annulé
-'charge.refunded'              // 💸 Remboursement effectué
+"checkout.session.completed"; // Session de paiement terminée
+"payment_intent.succeeded"; // ✅ Paiement réussi (le plus important)
+"payment_intent.payment_failed"; // ❌ Paiement échoué
+"payment_intent.canceled"; // 🚫 Paiement annulé
+"charge.refunded"; // 💸 Remboursement effectué
 // ... et beaucoup d'autres
 ```
 
@@ -146,11 +153,13 @@ Content-Type: application/json
 **Que signifie "forward le webhook `payment_intent.succeeded`" ?**
 
 En production, Stripe peut directement appeler ton serveur :
+
 ```
 Internet → https://monsite.com/api/webhooks/stripe ✅
 ```
 
 **MAIS en local**, ton serveur tourne sur `localhost:3000`, qui n'est **pas accessible depuis Internet** :
+
 ```
 Internet → http://localhost:3000/api/webhooks/stripe ❌
 ```
@@ -198,6 +207,7 @@ Stripe signe chaque webhook avec cette clé secrète pour que ton serveur puisse
 Un tunnel est un **canal de communication sécurisé** entre Stripe (sur Internet) et ton serveur local (localhost).
 
 **Analogie du téléphone** 📞:
+
 - En production : Stripe compose directement ton numéro (URL publique)
 - En local : Ton numéro n'est pas dans l'annuaire (localhost n'est pas accessible)
 - Le tunnel = Un **standard téléphonique** qui prend les appels pour toi et te les transfère
@@ -229,12 +239,14 @@ Un tunnel est un **canal de communication sécurisé** entre Stripe (sur Interne
 ```
 
 **Quand le tunnel est actif**, tu vois :
+
 ```
 ✅ Ready! You are using Stripe API Version [2025-03-31.basil]
 ✅ Your webhook signing secret is whsec_xxx
 ```
 
 Cela signifie :
+
 - ✅ Stripe CLI est connecté aux serveurs Stripe
 - ✅ Les webhooks seront redirigés vers ton localhost
 - ✅ Ton application peut traiter les paiements comme en production
@@ -248,6 +260,7 @@ Cela signifie :
 **Page** : `/catalogue`
 
 **Ce qui se passe** :
+
 1. L'utilisateur choisit un service (ex: Déménagement)
 2. Il remplit un formulaire (adresse départ, arrivée, date, volume)
 3. Au clic sur "Obtenir un devis", le frontend envoie :
@@ -284,7 +297,7 @@ POST /api/quotesRequest
 #### A. Récupération du devis
 
 ```javascript
-GET /api/quotesRequest/s2stz13xj1fy30o2sc4l4h
+GET / api / quotesRequest / s2stz13xj1fy30o2sc4l4h;
 ```
 
 Retourne les détails du devis (prix, service, etc.)
@@ -306,6 +319,7 @@ POST /api/payment/create-session
 ```
 
 **Stripe crée le PaymentIntent** et renvoie :
+
 ```javascript
 {
   success: true,
@@ -366,21 +380,23 @@ L'utilisateur clique sur **"Payer 696.88€"**
 
 ```javascript
 const { error, paymentIntent } = await stripe.confirmPayment({
-  elements,  // Formulaire PaymentElement (contient toutes les infos)
+  elements, // Formulaire PaymentElement (contient toutes les infos)
   confirmParams: {
-    return_url: 'http://localhost:3000/success?payment_intent=pi_xxx'
+    return_url: "http://localhost:3000/success?payment_intent=pi_xxx",
   },
-  redirect: 'if_required'  // Redirige seulement si 3D Secure nécessaire
+  redirect: "if_required", // Redirige seulement si 3D Secure nécessaire
 });
 ```
 
 **Ce qui se passe** :
+
 1. Stripe valide les informations de carte
 2. Si tout est OK, le paiement est traité
 3. Statut du PaymentIntent passe de `requires_payment_method` → `succeeded`
 4. L'utilisateur est redirigé vers `/success?payment_intent=pi_3SORyuCAjld4plYv0uX9FWNT`
 
 **Les données collectées par Stripe** sont stockées dans `billing_details` :
+
 ```javascript
 {
   name: 'Jean Dupont',
@@ -455,14 +471,15 @@ POST /api/bookings/finalize
 
 ```javascript
 // 1. Récupérer le QuoteRequest
-const quoteRequest = await quoteRequestRepository.findByTemporaryId(temporaryId);
+const quoteRequest =
+  await quoteRequestRepository.findByTemporaryId(temporaryId);
 
 // 2. Créer ou récupérer le Customer
 const customer = await customerService.findOrCreateCustomer({
-  email: 'jean@example.com',
-  firstName: 'Jean',
-  lastName: 'Dupont',
-  phone: '+33612345678'
+  email: "jean@example.com",
+  firstName: "Jean",
+  lastName: "Dupont",
+  phone: "+33612345678",
 });
 
 // 3. Créer le Booking
@@ -470,7 +487,7 @@ const booking = await Booking.fromQuoteRequest(
   quoteRequest,
   customer,
   quote,
-  totalAmount
+  totalAmount,
 );
 // booking.id = 'uuid-abc-123'
 // booking.status = 'PAYMENT_COMPLETED'
@@ -479,26 +496,24 @@ await bookingRepository.save(booking);
 
 // 4. Créer la Transaction
 await prisma.transaction.create({
-  id: 'uuid-def-456',
-  bookingId: 'uuid-abc-123',
+  id: "uuid-def-456",
+  bookingId: "uuid-abc-123",
   amount: 696.88,
-  currency: 'EUR',
-  status: 'COMPLETED',
-  paymentMethod: 'card',
-  paymentIntentId: 'pi_3SORyuCAjld4plYv0uX9FWNT'  // ← Lien avec Stripe
+  currency: "EUR",
+  status: "COMPLETED",
+  paymentMethod: "card",
+  paymentIntentId: "pi_3SORyuCAjld4plYv0uX9FWNT", // ← Lien avec Stripe
 });
 
 // 5. Mettre à jour le QuoteRequest
-await quoteRequestRepository.updateStatus(
-  quoteRequest.id,
-  'CONFIRMED'
-);
+await quoteRequestRepository.updateStatus(quoteRequest.id, "CONFIRMED");
 
 // 6. 📧 Envoyer les notifications
 await sendBookingConfirmationEmail(booking, customer);
 ```
 
 **Résultat** :
+
 - ✅ Booking créé en base de données
 - ✅ Transaction créée avec `paymentIntentId`
 - ✅ Emails de confirmation envoyés
@@ -518,7 +533,7 @@ await sendBookingConfirmationEmail(booking, customer);
 // Toutes les 2 secondes (max 20 tentatives)
 const checkPaymentAndBooking = async () => {
   const response = await fetch(
-    `/api/payment/status?payment_intent=pi_3SORyuCAjld4plYv0uX9FWNT`
+    `/api/payment/status?payment_intent=pi_3SORyuCAjld4plYv0uX9FWNT`,
   );
 
   const data = await response.json();
@@ -574,6 +589,7 @@ T+2s   : Redirection vers /success/uuid-abc-123
 **Page** : `/success/[bookingId]`
 
 Affiche :
+
 - ✅ Confirmation de réservation
 - 📧 "Un email de confirmation a été envoyé"
 - 📋 Détails du service
@@ -587,11 +603,13 @@ Affiche :
 ### Pourquoi Stripe CLI est nécessaire en local ?
 
 En **production**, ton serveur a une URL publique :
+
 ```
 https://monsite.com/api/webhooks/stripe ← Stripe peut l'appeler
 ```
 
 En **local**, ton serveur tourne sur localhost :
+
 ```
 http://localhost:3000/api/webhooks/stripe ← PAS accessible depuis Internet
 ```
@@ -619,6 +637,7 @@ cd /c/Users/scoul/express-quote
 ```
 
 **Paramètres** :
+
 - `listen` : Écoute les webhooks Stripe
 - `--forward-to` : URL de ton API locale
 - `--api-key` : Ta clé secrète Stripe (de `.env.local`)
@@ -635,6 +654,7 @@ cd /c/Users/scoul/express-quote
 ```
 
 **Avantages** :
+
 - ✅ Tourne en arrière-plan (`&`)
 - ✅ Logs sauvegardés dans `stripe-cli.log`
 - ✅ Pas de spam dans ton terminal
@@ -650,6 +670,7 @@ ps aux | grep stripe
 ```
 
 Tu devrais voir :
+
 ```
 ✅ Ready! You are using Stripe API Version [2025-03-31.basil]
 ✅ Your webhook signing secret is whsec_xxx
@@ -667,6 +688,7 @@ Quand un webhook arrive, tu verras :
 ```
 
 **Signification** :
+
 - `-->` : Webhook **reçu** par Stripe CLI
 - `payment_intent.succeeded` : Type d'événement
 - `[evt_1234]` : ID de l'événement
@@ -773,18 +795,18 @@ Ou simplement fermer le terminal si lancé au premier plan.
 
 ## 🎓 Résumé des concepts
 
-| Concept | Analogie | Rôle |
-|---------|----------|------|
-| **PaymentIntent** | Addition au restaurant | Représente l'intention de payer, suit le paiement du début à la fin |
-| **payment_intent ID** | Numéro de suivi colis | Identifiant unique pour retrouver le paiement partout |
-| **Webhook** | Facteur qui livre un colis | Notification automatique de Stripe vers ton serveur |
-| **Stripe CLI** | Standard téléphonique | Transfère les webhooks de Stripe vers localhost |
-| **Tunnel** | Pont entre deux îles | Canal de communication entre Internet et localhost |
-| **Forward** | Transfert d'appel | Redirection d'un webhook vers ton serveur local |
-| **Polling** | Vérifier la boîte aux lettres | Demander régulièrement si le Booking est créé |
-| **billing_details** | Adresse de livraison | Infos client collectées par Stripe (nom, email, tel) |
-| **clientSecret** | Clé de chambre d'hôtel | Clé secrète pour afficher le formulaire de paiement |
-| **metadata** | Post-its sur un dossier | Tes propres données attachées au paiement |
+| Concept               | Analogie                      | Rôle                                                                |
+| --------------------- | ----------------------------- | ------------------------------------------------------------------- |
+| **PaymentIntent**     | Addition au restaurant        | Représente l'intention de payer, suit le paiement du début à la fin |
+| **payment_intent ID** | Numéro de suivi colis         | Identifiant unique pour retrouver le paiement partout               |
+| **Webhook**           | Facteur qui livre un colis    | Notification automatique de Stripe vers ton serveur                 |
+| **Stripe CLI**        | Standard téléphonique         | Transfère les webhooks de Stripe vers localhost                     |
+| **Tunnel**            | Pont entre deux îles          | Canal de communication entre Internet et localhost                  |
+| **Forward**           | Transfert d'appel             | Redirection d'un webhook vers ton serveur local                     |
+| **Polling**           | Vérifier la boîte aux lettres | Demander régulièrement si le Booking est créé                       |
+| **billing_details**   | Adresse de livraison          | Infos client collectées par Stripe (nom, email, tel)                |
+| **clientSecret**      | Clé de chambre d'hôtel        | Clé secrète pour afficher le formulaire de paiement                 |
+| **metadata**          | Post-its sur un dossier       | Tes propres données attachées au paiement                           |
 
 ---
 
@@ -849,3 +871,27 @@ Ou simplement fermer le terminal si lancé au premier plan.
 
 **Auteur** : Documentation générée le 2025-11-01
 **Version** : 1.0
+
+📚 Comment utiliser stripe trigger manuellement
+Maintenant que vous savez comment ça marche, voici les commandes utiles :
+Événements les plus courants :
+
+# Paiement réussi (le plus utilisé)
+
+~/stripe.exe trigger payment_intent.succeeded
+
+# Paiement échoué
+
+~/stripe.exe trigger payment_intent.payment_failed
+
+# Remboursement
+
+~/stripe.exe trigger charge.refunded
+
+# Abonnement créé
+
+~/stripe.exe trigger customer.subscription.created
+
+# Voir tous les événements disponibles
+
+~/stripe.exe trigger --help
