@@ -11,10 +11,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AttributionService } from '@/bookingAttribution/AttributionService';
 import { logger } from '@/lib/logger';
+import { ServiceType } from '@/quotation/domain/enums/ServiceType';
 
 export interface AttributionStartRequest {
   bookingId: string;
-  serviceType: string;
+  serviceType: ServiceType | string;
   coordinates: {
     latitude: number;
     longitude: number;
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
     // Préparer les données pour AttributionService
     const attributionRequest = {
       bookingId,
-      serviceType,
+      serviceType: serviceType as ServiceType,
       serviceLatitude: coordinates.latitude,
       serviceLongitude: coordinates.longitude,
       maxDistanceKm: body.maxDistanceKm || 100,

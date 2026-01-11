@@ -2,18 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DocumentService } from '@/documents/application/services/DocumentService';
 import { DocumentOrchestrationService, DocumentTrigger } from '@/documents/application/services/DocumentOrchestrationService';
 import { DocumentType } from '@/documents/domain/entities/Document';
+import { PrismaDocumentRepository } from '@/documents/infrastructure/repositories/PrismaDocumentRepository';
 import { logger } from '@/lib/logger';
 
 // Instance partagée des services
 let documentServiceInstance: DocumentService | null = null;
 let orchestratorInstance: DocumentOrchestrationService | null = null;
+let documentRepositoryInstance: PrismaDocumentRepository | null = null;
 
 function getServices() {
   if (!documentServiceInstance || !orchestratorInstance) {
     documentServiceInstance = new DocumentService();
     orchestratorInstance = new DocumentOrchestrationService(documentServiceInstance);
   }
-  return { documentService: documentServiceInstance, orchestrator: orchestratorInstance };
+  if (!documentRepositoryInstance) {
+    documentRepositoryInstance = new PrismaDocumentRepository();
+  }
+  return { 
+    documentService: documentServiceInstance, 
+    orchestrator: orchestratorInstance,
+    documentRepository: documentRepositoryInstance
+  };
 }
 
 /**
@@ -27,10 +36,8 @@ export async function GET(
     const { id: bookingId } = params;
     logger.info('🔍 Récupération des documents de la réservation', { bookingId });
 
-    const { documentService } = getServices();
-    const documents = await documentService.searchDocuments({
-      bookingId: bookingId
-    });
+    const { documentRepository } = getServices();
+    const documents = await documentRepository.findByBookingId(bookingId);
 
     return NextResponse.json({
       success: true,

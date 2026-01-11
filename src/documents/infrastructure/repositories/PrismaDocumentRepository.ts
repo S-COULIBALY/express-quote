@@ -198,8 +198,22 @@ export class PrismaDocumentRepository implements IDocumentRepository {
   private async loadBooking(bookingData: any): Promise<Booking> {
     try {
       // Import dynamique pour éviter la dépendance circulaire
-      const { PrismaBookingRepository } = await import('./PrismaBookingRepository');
-      const bookingRepo = new PrismaBookingRepository();
+      // TODO: Implémenter le chargement de Booking depuis le repository approprié
+      // Pour l'instant, on utilise Prisma directement
+      const bookingData = await this.prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          customer: true,
+          professional: true
+        }
+      });
+      
+      if (!bookingData) {
+        throw new Error(`Booking ${bookingId} not found`);
+      }
+      
+      // Créer une instance Booking simplifiée
+      const booking = bookingData as any;
       
       // Chargement de la réservation complète
       const booking = await bookingRepo.findById(bookingData.id);

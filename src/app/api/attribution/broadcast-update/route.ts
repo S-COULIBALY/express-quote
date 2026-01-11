@@ -195,7 +195,7 @@ async function notifyConnectedProfessionals(
     // Créer notifications individuelles pour chaque professionnel actif
     if (activeSessions.length > 0) {
       await prisma.professionalNotification.createMany({
-        data: activeSessions.map(session => ({
+        data: activeSessions.map((session: any) => ({
           professionalId: session.professionalId,
           type: updateType,
           title: getNotificationTitle(updateType),

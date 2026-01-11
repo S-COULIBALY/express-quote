@@ -98,6 +98,27 @@ export async function PATCH(request: NextRequest) {
       case 'updateRecipientConfig':
         result = await whatsappConfigService.updateRecipientConfig(data.recipient as any);
         break;
+
+      case 'updateSessionConfig':
+        // TODO: Implémenter updateSessionConfig dans WhatsAppConfigService
+        return NextResponse.json(
+          { error: 'updateSessionConfig non implémenté' },
+          { status: 501 }
+        );
+
+      case 'updateAnalyticsConfig':
+        // TODO: Implémenter updateAnalyticsConfig dans WhatsAppConfigService
+        return NextResponse.json(
+          { error: 'updateAnalyticsConfig non implémenté' },
+          { status: 501 }
+        );
+
+      case 'testConnection':
+        // TODO: Implémenter testConnection dans WhatsAppConfigService
+        return NextResponse.json(
+          { error: 'testConnection non implémenté' },
+          { status: 501 }
+        );
         
       default:
         return NextResponse.json(
@@ -121,4 +142,4 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

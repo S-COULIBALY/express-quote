@@ -82,7 +82,7 @@ export async function GET(
     // Si demande spécifique d'un professionnel, ajouter ses infos
     if (professionalId) {
       const professionalResponse = attribution.responses?.find(
-        r => r.professionalId === professionalId
+        (r: any) => r.professionalId === professionalId
       );
 
       if (professionalResponse) {

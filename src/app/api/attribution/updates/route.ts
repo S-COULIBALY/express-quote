@@ -207,7 +207,7 @@ async function filterRelevantUpdates(
       }
     });
 
-    const eligibleIds = new Set(eligibleAttributions.map(ea => ea.attributionId));
+    const eligibleIds = new Set(eligibleAttributions.map((ea: { attributionId: string }) => ea.attributionId));
 
     // Filtrer uniquement les mises à jour pertinentes
     const relevantUpdates = updates.filter(update => {
