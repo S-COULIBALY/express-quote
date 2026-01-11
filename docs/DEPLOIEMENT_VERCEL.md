@@ -248,9 +248,41 @@ Les migrations sont appliquées automatiquement si vous utilisez :
 
 ---
 
+## 🤖 Déploiement via Vercel MCP (Optionnel)
+
+Vercel MCP permet de déployer et gérer vos projets directement depuis votre assistant IA (Cursor, Claude, etc.).
+
+### Avantages
+
+- ✅ Déploiement via commandes vocales/textuelles
+- ✅ Gestion des variables d'environnement depuis l'IA
+- ✅ Consultation des logs en temps réel
+- ✅ Intégration native avec votre workflow
+
+### Configuration
+
+**Voir le guide complet** : `docs/GUIDE_VERCEL_MCP.md`
+
+**Résumé rapide** :
+
+1. Configurer Vercel MCP dans Cursor (Settings → MCP Servers)
+2. Ajouter le serveur : `https://mcp.vercel.com` avec OAuth
+3. Autoriser l'accès à votre compte Vercel
+4. Utiliser les outils MCP pour déployer
+
+**Exemple d'utilisation** :
+
+```
+"Déploie express-quote sur Vercel en production"
+```
+
+---
+
 ## 📚 Ressources
 
 - **Documentation Vercel** : [vercel.com/docs](https://vercel.com/docs)
+- **Vercel MCP** : [vercel.com/docs/mcp](https://vercel.com/docs/mcp)
+- **Guide Vercel MCP** : `docs/GUIDE_VERCEL_MCP.md`
 - **Prisma + Vercel** : [prisma.io/docs/guides/deployment/deployment-guides/deploying-to-vercel](https://www.prisma.io/docs/guides/deployment/deployment-guides/deploying-to-vercel)
 - **Next.js + Vercel** : [nextjs.org/docs/deployment](https://nextjs.org/docs/deployment)
 
