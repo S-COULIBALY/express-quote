@@ -1,18 +1,18 @@
 /**
  * Événement émis lors du retry d'une notification échouée
- * 
+ *
  * Utilité :
  * - Traçabilité des tentatives de renvoi
  * - Monitoring des problèmes récurrents
  * - Déclenchement de logique métier (alertes, escalade)
  * - Audit trail complet des notifications
- * 
+ *
  * Configuration :
  * - Inclut les détails de l'échec précédent
  * - Compte les tentatives effectuées
  * - Raison du retry
  * - Délai avant prochaine tentative
- * 
+ *
  * Pourquoi ce choix :
  * - Observabilité complète du processus de retry
  * - Facilite le debugging des problèmes récurrents
@@ -20,7 +20,7 @@
  * - Support des alertes automatiques en cas de retry excessif
  */
 
-import { DomainEvent } from '../interfaces';
+import { DomainEvent } from "../interfaces";
 
 // ============================================================================
 // TYPES ET INTERFACES
@@ -32,9 +32,9 @@ import { DomainEvent } from '../interfaces';
 export interface NotificationRetriedData {
   notificationId: string;
   recipientId: string;
-  channel: 'email' | 'whatsapp' | 'sms';
+  channel: "email" | "whatsapp" | "sms";
   templateId?: string;
-  
+
   // Informations sur les tentatives
   attemptNumber: number;
   maxAttempts: number;
@@ -44,24 +44,29 @@ export interface NotificationRetriedData {
     errorCode?: string;
     providerResponse?: any;
   }>;
-  
+
   // Détails du retry
-  retryReason: 'automatic' | 'manual' | 'scheduled';
-  retryStrategy: 'exponential_backoff' | 'fixed_interval' | 'immediate';
+  retryReason: "automatic" | "manual" | "scheduled";
+  retryStrategy: "exponential_backoff" | "fixed_interval" | "immediate";
   nextRetryAt?: Date;
-  
+
   // Contexte de l'erreur précédente
   lastError: {
     message: string;
     code?: string;
-    type: 'provider_error' | 'network_error' | 'validation_error' | 'rate_limit' | 'timeout';
+    type:
+      | "provider_error"
+      | "network_error"
+      | "validation_error"
+      | "rate_limit"
+      | "timeout";
     timestamp: Date;
     providerResponse?: any;
   };
-  
+
   // Métadonnées du retry
   retryMetadata: {
-    triggeredBy: 'cron_job' | 'api_call' | 'webhook' | 'manual';
+    triggeredBy: "cron_job" | "api_call" | "webhook" | "manual";
     initiatedBy?: string; // User ID ou service name
     backoffDelay: number; // en millisecondes
     estimatedDeliveryTime?: Date;
@@ -72,9 +77,9 @@ export interface NotificationRetriedData {
  * Contexte d'exécution du retry
  */
 export interface RetryContext {
-  systemLoad: 'low' | 'normal' | 'high';
+  systemLoad: "low" | "normal" | "high";
   queueDepth: number;
-  providerStatus: 'healthy' | 'degraded' | 'down';
+  providerStatus: "healthy" | "degraded" | "down";
   rateLimitStatus: {
     remainingQuota: number;
     resetTime?: Date;
@@ -87,7 +92,7 @@ export interface RetryContext {
 
 /**
  * Événement de domaine pour le retry d'une notification
- * 
+ *
  * Responsabilités :
  * - Documenter chaque tentative de retry
  * - Fournir le contexte complet de l'échec
@@ -97,22 +102,16 @@ export interface RetryContext {
  */
 class NotificationRetried implements DomainEvent<NotificationRetriedData> {
   public readonly eventId: string;
-  public readonly eventType: string = 'NotificationRetried';
-  public readonly version: string = '1.0';
+  public readonly eventType: string = "NotificationRetried";
   public readonly timestamp: Date;
-  public readonly aggregateId: string;
-  public readonly aggregateType: string = 'Notification';
-  public readonly sequenceNumber: number;
   public readonly payload: NotificationRetriedData;
-  public readonly correlationId?: string;
+  public readonly metadata: DomainEvent["metadata"];
 
-  public readonly metadata: {
-    source: string;
-    userId?: string;
-    sessionId?: string;
-    traceId?: string;
-    context?: Record<string, any>;
-  };
+  // Propriétés additionnelles (non dans l'interface DomainEvent mais utiles)
+  public readonly aggregateId: string;
+  public readonly aggregateType: string = "Notification";
+  public readonly sequenceNumber: number;
+  public readonly version: string = "1.0";
 
   constructor(
     notificationId: string,
@@ -124,28 +123,32 @@ class NotificationRetried implements DomainEvent<NotificationRetriedData> {
       userId?: string;
       sessionId?: string;
       traceId?: string;
-    } = {}
+    } = {},
   ) {
     this.eventId = `retry_${notificationId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     this.timestamp = new Date();
     this.aggregateId = notificationId;
     this.sequenceNumber = options.sequenceNumber || Date.now();
-    this.correlationId = options.correlationId;
     this.payload = {
       ...payload,
-      notificationId
+      notificationId,
     };
 
     this.metadata = {
-      source: 'NotificationSystem',
+      source: "NotificationSystem",
+      correlationId: options.correlationId,
       userId: options.userId,
       sessionId: options.sessionId,
       traceId: options.traceId,
       context: {
         retryContext: context,
         eventGeneratedAt: this.timestamp.toISOString(),
-        systemVersion: process.env.npm_package_version || '1.0.0'
-      }
+        systemVersion: process.env.npm_package_version || "1.0.0",
+        aggregateId: notificationId,
+        aggregateType: "Notification",
+        sequenceNumber: this.sequenceNumber,
+        version: this.version,
+      },
     };
 
     // Validation des données critiques
@@ -161,31 +164,38 @@ class NotificationRetried implements DomainEvent<NotificationRetriedData> {
    */
   private validate(): void {
     if (!this.payload.notificationId) {
-      throw new Error('NotificationRetried: notificationId is required');
+      throw new Error("NotificationRetried: notificationId is required");
     }
 
     if (!this.payload.recipientId) {
-      throw new Error('NotificationRetried: recipientId is required');
+      throw new Error("NotificationRetried: recipientId is required");
     }
 
     if (!this.payload.channel) {
-      throw new Error('NotificationRetried: channel is required');
+      throw new Error("NotificationRetried: channel is required");
     }
 
     if (this.payload.attemptNumber < 1) {
-      throw new Error('NotificationRetried: attemptNumber must be positive');
+      throw new Error("NotificationRetried: attemptNumber must be positive");
     }
 
     if (this.payload.attemptNumber > this.payload.maxAttempts) {
-      throw new Error('NotificationRetried: attemptNumber cannot exceed maxAttempts');
+      throw new Error(
+        "NotificationRetried: attemptNumber cannot exceed maxAttempts",
+      );
     }
 
     if (!this.payload.lastError) {
-      throw new Error('NotificationRetried: lastError is required');
+      throw new Error("NotificationRetried: lastError is required");
     }
 
-    if (this.payload.retryStrategy === 'exponential_backoff' && this.payload.retryMetadata.backoffDelay <= 0) {
-      throw new Error('NotificationRetried: backoffDelay must be positive for exponential backoff');
+    if (
+      this.payload.retryStrategy === "exponential_backoff" &&
+      this.payload.retryMetadata.backoffDelay <= 0
+    ) {
+      throw new Error(
+        "NotificationRetried: backoffDelay must be positive for exponential backoff",
+      );
     }
   }
 
@@ -204,14 +214,14 @@ class NotificationRetried implements DomainEvent<NotificationRetriedData> {
    * Indique si le retry est automatique ou manuel
    */
   public isAutomatic(): boolean {
-    return this.payload.retryReason === 'automatic';
+    return this.payload.retryReason === "automatic";
   }
 
   /**
    * Indique si c'est un retry à cause d'un rate limiting
    */
   public isRateLimited(): boolean {
-    return this.payload.lastError.type === 'rate_limit';
+    return this.payload.lastError.type === "rate_limit";
   }
 
   /**
@@ -235,26 +245,41 @@ class NotificationRetried implements DomainEvent<NotificationRetriedData> {
     isConsistentError: boolean;
     dominantErrorType: string;
   } {
-    const allErrors = [...this.payload.previousFailures, this.payload.lastError];
-    const errorTypes = allErrors.map(e => e.type || 'unknown');
-    const errorCodes = allErrors.map(e => e.errorCode || e.code || 'unknown');
+    const allErrors = [
+      ...this.payload.previousFailures.map((f) => ({
+        type: "unknown" as const,
+        code: f.errorCode || "unknown",
+      })),
+      {
+        type: this.payload.lastError.type,
+        code: this.payload.lastError.code || "unknown",
+      },
+    ];
+    const errorTypes = allErrors.map((e) => e.type || "unknown");
+    const errorCodes = allErrors.map((e) => e.code || "unknown");
 
     // Compte les occurrences pour identifier le pattern dominant
-    const typeCount = errorTypes.reduce((acc, type) => {
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const typeCount = errorTypes.reduce(
+      (acc, type) => {
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
-    const dominantErrorType = Object.entries(typeCount)
-      .sort(([,a], [,b]) => b - a)[0]?.[0] || 'unknown';
+    const dominantErrorType =
+      Object.entries(typeCount).sort(([, a], [, b]) => b - a)[0]?.[0] ||
+      "unknown";
 
-    const isConsistentError = errorTypes.every(type => type === errorTypes[0]);
+    const isConsistentError = errorTypes.every(
+      (type) => type === errorTypes[0],
+    );
 
     return {
       errorTypes: [...new Set(errorTypes)],
       errorCodes: [...new Set(errorCodes)],
       isConsistentError,
-      dominantErrorType
+      dominantErrorType,
     };
   }
 
@@ -262,11 +287,14 @@ class NotificationRetried implements DomainEvent<NotificationRetriedData> {
    * Génère un résumé lisible de l'événement
    */
   public getSummary(): string {
-    const { notificationId, attemptNumber, maxAttempts, channel, lastError } = this.payload;
-    const isLast = this.isLastRetry() ? ' (FINAL ATTEMPT)' : '';
-    
-    return `Retry ${attemptNumber}/${maxAttempts} for notification ${notificationId} ` +
-           `(${channel}) failed with ${lastError.type}: ${lastError.message}${isLast}`;
+    const { notificationId, attemptNumber, maxAttempts, channel, lastError } =
+      this.payload;
+    const isLast = this.isLastRetry() ? " (FINAL ATTEMPT)" : "";
+
+    return (
+      `Retry ${attemptNumber}/${maxAttempts} for notification ${notificationId} ` +
+      `(${channel}) failed with ${lastError.type}: ${lastError.message}${isLast}`
+    );
   }
 
   /**
@@ -288,8 +316,8 @@ class NotificationRetried implements DomainEvent<NotificationRetriedData> {
       nextRetryAt: this.payload.nextRetryAt?.toISOString(),
       isLastRetry: this.isLastRetry(),
       totalDelayMs: this.getTotalDelayFromFirstAttempt(),
-      correlationId: this.correlationId,
-      traceId: this.metadata.traceId
+      correlationId: this.metadata.correlationId,
+      traceId: this.metadata.traceId,
     };
   }
 
@@ -298,7 +326,7 @@ class NotificationRetried implements DomainEvent<NotificationRetriedData> {
    */
   public toMetricsFormat(): Record<string, any> {
     const errorPattern = this.getErrorPattern();
-    
+
     return {
       notification_retry_total: {
         labels: {
@@ -306,24 +334,24 @@ class NotificationRetried implements DomainEvent<NotificationRetriedData> {
           error_type: this.payload.lastError.type,
           retry_reason: this.payload.retryReason,
           attempt_number: this.payload.attemptNumber.toString(),
-          is_last_retry: this.isLastRetry().toString()
+          is_last_retry: this.isLastRetry().toString(),
         },
-        value: 1
+        value: 1,
       },
       notification_retry_backoff_duration_ms: {
         labels: {
           channel: this.payload.channel,
-          strategy: this.payload.retryStrategy
+          strategy: this.payload.retryStrategy,
         },
-        value: this.payload.retryMetadata.backoffDelay
+        value: this.payload.retryMetadata.backoffDelay,
       },
       notification_retry_total_delay_ms: {
         labels: {
           channel: this.payload.channel,
-          dominant_error_type: errorPattern.dominantErrorType
+          dominant_error_type: errorPattern.dominantErrorType,
         },
-        value: this.getTotalDelayFromFirstAttempt()
-      }
+        value: this.getTotalDelayFromFirstAttempt(),
+      },
     };
   }
 }
@@ -350,7 +378,11 @@ class NotificationRetriedBuilder {
     return new NotificationRetriedBuilder();
   }
 
-  public forNotification(notificationId: string, recipientId: string, channel: 'email' | 'whatsapp' | 'sms'): this {
+  public forNotification(
+    notificationId: string,
+    recipientId: string,
+    channel: "email" | "whatsapp" | "sms",
+  ): this {
     this.data.notificationId = notificationId;
     this.data.recipientId = recipientId;
     this.data.channel = channel;
@@ -363,32 +395,42 @@ class NotificationRetriedBuilder {
     return this;
   }
 
-  public withLastError(error: NotificationRetriedData['lastError']): this {
+  public withLastError(error: NotificationRetriedData["lastError"]): this {
     this.data.lastError = error;
     return this;
   }
 
   public withRetryStrategy(
-    strategy: 'exponential_backoff' | 'fixed_interval' | 'immediate',
+    strategy: "exponential_backoff" | "fixed_interval" | "immediate",
     backoffDelay: number,
-    nextRetryAt?: Date
+    nextRetryAt?: Date,
   ): this {
     this.data.retryStrategy = strategy;
     this.data.nextRetryAt = nextRetryAt;
     if (!this.data.retryMetadata) this.data.retryMetadata = {} as any;
-    this.data.retryMetadata.backoffDelay = backoffDelay;
+    if (this.data.retryMetadata) {
+      this.data.retryMetadata.backoffDelay = backoffDelay;
+    }
     return this;
   }
 
-  public withReason(reason: 'automatic' | 'manual' | 'scheduled', triggeredBy: string, initiatedBy?: string): this {
+  public withReason(
+    reason: "automatic" | "manual" | "scheduled",
+    triggeredBy: string,
+    initiatedBy?: string,
+  ): this {
     this.data.retryReason = reason;
     if (!this.data.retryMetadata) this.data.retryMetadata = {} as any;
-    this.data.retryMetadata.triggeredBy = triggeredBy as any;
-    this.data.retryMetadata.initiatedBy = initiatedBy;
+    if (this.data.retryMetadata) {
+      this.data.retryMetadata.triggeredBy = triggeredBy as any;
+      this.data.retryMetadata.initiatedBy = initiatedBy;
+    }
     return this;
   }
 
-  public withPreviousFailures(failures: NotificationRetriedData['previousFailures']): this {
+  public withPreviousFailures(
+    failures: NotificationRetriedData["previousFailures"],
+  ): this {
     this.data.previousFailures = failures;
     return this;
   }
@@ -405,40 +447,44 @@ class NotificationRetriedBuilder {
   }
 
   public build(): NotificationRetried {
-    if (!this.data.notificationId || !this.data.recipientId || !this.data.channel) {
-      throw new Error('Missing required notification identification');
+    if (
+      !this.data.notificationId ||
+      !this.data.recipientId ||
+      !this.data.channel
+    ) {
+      throw new Error("Missing required notification identification");
     }
 
     if (!this.data.lastError) {
-      throw new Error('Missing required lastError');
+      throw new Error("Missing required lastError");
     }
 
     const fullContext: RetryContext = {
-      systemLoad: 'normal',
+      systemLoad: "normal",
       queueDepth: 0,
-      providerStatus: 'healthy',
+      providerStatus: "healthy",
       rateLimitStatus: { remainingQuota: 100 },
-      ...this.context
+      ...this.context,
     };
 
     const fullData: NotificationRetriedData = {
       attemptNumber: 1,
       maxAttempts: 3,
       previousFailures: [],
-      retryReason: 'automatic',
-      retryStrategy: 'exponential_backoff',
+      retryReason: "automatic",
+      retryStrategy: "exponential_backoff",
       retryMetadata: {
-        triggeredBy: 'cron_job',
-        backoffDelay: 5000
+        triggeredBy: "cron_job",
+        backoffDelay: 5000,
       },
-      ...this.data
+      ...this.data,
     } as NotificationRetriedData;
 
     return new NotificationRetried(
       this.data.notificationId!,
       fullData,
       fullContext,
-      this.options
+      this.options,
     );
   }
 }
@@ -448,4 +494,4 @@ class NotificationRetriedBuilder {
 // ============================================================================
 
 export { NotificationRetried, NotificationRetriedBuilder };
-export type { NotificationRetriedData, RetryContext };
+// NotificationRetriedData et RetryContext sont déjà exportés comme interfaces ci-dessus

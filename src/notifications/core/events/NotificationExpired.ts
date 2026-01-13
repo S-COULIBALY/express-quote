@@ -1,19 +1,19 @@
 /**
  * Événement émis lors de l'expiration d'une notification
- * 
+ *
  * Utilité :
  * - Nettoyage automatique des notifications expirées
  * - Audit trail des notifications non livrées
  * - Déclenchement d'actions de fallback
  * - Métriques de performance et qualité
  * - Alertes sur les problèmes de livraison
- * 
+ *
  * Configuration :
  * - Raison de l'expiration (timeout, TTL, échec repeated)
  * - Actions de nettoyage automatique
  * - Notification des administrateurs si critique
  * - Archivage des données importantes
- * 
+ *
  * Pourquoi ce choix :
  * - Évite l'accumulation de notifications orphelines
  * - Permet le monitoring de la qualité de service
@@ -21,7 +21,7 @@
  * - Maintient l'intégrité du système
  */
 
-import { DomainEvent } from '../interfaces';
+import { DomainEvent } from "../interfaces";
 
 // ============================================================================
 // TYPES ET INTERFACES
@@ -30,15 +30,15 @@ import { DomainEvent } from '../interfaces';
 /**
  * Raisons possibles d'expiration d'une notification
  */
-export type ExpirationReason = 
-  | 'ttl_expired'           // TTL (Time To Live) dépassé
-  | 'max_retries_exceeded'  // Nombre maximum de tentatives atteint
-  | 'recipient_unreachable' // Destinataire injoignable définitivement
-  | 'content_outdated'      // Contenu devenu obsolète (ex: promo expirée)
-  | 'manual_expiration'     // Expiration manuelle par admin
-  | 'system_cleanup'        // Nettoyage automatique du système
-  | 'invalid_recipient'     // Destinataire invalide détecté
-  | 'service_discontinued'; // Service/canal discontinué
+export type ExpirationReason =
+  | "ttl_expired" // TTL (Time To Live) dépassé
+  | "max_retries_exceeded" // Nombre maximum de tentatives atteint
+  | "recipient_unreachable" // Destinataire injoignable définitivement
+  | "content_outdated" // Contenu devenu obsolète (ex: promo expirée)
+  | "manual_expiration" // Expiration manuelle par admin
+  | "system_cleanup" // Nettoyage automatique du système
+  | "invalid_recipient" // Destinataire invalide détecté
+  | "service_discontinued"; // Service/canal discontinué
 
 /**
  * Actions de nettoyage à effectuer
@@ -58,40 +58,44 @@ export interface CleanupActions {
 export interface NotificationExpiredData {
   notificationId: string;
   recipientId: string;
-  channel: 'email' | 'whatsapp' | 'sms';
+  channel: "email" | "whatsapp" | "sms";
   templateId?: string;
-  
+
   // Détails de l'expiration
   expirationReason: ExpirationReason;
   expiredAt: Date;
   originalExpiryDate?: Date; // Date d'expiration initiale
-  
+
   // Historique de la notification
   createdAt: Date;
   scheduledAt?: Date;
   firstAttemptAt?: Date;
   lastAttemptAt?: Date;
   totalAttempts: number;
-  
+
   // Contexte de l'expiration
-  finalStatus: 'pending' | 'sending' | 'failed' | 'scheduled';
+  finalStatus: "pending" | "sending" | "failed" | "scheduled";
   lastError?: {
     message: string;
     type: string;
     timestamp: Date;
   };
-  
+
   // Actions prises
   cleanupActions: CleanupActions;
   fallbackNotificationId?: string; // Si une notification de fallback a été créée
-  
+
   // Métriques
   timeToExpiration: number; // Durée de vie en millisecondes
   costIncurred?: number; // Coût engagé avant expiration
-  
+
   // Métadonnées d'expiration
   expirationMetadata: {
-    triggeredBy: 'cron_job' | 'manual_action' | 'system_event' | 'cascade_cleanup';
+    triggeredBy:
+      | "cron_job"
+      | "manual_action"
+      | "system_event"
+      | "cascade_cleanup";
     cleanupJobId?: string;
     adminUserId?: string;
     systemVersion: string;
@@ -107,15 +111,15 @@ export interface ExpirationContext {
     totalExpiredToday: number;
     expirationRate: number; // Pourcentage d'expiration sur 24h
     queueDepth: number;
-    systemLoad: 'low' | 'normal' | 'high';
+    systemLoad: "low" | "normal" | "high";
   };
-  
+
   channelStatus: {
     isHealthy: boolean;
     lastSuccessfulDelivery?: Date;
     errorRate: number;
   };
-  
+
   recipientHistory: {
     totalNotifications: number;
     successfulDeliveries: number;
@@ -130,7 +134,7 @@ export interface ExpirationContext {
 
 /**
  * Événement de domaine pour l'expiration d'une notification
- * 
+ *
  * Responsabilités :
  * - Documenter la fin de vie d'une notification
  * - Déclencher les actions de nettoyage
@@ -138,24 +142,20 @@ export interface ExpirationContext {
  * - Initier les processus de fallback
  * - Maintenir l'audit trail complet
  */
-export class NotificationExpired implements DomainEvent<NotificationExpiredData> {
+export class NotificationExpired
+  implements DomainEvent<NotificationExpiredData>
+{
   public readonly eventId: string;
-  public readonly eventType: string = 'NotificationExpired';
-  public readonly version: string = '1.0';
+  public readonly eventType: string = "NotificationExpired";
   public readonly timestamp: Date;
-  public readonly aggregateId: string;
-  public readonly aggregateType: string = 'Notification';
-  public readonly sequenceNumber: number;
   public readonly payload: NotificationExpiredData;
-  public readonly correlationId?: string;
+  public readonly metadata: DomainEvent["metadata"];
 
-  public readonly metadata: {
-    source: string;
-    userId?: string;
-    sessionId?: string;
-    traceId?: string;
-    context?: Record<string, any>;
-  };
+  // Propriétés additionnelles (non dans l'interface DomainEvent mais utiles)
+  public readonly aggregateId: string;
+  public readonly aggregateType: string = "Notification";
+  public readonly sequenceNumber: number;
+  public readonly version: string = "1.0";
 
   constructor(
     notificationId: string,
@@ -167,33 +167,38 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
       userId?: string;
       sessionId?: string;
       traceId?: string;
-    } = {}
+    } = {},
   ) {
     this.eventId = `exp_${notificationId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     this.timestamp = new Date();
     this.aggregateId = notificationId;
     this.sequenceNumber = options.sequenceNumber || Date.now();
-    this.correlationId = options.correlationId;
     this.payload = {
       ...payload,
       notificationId,
-      expiredAt: this.timestamp
+      expiredAt: this.timestamp,
     };
 
     this.metadata = {
-      source: 'NotificationSystem',
+      source: "NotificationSystem",
+      correlationId: options.correlationId,
       userId: options.userId,
       sessionId: options.sessionId,
       traceId: options.traceId,
       context: {
         expirationContext: context,
         eventGeneratedAt: this.timestamp.toISOString(),
-        systemVersion: process.env.npm_package_version || '1.0.0'
-      }
+        systemVersion: process.env.npm_package_version || "1.0.0",
+        aggregateId: notificationId,
+        aggregateType: "Notification",
+        sequenceNumber: this.sequenceNumber,
+        version: this.version,
+      },
     };
 
     // Calcul automatique du temps d'expiration
-    this.payload.timeToExpiration = this.timestamp.getTime() - this.payload.createdAt.getTime();
+    this.payload.timeToExpiration =
+      this.timestamp.getTime() - this.payload.createdAt.getTime();
 
     // Validation des données critiques
     this.validate();
@@ -208,35 +213,37 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
    */
   private validate(): void {
     if (!this.payload.notificationId) {
-      throw new Error('NotificationExpired: notificationId is required');
+      throw new Error("NotificationExpired: notificationId is required");
     }
 
     if (!this.payload.recipientId) {
-      throw new Error('NotificationExpired: recipientId is required');
+      throw new Error("NotificationExpired: recipientId is required");
     }
 
     if (!this.payload.channel) {
-      throw new Error('NotificationExpired: channel is required');
+      throw new Error("NotificationExpired: channel is required");
     }
 
     if (!this.payload.expirationReason) {
-      throw new Error('NotificationExpired: expirationReason is required');
+      throw new Error("NotificationExpired: expirationReason is required");
     }
 
     if (!this.payload.createdAt) {
-      throw new Error('NotificationExpired: createdAt is required');
+      throw new Error("NotificationExpired: createdAt is required");
     }
 
     if (this.payload.createdAt > this.timestamp) {
-      throw new Error('NotificationExpired: createdAt cannot be in the future');
+      throw new Error("NotificationExpired: createdAt cannot be in the future");
     }
 
     if (this.payload.totalAttempts < 0) {
-      throw new Error('NotificationExpired: totalAttempts must be non-negative');
+      throw new Error(
+        "NotificationExpired: totalAttempts must be non-negative",
+      );
     }
 
     if (!this.payload.cleanupActions) {
-      throw new Error('NotificationExpired: cleanupActions is required');
+      throw new Error("NotificationExpired: cleanupActions is required");
     }
   }
 
@@ -248,32 +255,42 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
    * Indique si l'expiration était prévisible (TTL vs échec)
    */
   public isPredictableExpiration(): boolean {
-    return ['ttl_expired', 'content_outdated', 'manual_expiration'].includes(this.payload.expirationReason);
+    return ["ttl_expired", "content_outdated", "manual_expiration"].includes(
+      this.payload.expirationReason,
+    );
   }
 
   /**
    * Indique si c'est un échec de livraison
    */
   public isDeliveryFailure(): boolean {
-    return ['max_retries_exceeded', 'recipient_unreachable', 'invalid_recipient'].includes(this.payload.expirationReason);
+    return [
+      "max_retries_exceeded",
+      "recipient_unreachable",
+      "invalid_recipient",
+    ].includes(this.payload.expirationReason);
   }
 
   /**
    * Indique si une notification de fallback doit être créée
    */
   public shouldCreateFallback(): boolean {
-    return this.payload.cleanupActions.triggerFallback && 
-           this.isDeliveryFailure() && 
-           this.payload.channel !== 'sms'; // SMS est souvent le dernier fallback
+    return (
+      this.payload.cleanupActions.triggerFallback &&
+      this.isDeliveryFailure() &&
+      this.payload.channel !== "sms"
+    ); // SMS est souvent le dernier fallback
   }
 
   /**
    * Indique si les administrateurs doivent être notifiés
    */
   public requiresAdminNotification(): boolean {
-    return this.payload.cleanupActions.notifyAdmins ||
-           (this.isDeliveryFailure() && this.payload.totalAttempts > 0) ||
-           this.payload.expirationReason === 'service_discontinued';
+    return (
+      this.payload.cleanupActions.notifyAdmins ||
+      (this.isDeliveryFailure() && this.payload.totalAttempts > 0) ||
+      this.payload.expirationReason === "service_discontinued"
+    );
   }
 
   /**
@@ -296,13 +313,15 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
     const totalLifetimeMs = this.payload.timeToExpiration;
     const firstAttempt = this.payload.firstAttemptAt || this.payload.createdAt;
     const activeLifetimeMs = this.timestamp.getTime() - firstAttempt.getTime();
-    const averageAttemptInterval = this.payload.totalAttempts > 1 ? 
-      activeLifetimeMs / (this.payload.totalAttempts - 1) : 0;
+    const averageAttemptInterval =
+      this.payload.totalAttempts > 1
+        ? activeLifetimeMs / (this.payload.totalAttempts - 1)
+        : 0;
 
     return {
       totalLifetimeMs,
       activeLifetimeMs,
-      averageAttemptInterval
+      averageAttemptInterval,
     };
   }
 
@@ -310,22 +329,31 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
    * Génère un résumé lisible de l'événement
    */
   public getSummary(): string {
-    const { notificationId, channel, expirationReason, totalAttempts } = this.payload;
+    const { notificationId, channel, expirationReason, totalAttempts } =
+      this.payload;
     const lifetime = this.getEffectiveLifetime();
-    const lifetimeHours = Math.round(lifetime.totalLifetimeMs / (1000 * 60 * 60) * 10) / 10;
-    
-    return `Notification ${notificationId} (${channel}) expired after ${lifetimeHours}h ` +
-           `due to ${expirationReason} (${totalAttempts} attempts)`;
+    const lifetimeHours =
+      Math.round((lifetime.totalLifetimeMs / (1000 * 60 * 60)) * 10) / 10;
+
+    return (
+      `Notification ${notificationId} (${channel}) expired after ${lifetimeHours}h ` +
+      `due to ${expirationReason} (${totalAttempts} attempts)`
+    );
   }
 
   /**
    * Génère le niveau de criticité de l'expiration
    */
-  public getCriticalityLevel(): 'low' | 'medium' | 'high' | 'critical' {
-    if (this.payload.expirationReason === 'service_discontinued') return 'critical';
-    if (this.payload.expirationReason === 'max_retries_exceeded' && this.payload.totalAttempts > 5) return 'high';
-    if (this.isDeliveryFailure()) return 'medium';
-    return 'low';
+  public getCriticalityLevel(): "low" | "medium" | "high" | "critical" {
+    if (this.payload.expirationReason === "service_discontinued")
+      return "critical";
+    if (
+      this.payload.expirationReason === "max_retries_exceeded" &&
+      this.payload.totalAttempts > 5
+    )
+      return "high";
+    if (this.isDeliveryFailure()) return "medium";
+    return "low";
   }
 
   /**
@@ -333,7 +361,7 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
    */
   public toLogFormat(): Record<string, any> {
     const lifetime = this.getEffectiveLifetime();
-    
+
     return {
       eventType: this.eventType,
       eventId: this.eventId,
@@ -351,8 +379,8 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
       requiresAdminNotification: this.requiresAdminNotification(),
       costIncurred: this.payload.costIncurred,
       cleanupActions: this.payload.cleanupActions,
-      correlationId: this.correlationId,
-      traceId: this.metadata.traceId
+      correlationId: this.metadata.correlationId,
+      traceId: this.metadata.traceId,
     };
   }
 
@@ -361,37 +389,37 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
    */
   public toMetricsFormat(): Record<string, any> {
     const lifetime = this.getEffectiveLifetime();
-    
+
     return {
       notification_expired_total: {
         labels: {
           channel: this.payload.channel,
           reason: this.payload.expirationReason,
           criticality: this.getCriticalityLevel(),
-          is_delivery_failure: this.isDeliveryFailure().toString()
+          is_delivery_failure: this.isDeliveryFailure().toString(),
         },
-        value: 1
+        value: 1,
       },
       notification_lifetime_duration_ms: {
         labels: {
           channel: this.payload.channel,
-          reason: this.payload.expirationReason
+          reason: this.payload.expirationReason,
         },
-        value: lifetime.totalLifetimeMs
+        value: lifetime.totalLifetimeMs,
       },
       notification_attempts_before_expiration: {
         labels: {
           channel: this.payload.channel,
-          reason: this.payload.expirationReason
+          reason: this.payload.expirationReason,
         },
-        value: this.payload.totalAttempts
+        value: this.payload.totalAttempts,
       },
       notification_expiration_cost: {
         labels: {
-          channel: this.payload.channel
+          channel: this.payload.channel,
         },
-        value: this.payload.costIncurred || 0
-      }
+        value: this.payload.costIncurred || 0,
+      },
     };
   }
 
@@ -400,7 +428,7 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
    */
   public getCleanupTasks(): Array<{
     taskType: string;
-    priority: 'high' | 'medium' | 'low';
+    priority: "high" | "medium" | "low";
     data: any;
   }> {
     const tasks = [];
@@ -408,59 +436,62 @@ export class NotificationExpired implements DomainEvent<NotificationExpiredData>
 
     if (cleanupActions.removeFromQueue) {
       tasks.push({
-        taskType: 'remove_from_queue',
-        priority: 'high' as const,
-        data: { notificationId: this.payload.notificationId }
+        taskType: "remove_from_queue",
+        priority: "high" as const,
+        data: { notificationId: this.payload.notificationId },
       });
     }
 
     if (cleanupActions.archiveNotification) {
       tasks.push({
-        taskType: 'archive_notification',
-        priority: 'medium' as const,
-        data: { 
+        taskType: "archive_notification",
+        priority: "medium" as const,
+        data: {
           notificationId: this.payload.notificationId,
           archiveReason: this.payload.expirationReason,
-          archiveData: this.toLogFormat()
-        }
+          archiveData: this.toLogFormat(),
+        },
       });
     }
 
     if (cleanupActions.updateRecipientStatus) {
       tasks.push({
-        taskType: 'update_recipient_status',
-        priority: 'medium' as const,
-        data: { 
+        taskType: "update_recipient_status",
+        priority: "medium" as const,
+        data: {
           recipientId: this.payload.recipientId,
           channel: this.payload.channel,
-          status: 'unreachable',
-          reason: this.payload.expirationReason
-        }
+          status: "unreachable",
+          reason: this.payload.expirationReason,
+        },
       });
     }
 
     if (cleanupActions.triggerFallback) {
       tasks.push({
-        taskType: 'create_fallback_notification',
-        priority: 'high' as const,
+        taskType: "create_fallback_notification",
+        priority: "high" as const,
         data: {
           originalNotificationId: this.payload.notificationId,
           recipientId: this.payload.recipientId,
-          fallbackChannel: this.payload.channel === 'email' ? 'sms' : 'email',
-          reason: `Fallback for expired ${this.payload.channel} notification`
-        }
+          fallbackChannel: this.payload.channel === "email" ? "sms" : "email",
+          reason: `Fallback for expired ${this.payload.channel} notification`,
+        },
       });
     }
 
     if (cleanupActions.notifyAdmins) {
       tasks.push({
-        taskType: 'notify_admins',
-        priority: this.getCriticalityLevel() === 'critical' ? 'high' as const : 'medium' as const,
+        taskType: "notify_admins",
+        priority:
+          this.getCriticalityLevel() === "critical"
+            ? ("high" as const)
+            : ("medium" as const),
         data: {
           subject: `Notification expired: ${this.getSummary()}`,
           details: this.toLogFormat(),
-          criticalityLevel: this.getCriticalityLevel()
-        }
+          criticalityLevel: this.getCriticalityLevel(),
+        },
       });
     }
 
@@ -493,7 +524,11 @@ export class NotificationExpiredBuilder {
     return new NotificationExpiredBuilder();
   }
 
-  public forNotification(notificationId: string, recipientId: string, channel: 'email' | 'whatsapp' | 'sms'): this {
+  public forNotification(
+    notificationId: string,
+    recipientId: string,
+    channel: "email" | "whatsapp" | "sms",
+  ): this {
     this.data.notificationId = notificationId;
     this.data.recipientId = recipientId;
     this.data.channel = channel;
@@ -503,11 +538,17 @@ export class NotificationExpiredBuilder {
   public withReason(reason: ExpirationReason, details?: string): this {
     this.data.expirationReason = reason;
     if (!this.data.expirationMetadata) this.data.expirationMetadata = {} as any;
-    if (details) this.data.expirationMetadata.notes = details;
+    if (details && this.data.expirationMetadata)
+      this.data.expirationMetadata.notes = details;
     return this;
   }
 
-  public withLifecycle(createdAt: Date, scheduledAt?: Date, firstAttemptAt?: Date, lastAttemptAt?: Date): this {
+  public withLifecycle(
+    createdAt: Date,
+    scheduledAt?: Date,
+    firstAttemptAt?: Date,
+    lastAttemptAt?: Date,
+  ): this {
     this.data.createdAt = createdAt;
     this.data.scheduledAt = scheduledAt;
     this.data.firstAttemptAt = firstAttemptAt;
@@ -515,13 +556,16 @@ export class NotificationExpiredBuilder {
     return this;
   }
 
-  public withAttempts(totalAttempts: number, finalStatus: NotificationExpiredData['finalStatus']): this {
+  public withAttempts(
+    totalAttempts: number,
+    finalStatus: NotificationExpiredData["finalStatus"],
+  ): this {
     this.data.totalAttempts = totalAttempts;
     this.data.finalStatus = finalStatus;
     return this;
   }
 
-  public withLastError(error: NotificationExpiredData['lastError']): this {
+  public withLastError(error: NotificationExpiredData["lastError"]): this {
     this.data.lastError = error;
     return this;
   }
@@ -534,7 +578,7 @@ export class NotificationExpiredBuilder {
       updateRecipientStatus: false,
       triggerFallback: false,
       logMetrics: true,
-      ...actions
+      ...actions,
     };
     return this;
   }
@@ -549,10 +593,15 @@ export class NotificationExpiredBuilder {
     return this;
   }
 
-  public triggeredBy(source: NotificationExpiredData['expirationMetadata']['triggeredBy'], userId?: string): this {
+  public triggeredBy(
+    source: NotificationExpiredData["expirationMetadata"]["triggeredBy"],
+    userId?: string,
+  ): this {
     if (!this.data.expirationMetadata) this.data.expirationMetadata = {} as any;
-    this.data.expirationMetadata.triggeredBy = source;
-    this.data.expirationMetadata.adminUserId = userId;
+    if (this.data.expirationMetadata) {
+      this.data.expirationMetadata.triggeredBy = source;
+      this.data.expirationMetadata.adminUserId = userId;
+    }
     return this;
   }
 
@@ -563,16 +612,20 @@ export class NotificationExpiredBuilder {
   }
 
   public build(): NotificationExpired {
-    if (!this.data.notificationId || !this.data.recipientId || !this.data.channel) {
-      throw new Error('Missing required notification identification');
+    if (
+      !this.data.notificationId ||
+      !this.data.recipientId ||
+      !this.data.channel
+    ) {
+      throw new Error("Missing required notification identification");
     }
 
     if (!this.data.expirationReason) {
-      throw new Error('Missing required expiration reason');
+      throw new Error("Missing required expiration reason");
     }
 
     if (!this.data.createdAt) {
-      throw new Error('Missing required createdAt timestamp');
+      throw new Error("Missing required createdAt timestamp");
     }
 
     const fullContext: ExpirationContext = {
@@ -580,45 +633,45 @@ export class NotificationExpiredBuilder {
         totalExpiredToday: 0,
         expirationRate: 0,
         queueDepth: 0,
-        systemLoad: 'normal'
+        systemLoad: "normal",
       },
       channelStatus: {
         isHealthy: true,
-        errorRate: 0
+        errorRate: 0,
       },
       recipientHistory: {
         totalNotifications: 0,
         successfulDeliveries: 0,
         previousExpirations: 0,
-        isBlacklisted: false
+        isBlacklisted: false,
       },
-      ...this.context
+      ...this.context,
     };
 
     const fullData: NotificationExpiredData = {
       totalAttempts: 0,
-      finalStatus: 'pending',
+      finalStatus: "pending",
       cleanupActions: {
         archiveNotification: true,
         removeFromQueue: true,
         notifyAdmins: false,
         updateRecipientStatus: false,
         triggerFallback: false,
-        logMetrics: true
+        logMetrics: true,
       },
       expirationMetadata: {
-        triggeredBy: 'system_event',
-        systemVersion: process.env.npm_package_version || '1.0.0'
+        triggeredBy: "system_event",
+        systemVersion: process.env.npm_package_version || "1.0.0",
       },
       timeToExpiration: 0, // Sera calculé dans le constructeur
-      ...this.data
+      ...this.data,
     } as NotificationExpiredData;
 
     return new NotificationExpired(
       this.data.notificationId!,
       fullData,
       fullContext,
-      this.options
+      this.options,
     );
   }
 }
@@ -627,4 +680,4 @@ export class NotificationExpiredBuilder {
 // EXPORTS
 // ============================================================================
 
-export type { NotificationExpiredData, ExpirationContext, ExpirationReason, CleanupActions };
+// Types déjà exportés individuellement ci-dessus

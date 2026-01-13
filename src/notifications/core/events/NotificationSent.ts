@@ -17,13 +17,16 @@
 // - Event sourcing pour audit trail complet
 // =============================================================================
 
-import { randomUUID } from 'crypto';
-import { DomainEvent } from '../interfaces';
-import { NotificationChannel, NotificationType } from '../entities/Notification';
+import { randomUUID } from "crypto";
+import { DomainEvent } from "../interfaces";
+import {
+  NotificationChannel,
+  NotificationType,
+} from "../entities/Notification";
 
 /**
  * 📋 Payload de l'événement NotificationSent
- * 
+ *
  * Utilité:
  * - Données de confirmation d'envoi
  * - Métriques de performance pour optimisation
@@ -33,193 +36,193 @@ import { NotificationChannel, NotificationType } from '../entities/Notification'
 export interface NotificationSentPayload {
   /** ID de la notification envoyée */
   notificationId: string;
-  
+
   /** Type de notification métier */
   type: NotificationType;
-  
+
   /** Canal utilisé pour l'envoi */
   channel: NotificationChannel;
-  
+
   /** ID externe fourni par le service d'envoi */
   externalId: string;
-  
+
   /** Informations du destinataire (anonymisées) */
   recipient: {
     /** ID du destinataire */
     id: string;
-    
+
     /** Hash de l'adresse email/téléphone pour déduplication */
     contactHash: string;
-    
+
     /** Langue utilisée pour l'envoi */
     language: string;
-    
+
     /** Timezone du destinataire */
     timezone: string;
   };
-  
+
   /** Détails de l'envoi */
   delivery: {
     /** Fournisseur utilisé (smtp.gmail.com, whatsapp-business, etc.) */
     provider: string;
-    
+
     /** Endpoint API utilisé */
     endpoint?: string;
-    
+
     /** Région/datacenter d'envoi */
     region?: string;
-    
+
     /** Version d'API utilisée */
     apiVersion?: string;
-    
+
     /** Tentative d'envoi (1, 2, 3...) */
     attempt: number;
-    
+
     /** Horodatage d'envoi */
     sentAt: Date;
-    
+
     /** Latence d'envoi (ms) */
     latency: number;
-    
+
     /** Code de statut HTTP si applicable */
     httpStatusCode?: number;
-    
+
     /** Taille du message envoyé (bytes) */
     messageSize: number;
-    
+
     /** Coût de l'envoi si disponible */
     cost?: {
       amount: number;
       currency: string;
-      unitType: 'message' | 'character' | 'minute';
+      unitType: "message" | "character" | "minute";
     };
   };
-  
+
   /** Configuration de tracking */
   tracking: {
     /** Tracking activé pour cette notification */
     enabled: boolean;
-    
+
     /** URL de tracking si générée */
     trackingUrl?: string;
-    
+
     /** Webhook URL pour updates de statut */
     webhookUrl?: string;
-    
+
     /** Support des accusés de réception */
     supportsDeliveryReceipt: boolean;
-    
+
     /** Support des accusés de lecture */
     supportsReadReceipt: boolean;
-    
+
     /** Estimation de livraison */
     estimatedDelivery?: Date;
-    
+
     /** Expiration du tracking */
     trackingExpiresAt?: Date;
   };
-  
+
   /** Template et contenu */
   content: {
     /** Template utilisé */
     templateId?: string;
-    
+
     /** Version du template */
     templateVersion?: string;
-    
+
     /** Hash du contenu pour déduplication */
     contentHash: string;
-    
+
     /** Nombre de variables personnalisées */
     personalizedVariables: number;
-    
+
     /** Présence de pièces jointes */
     hasAttachments: boolean;
-    
+
     /** Nombre de pièces jointes */
     attachmentCount: number;
-    
+
     /** Actions disponibles (boutons, liens) */
     actionCount: number;
   };
-  
+
   /** Contexte métier Express Quote */
   businessContext?: {
     /** Type d'entité liée */
     entityType?: string;
-    
+
     /** ID de l'entité liée */
     entityId?: string;
-    
+
     /** Customer/user concerné */
     customerId?: string;
-    
+
     /** Service Express Quote */
     serviceType?: string;
-    
+
     /** Montant de transaction si applicable */
     transactionAmount?: number;
-    
+
     /** Phase du workflow (confirmation, reminder, etc.) */
     workflowPhase?: string;
-    
+
     /** Campagne marketing si applicable */
     campaignId?: string;
   };
-  
+
   /** Métriques techniques */
   performance: {
     /** Temps depuis création de la notification */
     timeToSend: number;
-    
+
     /** Temps depuis mise en queue */
     queueLatency?: number;
-    
+
     /** Worker qui a traité l'envoi */
     workerId?: string;
-    
+
     /** Queue utilisée */
     queueName?: string;
-    
+
     /** Utilisation CPU du worker (%) */
     workerCpuUsage?: number;
-    
+
     /** Utilisation mémoire du worker (MB) */
     workerMemoryUsage?: number;
   };
-  
+
   /** Rate limiting et quotas */
   rateLimiting?: {
     /** Requêtes restantes pour ce provider */
     remaining: number;
-    
+
     /** Reset du compteur */
     resetTime: Date;
-    
+
     /** Limite par période */
     limit: number;
-    
+
     /** Utilisation actuelle des quotas (%) */
     quotaUsage: number;
   };
-  
+
   /** Tags et métadonnées */
   metadata: {
     /** Tags de la notification */
     tags: string[];
-    
+
     /** Environment d'envoi */
     environment: string;
-    
+
     /** Version de l'application */
     appVersion?: string;
-    
+
     /** Channel fallback utilisé */
     wasFallback: boolean;
-    
+
     /** Channel principal prévu */
     originalChannel?: NotificationChannel;
-    
+
     /** Informations de retry */
     retryInfo?: {
       isRetry: boolean;
@@ -231,11 +234,11 @@ export interface NotificationSentPayload {
 
 /**
  * 📤 ÉVÉNEMENT DOMAINE - NotificationSent
- * 
+ *
  * Cet événement confirme qu'une notification a été envoyée avec succès
  * vers un service externe (SMTP, WhatsApp Business API, etc.). Il déclenche
  * les processus de suivi, tracking, et analytics.
- * 
+ *
  * Cas d'usage typiques:
  * - Mise à jour des métriques de performance temps réel
  * - Déclenchement du système de tracking d'engagement
@@ -246,18 +249,20 @@ export interface NotificationSentPayload {
  */
 export class NotificationSent implements DomainEvent<NotificationSentPayload> {
   public readonly eventId: string;
-  public readonly eventType: string = 'NotificationSent';
-  public readonly version: string = '1.0.0';
+  public readonly eventType: string = "NotificationSent";
   public readonly timestamp: Date;
-  public readonly aggregateId: string;
-  public readonly aggregateType: string = 'Notification';
-  public readonly sequenceNumber: number;
   public readonly payload: NotificationSentPayload;
-  public readonly metadata: DomainEvent['metadata'];
+  public readonly metadata: DomainEvent["metadata"];
+
+  // Propriétés additionnelles (non dans l'interface DomainEvent mais utiles)
+  public readonly aggregateId: string;
+  public readonly aggregateType: string = "Notification";
+  public readonly sequenceNumber: number;
+  public readonly version: string = "1.0.0";
 
   /**
    * 🏗️ Constructeur de l'événement
-   * 
+   *
    * @param notificationId ID de la notification envoyée
    * @param payload Données complètes de l'envoi
    * @param sequenceNumber Numéro de séquence dans l'agrégat
@@ -269,31 +274,35 @@ export class NotificationSent implements DomainEvent<NotificationSentPayload> {
     payload: NotificationSentPayload,
     sequenceNumber: number = 2,
     correlationId?: string,
-    metadata?: Partial<DomainEvent['metadata']>
+    metadata?: Partial<DomainEvent["metadata"]>,
   ) {
     this.eventId = randomUUID();
     this.timestamp = new Date();
     this.aggregateId = notificationId;
     this.sequenceNumber = sequenceNumber;
-    this.correlationId = correlationId;
     this.payload = { ...payload };
-    
-    // Métadonnées avec valeurs par défaut
+
+    // Métadonnées avec valeurs par défaut (correlationId dans metadata)
     this.metadata = {
-      source: 'notification-worker',
+      source: "notification-worker",
       traceId: randomUUID(),
+      correlationId: correlationId,
       context: {
-        notificationService: 'express-quote-v2',
-        domain: 'notification',
-        operation: 'send'
+        notificationService: "express-quote-v2",
+        domain: "notification",
+        operation: "send",
+        aggregateId: notificationId,
+        aggregateType: "Notification",
+        sequenceNumber: sequenceNumber,
+        version: this.version,
       },
-      ...metadata
+      ...metadata,
     };
   }
-  
+
   /**
    * 🏭 Factory method depuis résultat d'adaptateur
-   * 
+   *
    * Crée l'événement depuis le résultat d'un adaptateur de canal.
    */
   static fromAdapterResult(
@@ -301,116 +310,141 @@ export class NotificationSent implements DomainEvent<NotificationSentPayload> {
     type: NotificationType,
     adapterResult: any, // AdapterDeliveryResult
     additionalContext?: {
-      businessContext?: NotificationSentPayload['businessContext'];
-      performance?: Partial<NotificationSentPayload['performance']>;
+      businessContext?: NotificationSentPayload["businessContext"];
+      performance?: Partial<NotificationSentPayload["performance"]>;
       correlationId?: string;
       sequenceNumber?: number;
-      metadata?: Partial<DomainEvent['metadata']>;
-    }
+      metadata?: Partial<DomainEvent["metadata"]>;
+    },
   ): NotificationSent {
     const payload: NotificationSentPayload = {
       notificationId,
       type,
       channel: adapterResult.channel,
       externalId: adapterResult.externalId,
-      
+
       recipient: {
-        id: 'recipient-id', // À passer via additionalContext
-        contactHash: NotificationSent.hashContact(adapterResult.recipientEmail || adapterResult.recipientPhone),
-        language: 'fr', // À passer via additionalContext
-        timezone: 'Europe/Paris' // À passer via additionalContext
+        id: "recipient-id", // À passer via additionalContext
+        contactHash: NotificationSent.hashContact(
+          adapterResult.recipientEmail || adapterResult.recipientPhone,
+        ),
+        language: "fr", // À passer via additionalContext
+        timezone: "Europe/Paris", // À passer via additionalContext
       },
-      
+
       delivery: {
         provider: adapterResult.deliveryMetadata.provider,
         endpoint: adapterResult.deliveryMetadata.endpoint,
         region: adapterResult.deliveryMetadata.routing?.region,
         apiVersion: adapterResult.deliveryMetadata.routing?.apiVersion,
-        attempt: additionalContext?.performance?.queueLatency ? 
-          Math.floor(additionalContext.performance.queueLatency / 1000) : 1,
+        attempt: additionalContext?.performance?.queueLatency
+          ? Math.floor(additionalContext.performance.queueLatency / 1000)
+          : 1,
         sentAt: new Date(),
         latency: adapterResult.deliveryMetadata.latency,
         httpStatusCode: adapterResult.deliveryMetadata.httpStatus,
         messageSize: NotificationSent.estimateMessageSize(adapterResult),
-        cost: adapterResult.deliveryMetadata.cost
+        cost: adapterResult.deliveryMetadata.cost,
       },
-      
+
       tracking: {
         enabled: !!adapterResult.trackingInfo,
         trackingUrl: adapterResult.trackingInfo?.trackingUrl,
         webhookUrl: adapterResult.trackingInfo?.webhookUrl,
-        supportsDeliveryReceipt: adapterResult.trackingInfo?.supportsDeliveryReceipt || false,
-        supportsReadReceipt: adapterResult.trackingInfo?.supportsReadReceipt || false,
+        supportsDeliveryReceipt:
+          adapterResult.trackingInfo?.supportsDeliveryReceipt || false,
+        supportsReadReceipt:
+          adapterResult.trackingInfo?.supportsReadReceipt || false,
         estimatedDelivery: adapterResult.trackingInfo?.estimatedDelivery,
-        trackingExpiresAt: adapterResult.trackingInfo?.estimatedDelivery ? 
-          new Date(adapterResult.trackingInfo.estimatedDelivery.getTime() + 30 * 24 * 60 * 60 * 1000) : undefined
+        trackingExpiresAt: adapterResult.trackingInfo?.estimatedDelivery
+          ? new Date(
+              adapterResult.trackingInfo.estimatedDelivery.getTime() +
+                30 * 24 * 60 * 60 * 1000,
+            )
+          : undefined,
       },
-      
+
       content: {
         templateId: undefined, // À passer via additionalContext
         templateVersion: undefined,
-        contentHash: NotificationSent.hashContent(adapterResult.content || ''),
+        contentHash: NotificationSent.hashContent(adapterResult.content || ""),
         personalizedVariables: 0, // À calculer
         hasAttachments: false, // À passer via additionalContext
         attachmentCount: 0,
-        actionCount: 0 // À passer via additionalContext
+        actionCount: 0, // À passer via additionalContext
       },
-      
+
       businessContext: additionalContext?.businessContext,
-      
+
       performance: {
-        timeToSend: Date.now() - (additionalContext?.performance?.queueLatency || 0),
+        timeToSend:
+          Date.now() - (additionalContext?.performance?.queueLatency || 0),
         queueLatency: additionalContext?.performance?.queueLatency,
         workerId: additionalContext?.performance?.workerId,
         queueName: additionalContext?.performance?.queueName,
         workerCpuUsage: additionalContext?.performance?.workerCpuUsage,
-        workerMemoryUsage: additionalContext?.performance?.workerMemoryUsage
+        workerMemoryUsage: additionalContext?.performance?.workerMemoryUsage,
       },
-      
-      rateLimiting: adapterResult.deliveryMetadata.routing?.rateLimiting ? {
-        remaining: adapterResult.deliveryMetadata.routing.rateLimiting.remaining,
-        resetTime: adapterResult.deliveryMetadata.routing.rateLimiting.resetTime,
-        limit: adapterResult.deliveryMetadata.routing.rateLimiting.limit || 100,
-        quotaUsage: 100 - (adapterResult.deliveryMetadata.routing.rateLimiting.remaining / 
-                          (adapterResult.deliveryMetadata.routing.rateLimiting.limit || 100) * 100)
-      } : undefined,
-      
+
+      rateLimiting: adapterResult.deliveryMetadata.routing?.rateLimiting
+        ? {
+            remaining:
+              adapterResult.deliveryMetadata.routing.rateLimiting.remaining,
+            resetTime:
+              adapterResult.deliveryMetadata.routing.rateLimiting.resetTime,
+            limit:
+              adapterResult.deliveryMetadata.routing.rateLimiting.limit || 100,
+            quotaUsage:
+              100 -
+              (adapterResult.deliveryMetadata.routing.rateLimiting.remaining /
+                (adapterResult.deliveryMetadata.routing.rateLimiting.limit ||
+                  100)) *
+                100,
+          }
+        : undefined,
+
       metadata: {
         tags: [], // À passer via additionalContext
-        environment: process.env.NODE_ENV || 'development',
+        environment: process.env.NODE_ENV || "development",
         appVersion: process.env.APP_VERSION,
         wasFallback: false, // À déterminer par le service
-        retryInfo: additionalContext?.performance?.queueLatency && additionalContext.performance.queueLatency > 60000 ? {
-          isRetry: true,
-          previousAttempts: Math.floor(additionalContext.performance.queueLatency / 60000),
-          totalRetryDelay: additionalContext.performance.queueLatency
-        } : {
-          isRetry: false,
-          previousAttempts: 0,
-          totalRetryDelay: 0
-        }
-      }
+        retryInfo:
+          additionalContext?.performance?.queueLatency &&
+          additionalContext.performance.queueLatency > 60000
+            ? {
+                isRetry: true,
+                previousAttempts: Math.floor(
+                  additionalContext.performance.queueLatency / 60000,
+                ),
+                totalRetryDelay: additionalContext.performance.queueLatency,
+              }
+            : {
+                isRetry: false,
+                previousAttempts: 0,
+                totalRetryDelay: 0,
+              },
+      },
     };
-    
+
     return new NotificationSent(
       notificationId,
       payload,
       additionalContext?.sequenceNumber,
       additionalContext?.correlationId,
-      additionalContext?.metadata
+      additionalContext?.metadata,
     );
   }
-  
+
   /**
    * 🔐 Hash sécurisé d'un contact (email/téléphone)
    */
   private static hashContact(contact: string): string {
-    if (!contact) return 'unknown';
-    
+    if (!contact) return "unknown";
+
     // Simple hash pour l'exemple - en production utiliser crypto.createHash
-    return Buffer.from(contact.toLowerCase()).toString('base64').slice(0, 16);
+    return Buffer.from(contact.toLowerCase()).toString("base64").slice(0, 16);
   }
-  
+
   /**
    * 📏 Estimation de la taille d'un message
    */
@@ -419,15 +453,15 @@ export class NotificationSent implements DomainEvent<NotificationSentPayload> {
     const baseSize = JSON.stringify(adapterResult).length;
     return baseSize;
   }
-  
+
   /**
    * 🔐 Hash du contenu pour déduplication
    */
   private static hashContent(content: string): string {
     // Simple hash pour l'exemple
-    return Buffer.from(content).toString('base64').slice(0, 20);
+    return Buffer.from(content).toString("base64").slice(0, 20);
   }
-  
+
   /**
    * 📋 Sérialisation pour persistance/transport
    */
@@ -437,7 +471,7 @@ export class NotificationSent implements DomainEvent<NotificationSentPayload> {
       eventType: this.eventType,
       version: this.version,
       timestamp: this.timestamp.toISOString(),
-      correlationId: this.correlationId,
+      correlationId: this.metadata.correlationId,
       aggregateId: this.aggregateId,
       aggregateType: this.aggregateType,
       sequenceNumber: this.sequenceNumber,
@@ -445,149 +479,165 @@ export class NotificationSent implements DomainEvent<NotificationSentPayload> {
         ...this.payload,
         delivery: {
           ...this.payload.delivery,
-          sentAt: this.payload.delivery.sentAt.toISOString()
+          sentAt: this.payload.delivery.sentAt.toISOString(),
         },
         tracking: {
           ...this.payload.tracking,
-          estimatedDelivery: this.payload.tracking.estimatedDelivery?.toISOString(),
-          trackingExpiresAt: this.payload.tracking.trackingExpiresAt?.toISOString()
+          estimatedDelivery:
+            this.payload.tracking.estimatedDelivery?.toISOString(),
+          trackingExpiresAt:
+            this.payload.tracking.trackingExpiresAt?.toISOString(),
         },
-        rateLimiting: this.payload.rateLimiting ? {
-          ...this.payload.rateLimiting,
-          resetTime: this.payload.rateLimiting.resetTime.toISOString()
-        } : undefined
+        rateLimiting: this.payload.rateLimiting
+          ? {
+              ...this.payload.rateLimiting,
+              resetTime: this.payload.rateLimiting.resetTime.toISOString(),
+            }
+          : undefined,
       },
-      metadata: this.metadata
+      metadata: this.metadata,
     };
   }
-  
+
   /**
    * 🔄 Désérialisation depuis JSON
    */
   static fromJSON(json: any): NotificationSent {
     const event = Object.create(NotificationSent.prototype);
-    
+
     event.eventId = json.eventId;
     event.eventType = json.eventType;
     event.version = json.version;
     event.timestamp = new Date(json.timestamp);
-    event.correlationId = json.correlationId;
     event.aggregateId = json.aggregateId;
     event.aggregateType = json.aggregateType;
     event.sequenceNumber = json.sequenceNumber;
-    event.metadata = json.metadata;
-    
+    event.metadata = {
+      ...json.metadata,
+      correlationId: json.correlationId || json.metadata?.correlationId,
+    };
+
     // Reconstruction du payload avec dates
     event.payload = {
       ...json.payload,
       delivery: {
         ...json.payload.delivery,
-        sentAt: new Date(json.payload.delivery.sentAt)
+        sentAt: new Date(json.payload.delivery.sentAt),
       },
       tracking: {
         ...json.payload.tracking,
-        estimatedDelivery: json.payload.tracking.estimatedDelivery ? 
-          new Date(json.payload.tracking.estimatedDelivery) : undefined,
-        trackingExpiresAt: json.payload.tracking.trackingExpiresAt ? 
-          new Date(json.payload.tracking.trackingExpiresAt) : undefined
+        estimatedDelivery: json.payload.tracking.estimatedDelivery
+          ? new Date(json.payload.tracking.estimatedDelivery)
+          : undefined,
+        trackingExpiresAt: json.payload.tracking.trackingExpiresAt
+          ? new Date(json.payload.tracking.trackingExpiresAt)
+          : undefined,
       },
-      rateLimiting: json.payload.rateLimiting ? {
-        ...json.payload.rateLimiting,
-        resetTime: new Date(json.payload.rateLimiting.resetTime)
-      } : undefined
+      rateLimiting: json.payload.rateLimiting
+        ? {
+            ...json.payload.rateLimiting,
+            resetTime: new Date(json.payload.rateLimiting.resetTime),
+          }
+        : undefined,
     };
-    
+
     return event;
   }
-  
+
   /**
    * 🏷️ Extraction des tags pour routing
    */
   getTags(): string[] {
     const tags: string[] = [
-      'notification-sent',
+      "notification-sent",
       `type-${this.payload.type.toLowerCase()}`,
       `channel-${this.payload.channel.toLowerCase()}`,
       `provider-${this.payload.delivery.provider}`,
-      `attempt-${this.payload.delivery.attempt}`
+      `attempt-${this.payload.delivery.attempt}`,
     ];
-    
+
     // Tags métier
     if (this.payload.businessContext?.entityType) {
       tags.push(`entity-${this.payload.businessContext.entityType}`);
     }
-    
+
     if (this.payload.businessContext?.serviceType) {
-      tags.push(`service-${this.payload.businessContext.serviceType.toLowerCase()}`);
+      tags.push(
+        `service-${this.payload.businessContext.serviceType.toLowerCase()}`,
+      );
     }
-    
+
     // Tags de performance
     if (this.payload.delivery.latency > 5000) {
-      tags.push('slow-delivery');
+      tags.push("slow-delivery");
     }
-    
+
     if (this.payload.metadata.wasFallback) {
-      tags.push('fallback-used');
+      tags.push("fallback-used");
     }
-    
+
     if (this.payload.metadata.retryInfo?.isRetry) {
-      tags.push('retry-success');
+      tags.push("retry-success");
     }
-    
+
     // Tags de tracking
     if (this.payload.tracking.enabled) {
-      tags.push('tracking-enabled');
+      tags.push("tracking-enabled");
     }
-    
+
     // Tags de coût
     if (this.payload.delivery.cost) {
       tags.push(`paid-${this.payload.delivery.cost.currency.toLowerCase()}`);
     }
-    
+
     // Tags personnalisés
-    tags.push(...this.payload.metadata.tags.map(tag => `custom-${tag}`));
-    
+    tags.push(...this.payload.metadata.tags.map((tag) => `custom-${tag}`));
+
     return tags;
   }
-  
+
   /**
    * 📊 Calcul du score de performance
    */
   getPerformanceScore(): number {
     let score = 100;
-    
+
     // Pénalité pour latence élevée
-    if (this.payload.delivery.latency > 10000) { // > 10s
+    if (this.payload.delivery.latency > 10000) {
+      // > 10s
       score -= 30;
-    } else if (this.payload.delivery.latency > 5000) { // > 5s
+    } else if (this.payload.delivery.latency > 5000) {
+      // > 5s
       score -= 15;
-    } else if (this.payload.delivery.latency > 2000) { // > 2s
+    } else if (this.payload.delivery.latency > 2000) {
+      // > 2s
       score -= 5;
     }
-    
+
     // Pénalité pour retry
     if (this.payload.metadata.retryInfo?.isRetry) {
       score -= 10 * this.payload.metadata.retryInfo.previousAttempts;
     }
-    
+
     // Pénalité pour fallback
     if (this.payload.metadata.wasFallback) {
       score -= 20;
     }
-    
+
     // Bonus pour tracking activé
     if (this.payload.tracking.enabled) {
       score += 5;
     }
-    
+
     // Bonus pour faible latence
-    if (this.payload.delivery.latency < 1000) { // < 1s
+    if (this.payload.delivery.latency < 1000) {
+      // < 1s
       score += 10;
     }
-    
+
     return Math.max(0, Math.min(100, score));
   }
-  
+
   /**
    * 💰 Calcul du coût estimé si pas fourni
    */
@@ -595,29 +645,31 @@ export class NotificationSent implements DomainEvent<NotificationSentPayload> {
     if (this.payload.delivery.cost) {
       return {
         amount: this.payload.delivery.cost.amount,
-        currency: this.payload.delivery.cost.currency
+        currency: this.payload.delivery.cost.currency,
       };
     }
-    
+
     // Estimation basée sur le canal et la taille
     const baseCosts: Record<string, number> = {
-      'EMAIL': 0.001, // $0.001 per email
-      'SMS': 0.05,    // $0.05 per SMS
-      'WHATSAPP': 0.02, // $0.02 per WhatsApp message
-      'PUSH': 0.0001  // $0.0001 per push
+      EMAIL: 0.001, // $0.001 per email
+      SMS: 0.05, // $0.05 per SMS
+      WHATSAPP: 0.02, // $0.02 per WhatsApp message
+      PUSH: 0.0001, // $0.0001 per push
     };
-    
+
     const baseCost = baseCosts[this.payload.channel] || 0;
-    
+
     // Ajustement pour taille du message
     const sizeMultiplier = Math.ceil(this.payload.delivery.messageSize / 1024); // Par KB
-    
-    return baseCost > 0 ? {
-      amount: baseCost * sizeMultiplier,
-      currency: 'USD'
-    } : null;
+
+    return baseCost > 0
+      ? {
+          amount: baseCost * sizeMultiplier,
+          currency: "USD",
+        }
+      : null;
   }
-  
+
   /**
    * 🎯 Prédicat pour filtrage avancé
    */
@@ -639,126 +691,153 @@ export class NotificationSent implements DomainEvent<NotificationSentPayload> {
     if (criteria.types && !criteria.types.includes(this.payload.type)) {
       return false;
     }
-    
-    if (criteria.channels && !criteria.channels.includes(this.payload.channel)) {
+
+    if (
+      criteria.channels &&
+      !criteria.channels.includes(this.payload.channel)
+    ) {
       return false;
     }
-    
-    if (criteria.providers && !criteria.providers.includes(this.payload.delivery.provider)) {
+
+    if (
+      criteria.providers &&
+      !criteria.providers.includes(this.payload.delivery.provider)
+    ) {
       return false;
     }
-    
-    if (criteria.minLatency && this.payload.delivery.latency < criteria.minLatency) {
+
+    if (
+      criteria.minLatency &&
+      this.payload.delivery.latency < criteria.minLatency
+    ) {
       return false;
     }
-    
-    if (criteria.maxLatency && this.payload.delivery.latency > criteria.maxLatency) {
+
+    if (
+      criteria.maxLatency &&
+      this.payload.delivery.latency > criteria.maxLatency
+    ) {
       return false;
     }
-    
-    if (criteria.hasTracking !== undefined && criteria.hasTracking !== this.payload.tracking.enabled) {
+
+    if (
+      criteria.hasTracking !== undefined &&
+      criteria.hasTracking !== this.payload.tracking.enabled
+    ) {
       return false;
     }
-    
-    if (criteria.wasFallback !== undefined && criteria.wasFallback !== this.payload.metadata.wasFallback) {
+
+    if (
+      criteria.wasFallback !== undefined &&
+      criteria.wasFallback !== this.payload.metadata.wasFallback
+    ) {
       return false;
     }
-    
-    if (criteria.isRetry !== undefined && criteria.isRetry !== this.payload.metadata.retryInfo?.isRetry) {
+
+    if (
+      criteria.isRetry !== undefined &&
+      criteria.isRetry !== this.payload.metadata.retryInfo?.isRetry
+    ) {
       return false;
     }
-    
+
     if (criteria.hasBusinessContext !== undefined) {
       const hasContext = !!this.payload.businessContext;
       if (criteria.hasBusinessContext !== hasContext) {
         return false;
       }
     }
-    
+
     if (criteria.costRange && this.payload.delivery.cost) {
       const cost = this.payload.delivery.cost;
-      if (criteria.costRange.currency && cost.currency !== criteria.costRange.currency) {
+      if (
+        criteria.costRange.currency &&
+        cost.currency !== criteria.costRange.currency
+      ) {
         return false;
       }
-      
-      if (cost.amount < criteria.costRange.min || cost.amount > criteria.costRange.max) {
+
+      if (
+        cost.amount < criteria.costRange.min ||
+        cost.amount > criteria.costRange.max
+      ) {
         return false;
       }
     }
-    
+
     return true;
   }
-  
+
   /**
    * 📊 Extraction des métriques détaillées
    */
   getDetailedMetrics(): Record<string, any> {
     const estimatedCost = this.getEstimatedCost();
-    
+
     return {
       // Identifiants
       eventId: this.eventId,
       notificationId: this.payload.notificationId,
       externalId: this.payload.externalId,
-      correlationId: this.correlationId,
-      
+      correlationId: this.metadata.correlationId,
+
       // Classification
       type: this.payload.type,
       channel: this.payload.channel,
       provider: this.payload.delivery.provider,
-      
+
       // Performance
       latency: this.payload.delivery.latency,
       timeToSend: this.payload.performance.timeToSend,
       queueLatency: this.payload.performance.queueLatency,
       performanceScore: this.getPerformanceScore(),
-      
+
       // Delivery
       attempt: this.payload.delivery.attempt,
       messageSize: this.payload.delivery.messageSize,
       httpStatusCode: this.payload.delivery.httpStatusCode,
       region: this.payload.delivery.region,
-      
+
       // Content
       hasAttachments: this.payload.content.hasAttachments,
       attachmentCount: this.payload.content.attachmentCount,
       personalizedVariables: this.payload.content.personalizedVariables,
       actionCount: this.payload.content.actionCount,
-      
+
       // Tracking
       trackingEnabled: this.payload.tracking.enabled,
       supportsDeliveryReceipt: this.payload.tracking.supportsDeliveryReceipt,
       supportsReadReceipt: this.payload.tracking.supportsReadReceipt,
-      
+
       // Business
       entityType: this.payload.businessContext?.entityType,
       serviceType: this.payload.businessContext?.serviceType,
       customerId: this.payload.businessContext?.customerId,
       transactionAmount: this.payload.businessContext?.transactionAmount,
-      
+
       // Cost
       cost: this.payload.delivery.cost?.amount || estimatedCost?.amount,
       currency: this.payload.delivery.cost?.currency || estimatedCost?.currency,
-      
+
       // Metadata
       environment: this.payload.metadata.environment,
       wasFallback: this.payload.metadata.wasFallback,
       isRetry: this.payload.metadata.retryInfo?.isRetry || false,
       previousAttempts: this.payload.metadata.retryInfo?.previousAttempts || 0,
-      
+
       // Rate limiting
       rateLimitRemaining: this.payload.rateLimiting?.remaining,
       quotaUsage: this.payload.rateLimiting?.quotaUsage,
-      
+
       // Timestamps
       sentAt: this.payload.delivery.sentAt,
       estimatedDelivery: this.payload.tracking.estimatedDelivery,
-      
+
       // Technical
       workerId: this.payload.performance.workerId,
       queueName: this.payload.performance.queueName,
       workerCpuUsage: this.payload.performance.workerCpuUsage,
-      workerMemoryUsage: this.payload.performance.workerMemoryUsage
+      workerMemoryUsage: this.payload.performance.workerMemoryUsage,
     };
   }
 }
@@ -814,7 +893,7 @@ class EmailAdapter {
             workerId: 'worker-email-1',
             queueName: 'email-queue'
           },
-          correlationId: notification.correlationId
+          correlationId: notification.correlationId // Sera dans metadata
         }
       );
       

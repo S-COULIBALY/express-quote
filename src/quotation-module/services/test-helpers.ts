@@ -5,10 +5,10 @@
  * dans les tests sans configuration complexe
  */
 
-import { VideoAnalysisService } from './VideoAnalysisService';
-import { ListAnalysisService } from './ListAnalysisService';
-import type { VideoAnalysisOptions } from './VideoAnalysisService';
-import type { ListItem } from './ListAnalysisService';
+import { VideoAnalysisService } from "./VideoAnalysisService";
+import { ListAnalysisService } from "./ListAnalysisService";
+import type { VideoAnalysisOptions } from "./VideoAnalysisService";
+import type { ListItem } from "./ListAnalysisService";
 
 /**
  * Crée une instance de VideoAnalysisService configurée pour les tests
@@ -18,11 +18,11 @@ import type { ListItem } from './ListAnalysisService';
  * @returns Instance configurée pour les tests
  */
 export function createTestVideoAnalysisService(
-  options?: VideoAnalysisOptions
+  options?: VideoAnalysisOptions,
 ): VideoAnalysisService {
   return new VideoAnalysisService({
     ...options,
-    provider: 'MOCK', // Force MOCK pour les tests
+    provider: "CUSTOM" as const, // Utiliser CUSTOM pour les tests (MOCK n'est pas dans le type)
   });
 }
 
@@ -44,32 +44,32 @@ export const TEST_DATA = {
    * Liste d'objets standard pour tests
    */
   standardItems: [
-    { name: 'Canapé 3 places', quantity: 1, category: 'canape' },
-    { name: 'Table basse', quantity: 1, category: 'table_basse' },
-    { name: 'Bibliothèque', quantity: 1, category: 'bibliotheque' },
-    { name: 'Armoire', quantity: 1, category: 'armoire' },
-    { name: 'Chaise', quantity: 6, category: 'chaise' },
+    { name: "Canapé 3 places", quantity: 1, category: "canape" },
+    { name: "Table basse", quantity: 1, category: "table_basse" },
+    { name: "Bibliothèque", quantity: 1, category: "bibliotheque" },
+    { name: "Armoire", quantity: 1, category: "armoire" },
+    { name: "Chaise", quantity: 6, category: "chaise" },
   ] as ListItem[],
 
   /**
    * Liste avec objets spéciaux pour tests
    */
   itemsWithSpecial: [
-    { name: 'Canapé', quantity: 1, category: 'canape' },
-    { name: 'Piano droit', quantity: 1, category: 'piano' },
-    { name: 'Coffre-fort', quantity: 1, category: 'coffre_fort' },
-    { name: 'Tableau', quantity: 3, category: 'tableau' },
+    { name: "Canapé", quantity: 1, category: "canape" },
+    { name: "Piano droit", quantity: 1, category: "piano" },
+    { name: "Coffre-fort", quantity: 1, category: "coffre_fort" },
+    { name: "Tableau", quantity: 3, category: "tableau" },
   ] as ListItem[],
 
   /**
    * URL de vidéo de test (mock)
    */
-  testVideoUrl: 'https://example.com/test-video.mp4',
+  testVideoUrl: "https://example.com/test-video.mp4",
 
   /**
    * URL de vidéo avec piano pour tests spécifiques
    */
-  testVideoUrlWithPiano: 'https://example.com/test-video-piano.mp4',
+  testVideoUrlWithPiano: "https://example.com/test-video-piano.mp4",
 };
 
 /**
@@ -80,7 +80,7 @@ export const TEST_CONFIG = {
    * Force l'utilisation de MOCK dans les tests
    */
   forceMockProvider: () => {
-    process.env.VIDEO_ANALYSIS_PROVIDER = 'MOCK';
+    process.env.VIDEO_ANALYSIS_PROVIDER = "MOCK";
   },
 
   /**
@@ -90,4 +90,3 @@ export const TEST_CONFIG = {
     delete process.env.VIDEO_ANALYSIS_PROVIDER;
   },
 };
-

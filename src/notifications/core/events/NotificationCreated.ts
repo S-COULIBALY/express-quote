@@ -17,13 +17,17 @@
 // - Integration avec message brokers (EventBridge, Kafka)
 // =============================================================================
 
-import { randomUUID } from 'crypto';
-import { DomainEvent } from '../interfaces';
-import { Notification, NotificationType, NotificationChannel } from '../entities/Notification';
+import { randomUUID } from "crypto";
+import { DomainEvent } from "../interfaces";
+import {
+  Notification,
+  NotificationType,
+  NotificationChannel,
+} from "../entities/Notification";
 
 /**
  * 📋 Payload de l'événement NotificationCreated
- * 
+ *
  * Utilité:
  * - Données spécifiques à la création de notification
  * - Informations nécessaires aux event handlers
@@ -33,121 +37,123 @@ import { Notification, NotificationType, NotificationChannel } from '../entities
 export interface NotificationCreatedPayload {
   /** ID de la notification créée */
   notificationId: string;
-  
+
   /** Type de notification métier */
   type: NotificationType;
-  
+
   /** Canal principal configuré */
   primaryChannel: NotificationChannel;
-  
+
   /** Canaux de fallback disponibles */
   fallbackChannels?: NotificationChannel[];
-  
+
   /** Informations du destinataire (anonymisées pour RGPD) */
   recipient: {
     /** ID utilisateur/customer */
     id: string;
-    
+
     /** Langue préférée */
     language: string;
-    
+
     /** Timezone du destinataire */
     timezone: string;
-    
+
     /** Présence des coordonnées (sans exposer les valeurs réelles) */
     hasEmail: boolean;
     hasPhone: boolean;
-    
+
     /** Préférences de canal si configurées */
-    channelPreferences?: Partial<Record<NotificationType, NotificationChannel[]>>;
+    channelPreferences?: Partial<
+      Record<NotificationType, NotificationChannel[]>
+    >;
   };
-  
+
   /** Métadonnées du contenu */
   content: {
     /** Template utilisé si applicable */
     templateId?: string;
-    
+
     /** Version du template */
     templateVersion?: string;
-    
+
     /** Nombre de variables de personnalisation */
     variableCount: number;
-    
+
     /** Présence de pièces jointes */
     hasAttachments: boolean;
-    
+
     /** Nombre de pièces jointes */
     attachmentCount: number;
-    
+
     /** Taille approximative du contenu (bytes) */
     estimatedSize: number;
-    
+
     /** Actions disponibles (boutons, liens) */
     actionCount: number;
   };
-  
+
   /** Configuration de livraison */
   delivery: {
     /** Priorité de la notification */
-    priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
-    
+    priority: "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
+
     /** Envoi programmé */
     isScheduled: boolean;
-    
+
     /** Date d'envoi programmée si applicable */
     scheduledAt?: Date;
-    
+
     /** Date d'expiration */
     expiresAt?: Date;
-    
+
     /** Tracking activé */
     trackingEnabled: boolean;
-    
+
     /** Retry activé */
     retryEnabled: boolean;
-    
+
     /** Nombre maximum de tentatives */
     maxRetries?: number;
-    
+
     /** Tags pour analytics */
     tags: string[];
   };
-  
+
   /** Contexte métier Express Quote */
   businessContext?: {
     /** Type d'entité liée (booking, quote, payment) */
     entityType?: string;
-    
+
     /** ID de l'entité liée */
     entityId?: string;
-    
+
     /** Workflow parent */
     workflowId?: string;
-    
+
     /** Customer/user associé */
     customerId?: string;
-    
+
     /** Service Express Quote concerné */
     serviceType?: string;
-    
+
     /** Montant si applicable (pour notifications de paiement) */
     amount?: number;
-    
+
     /** Autres données métier */
     metadata?: Record<string, any>;
   };
-  
+
   /** Informations de création */
   creation: {
     /** Timestamp de création */
     createdAt: Date;
-    
+
     /** Source de création (api, scheduler, system) */
     source: string;
-    
+
     /** Version de l'application */
     appVersion?: string;
-    
+
     /** Environment (dev, staging, prod) */
     environment?: string;
   };
@@ -169,20 +175,24 @@ export interface NotificationCreatedPayload {
  * - Intégration avec systèmes externes (CRM, marketing)
  * - A/B testing et expérimentation
  */
-export class NotificationCreated implements DomainEvent<NotificationCreatedPayload> {
+export class NotificationCreated
+  implements DomainEvent<NotificationCreatedPayload>
+{
   public readonly eventId: string;
-  public readonly eventType: string = 'NotificationCreated';
-  public readonly version: string = '1.0.0';
+  public readonly eventType: string = "NotificationCreated";
   public readonly timestamp: Date;
-  public readonly aggregateId: string;
-  public readonly aggregateType: string = 'Notification';
-  public readonly sequenceNumber: number;
   public readonly payload: NotificationCreatedPayload;
-  public readonly metadata: DomainEvent['metadata'];
+  public readonly metadata: DomainEvent["metadata"];
+
+  // Propriétés additionnelles (non dans l'interface DomainEvent mais utiles)
+  public readonly aggregateId: string;
+  public readonly aggregateType: string = "Notification";
+  public readonly sequenceNumber: number;
+  public readonly version: string = "1.0.0";
 
   /**
    * 🏗️ Constructeur de l'événement
-   * 
+   *
    * @param notification La notification qui vient d'être créée
    * @param sequenceNumber Numéro de séquence dans l'agrégat
    * @param correlationId ID de corrélation pour traçage
@@ -192,32 +202,36 @@ export class NotificationCreated implements DomainEvent<NotificationCreatedPaylo
     notification: Notification,
     sequenceNumber: number = 1,
     correlationId?: string,
-    metadata?: Partial<DomainEvent['metadata']>
+    metadata?: Partial<DomainEvent["metadata"]>,
   ) {
     this.eventId = randomUUID();
     this.timestamp = new Date();
     this.aggregateId = notification.id;
     this.sequenceNumber = sequenceNumber;
-    this.correlationId = correlationId;
-    
+
     // Construction du payload depuis la notification
     this.payload = this.buildPayload(notification);
-    
-    // Métadonnées avec valeurs par défaut
+
+    // Métadonnées avec valeurs par défaut (correlationId dans metadata)
     this.metadata = {
-      source: 'notification-service',
+      source: "notification-service",
       traceId: randomUUID(),
+      correlationId: correlationId,
       context: {
-        notificationService: 'express-quote-v2',
-        domain: 'notification'
+        notificationService: "express-quote-v2",
+        domain: "notification",
+        aggregateId: notification.id,
+        aggregateType: "Notification",
+        sequenceNumber: sequenceNumber,
+        version: this.version,
       },
-      ...metadata
+      ...metadata,
     };
   }
-  
+
   /**
    * 🏗️ Construction du payload depuis une notification
-   * 
+   *
    * Extrait les données pertinentes en préservant la confidentialité.
    * Anonymise les données personnelles selon les exigences RGPD.
    */
@@ -225,32 +239,34 @@ export class NotificationCreated implements DomainEvent<NotificationCreatedPaylo
     const recipient = notification.recipient;
     const content = notification.content;
     const deliveryConfig = notification.deliveryConfig;
-    
+
     return {
       notificationId: notification.id,
       type: notification.type,
       primaryChannel: deliveryConfig.primaryChannel,
       fallbackChannels: deliveryConfig.fallbackChannels,
-      
+
       recipient: {
         id: recipient.id,
         language: recipient.language,
         timezone: recipient.timezone,
         hasEmail: !!recipient.email,
         hasPhone: !!recipient.phone,
-        channelPreferences: recipient.channelPreferences
+        channelPreferences: recipient.channelPreferences,
       },
-      
+
       content: {
         templateId: content.templateId,
         templateVersion: content.renderMetadata?.templateVersion,
         variableCount: Object.keys(content.variables || {}).length,
-        hasAttachments: !!(content.attachments && content.attachments.length > 0),
+        hasAttachments: !!(
+          content.attachments && content.attachments.length > 0
+        ),
         attachmentCount: content.attachments?.length || 0,
         estimatedSize: this.estimateContentSize(content),
-        actionCount: content.actions?.length || 0
+        actionCount: content.actions?.length || 0,
       },
-      
+
       delivery: {
         priority: notification.priority as any,
         isScheduled: !!deliveryConfig.scheduledAt,
@@ -259,89 +275,96 @@ export class NotificationCreated implements DomainEvent<NotificationCreatedPaylo
         trackingEnabled: deliveryConfig.trackingEnabled || false,
         retryEnabled: (deliveryConfig.maxRetries || 0) > 0,
         maxRetries: deliveryConfig.maxRetries,
-        tags: deliveryConfig.tags || []
+        tags: deliveryConfig.tags || [],
       },
-      
+
       businessContext: this.extractBusinessContext(notification),
-      
+
       creation: {
         createdAt: notification.createdAt,
-        source: this.metadata?.source || 'unknown',
+        source: this.metadata.source || "unknown",
         appVersion: process.env.APP_VERSION,
-        environment: process.env.NODE_ENV || 'development'
-      }
+        environment: process.env.NODE_ENV || "development",
+      },
     };
   }
-  
+
   /**
    * 📏 Estimation de la taille du contenu
    */
   private estimateContentSize(content: any): number {
-    const textSize = (content.subject?.length || 0) + 
-                    (content.textBody?.length || 0) + 
-                    (content.htmlBody?.length || 0);
-    
-    const attachmentSize = content.attachments?.reduce(
-      (total: number, att: any) => total + (att.size || 0), 0
-    ) || 0;
-    
+    const textSize =
+      (content.subject?.length || 0) +
+      (content.textBody?.length || 0) +
+      (content.htmlBody?.length || 0);
+
+    const attachmentSize =
+      content.attachments?.reduce(
+        (total: number, att: any) => total + (att.size || 0),
+        0,
+      ) || 0;
+
     return textSize + attachmentSize;
   }
-  
+
   /**
    * 🏢 Extraction du contexte métier Express Quote
    */
-  private extractBusinessContext(notification: Notification): NotificationCreatedPayload['businessContext'] {
+  private extractBusinessContext(
+    notification: Notification,
+  ): NotificationCreatedPayload["businessContext"] {
     const correlationId = notification.correlationId;
-    
+
     // Extraction des informations depuis le correlation ID ou les métadonnées
-    const businessContext: NotificationCreatedPayload['businessContext'] = {};
-    
+    const businessContext: NotificationCreatedPayload["businessContext"] = {};
+
     // Pattern matching sur le correlation ID pour extraire le contexte
     if (correlationId) {
       const bookingMatch = correlationId.match(/booking-(\w+)/);
       if (bookingMatch) {
-        businessContext.entityType = 'booking';
+        businessContext.entityType = "booking";
         businessContext.entityId = bookingMatch[1];
       }
-      
+
       const quoteMatch = correlationId.match(/quote-(\w+)/);
       if (quoteMatch) {
-        businessContext.entityType = 'quote';
+        businessContext.entityType = "quote";
         businessContext.entityId = quoteMatch[1];
       }
-      
+
       const paymentMatch = correlationId.match(/payment-(\w+)/);
       if (paymentMatch) {
-        businessContext.entityType = 'payment';
+        businessContext.entityType = "payment";
         businessContext.entityId = paymentMatch[1];
       }
     }
-    
+
     // Extraction depuis les variables du template
     const variables = notification.content.variables || {};
     if (variables.customer?.id) {
       businessContext.customerId = variables.customer.id;
     }
-    
+
     if (variables.booking?.serviceType) {
       businessContext.serviceType = variables.booking.serviceType;
     }
-    
+
     if (variables.payment?.amount) {
       businessContext.amount = variables.payment.amount;
     }
-    
+
     // Ajout des tags de livraison comme métadonnées
     if (notification.deliveryConfig.tags) {
       businessContext.metadata = {
-        deliveryTags: notification.deliveryConfig.tags
+        deliveryTags: notification.deliveryConfig.tags,
       };
     }
-    
-    return Object.keys(businessContext).length > 0 ? businessContext : undefined;
+
+    return Object.keys(businessContext).length > 0
+      ? businessContext
+      : undefined;
   }
-  
+
   /**
    * 📋 Sérialisation pour persistance/transport
    */
@@ -351,7 +374,7 @@ export class NotificationCreated implements DomainEvent<NotificationCreatedPaylo
       eventType: this.eventType,
       version: this.version,
       timestamp: this.timestamp.toISOString(),
-      correlationId: this.correlationId,
+      correlationId: this.metadata.correlationId,
       aggregateId: this.aggregateId,
       aggregateType: this.aggregateType,
       sequenceNumber: this.sequenceNumber,
@@ -361,48 +384,52 @@ export class NotificationCreated implements DomainEvent<NotificationCreatedPaylo
         expiresAt: this.payload.delivery.expiresAt?.toISOString(),
         creation: {
           ...this.payload.creation,
-          createdAt: this.payload.creation.createdAt.toISOString()
-        }
+          createdAt: this.payload.creation.createdAt.toISOString(),
+        },
       },
-      metadata: this.metadata
+      metadata: this.metadata,
     };
   }
-  
+
   /**
    * 🔄 Désérialisation depuis JSON
    */
   static fromJSON(json: any): NotificationCreated {
     const event = Object.create(NotificationCreated.prototype);
-    
+
     event.eventId = json.eventId;
     event.eventType = json.eventType;
     event.version = json.version;
     event.timestamp = new Date(json.timestamp);
-    event.correlationId = json.correlationId;
     event.aggregateId = json.aggregateId;
     event.aggregateType = json.aggregateType;
     event.sequenceNumber = json.sequenceNumber;
-    event.metadata = json.metadata;
-    
+    event.metadata = {
+      ...json.metadata,
+      correlationId: json.correlationId || json.metadata?.correlationId,
+    };
+
     // Reconstruction du payload avec dates
     event.payload = {
       ...json.payload,
       delivery: {
         ...json.payload.delivery,
-        scheduledAt: json.payload.delivery.scheduledAt ? 
-          new Date(json.payload.delivery.scheduledAt) : undefined,
-        expiresAt: json.payload.delivery.expiresAt ? 
-          new Date(json.payload.delivery.expiresAt) : undefined
+        scheduledAt: json.payload.delivery.scheduledAt
+          ? new Date(json.payload.delivery.scheduledAt)
+          : undefined,
+        expiresAt: json.payload.delivery.expiresAt
+          ? new Date(json.payload.delivery.expiresAt)
+          : undefined,
       },
       creation: {
         ...json.payload.creation,
-        createdAt: new Date(json.payload.creation.createdAt)
-      }
+        createdAt: new Date(json.payload.creation.createdAt),
+      },
     };
-    
+
     return event;
   }
-  
+
   /**
    * 🎯 Factory method pour création simplifiée
    */
@@ -416,7 +443,7 @@ export class NotificationCreated implements DomainEvent<NotificationCreatedPaylo
       sessionId?: string;
       traceId?: string;
       additionalContext?: Record<string, any>;
-    } = {}
+    } = {},
   ): NotificationCreated {
     return new NotificationCreated(
       notification,
@@ -427,42 +454,44 @@ export class NotificationCreated implements DomainEvent<NotificationCreatedPaylo
         userId: options.userId,
         sessionId: options.sessionId,
         traceId: options.traceId,
-        context: options.additionalContext
-      }
+        context: options.additionalContext,
+      },
     );
   }
-  
+
   /**
    * 🏷️ Extraction des tags pour routing d'événements
    */
   getTags(): string[] {
     const tags: string[] = [
-      'notification-created',
+      "notification-created",
       `type-${this.payload.type.toLowerCase()}`,
       `channel-${this.payload.primaryChannel.toLowerCase()}`,
-      `priority-${this.payload.delivery.priority.toLowerCase()}`
+      `priority-${this.payload.delivery.priority.toLowerCase()}`,
     ];
-    
+
     // Ajout des tags métier
     if (this.payload.businessContext?.entityType) {
       tags.push(`entity-${this.payload.businessContext.entityType}`);
     }
-    
+
     if (this.payload.businessContext?.serviceType) {
-      tags.push(`service-${this.payload.businessContext.serviceType.toLowerCase()}`);
+      tags.push(
+        `service-${this.payload.businessContext.serviceType.toLowerCase()}`,
+      );
     }
-    
+
     // Ajout des tags de livraison
-    tags.push(...this.payload.delivery.tags.map(tag => `custom-${tag}`));
-    
+    tags.push(...this.payload.delivery.tags.map((tag) => `custom-${tag}`));
+
     // Tag scheduled si programmé
     if (this.payload.delivery.isScheduled) {
-      tags.push('scheduled');
+      tags.push("scheduled");
     }
-    
+
     return tags;
   }
-  
+
   /**
    * 🔍 Prédicat pour filtrage d'événements
    */
@@ -479,51 +508,65 @@ export class NotificationCreated implements DomainEvent<NotificationCreatedPaylo
     if (criteria.types && !criteria.types.includes(this.payload.type)) {
       return false;
     }
-    
-    if (criteria.channels && !criteria.channels.includes(this.payload.primaryChannel)) {
+
+    if (
+      criteria.channels &&
+      !criteria.channels.includes(this.payload.primaryChannel)
+    ) {
       return false;
     }
-    
-    if (criteria.priorities && !criteria.priorities.includes(this.payload.delivery.priority)) {
+
+    if (
+      criteria.priorities &&
+      !criteria.priorities.includes(this.payload.delivery.priority)
+    ) {
       return false;
     }
-    
+
     if (criteria.hasBusinessContext !== undefined) {
       const hasContext = !!this.payload.businessContext;
       if (criteria.hasBusinessContext !== hasContext) {
         return false;
       }
     }
-    
+
     if (criteria.isScheduled !== undefined) {
       if (criteria.isScheduled !== this.payload.delivery.isScheduled) {
         return false;
       }
     }
-    
+
     if (criteria.entityTypes && this.payload.businessContext?.entityType) {
-      if (!criteria.entityTypes.includes(this.payload.businessContext.entityType)) {
+      if (
+        !criteria.entityTypes.includes(this.payload.businessContext.entityType)
+      ) {
         return false;
       }
     }
-    
+
     if (criteria.serviceTypes && this.payload.businessContext?.serviceType) {
-      if (!criteria.serviceTypes.includes(this.payload.businessContext.serviceType)) {
+      if (
+        !criteria.serviceTypes.includes(
+          this.payload.businessContext.serviceType,
+        )
+      ) {
         return false;
       }
     }
-    
+
     if (criteria.tags && criteria.tags.length > 0) {
       const eventTags = this.getTags();
-      const hasMatchingTag = criteria.tags.some(tag => eventTags.includes(tag));
+      const hasMatchingTag = criteria.tags.some((tag) =>
+        eventTags.includes(tag),
+      );
       if (!hasMatchingTag) {
         return false;
       }
     }
-    
+
     return true;
   }
-  
+
   /**
    * 📊 Extraction des métriques pour analytics
    */
@@ -548,7 +591,7 @@ export class NotificationCreated implements DomainEvent<NotificationCreatedPaylo
       tags: this.payload.delivery.tags,
       estimatedSize: this.payload.content.estimatedSize,
       variableCount: this.payload.content.variableCount,
-      actionCount: this.payload.content.actionCount
+      actionCount: this.payload.content.actionCount,
     };
   }
 }
@@ -572,7 +615,7 @@ class NotificationService {
     
     // Émettre l'événement de création
     const event = NotificationCreated.create(notification, {
-      correlationId: 'booking-12345',
+      correlationId: 'booking-12345', // Sera dans metadata
       source: 'booking-service',
       userId: recipient.id,
       sessionId: 'session-789',
@@ -601,7 +644,7 @@ class NotificationQueueHandler {
     await this.queue.addJob(queueName, {
       notificationId,
       priority,
-      correlationId: event.correlationId
+      correlationId: event.metadata.correlationId
     });
     
     console.log(`Notification ${notificationId} ajoutée à ${queueName}`);
