@@ -3,9 +3,21 @@ import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 import { priceSignatureService } from '@/quotation/application/services/PriceSignatureService';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-08-27.basil'
-});
+// Rendre cette route dynamique pour éviter l'initialisation Stripe pendant le build
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Initialiser Stripe uniquement si la clé est disponible
+function getStripeInstance(): Stripe | null {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey || secretKey.trim() === '') {
+    logger.warn('⚠️ STRIPE_SECRET_KEY non définie - Les paiements ne fonctionneront pas');
+    return null;
+  }
+  return new Stripe(secretKey, {
+    apiVersion: '2025-08-27.basil'
+  });
+}
 
 /**
  * POST /api/payment/create-session
@@ -14,6 +26,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const stripe = getStripeInstance();
+    if (!stripe) {
+      return NextResponse.json(
+        { success: false, error: 'Configuration Stripe manquante' },
+        { status: 500 }
+      );
+    }
+
     const { temporaryId, customerData, amount } = await request.json();
 
     logger.info('💳 Création session Stripe', {

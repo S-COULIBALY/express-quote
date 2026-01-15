@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Éviter la connexion Prisma pendant le build
+  env: {
+    SKIP_DB_CONNECT: process.env.NODE_ENV === 'production' && process.env.VERCEL ? 'true' : undefined,
+  },
   images: {
     remotePatterns: [
       {

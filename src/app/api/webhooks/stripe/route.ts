@@ -15,10 +15,21 @@ import { PrismaMovingRepository } from '@/quotation/infrastructure/repositories/
 import { PrismaItemRepository } from '@/quotation/infrastructure/repositories/PrismaItemRepository';
 import { PrismaQuoteRequestRepository } from '@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository';
 
-// Stripe client pour récupérer les détails complets
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-08-27.basil'
-});
+// Rendre cette route dynamique pour éviter l'initialisation pendant le build
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Initialiser Stripe uniquement si la clé est disponible
+function getStripeInstance(): Stripe | null {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey || secretKey.trim() === '') {
+    logger.warn('⚠️ STRIPE_SECRET_KEY non définie - Les webhooks Stripe ne fonctionneront pas');
+    return null;
+  }
+  return new Stripe(secretKey, {
+    apiVersion: '2025-08-27.basil'
+  });
+}
 
 // Import du système de notifications
 let notificationSystemPromise: Promise<any> | null = null;
@@ -83,6 +94,14 @@ export async function POST(req: NextRequest) {
     let event;
 
     // Si STRIPE_WEBHOOK_SECRET est configuré, vérifier la signature (RECOMMANDÉ)
+    const stripe = getStripeInstance();
+    if (!stripe) {
+      return NextResponse.json(
+        { error: 'Configuration Stripe manquante' },
+        { status: 500 }
+      );
+    }
+
     if (endpointSecret && endpointSecret.trim() !== '') {
       try {
         event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
