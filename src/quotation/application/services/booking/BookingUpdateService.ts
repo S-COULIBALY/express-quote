@@ -98,7 +98,7 @@ export class BookingUpdateService {
       );
     }
 
-    await this.bookingRepository.delete(id);
+    await this.bookingRepository.hardDelete(id);
     logger.info(`✅ Réservation ${id} supprimée avec succès`);
   }
 

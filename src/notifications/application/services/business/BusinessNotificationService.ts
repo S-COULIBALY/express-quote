@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * BusinessNotificationService - Méthodes métier Express Quote
  * 

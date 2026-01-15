@@ -143,16 +143,15 @@ export class NotificationOrchestrator {
       // Le worker BullMQ créera l'entrée DB lors du traitement si nécessaire
       try {
         const dbNotification = await this.repository.create({
-          id: notification.id, // Utiliser l'ID généré précédemment
           recipientId: notification.recipient,
-          channel: notification.type.toUpperCase() as any,
+          channel: notification.type.toUpperCase() as 'EMAIL' | 'SMS' | 'WHATSAPP',
           templateId: notification.templateId,
           templateData: notification.variables,
           subject: notification.subject,
           content: notification.content,
-          priority: (notification.priority?.toUpperCase() as any) || 'NORMAL',
+          priority: notification.priority === 'critical' ? 'URGENT' : (notification.priority?.toUpperCase() as 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT') || 'NORMAL',
           scheduledAt: notification.scheduledAt,
-          metadata: notification.metadata
+          metadata: { ...notification.metadata, originalId: notification.id }
         });
         
         this.logger.debug(`✅ Entrée DB créée`, {
@@ -160,21 +159,8 @@ export class NotificationOrchestrator {
           status: dbNotification.status
         });
         
-        // Si le template a été appliqué, mettre à jour le contenu dans la DB
-        if (notification.templateId && (notification.content !== notification.variables?.content)) {
-          try {
-            await this.repository.update(notification.id, {
-              content: notification.content,
-              subject: notification.subject
-            });
-          } catch (updateError) {
-            // Non-bloquant : le contenu sera mis à jour par le worker si nécessaire
-            this.logger.warn(`⚠️ Échec mise à jour contenu DB (non-bloquant)`, {
-              id: notification.id,
-              error: (updateError as Error).message
-            });
-          }
-        }
+        // Note: Le contenu du template est stocké dans metadata lors de la création
+        // Pas besoin de mise à jour supplémentaire
       } catch (dbError) {
         // ⚠️ NON-BLOQUANT : La notification est déjà dans la queue
         // Le worker BullMQ créera l'entrée DB lors du traitement si nécessaire

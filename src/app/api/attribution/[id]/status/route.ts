@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const attributionId = params.id;
-  
+
   try {
     const { searchParams } = new URL(request.url);
     const professionalId = searchParams.get('professionalId');
@@ -33,63 +33,63 @@ export async function GET(
       attribution: {
         id: attribution.id,
         status: attribution.status,
-        serviceType: attribution.serviceType,
-        broadcastCount: attribution.broadcastCount,
-        lastBroadcastAt: attribution.lastBroadcastAt,
-        createdAt: attribution.createdAt,
-        maxDistanceKm: attribution.maxDistanceKm
+        serviceType: attribution.service_type,
+        broadcastCount: attribution.broadcast_count,
+        lastBroadcastAt: attribution.last_broadcast_at,
+        createdAt: attribution.created_at,
+        max_distance_km: attribution.max_distance_km
       }
     };
 
     // Informations sur la réservation (limitées)
-    if (attribution.booking) {
+    if (attribution.Booking) {
       response.booking = {
-        id: attribution.booking.id,
-        type: attribution.booking.type,
-        totalAmount: attribution.booking.totalAmount,
-        scheduledDate: attribution.booking.scheduledDate,
-        locationAddress: attribution.booking.locationAddress,
-        status: attribution.booking.status
+        id: attribution.Booking.id,
+        type: attribution.Booking.type,
+        totalAmount: attribution.Booking.totalAmount,
+        scheduledDate: attribution.Booking.scheduledDate,
+        locationAddress: attribution.Booking.locationAddress,
+        status: attribution.Booking.status
       };
 
       // Informations client (seulement si professionnel accepté)
-      if (attribution.status === 'ACCEPTED' && attribution.acceptedProfessionalId === professionalId) {
+      if (attribution.status === 'ACCEPTED' && attribution.accepted_professional_id === professionalId) {
         response.customer = {
-          firstName: attribution.booking.customer?.firstName,
-          lastName: attribution.booking.customer?.lastName,
-          email: attribution.booking.customer?.email,
-          phone: attribution.booking.customer?.phone
+          firstName: attribution.Booking.Customer?.firstName,
+          lastName: attribution.Booking.Customer?.lastName,
+          email: attribution.Booking.Customer?.email,
+          phone: attribution.Booking.Customer?.phone
         };
       }
     }
 
     // Informations sur le professionnel accepté
-    if (attribution.acceptedProfessional) {
+    if (attribution.Professional) {
       response.acceptedProfessional = {
-        id: attribution.acceptedProfessional.id,
-        companyName: attribution.acceptedProfessional.companyName,
-        city: attribution.acceptedProfessional.city
+        id: attribution.Professional.id,
+        companyName: attribution.Professional.companyName,
+        city: attribution.Professional.city
       };
     }
 
     // Statistiques des réponses
     response.responses = {
-      total: attribution.responses?.length || 0,
-      accepted: attribution.responses?.filter((r: any) => r.responseType === 'ACCEPTED').length || 0,
-      refused: attribution.responses?.filter((r: any) => r.responseType === 'REFUSED').length || 0
+      total: attribution.attribution_responses?.length || 0,
+      accepted: attribution.attribution_responses?.filter((r: any) => r.response_type === 'ACCEPTED').length || 0,
+      refused: attribution.attribution_responses?.filter((r: any) => r.response_type === 'REFUSED').length || 0
     };
 
     // Si demande spécifique d'un professionnel, ajouter ses infos
     if (professionalId) {
-      const professionalResponse = attribution.responses?.find(
-        (r: any) => r.professionalId === professionalId
+      const professionalResponse = attribution.attribution_responses?.find(
+        (r: any) => r.professional_id === professionalId
       );
 
       if (professionalResponse) {
         response.yourResponse = {
-          type: professionalResponse.responseType,
-          responseTime: professionalResponse.responseTime,
-          message: professionalResponse.responseMessage
+          type: professionalResponse.response_type,
+          responseTime: professionalResponse.response_time,
+          message: professionalResponse.response_message
         };
       }
 
@@ -97,9 +97,9 @@ export async function GET(
       response.canAct = {
         canAccept: attribution.status === 'BROADCASTING' && !professionalResponse,
         canRefuse: attribution.status === 'BROADCASTING' && !professionalResponse,
-        canCancel: attribution.status === 'ACCEPTED' && attribution.acceptedProfessionalId === professionalId,
-        isExcluded: Array.isArray(attribution.excludedProfessionals) && 
-                   (attribution.excludedProfessionals as string[]).includes(professionalId)
+        canCancel: attribution.status === 'ACCEPTED' && attribution.accepted_professional_id === professionalId,
+        isExcluded: Array.isArray(attribution.excluded_professionals) &&
+                   (attribution.excluded_professionals as string[]).includes(professionalId)
       };
     }
 
@@ -109,8 +109,8 @@ export async function GET(
     console.error(`❌ Erreur lors de la consultation attribution ${attributionId}:`, error);
 
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Erreur interne du serveur',
         details: error instanceof Error ? error.message : 'Erreur inconnue'
       },

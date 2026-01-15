@@ -70,7 +70,7 @@ async function checkDatabaseHealth() {
     await prisma.$queryRaw`SELECT 1`;
     
     // Test spécifique table notifications
-    const notificationCount = await prisma.notification.count();
+    const notificationCount = await prisma.notifications.count();
     
     await prisma.$disconnect();
     

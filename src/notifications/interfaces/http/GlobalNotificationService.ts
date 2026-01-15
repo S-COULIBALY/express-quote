@@ -157,7 +157,7 @@ async function createNotificationService(): Promise<ProductionNotificationServic
       await whatsAppAdapter.configure({
         accessToken: whatsappToken,
         phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
-        verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || ''
+        webhookVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || ''
       });
       console.log('✅ WhatsApp adapter configured');
     } catch (error) {
@@ -194,12 +194,8 @@ export async function resetGlobalNotificationService(): Promise<void> {
   console.log('🔄 Resetting global notification service...');
   
   if (globalService) {
-    try {
-      // Tentative de nettoyage propre
-      await globalService.cleanup?.();
-    } catch (error) {
-      console.log('⚠️ Service cleanup warning:', (error as Error).message);
-    }
+    // ProductionNotificationService n'a pas de méthode cleanup()
+    // Le nettoyage est géré par les méthodes spécifiques comme cleanupExpiredNotifications()
   }
   
   globalService = null;

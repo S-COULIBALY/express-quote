@@ -135,6 +135,9 @@ export function useCachedFetch<T>(
   refetch: () => Promise<void>;
   invalidate: () => void;
 } {
+  // Import dynamique de React pour éviter les dépendances circulaires
+  const React = require('react') as typeof import('react');
+  
   const {
     ttl = 5 * 60 * 1000,
     staleWhileRevalidate = true,
@@ -145,9 +148,6 @@ export function useCachedFetch<T>(
   const [data, setData] = React.useState<T | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
-
-  // Import dynamique de React pour éviter les dépendances circulaires
-  const React = require('react');
 
   const fetchWithRetry = React.useCallback(
     async (attempt = 1): Promise<T> => {
@@ -189,7 +189,7 @@ export function useCachedFetch<T>(
   }, [key]);
 
   React.useEffect(() => {
-    const cachedData = catalogueCache.get<T>(key);
+    const cachedData = catalogueCache.get(key) as T | null;
 
     if (cachedData) {
       setData(cachedData);

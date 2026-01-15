@@ -1,3 +1,10 @@
+// ============================================================================
+// USE FORM BUSINESS LOGIC - Express Quote
+// ============================================================================
+// Logique métier pour les formulaires.
+// Seul le déménagement sur mesure est actif.
+// ============================================================================
+
 import { useState, useCallback } from 'react';
 import { CatalogData } from '@/hooks/useCatalogPreFill';
 import { devLog } from '@/lib/conditional-logger';
@@ -10,23 +17,22 @@ import { devLog } from '@/lib/conditional-logger';
  * - Fusion des contraintes (pickup/delivery → additionalServices)
  * - Gestion de l'état du formulaire
  *
- * Extrait de DetailForm.tsx pour réduire la complexité
+ * NOTE: Seul le déménagement sur mesure est supporté.
  */
 export const useFormBusinessLogic = (
-  catalogData: CatalogData,
+  _catalogData: CatalogData,
   presetType: string
 ) => {
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
 
   /**
    * Enrichit les données du formulaire avec calculs automatiques
    */
-  const enrichFormData = useCallback(async (currentFormData: any) => {
+  const enrichFormData = useCallback(async (currentFormData: Record<string, unknown>) => {
     let enrichedData = { ...currentFormData };
 
-    // 1. Calcul automatique de distance pour Moving/Delivery
-    if ((presetType === 'catalogueMovingItem-service' ||
-         presetType === 'catalogueDeliveryItem-service') &&
+    // Calcul automatique de distance pour déménagement sur mesure
+    if (presetType === 'demenagement-sur-mesure' &&
         currentFormData.pickupAddress &&
         currentFormData.deliveryAddress &&
         currentFormData.pickupAddress !== currentFormData.deliveryAddress) {
@@ -36,8 +42,8 @@ export const useFormBusinessLogic = (
       try {
         const { calculateDistance } = await import('@/actions/distanceCalculator');
         const calculatedDistance = await calculateDistance(
-          currentFormData.pickupAddress,
-          currentFormData.deliveryAddress
+          currentFormData.pickupAddress as string,
+          currentFormData.deliveryAddress as string
         );
 
         enrichedData.distance = calculatedDistance;
@@ -49,14 +55,14 @@ export const useFormBusinessLogic = (
       }
     }
 
-    // 2. Validation hasEnoughData
+    // Validation hasEnoughData
     const hasEnoughData = validateEnoughData(presetType, enrichedData);
     if (!hasEnoughData) {
       return enrichedData;
     }
 
-    // 3. Fusion des contraintes pickup/delivery
-    enrichedData = fuseConstraints(enrichedData, presetType);
+    // Fusion des contraintes pickup/delivery
+    enrichedData = fuseConstraints(enrichedData);
 
     return enrichedData;
   }, [presetType]);
@@ -66,8 +72,8 @@ export const useFormBusinessLogic = (
    */
   const handleFieldChange = useCallback(async (
     fieldName: string,
-    value: any,
-    allFormData: any
+    value: unknown,
+    allFormData: Record<string, unknown>
   ) => {
     devLog.debug('FormBusinessLogic', 'Field change:', fieldName);
 
@@ -76,19 +82,22 @@ export const useFormBusinessLogic = (
       if (value && typeof value === 'object' && ('addressConstraints' in value || 'globalServices' in value)) {
         devLog.debug('FormBusinessLogic', 'Fusion des règles séparées pour', fieldName);
 
-        const { addressConstraints, globalServices } = value;
+        const { addressConstraints, globalServices } = value as {
+          addressConstraints?: Record<string, unknown>;
+          globalServices?: Record<string, unknown>;
+        };
 
         // Mettre à jour les contraintes d'adresse
         allFormData[fieldName] = addressConstraints || {};
 
         // Fusionner les services globaux (éviter les doublons)
-        const existingGlobalServices = allFormData.additionalServices || {};
+        const existingGlobalServices = (allFormData.additionalServices as Record<string, unknown>) || {};
         const mergedGlobalServices = { ...existingGlobalServices, ...globalServices };
         allFormData.additionalServices = mergedGlobalServices;
 
         devLog.debug('FormBusinessLogic', 'Règles fusionnées:', {
-          [fieldName]: Object.keys(allFormData[fieldName] || {}),
-          additionalServices: Object.keys(allFormData.additionalServices || {})
+          [fieldName]: Object.keys((allFormData[fieldName] as Record<string, unknown>) || {}),
+          additionalServices: Object.keys((allFormData.additionalServices as Record<string, unknown>) || {})
         });
       }
     }
@@ -108,22 +117,19 @@ export const useFormBusinessLogic = (
 /**
  * Valide si on a assez de données pour calculer le prix
  */
-function validateEnoughData(presetType: string, data: any): boolean {
-  if (presetType === 'catalogueMovingItem-service') {
+function validateEnoughData(presetType: string, data: Record<string, unknown>): boolean {
+  // Seul le déménagement sur mesure est supporté
+  if (presetType === 'demenagement-sur-mesure') {
     return !!(data.scheduledDate && data.pickupAddress && data.deliveryAddress);
   }
-  return !!(data.scheduledDate && data.location);
+  // Fallback pour d'autres types (compatibilité)
+  return !!(data.scheduledDate);
 }
 
 /**
  * Fusionne les contraintes pickup/delivery en format plat
  */
-function fuseConstraints(data: any, presetType: string): any {
-  if (presetType !== 'catalogueMovingItem-service' &&
-      presetType !== 'catalogueDeliveryItem-service') {
-    return data;
-  }
-
+function fuseConstraints(data: Record<string, unknown>): Record<string, unknown> {
   const fusedData = { ...data };
 
   // Initialiser les objets de services
@@ -140,17 +146,23 @@ function fuseConstraints(data: any, presetType: string): any {
     : [];
 
   // Mapper vers les objets de services
+  const pickupServices = fusedData.pickupServices as Record<string, boolean>;
+  const deliveryServices = fusedData.deliveryServices as Record<string, boolean>;
+
   for (const constraint of pickupConstraints) {
     if (typeof constraint === 'string') {
-      fusedData.pickupServices[constraint] = true;
+      pickupServices[constraint] = true;
     }
   }
 
   for (const constraint of deliveryConstraints) {
     if (typeof constraint === 'string') {
-      fusedData.deliveryServices[constraint] = true;
+      deliveryServices[constraint] = true;
     }
   }
+
+  fusedData.pickupServices = pickupServices;
+  fusedData.deliveryServices = deliveryServices;
 
   return fusedData;
 }

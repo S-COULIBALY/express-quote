@@ -37,12 +37,12 @@ export class PrismaCustomerRepository implements ICustomerRepository {
         return customer;
       } else {
         // Création d'un nouveau client
-        const id = customer.getId() || undefined;
+        const customerId = customer.getId() || crypto.randomUUID();
         const now = new Date();
         const createdCustomer = await this.prisma.customer.create({
           data: {
             ...customerData,
-            id,
+            id: customerId,
             createdAt: now,
             updatedAt: now
           }

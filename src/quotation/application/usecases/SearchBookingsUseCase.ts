@@ -24,13 +24,13 @@ export class SearchBookingsUseCase {
         const response: BookingSearchResponseDTO = {
             bookings: result.bookings.map(booking => ({
                 id: booking.getId(),
-                type: booking.getType(),
+                type: booking.getType() as any,
                 status: booking.getStatus(),
                 customerId: booking.getCustomer().getId(),
                 professionalId: booking.getProfessional()?.getId(),
-                totalAmount: booking.getTotalAmount().getValue(),
-                currency: booking.getTotalAmount().getCurrency(),
-                paymentMethod: booking.getPaymentMethod(),
+                totalAmount: booking.getTotalAmount().getAmount(),
+                currency: booking.getTotalAmount().getCurrency() || 'EUR',
+                paymentMethod: undefined, // TODO: Ajouter getPaymentMethod() à Booking
                 createdAt: booking.getCreatedAt().toISOString(),
                 updatedAt: booking.getUpdatedAt().toISOString(),
                 scheduledDate: booking.getScheduledDate()?.toISOString(),
@@ -49,8 +49,8 @@ export class SearchBookingsUseCase {
                 professional: booking.getProfessional() ? {
                     id: booking.getProfessional()!.getId(),
                     companyName: booking.getProfessional()!.getCompanyName(),
-                    email: booking.getProfessional()!.getContactInfo().getEmail(),
-                    phone: booking.getProfessional()!.getContactInfo().getPhone(),
+                    email: booking.getProfessional()!.getEmail(),
+                    phone: booking.getProfessional()!.getPhone(),
                     rating: booking.getProfessional()!.getRating(),
                 } : undefined,
                 

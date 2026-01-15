@@ -211,7 +211,7 @@ export class PDFService implements IPDFService {
         
         // Informations de paiement
         if (quote) {
-            const total = quote.getTotalAmount();
+            const total = quote.totalAmount.getAmount();
             const deposit = total * 0.3; // Acompte de 30%
             
             doc.moveDown()
@@ -330,9 +330,9 @@ export class PDFService implements IPDFService {
         // Item principal
         if (quote) {
             doc.font('Helvetica')
-               .text(booking.getDescription() || 'Service', tableLeft, y)
-               .text(`${quote.getTotalAmount().toFixed(2)} €`, tableLeft + colWidths[0], y)
-               .text(`${quote.getTotalAmount().toFixed(2)} €`, tableLeft + colWidths[0] + colWidths[1], y);
+               .text('Service', tableLeft, y)
+               .text(`${quote.totalAmount.getAmount().toFixed(2)} €`, tableLeft + colWidths[0], y)
+               .text(`${quote.totalAmount.getAmount().toFixed(2)} €`, tableLeft + colWidths[0] + colWidths[1], y);
             
             doc.moveDown();
             
@@ -343,7 +343,7 @@ export class PDFService implements IPDFService {
                .stroke();
             
             // Totaux
-            const total = quote.getTotalAmount();
+            const total = quote.totalAmount.getAmount();
             const deposit = total * 0.3; // Considérer un acompte de 30%
             
             doc.moveDown()

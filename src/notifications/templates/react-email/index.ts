@@ -14,22 +14,53 @@
  * - Layout : Composant de base réutilisable
  */
 
+// Imports React pour TypeScript
+import * as React from 'react';
+
+// Imports des types pour utilisation dans les unions
+import type { QuoteConfirmationData } from './emails/QuoteConfirmation';
+import type { BookingConfirmationData } from './emails/BookingConfirmation';
+import type { PaymentConfirmationData } from './emails/PaymentConfirmation';
+import type { ServiceReminderData } from './emails/ServiceReminder';
+import type { Reminder24hData } from './emails/Reminder24h';
+import type { Reminder7dData } from './emails/Reminder7d';
+import type { Reminder1hData } from './emails/Reminder1h';
+
+// Imports des composants pour le registre
+import { QuoteConfirmation } from './emails/QuoteConfirmation';
+import { BookingConfirmation } from './emails/BookingConfirmation';
+import { PaymentConfirmation } from './emails/PaymentConfirmation';
+import { ServiceReminder } from './emails/ServiceReminder';
+import { Reminder24hEmail } from './emails/Reminder24h';
+import { Reminder7dEmail } from './emails/Reminder7d';
+import { Reminder1hEmail } from './emails/Reminder1h';
+import { ProfessionalAttribution } from './emails/ProfessionalAttribution';
+import { MissionAcceptedConfirmation } from './emails/MissionAcceptedConfirmation';
+
 // Export des templates principaux
-export { QuoteConfirmation, type QuoteConfirmationData } from './emails/QuoteConfirmation';
-export { BookingConfirmation, type BookingConfirmationData } from './emails/BookingConfirmation';
-export { PaymentConfirmation, type PaymentConfirmationData } from './emails/PaymentConfirmation';
-export { ServiceReminder, type ServiceReminderData } from './emails/ServiceReminder';
-export { Reminder24hEmail, type Reminder24hData } from './emails/Reminder24h';
-export { Reminder7dEmail, type Reminder7dData } from './emails/Reminder7d';
-export { Reminder1hEmail, type Reminder1hData } from './emails/Reminder1h';
+export { QuoteConfirmation } from './emails/QuoteConfirmation';
+export type { QuoteConfirmationData } from './emails/QuoteConfirmation';
+export { BookingConfirmation } from './emails/BookingConfirmation';
+export type { BookingConfirmationData } from './emails/BookingConfirmation';
+export { PaymentConfirmation } from './emails/PaymentConfirmation';
+export type { PaymentConfirmationData } from './emails/PaymentConfirmation';
+export { ServiceReminder } from './emails/ServiceReminder';
+export type { ServiceReminderData } from './emails/ServiceReminder';
+export { Reminder24hEmail } from './emails/Reminder24h';
+export type { Reminder24hData } from './emails/Reminder24h';
+export { Reminder7dEmail } from './emails/Reminder7d';
+export type { Reminder7dData } from './emails/Reminder7d';
+export { Reminder1hEmail } from './emails/Reminder1h';
+export type { Reminder1hData } from './emails/Reminder1h';
 
 // 🆕 Nouveaux templates pour les responsables internes
 export { ProfessionalDocument } from './emails/ProfessionalDocument';
-export { AccountingDocuments } from './emails/AccountingDocuments';
+export { AccountingDocuments, type AccountingDocumentsData } from './emails/AccountingDocuments';
 
 // 🆕 Templates pour l'attribution de missions aux professionnels
-export { default as ProfessionalAttribution } from './emails/ProfessionalAttribution';
-export { default as MissionAcceptedConfirmation } from './emails/MissionAcceptedConfirmation';
+export { ProfessionalAttribution } from './emails/ProfessionalAttribution';
+export type { ProfessionalAttributionData } from './emails/ProfessionalAttribution';
+export { MissionAcceptedConfirmation } from './emails/MissionAcceptedConfirmation';
 
 // Export du layout et composants utilitaires
 export {
@@ -197,14 +228,3 @@ export function mergeEmailConfig<T extends Record<string, any>>(
   } as T & typeof DEFAULT_EMAIL_CONFIG;
 }
 
-// Imports React pour TypeScript
-import * as React from 'react';
-
-// Imports des composants pour le registre
-import { QuoteConfirmation } from './emails/QuoteConfirmation';
-import { BookingConfirmation } from './emails/BookingConfirmation';
-import { PaymentConfirmation } from './emails/PaymentConfirmation';
-import { ServiceReminder } from './emails/ServiceReminder';
-import { Reminder24hEmail } from './emails/Reminder24h';
-import { Reminder7dEmail } from './emails/Reminder7d';
-import { Reminder1hEmail } from './emails/Reminder1h';

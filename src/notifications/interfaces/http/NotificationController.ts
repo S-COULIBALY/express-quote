@@ -543,12 +543,10 @@ export class NotificationController {
         sanitizedRecipient: toEmail,
         error: result.error,
         latencyMs: result.latencyMs,
-        circuitState: result.circuitState || 'CLOSED',
         metadata: {
           validationFailed: !result.success,
           sanitized: true,
-          timestamp: new Date().toISOString(),
-          ...result.metadata
+          timestamp: new Date().toISOString()
         }
       }, { status: result.success ? 200 : 500 });
 
@@ -731,17 +729,19 @@ export class NotificationController {
       } catch (sanitizeError) {
         // En cas d'erreur de sanitization, utiliser une sanitization basique
         sanitizedMessage = validData.message
-          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-          .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '')
-          .replace(/javascript:/gi, '')
-          .replace(/<iframe\b[^>]*>/gi, '')
-          .replace(/<\/iframe>/gi, '')
-          .replace(/<object\b[^>]*>/gi, '')
-          .replace(/<\/object>/gi, '')
-          .replace(/<embed\b[^>]*>/gi, '')
-          .replace(/<\/embed>/gi, '')
-          .replace(/(\b(DROP|DELETE|UPDATE|INSERT|SELECT|UNION|EXEC|SCRIPT)\b)/gi, '[BLOCKED]')
-          .replace(/[<>'"\\;]/g, '');
+          ? validData.message
+              .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+              .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '')
+              .replace(/javascript:/gi, '')
+              .replace(/<iframe\b[^>]*>/gi, '')
+              .replace(/<\/iframe>/gi, '')
+              .replace(/<object\b[^>]*>/gi, '')
+              .replace(/<\/object>/gi, '')
+              .replace(/<embed\b[^>]*>/gi, '')
+              .replace(/<\/embed>/gi, '')
+              .replace(/(\b(DROP|DELETE|UPDATE|INSERT|SELECT|UNION|EXEC|SCRIPT)\b)/gi, '[BLOCKED]')
+              .replace(/[<>'"\\;]/g, '')
+          : '';
       }
       
       const result = await service.sendWhatsApp({
@@ -843,15 +843,7 @@ export class NotificationController {
         serviceTime: validData.serviceTime,
         serviceAddress: validData.serviceAddress,
         totalAmount: validData.totalAmount,
-        customerPhone: validData.customerPhone,
-
-        // 🆕 Données additionnelles pour template enrichi
-        bookingReference: validData.bookingReference,
-        serviceType: validData.serviceType,
-        trigger: validData.trigger,
-
-        // 🆕 Pièces jointes converties
-        attachments: attachments
+        customerPhone: validData.customerPhone
       });
 
       return NextResponse.json({
@@ -879,7 +871,7 @@ export class NotificationController {
   /**
    * Gestionnaire pour la confirmation de paiement avec pièces jointes PDF
    */
-  async handlePaymentConfirmation(body: any) {
+  async handlePaymentConfirmation(service: ProductionNotificationService, body: any): Promise<NextResponse> {
     try {
       const validData = PaymentConfirmationSchema.parse(body);
 
@@ -900,21 +892,19 @@ export class NotificationController {
               size: attachment.size
             });
 
-            this.logger.info('📎 PDF converti en Base64', {
+            console.log('📎 PDF converti en Base64', {
               filename: attachment.filename,
               originalSize: `${Math.round(attachment.size / 1024)}KB`,
               base64Size: `${Math.round(base64Content.length / 1024)}KB`
             });
           } catch (error) {
-            this.logger.error('❌ Erreur lecture PDF', {
+            console.error('❌ Erreur lecture PDF', {
               path: attachment.path,
               error: error instanceof Error ? error.message : 'Erreur inconnue'
             });
           }
         }
       }
-
-      const service = await this.getNotificationService();
 
       // 💰 Envoi de la notification payment-confirmation avec PDF
       const result = await service.sendPaymentConfirmation(validData.email, {
@@ -943,18 +933,21 @@ export class NotificationController {
       let smsResult = null;
       if (validData.customerPhone) {
         try {
-          smsResult = await service.sendSMS(validData.customerPhone,
-            `💰 Paiement confirmé ! Votre réservation ${validData.bookingReference || validData.bookingId.slice(-8)} est validée. Montant: ${validData.amount}€. Merci !`
-          );
+          smsResult = await service.sendSMS({
+            to: validData.customerPhone,
+            message: `💰 Paiement confirmé ! Votre réservation ${validData.bookingReference || validData.bookingId.slice(-8)} est validée. Montant: ${validData.amount}€. Merci !`,
+            from: 'EXPRESS-QUOTE',
+            priority: 'HIGH'
+          });
         } catch (smsError) {
-          this.logger.error('❌ Erreur envoi SMS payment-confirmation', {
+          console.error('❌ Erreur envoi SMS payment-confirmation', {
             phone: validData.customerPhone,
             error: smsError instanceof Error ? smsError.message : 'Erreur inconnue'
           });
         }
       }
 
-      return {
+      return NextResponse.json({
         success: result.success,
         emailsSent: result.success ? 1 : 0,
         smsSent: smsResult?.success ? 1 : 0,
@@ -963,29 +956,29 @@ export class NotificationController {
         attachmentsProcessed: attachmentsB64.length,
         error: result.error,
         latencyMs: result.latencyMs
-      };
+      });
 
     } catch (error) {
-      this.logger.error('❌ Erreur handlePaymentConfirmation', {
+      console.error('❌ Erreur handlePaymentConfirmation', {
         error: error instanceof Error ? error.message : 'Erreur inconnue'
       });
 
       if (error instanceof z.ZodError) {
-        return {
+        return NextResponse.json({
           success: false,
           error: 'Données de paiement invalides',
           details: error.errors,
           emailsSent: 0,
           smsSent: 0
-        };
+        }, { status: 400 });
       }
 
-      return {
+      return NextResponse.json({
         success: false,
         error: error instanceof Error ? error.message : 'Erreur inconnue',
         emailsSent: 0,
         smsSent: 0
-      };
+      }, { status: 500 });
     }
   }
 
@@ -1152,23 +1145,38 @@ export class NotificationController {
       const validData = BatchSchema.parse(body);
 
       const results = await service.sendBulkNotifications({
-        notifications: validData.notifications.map(n => {
-          // Détecter le format et mapper les champs
-          const isLegacyFormat = n.to && (n.subject || n.html || n.message);
-          
-          return {
-            id: n.id || `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            type: isLegacyFormat ? 'email' : (n.type || 'email'),
-            recipient: isLegacyFormat ? n.to : (n.recipient || ''),
-            content: isLegacyFormat ? (n.html || n.message || '') : (n.content || ''),
-            subject: isLegacyFormat ? n.subject : (n.subject || ''),
-            priority: n.priority?.toLowerCase() || 'normal',
-            templateId: n.templateId,
-            variables: n.variables,
-            scheduledAt: n.scheduledAt ? new Date(n.scheduledAt) : undefined,
-            metadata: {}
-          };
-        }),
+        notifications: validData.notifications
+          .map(n => {
+            // Détecter le format et mapper les champs
+            const isLegacyFormat = n.to && (n.subject || n.html || n.message);
+            const recipient = isLegacyFormat ? n.to : (n.recipient || '');
+            
+            // Filtrer les notifications sans recipient
+            if (!recipient) {
+              return null;
+            }
+            
+            // Convertir priority en type valide
+            const priorityValue = n.priority?.toLowerCase();
+            const validPriority: 'low' | 'normal' | 'high' | 'critical' | undefined = 
+              priorityValue === 'low' || priorityValue === 'normal' || priorityValue === 'high' || priorityValue === 'critical'
+                ? priorityValue
+                : priorityValue === 'urgent' ? 'high' : 'normal';
+            
+            return {
+              id: n.id || `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              type: isLegacyFormat ? 'email' : (n.type || 'email'),
+              recipient: recipient,
+              content: isLegacyFormat ? (n.html || n.message || '') : (n.content || ''),
+              subject: isLegacyFormat ? n.subject : (n.subject || ''),
+              priority: validPriority,
+              templateId: n.templateId,
+              variables: n.variables,
+              scheduledAt: n.scheduledAt ? new Date(n.scheduledAt) : undefined,
+              metadata: {}
+            };
+          })
+          .filter((n): n is NonNullable<typeof n> => n !== null),
         batchSize: validData.batchSize,
         delayBetweenBatches: validData.delayBetweenBatches
       });

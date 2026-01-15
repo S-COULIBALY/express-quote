@@ -92,7 +92,7 @@ export interface ReactEmailTemplate {
 
 export class ReactEmailRenderer {
   private static instance: ReactEmailRenderer;
-  private templateCache = new Map<string, string>();
+  private templateCache = new Map<string, { html: string; text: string; subject: string }>();
   private compilationCache = new Map<string, any>();
 
   private constructor() {}

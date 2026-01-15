@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     // Authentification
     const authResult = await ProfessionalAuthService.authenticateFromRequest(request);
-    
+
     if (!authResult.success || !authResult.user) {
       return ProfessionalAuthService.unauthenticatedResponse();
     }
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
 async function getDashboardData(user: any) {
   const isAdmin = ProfessionalAuthService.isAdmin(user);
-  const userServices = user.serviceTypes || [];
+  const userServices = user.service_types || [];
 
   // Filtrer les réservations selon les permissions
   const bookingWhereClause = isAdmin ? {} : {
@@ -61,8 +61,7 @@ async function getDashboardData(user: any) {
       professionalId: null // Pas encore assigné
     },
     include: {
-      customer: true,
-      attributions: true
+      Customer: true
     },
     orderBy: { createdAt: 'desc' },
     take: 10
@@ -76,13 +75,8 @@ async function getDashboardData(user: any) {
       professionalId: { not: null }
     },
     include: {
-      customer: true,
-      professional: true,
-      attributions: {
-        include: {
-          acceptedProfessional: true
-        }
-      }
+      Customer: true,
+      Professional: true
     },
     orderBy: { updatedAt: 'desc' },
     take: 10
@@ -91,16 +85,16 @@ async function getDashboardData(user: any) {
   // Documents récents
   const recentDocuments = await prisma.document.findMany({
     where: isAdmin ? {} : {
-      booking: {
+      Booking: {
         ...bookingWhereClause
       }
     },
     include: {
-      booking: {
+      Booking: {
         select: {
           id: true,
           type: true,
-          customer: {
+          Customer: {
             select: {
               firstName: true,
               lastName: true
@@ -128,7 +122,7 @@ async function getDashboardData(user: any) {
       email: user.email,
       role: user.role,
       department: user.department,
-      serviceTypes: user.serviceTypes || []
+      service_types: user.service_types || []
     },
     pendingMissions: pendingMissions.map(formatMissionForDashboard),
     assignedMissions: assignedMissions.map(formatAssignedMissionForDashboard),
@@ -144,11 +138,11 @@ function formatMissionForDashboard(booking: any) {
     serviceType: getServiceTypeLabel(booking.type),
     amount: booking.totalAmount,
     location: booking.locationAddress || booking.pickupAddress || 'Adresse non spécifiée',
-    date: booking.scheduledDate ? 
-      new Date(booking.scheduledDate).toLocaleDateString('fr-FR') : 
-      'À planifier',
-    customerName: `${booking.customer.firstName} ${booking.customer.lastName}`,
-    status: booking.attributions?.[0]?.status || 'EN_ATTENTE',
+    date: booking.scheduledDate
+      ? new Date(booking.scheduledDate).toLocaleDateString('fr-FR')
+      : 'À planifier',
+    customerName: `${booking.Customer?.firstName || ''} ${booking.Customer?.lastName || ''}`,
+    status: 'EN_ATTENTE',
     createdAt: booking.createdAt
   };
 }
@@ -160,14 +154,13 @@ function formatAssignedMissionForDashboard(booking: any) {
     serviceType: getServiceTypeLabel(booking.type),
     amount: booking.totalAmount,
     location: booking.locationAddress || booking.pickupAddress || 'Adresse non spécifiée',
-    date: booking.scheduledDate ? 
-      new Date(booking.scheduledDate).toLocaleDateString('fr-FR') : 
-      'À planifier',
-    customerName: `${booking.customer.firstName} ${booking.customer.lastName}`,
-    professionalName: booking.professional?.companyName || 'Professionnel non assigné',
-    status: booking.attributions?.[0]?.status || 'ASSIGNEE',
-    acceptedAt: booking.attributions?.[0]?.acceptedProfessional ?
-      booking.attributions[0].createdAt : null
+    date: booking.scheduledDate
+      ? new Date(booking.scheduledDate).toLocaleDateString('fr-FR')
+      : 'À planifier',
+    customerName: `${booking.Customer?.firstName || ''} ${booking.Customer?.lastName || ''}`,
+    professionalName: booking.Professional?.companyName || 'Professionnel non assigné',
+    status: 'ASSIGNEE',
+    acceptedAt: null
   };
 }
 
@@ -177,8 +170,8 @@ function formatDocumentForDashboard(document: any) {
     type: getDocumentTypeLabel(document.type),
     filename: document.filename,
     createdAt: new Date(document.createdAt).toLocaleDateString('fr-FR'),
-    bookingReference: `EQ-${document.booking.id.slice(-8).toUpperCase()}`,
-    customerName: `${document.booking.customer.firstName} ${document.booking.customer.lastName}`
+    bookingReference: `EQ-${document.Booking?.id?.slice(-8)?.toUpperCase() || 'N/A'}`,
+    customerName: `${document.Booking?.Customer?.firstName || ''} ${document.Booking?.Customer?.lastName || ''}`
   };
 }
 
@@ -198,7 +191,7 @@ async function calculateStats(whereClause: any, startOfMonth: Date, isAdmin: boo
         professionalId: null
       }
     }),
-    
+
     // Missions assignées
     prisma.booking.count({
       where: {
@@ -207,7 +200,7 @@ async function calculateStats(whereClause: any, startOfMonth: Date, isAdmin: boo
         professionalId: { not: null }
       }
     }),
-    
+
     // Missions complétées ce mois
     prisma.booking.count({
       where: {
@@ -216,7 +209,7 @@ async function calculateStats(whereClause: any, startOfMonth: Date, isAdmin: boo
         updatedAt: { gte: startOfMonth }
       }
     }),
-    
+
     // Total missions ce mois
     prisma.booking.count({
       where: {
@@ -224,18 +217,19 @@ async function calculateStats(whereClause: any, startOfMonth: Date, isAdmin: boo
         createdAt: { gte: startOfMonth }
       }
     }),
-    
+
     // Documents générés ce mois
     prisma.document.count({
       where: {
         createdAt: { gte: startOfMonth },
-        ...(isAdmin ? {} : { booking: whereClause })
+        ...(isAdmin ? {} : { Booking: whereClause })
       }
     })
   ]);
 
-  const successRate = totalThisMonth > 0 ? 
-    Math.round((completedThisMonth / totalThisMonth) * 100) : 0;
+  const successRate = totalThisMonth > 0
+    ? Math.round((completedThisMonth / totalThisMonth) * 100)
+    : 0;
 
   return {
     pendingCount,
@@ -249,30 +243,30 @@ async function calculateStats(whereClause: any, startOfMonth: Date, isAdmin: boo
 
 function mapServiceTypeToBookingType(serviceType: string): string {
   const mapping: Record<string, string> = {
-    'MOVING': 'MOVING_QUOTE',
-    'PACKING': 'PACKING',
-    'CLEANING': 'SERVICE',
-    'DELIVERY': 'SERVICE',
-    'SERVICE': 'SERVICE'
+    MOVING: 'MOVING_QUOTE',
+    PACKING: 'PACKING',
+    CLEANING: 'SERVICE',
+    DELIVERY: 'SERVICE',
+    SERVICE: 'SERVICE'
   };
   return mapping[serviceType] || 'SERVICE';
 }
 
 function getServiceTypeLabel(bookingType: string): string {
   const labels: Record<string, string> = {
-    'MOVING_QUOTE': 'Déménagement',
-    'PACKING': 'Emballage',
-    'SERVICE': 'Service'
+    MOVING_QUOTE: 'Déménagement',
+    PACKING: 'Emballage',
+    SERVICE: 'Service'
   };
   return labels[bookingType] || bookingType;
 }
 
 function getDocumentTypeLabel(documentType: string): string {
   const labels: Record<string, string> = {
-    'BOOKING_CONFIRMATION': 'Confirmation',
-    'INVOICE': 'Facture',
-    'CONTRACT': 'Contrat',
-    'OTHER': 'Autre'
+    BOOKING_CONFIRMATION: 'Confirmation',
+    INVOICE: 'Facture',
+    CONTRACT: 'Contrat',
+    OTHER: 'Autre'
   };
   return labels[documentType] || documentType;
 }

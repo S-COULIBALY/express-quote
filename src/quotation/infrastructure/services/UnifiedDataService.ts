@@ -291,43 +291,6 @@ export class UnifiedDataService {
   }
 
   /**
-   * Convertit les règles unifiées en objets Rule pour le RuleEngine
-   * @param serviceType Type de service (MOVING, CLEANING, etc.)
-   * @param options Options (gardées pour compatibilité, ignorées)
-   */
-  async getBusinessRulesForEngine(
-    serviceType?: ServiceType,
-    options?: { addressType?: 'pickup' | 'delivery' | 'both' }
-  ): Promise<import("../../domain/valueObjects/Rule").Rule[]> {
-    try {
-      const unifiedRules = await this.getBusinessRules(serviceType, options);
-      const { Rule } = await import("../../domain/valueObjects/Rule");
-
-      return unifiedRules.map(
-        (unifiedRule) =>
-          new Rule(
-            unifiedRule.name,
-            unifiedRule.serviceType,
-            unifiedRule.value,
-            unifiedRule.condition ? JSON.stringify(unifiedRule.condition) : "",
-            unifiedRule.isActive,
-            unifiedRule.id,
-            unifiedRule.percentBased,
-            unifiedRule.metadata,
-            // ✅ NOUVEAU: Passer le champ scope
-            unifiedRule.scope
-          ),
-      );
-    } catch (error) {
-      logger.error(
-        error as Error,
-        `❌ Erreur lors de la conversion des règles pour ${serviceType}`,
-      );
-      return [];
-    }
-  }
-
-  /**
    * Récupère les règles temporelles (week-end, saisonnalité, etc.)
    */
   async getTemporalRules(serviceType?: ServiceType): Promise<UnifiedRule[]> {

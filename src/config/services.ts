@@ -100,4 +100,13 @@ export const whatsAppService = {
     servicesLogger.info('WhatsApp webhook reçu');
     return Promise.resolve();
   },
+  verifyWebhook: (mode: string, token: string, challenge: string): string | null => {
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+    if (mode === 'subscribe' && token === verifyToken) {
+      servicesLogger.info('WhatsApp webhook vérifié avec succès');
+      return challenge;
+    }
+    servicesLogger.warn('WhatsApp webhook verification échouée');
+    return null;
+  },
 }; 

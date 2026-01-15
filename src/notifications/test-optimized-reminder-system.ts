@@ -53,12 +53,14 @@ class OptimizedReminderSystemTest {
         host: process.env.SMTP_HOST || 'localhost',
         port: parseInt(process.env.SMTP_PORT || '587'),
         secure: process.env.SMTP_SECURE === 'true',
-        user: process.env.SMTP_USER || 'test@example.com',
-        pass: process.env.SMTP_PASS || 'password'
+        auth: {
+          user: process.env.SMTP_USER || 'test@example.com',
+          password: process.env.SMTP_PASS || 'password'
+        }
       };
 
       const smsConfig = {
-        provider: 'free_mobile',
+        provider: 'free_mobile' as const,
         user: process.env.FREE_MOBILE_USER || 'testuser',
         pass: process.env.FREE_MOBILE_PASS || 'testpass'
       };
@@ -69,9 +71,12 @@ class OptimizedReminderSystemTest {
       };
 
       // Initialiser tous les composants avec configuration de test
-      const emailAdapter = new RobustEmailAdapter(emailConfig);
-      const smsAdapter = new RobustSmsAdapter(smsConfig);
-      const whatsAppAdapter = new RobustWhatsAppAdapter(whatsappConfig);
+      const emailAdapter = new RobustEmailAdapter();
+      await emailAdapter.configure(emailConfig);
+      const smsAdapter = new RobustSmsAdapter();
+      await smsAdapter.configure(smsConfig);
+      const whatsAppAdapter = new RobustWhatsAppAdapter();
+      await whatsAppAdapter.configure(whatsappConfig);
       const queueManager = new ProductionQueueManager();
       const rateLimiter = new RateLimiter({
         windowMs: 60000,
@@ -79,7 +84,11 @@ class OptimizedReminderSystemTest {
       });
       const sanitizer = new ContentSanitizer();
       const metricsCollector = new MetricsCollector();
-      const circuitBreaker = new CircuitBreaker();
+      const circuitBreaker = new CircuitBreaker({
+        failureThreshold: 5,
+        timeout: 10000,
+        resetTimeout: 60000
+      });
       const templateCache = new TemplateCache();
 
       // Créer le service de notification

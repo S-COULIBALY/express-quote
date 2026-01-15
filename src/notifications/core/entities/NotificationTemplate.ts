@@ -983,9 +983,9 @@ export class NotificationTemplate {
       createdAt: this._createdAt.toISOString(),
       lastModified: this._lastModified.toISOString(),
       modifiedBy: this._modifiedBy,
-      variables: Array.from(this._variables.entries()).map(([name, variable]) => ({
-        name,
-        ...variable
+      variables: Array.from(this._variables.entries()).map(([varName, variable]) => ({
+        ...variable,
+        name: varName
       })),
       content: Object.fromEntries(
         Array.from(this._content.entries()).map(([lang, content]) => [
@@ -1034,14 +1034,20 @@ export class NotificationTemplate {
     }
     
     // Restaurer le contenu
-    for (const [lang, content] of Object.entries(json.content as any)) {
+    for (const [lang, rawContent] of Object.entries(json.content as Record<string, Record<string, unknown>>)) {
+      const content = rawContent as {
+        subject: string;
+        body: string;
+        compilationMetadata?: { compiledAt: string; [key: string]: unknown };
+        [key: string]: unknown;
+      };
       template._content.set(lang as SupportedLanguage, {
         ...content,
         compilationMetadata: content.compilationMetadata ? {
           ...content.compilationMetadata,
           compiledAt: new Date(content.compilationMetadata.compiledAt)
         } : undefined
-      });
+      } as TemplateContent);
     }
     
     // Restaurer les métriques

@@ -40,7 +40,8 @@ export const WhatsAppConfig = {
 
     webhook: {
         path: '/api/whatsapp/webhook',
-        methods: ['GET', 'POST'] as const
+        methods: ['GET', 'POST'] as const,
+        allowedIPs: (process.env.WHATSAPP_WEBHOOK_ALLOWED_IPS?.split(',').filter(Boolean) || []) as string[]
     }
 } as const;
 

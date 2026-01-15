@@ -30,24 +30,26 @@ export async function POST(request: NextRequest) {
 
     // Délégation vers le contrôleur avec documents attachés
     const notificationController = new NotificationController();
-    const result = await notificationController.handlePaymentConfirmation(enrichedBody);
+    const service = await notificationController['getNotificationService']();
+    const result = await notificationController.handlePaymentConfirmation(service, enrichedBody);
 
-    if (result.success) {
+    // handlePaymentConfirmation retourne déjà un NextResponse
+    const resultData = await result.json();
+
+    if (resultData.success) {
       requestLogger.info('✅ Notifications payment-confirmation envoyées', {
         bookingId: body.bookingId,
-        emailsSent: result.emailsSent,
-        smsSent: result.smsSent
+        emailsSent: resultData.emailsSent,
+        smsSent: resultData.smsSent
       });
-
-      return NextResponse.json(result);
     } else {
       requestLogger.error('❌ Échec notifications payment-confirmation', {
         bookingId: body.bookingId,
-        error: result.error
+        error: resultData.error
       });
-
-      return NextResponse.json(result, { status: 500 });
     }
+
+    return result;
 
   } catch (error) {
     requestLogger.error('❌ Erreur API payment-confirmation', {
@@ -111,7 +113,7 @@ async function generateDocumentsForPaymentConfirmation(body: any, logger: any): 
         logger.info('✅ Documents générés pour paiement', {
           bookingId,
           documentsCount: attachments.length,
-          totalSize: `${Math.round(attachments.reduce((sum, att) => sum + (att.size || 0), 0) / 1024)}KB`
+          totalSize: `${Math.round(attachments.reduce((sum: number, att: any) => sum + (att.size || 0), 0) / 1024)}KB`
         });
       }
     } else {

@@ -200,7 +200,7 @@ class RecoveryAutomationProcessor {
         }
       },
       include: {
-        catalogSelection: true
+        CatalogSelection: true
       }
     });
 
@@ -272,7 +272,7 @@ class RecoveryAutomationProcessor {
         }
       },
       include: {
-        customer: true
+        Customer: true
       }
     });
 
@@ -280,8 +280,8 @@ class RecoveryAutomationProcessor {
       id: booking.id,
       stage: 'payment_initiated' as const,
       data: booking,
-      email: booking.customer?.email,
-      phone: booking.customer?.phone || undefined,
+      email: booking.Customer?.email,
+      phone: booking.Customer?.phone || undefined,
       abandonedAt: booking.updatedAt,
       lastActivity: booking.updatedAt,
       recoveryAttempts: 0 // À implémenter dans le schéma si nécessaire

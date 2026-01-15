@@ -317,14 +317,17 @@ export class ItemService {
         return groups;
       }, {});
 
-      const revenueByType = Object.entries(typeGroups).map(([type, items]: [string, any[]]) => ({
-        type,
-        count: items.length,
-        itemsCount: items.length,
-        avgPrice: items.reduce((sum, i) => sum + i.getPrice().getAmount(), 0) / items.length,
-        totalValue: items.reduce((sum, i) => sum + i.getPrice().getAmount(), 0),
-        revenue: items.reduce((sum, i) => sum + i.getPrice().getAmount(), 0)
-      }));
+      const revenueByType = Object.entries(typeGroups).map(([type, items]) => {
+        const itemsArray = Array.isArray(items) ? items : [];
+        return {
+          type,
+          count: itemsArray.length,
+          itemsCount: itemsArray.length,
+          avgPrice: itemsArray.length > 0 ? itemsArray.reduce((sum, i) => sum + i.getPrice().getAmount(), 0) / itemsArray.length : 0,
+          totalValue: itemsArray.reduce((sum, i) => sum + i.getPrice().getAmount(), 0),
+          revenue: itemsArray.reduce((sum, i) => sum + i.getPrice().getAmount(), 0)
+        };
+      });
 
       // Items par performance (basé sur le prix et popularité)
       const sortedByPrice = [...items].sort((a, b) =>

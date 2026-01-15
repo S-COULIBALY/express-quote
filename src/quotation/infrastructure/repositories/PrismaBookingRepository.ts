@@ -8,7 +8,6 @@ import { Database } from '../config/database';
 import { Quote } from '../../domain/entities/Quote';
 import { QuoteType, QuoteStatus } from '../../domain/enums/QuoteType';
 import { QuoteContext } from '../../domain/valueObjects/QuoteContext';
-import { AppliedRule } from '../../domain/valueObjects/AppliedRule';
 import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
 import { BookingSearchCriteriaVO } from '../../domain/valueObjects/BookingSearchCriteria';
 
@@ -56,11 +55,12 @@ export class PrismaBookingRepository implements IBookingRepository {
         return booking;
       } else {
         // Création d'une nouvelle réservation
-        const id = booking.getId() || undefined;
+        const bookingId = booking.getId() || crypto.randomUUID();
+
         const createdBooking = await this.prisma.booking.create({
           data: {
             ...bookingData,
-            id
+            id: bookingId
           },
           include: {
             Customer: true,
@@ -640,9 +640,9 @@ export class PrismaBookingRepository implements IBookingRepository {
           }
         },
         include: {
-          customer: true,
-          professional: true,
-          moving: true,
+          Customer: true,
+          Professional: true,
+          Moving: true,
           items: true
         }
       });
@@ -669,9 +669,9 @@ export class PrismaBookingRepository implements IBookingRepository {
           }
         },
         include: {
-          customer: true,
-          professional: true,
-          moving: true,
+          Customer: true,
+          Professional: true,
+          Moving: true,
           items: true
         }
       });
@@ -698,9 +698,9 @@ export class PrismaBookingRepository implements IBookingRepository {
           }
         },
         include: {
-          customer: true,
-          professional: true,
-          moving: true,
+          Customer: true,
+          Professional: true,
+          Moving: true,
           items: true
         }
       });
@@ -727,9 +727,9 @@ export class PrismaBookingRepository implements IBookingRepository {
           }
         },
         include: {
-          customer: true,
-          professional: true,
-          moving: true,
+          Customer: true,
+          Professional: true,
+          Moving: true,
           items: true
         }
       });
@@ -1088,8 +1088,8 @@ export class PrismaBookingRepository implements IBookingRepository {
     ) : undefined;
     
     const quote = new Quote({
-      type: QuoteType.STANDARD,
-      status: QuoteStatus.ACCEPTED,
+      type: QuoteType.MOVING_QUOTE,
+      status: QuoteStatus.CONFIRMED,
       customer: {
         id: customer.getId(),
         firstName: prismaBooking.Customer?.firstName || '',

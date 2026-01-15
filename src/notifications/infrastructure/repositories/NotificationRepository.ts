@@ -69,23 +69,24 @@ export class NotificationRepository {
           ? 'SCHEDULED' 
           : 'PENDING';
       
-      const notification = await this.prisma.notification.create({
+      const notification = await this.prisma.notifications.create({
         data: {
-          recipientId: data.recipientId,
+          recipient_id: data.recipientId,
           channel: data.channel,
           status: initialStatus,
-          templateId: data.templateId,
-          templateData: data.templateData,
+          template_id: data.templateId,
+          template_data: data.templateData,
           subject: data.subject,
           content: data.content,
           priority: data.priority || 'NORMAL',
-          scheduledAt: data.scheduledAt,
-          expiresAt: data.expiresAt,
-          maxAttempts: data.maxAttempts || 3,
-          metadata: data.metadata,
-          tags: data.tags,
-          attempts: 0
-        }
+          scheduled_at: data.scheduledAt,
+          expires_at: data.expiresAt,
+          max_attempts: data.maxAttempts || 3,
+          metadata: data.metadata || {},
+          tags: data.tags || [],
+          attempts: 0,
+          updated_at: new Date()
+        } as any
       });
       
       this.logger.info('📝 Notification créée', { 
@@ -106,11 +107,11 @@ export class NotificationRepository {
    */
   async update(id: string, data: UpdateNotificationData) {
     try {
-      const notification = await this.prisma.notification.update({
+      const notification = await this.prisma.notifications.update({
         where: { id },
         data: {
-          ...data,
-          updatedAt: new Date()
+          ...(data as any),
+          updated_at: new Date()
         }
       });
       
@@ -139,7 +140,7 @@ export class NotificationRepository {
    */
   async findById(id: string) {
     try {
-      return await this.prisma.notification.findUnique({
+      return await this.prisma.notifications.findUnique({
         where: { id }
       });
     } catch (error) {
@@ -164,11 +165,11 @@ export class NotificationRepository {
   async markAsSent(id: string, externalId?: string, providerResponse?: any, cost?: number) {
     return this.update(id, {
       status: 'SENT',
-      sentAt: new Date(),
-      externalId,
-      providerResponse,
+      sent_at: new Date(),
+      external_id: externalId,
+      provider_response: providerResponse,
       cost
-    });
+    } as any);
   }
   
   /**
@@ -177,10 +178,10 @@ export class NotificationRepository {
   async markAsFailed(id: string, error: string, providerResponse?: any) {
     return this.update(id, {
       status: 'FAILED',
-      failedAt: new Date(),
-      lastError: error,
-      providerResponse
-    });
+      failed_at: new Date(),
+      last_error: error,
+      provider_response: providerResponse
+    } as any);
   }
   
   /**
@@ -189,8 +190,8 @@ export class NotificationRepository {
   async markAsRetrying(id: string, error: string) {
     return this.update(id, {
       status: 'RETRYING',
-      lastError: error
-    });
+      last_error: error
+    } as any);
   }
 
   /**
@@ -208,9 +209,9 @@ export class NotificationRepository {
   async markAsDelivered(id: string, deliveredAt?: Date, providerResponse?: any) {
     return this.update(id, {
       status: 'DELIVERED',
-      deliveredAt: deliveredAt || new Date(),
-      providerResponse
-    });
+      delivered_at: deliveredAt || new Date(),
+      provider_response: providerResponse
+    } as any);
   }
 
   /**
@@ -219,9 +220,9 @@ export class NotificationRepository {
   async markAsRead(id: string, readAt?: Date, providerResponse?: any) {
     return this.update(id, {
       status: 'READ',
-      readAt: readAt || new Date(),
-      providerResponse
-    });
+      read_at: readAt || new Date(),
+      provider_response: providerResponse
+    } as any);
   }
 
   /**
@@ -230,8 +231,8 @@ export class NotificationRepository {
   async markAsCancelled(id: string, reason?: string) {
     return this.update(id, {
       status: 'CANCELLED',
-      lastError: reason
-    });
+      last_error: reason
+    } as any);
   }
 
   /**
@@ -249,14 +250,14 @@ export class NotificationRepository {
    */
   async findScheduledReady(limit: number = 100) {
     try {
-      return await this.prisma.notification.findMany({
+      return await this.prisma.notifications.findMany({
         where: {
           status: 'SCHEDULED',
-          scheduledAt: { lte: new Date() }
+          scheduled_at: { lte: new Date() }
         },
         orderBy: [
           { priority: 'desc' },
-          { scheduledAt: 'asc' }
+          { scheduled_at: 'asc' }
         ],
         take: limit
       });
@@ -290,7 +291,7 @@ export class NotificationRepository {
    * Incrémente le compteur de tentatives
    */
   private async incrementAttempts(id: string): Promise<number> {
-    const notification = await this.prisma.notification.findUnique({
+    const notification = await this.prisma.notifications.findUnique({
       where: { id },
       select: { attempts: true }
     });
@@ -304,27 +305,27 @@ export class NotificationRepository {
    */
   async findPending(limit: number = 100) {
     try {
-      return await this.prisma.notification.findMany({
+      return await this.prisma.notifications.findMany({
         where: {
           OR: [
             // Notifications PENDING ou RETRYING sans scheduledAt ou avec scheduledAt passé
             {
               status: { in: ['PENDING', 'RETRYING'] },
               OR: [
-                { scheduledAt: null },
-                { scheduledAt: { lte: new Date() } }
+                { scheduled_at: null },
+                { scheduled_at: { lte: new Date() } }
               ]
             },
             // Notifications SCHEDULED qui sont prêtes à être traitées
             {
               status: 'SCHEDULED',
-              scheduledAt: { lte: new Date() }
+              scheduled_at: { lte: new Date() }
             }
           ]
         },
         orderBy: [
           { priority: 'desc' },
-          { createdAt: 'asc' }
+          { created_at: 'asc' }
         ],
         take: limit
       });
@@ -339,9 +340,9 @@ export class NotificationRepository {
    */
   async findExpired() {
     try {
-      return await this.prisma.notification.findMany({
+      return await this.prisma.notifications.findMany({
         where: {
-          expiresAt: { lte: new Date() },
+          expires_at: { lte: new Date() },
           status: { in: ['PENDING', 'SCHEDULED', 'RETRYING'] }
         }
       });
@@ -357,8 +358,8 @@ export class NotificationRepository {
   async findByExternalId(externalId: string) {
     try {
       return await this.circuitBreaker.call(async () => {
-        return await this.prisma.notification.findFirst({
-          where: { externalId }
+        return await this.prisma.notifications.findFirst({
+          where: { external_id: externalId }
         });
       }, 'notification-find-by-external-id');
     } catch (error) {
@@ -375,7 +376,7 @@ export class NotificationRepository {
       return await this.circuitBreaker.call(async () => {
         const where = {
           ...(dateFrom && dateTo && {
-            createdAt: {
+            created_at: {
               gte: dateFrom,
               lte: dateTo
             }
@@ -383,13 +384,13 @@ export class NotificationRepository {
         };
         
         const [total, byStatus, byChannel] = await Promise.all([
-          this.prisma.notification.count({ where }),
-          this.prisma.notification.groupBy({
+          this.prisma.notifications.count({ where }),
+          this.prisma.notifications.groupBy({
             by: ['status'],
             where,
             _count: { id: true }
           }),
-          this.prisma.notification.groupBy({
+          this.prisma.notifications.groupBy({
             by: ['channel'],
             where,
             _count: { id: true }

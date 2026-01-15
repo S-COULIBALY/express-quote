@@ -10,7 +10,7 @@
  * ✅ PHASE 2 - Extraction depuis BookingService
  */
 
-import { Booking } from '../../../../domain/entities/Booking';
+import { Booking, BookingType } from '../../../../domain/entities/Booking';
 import { logger } from '@/lib/logger';
 
 export interface Coordinates {
@@ -94,7 +94,7 @@ export class BookingCoordinatesService {
 
       // 2. Pour MOVING_QUOTE, récupérer depuis la table Moving
       const bookingType = booking.getType();
-      if (bookingType === 'MOVING_QUOTE' || bookingType === 'MOVING') {
+      if (bookingType === BookingType.MOVING_QUOTE) {
         const coordinates = await this.extractFromMoving(booking);
         if (coordinates) {
           return coordinates;

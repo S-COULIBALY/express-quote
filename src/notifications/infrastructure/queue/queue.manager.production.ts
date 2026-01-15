@@ -184,8 +184,12 @@ export class ProductionQueueManager {
             type: this.config.queues[queueName as keyof typeof this.config.queues].backoff,
             delay: this.config.queues[queueName as keyof typeof this.config.queues].delay
           },
-          removeOnComplete: parseInt(process.env.QUEUE_REMOVE_ON_COMPLETE || '50'),
-          removeOnFail: parseInt(process.env.QUEUE_REMOVE_ON_FAIL || '25')
+          removeOnComplete: {
+            count: parseInt(process.env.QUEUE_REMOVE_ON_COMPLETE || '50')
+          },
+          removeOnFail: {
+            count: parseInt(process.env.QUEUE_REMOVE_ON_FAIL || '25')
+          }
         }
       });
       
@@ -231,8 +235,12 @@ export class ProductionQueueManager {
     const worker = new Worker(queueName, processor, {
       connection: sharedRedisConfig, // Configuration optimisée partagée
       concurrency: queueConfig.concurrency,
-      removeOnComplete: parseInt(process.env.QUEUE_REMOVE_ON_COMPLETE || '50'),
-      removeOnFail: parseInt(process.env.QUEUE_REMOVE_ON_FAIL || '25')
+      removeOnComplete: {
+        count: parseInt(process.env.QUEUE_REMOVE_ON_COMPLETE || '50')
+      },
+      removeOnFail: {
+        count: parseInt(process.env.QUEUE_REMOVE_ON_FAIL || '25')
+      }
     });
     
     // Événements du worker
@@ -306,7 +314,7 @@ export class ProductionQueueManager {
    * Obtenir les statistiques globales
    */
   async getGlobalStats(): Promise<any> {
-    const stats = {};
+    const stats: Record<string, any> = {};
     
     for (const queueName of this.queues.keys()) {
       stats[queueName] = await this.getQueueStats(queueName);
@@ -330,9 +338,9 @@ export class ProductionQueueManager {
     const queue = this.getQueue(queueName);
     
     await queue.drain(); // Supprimer les jobs en attente
-    await queue.clean(0, 'active');     // Jobs actifs
-    await queue.clean(0, 'completed');  // Jobs complétés
-    await queue.clean(0, 'failed');     // Jobs échoués
+    await queue.clean(0, 'active' as any);     // Jobs actifs
+    await queue.clean(0, 'completed' as any);  // Jobs complétés
+    await queue.clean(0, 'failed' as any);     // Jobs échoués
     
     console.log(`🧹 Queue '${queueName}' purged`);
   }

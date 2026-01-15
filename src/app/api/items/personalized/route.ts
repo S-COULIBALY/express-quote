@@ -21,25 +21,25 @@ export async function POST(request: NextRequest) {
     }
     
     // Récupérer la sélection catalogue
-    const catalogSelection = await (prisma as any).catalogSelection.findUnique({
+    const catalogSelection = await prisma.catalogSelection.findUnique({
       where: { id: catalogId },
       include: {
-        item: {
+        items: {
           include: {
-            template: true
+            templates: true
           }
         }
       }
     })
-    
-    if (!catalogSelection || !catalogSelection.item) {
+
+    if (!catalogSelection || !catalogSelection.items) {
       return NextResponse.json(
         { error: 'Sélection catalogue ou item non trouvé' },
         { status: 404 }
       )
     }
-    
-    const baseItem = catalogSelection.item
+
+    const baseItem = catalogSelection.items
     
     // Calculer le prix personnalisé
     const personalizedPrice = await calculatePersonalizedPrice(baseItem, formData)
@@ -48,15 +48,15 @@ export async function POST(request: NextRequest) {
     const personalizedDescription = generatePersonalizedDescription(baseItem, formData)
     
     // Créer l'item personnalisé
-    const personalizedItem = await prisma.item.create({
+    const personalizedItem = await prisma.items.create({
       data: {
         id: uuidv4(),
         type: baseItem.type,
-        templateId: baseItem.templateId,
-        parentItemId: baseItem.id, // Référence vers l'item du catalogue
-        customerId: formData.customerId || null,
-        bookingId: formData.bookingId || null,
-        
+        template_id: baseItem.template_id,
+        parent_item_id: baseItem.id, // Référence vers l'item du catalogue
+        customer_id: formData.customerId || null,
+        booking_id: formData.bookingId || null,
+
         // Données personnalisées
         name: formData.serviceName || catalogSelection.marketingTitle || baseItem.name,
         description: personalizedDescription,
@@ -65,22 +65,22 @@ export async function POST(request: NextRequest) {
         duration: calculateDuration(baseItem, formData),
         features: mergeFeatures(baseItem.features, formData.features),
         includes: mergeIncludes(baseItem.includes, formData.includes),
-        
+
         // Champs spécifiques selon le type
-        includedDistance: formData.includedDistance || baseItem.includedDistance,
-        distanceUnit: formData.distanceUnit || baseItem.distanceUnit,
-        
+        included_distance: formData.includedDistance || baseItem.included_distance,
+        distance_unit: formData.distanceUnit || baseItem.distance_unit,
+
         // Métadonnées
         status: formData.customerId ? 'CONFIRMED' : 'QUOTE_REQUEST',
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
       },
       include: {
-        template: true,
-        parentItem: true,
-        customer: true,
-        booking: true
+        templates: true,
+        items: true,
+        Customer: true,
+        Booking: true
       }
     })
     
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       traceability: {
         catalogId: catalogId,
         baseItemId: baseItem.id,
-        templateId: baseItem.templateId,
+        templateId: baseItem.template_id,
         marketingPrice: catalogSelection.marketingPrice,
         originalPrice: catalogSelection.originalPrice,
         personalizedPrice: personalizedPrice,

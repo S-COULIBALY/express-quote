@@ -1,7 +1,7 @@
 import { Entity, UniqueId } from './Entity';
 import { Booking } from './Booking';
 import { Customer } from './Customer';
-import { Document } from './Document';
+import { Document } from '@/documents/domain/entities/Document';
 
 export enum EmailStatus {
     QUEUED = 'QUEUED',

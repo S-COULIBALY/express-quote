@@ -4,8 +4,6 @@ import { BookingService } from '@/quotation/application/services/BookingService'
 import { CustomerService } from '@/quotation/application/services/CustomerService';
 import { PrismaBookingRepository } from '@/quotation/infrastructure/repositories/PrismaBookingRepository';
 import { PrismaCustomerRepository } from '@/quotation/infrastructure/repositories/PrismaCustomerRepository';
-import { PrismaMovingRepository } from '@/quotation/infrastructure/repositories/PrismaMovingRepository';
-import { PrismaItemRepository } from '@/quotation/infrastructure/repositories/PrismaItemRepository';
 import { PrismaQuoteRequestRepository } from '@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository';
 import { logger } from '@/lib/logger';
 
@@ -17,17 +15,12 @@ function getController(): BookingController {
     // Injection de dépendances selon l'architecture DDD
     const bookingRepository = new PrismaBookingRepository();
     const customerRepository = new PrismaCustomerRepository();
-    const movingRepository = new PrismaMovingRepository();
-    const itemRepository = new PrismaItemRepository();
     const quoteRequestRepository = new PrismaQuoteRequestRepository();
-    
+
     const customerService = new CustomerService(customerRepository);
     const bookingService = new BookingService(
       bookingRepository,
-      movingRepository,
-      itemRepository,
       customerRepository,
-      undefined, // QuoteCalculator - sera injecté par défaut
       quoteRequestRepository,
       customerService
     );
@@ -41,15 +34,15 @@ function getController(): BookingController {
 }
 
 /**
- * POST /api/bookings - Créer une nouvelle réservation
+ * POST /api/bookings - Créer/Finaliser une nouvelle réservation
  * Utilise le BookingController DDD pour orchestrer la logique métier
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    logger.info('🔄 POST /api/bookings - Création réservation via DDD Controller');
-    
+    logger.info('🔄 POST /api/bookings - Finalisation réservation via DDD Controller');
+
     const controller = getController();
-    return await controller.createBooking(request);
+    return await controller.finalizeBooking(request);
     
   } catch (error) {
     logger.error('❌ Erreur dans POST /api/bookings:', error);

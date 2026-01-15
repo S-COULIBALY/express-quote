@@ -74,12 +74,7 @@ export async function POST(request: NextRequest) {
       'SERVICE_STARTED': DocumentTrigger.SERVICE_STARTED,
       'SERVICE_COMPLETED': DocumentTrigger.SERVICE_COMPLETED,
       'BOOKING_CANCELLED': DocumentTrigger.BOOKING_CANCELLED,
-      'BOOKING_MODIFIED': DocumentTrigger.BOOKING_MODIFIED,
-      'SERVICE_REMINDER': DocumentTrigger.SERVICE_REMINDER,
-      'SYSTEM_MAINTENANCE': DocumentTrigger.SYSTEM_MAINTENANCE,
-      'SYSTEM_UPDATE': DocumentTrigger.SYSTEM_UPDATE,
-      'PROMOTIONAL_OFFER': DocumentTrigger.PROMOTIONAL_OFFER,
-      'NEWSLETTER': DocumentTrigger.NEWSLETTER
+      'BOOKING_MODIFIED': DocumentTrigger.BOOKING_MODIFIED
     };
 
     const documentTrigger = triggerMap[validatedData.trigger];
@@ -121,9 +116,19 @@ export async function POST(request: NextRequest) {
 
     // Utiliser l'orchestrateur pour génération + distribution
     const orchestrator = new DocumentOrchestrationService();
+
+    // Vérifier qu'on a un booking ou quoteRequest valide
+    const entity = booking || quoteRequest;
+    if (!entity) {
+      return NextResponse.json({
+        success: false,
+        error: 'Aucune réservation ou demande de devis trouvée'
+      }, { status: 404 });
+    }
+
     const results = await orchestrator.handleTrigger(
       documentTrigger,
-      booking || quoteRequest,
+      entity as any, // Cast temporaire pour compatibilité de type
       {
         forceGeneration: validatedData.options?.forceGeneration || false,
         skipApproval: validatedData.options?.skipApproval !== false,

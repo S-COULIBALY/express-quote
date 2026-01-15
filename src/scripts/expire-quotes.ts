@@ -85,9 +85,9 @@ class QuoteExpirationProcessor {
           }
         },
         include: {
-          catalogSelection: {
+          CatalogSelection: {
             include: {
-              item: true
+              items: true
             }
           }
         },

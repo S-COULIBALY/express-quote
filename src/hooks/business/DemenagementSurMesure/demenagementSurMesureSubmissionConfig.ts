@@ -1,15 +1,32 @@
 import { SubmissionConfig } from '@/utils/submissionUtils';
-import { DemenagementSurMesureData } from './useDemenagementSurMesureSubmission';
+
+/**
+ * Type pour les données du service déménagement sur mesure
+ * Utilisé pour la configuration de soumission
+ */
+export interface DemenagementSurMesureData {
+  id: string;
+  name: string;
+  description: string;
+  catalogId?: string;
+  isPremium?: boolean;
+  requiresVolume?: boolean;
+  requiresCustomPricing?: boolean;
+  __presetSnapshot?: Record<string, unknown>;
+}
 
 export interface DemenagementSurMesureSubmissionExtraData {
   service: DemenagementSurMesureData;
   distance?: number;
 }
 
-export const createDemenagementSurMesureSubmissionConfig = (service: DemenagementSurMesureData, distance: number = 0): SubmissionConfig => ({
+export const createDemenagementSurMesureSubmissionConfig = (
+  service: DemenagementSurMesureData,
+  distance: number = 0
+): SubmissionConfig => ({
   submissionType: 'MOVING_PREMIUM',
 
-  validateFormData: (formData: any, extraData?: DemenagementSurMesureSubmissionExtraData) => {
+  validateFormData: (formData: Record<string, unknown>) => {
     // Validation des champs requis pour un service sur mesure
     if (!formData.scheduledDate || !formData.pickupAddress || !formData.deliveryAddress) {
       return 'Veuillez remplir tous les champs obligatoires.';
@@ -20,66 +37,65 @@ export const createDemenagementSurMesureSubmissionConfig = (service: Demenagemen
       return 'Veuillez spécifier le type de déménagement, la surface et le nombre de pièces.';
     }
 
-    // ✅ Validation monte-meubles supprimée - Gérée par AccessConstraintsModal + AutoDetectionService
-
     return true;
   },
 
-  prepareRequestData: (formData: any, extraData?: DemenagementSurMesureSubmissionExtraData) => {
+  prepareRequestData: (formData: Record<string, unknown>, extraData?: unknown) => {
+    const extra = extraData as DemenagementSurMesureSubmissionExtraData | undefined;
+
     return {
       // Données du service sur mesure
       serviceId: service.id,
       serviceType: 'MOVING_PREMIUM',
       catalogId: service.catalogId,
-      
+
       // Informations générales
       typeDemenagement: formData.typeDemenagement,
-      surface: parseInt(formData.surface),
-      nombrePieces: parseInt(formData.nombrePieces),
+      surface: parseInt(String(formData.surface)),
+      nombrePieces: parseInt(String(formData.nombrePieces)),
       volumeEstime: formData.volumeEstime,
-      
+
       // Planification
       scheduledDate: formData.scheduledDate,
       flexibilite: formData.flexibilite,
       horaire: formData.horaire,
-      
+
       // Adresses et contraintes
       pickupAddress: formData.pickupAddress,
       deliveryAddress: formData.deliveryAddress,
-      distanceEstimee: extraData?.distance || 0,
-      
+      distanceEstimee: extra?.distance || distance,
+
       // Contraintes logistiques
-      etageDepart: parseInt(formData.etageDepart) || 0,
-      etageArrivee: parseInt(formData.etageArrivee) || 0,
+      etageDepart: parseInt(String(formData.etageDepart)) || 0,
+      etageArrivee: parseInt(String(formData.etageArrivee)) || 0,
       ascenseurDepart: formData.ascenseurDepart,
       ascenseurArrivee: formData.ascenseurArrivee,
       pickupLogisticsConstraints: formData.pickupLogisticsConstraints,
       deliveryLogisticsConstraints: formData.deliveryLogisticsConstraints,
-      // ✅ Services supplémentaires globaux (piano, objets fragiles, etc.)
       additionalServices: formData.additionalServices,
 
       // Mobilier et objets
       meubles: formData.meubles || [],
       electromenager: formData.electromenager || [],
       objetsFragiles: formData.objetsFragiles || [],
-      
+
       // Services optionnels
       emballage: formData.emballage,
       montage: formData.montage,
       nettoyage: formData.nettoyage,
       stockage: formData.stockage,
       assurance: formData.assurance,
-      
+
       // Contact
       nom: formData.nom,
       email: formData.email,
       telephone: formData.telephone,
       commentaires: formData.commentaires,
-      
+
       // Prix et calculs
       calculatedPrice: formData.calculatedPrice || 0,
       isDynamicPricing: true,
-      
+
       // Données du service
       serviceName: service.name,
       serviceDescription: service.description,
@@ -89,12 +105,14 @@ export const createDemenagementSurMesureSubmissionConfig = (service: Demenagemen
     };
   },
 
-  getSuccessRedirectUrl: (responseData: any) => {
-    return `/booking/${responseData.temporaryId || responseData.id}`;
+  getSuccessRedirectUrl: (responseData: Record<string, unknown>) => {
+    const temporaryId = responseData.temporaryId as string | undefined;
+    const id = responseData.id as string | undefined;
+    return `/booking/${temporaryId || id}`;
   },
 
-  getNotificationData: (formData: any, responseData: any, extraData?: DemenagementSurMesureSubmissionExtraData) => {
-    const servicesOptionnels = [];
+  getNotificationData: (formData: Record<string, unknown>) => {
+    const servicesOptionnels: string[] = [];
     if (formData.emballage) servicesOptionnels.push('Emballage');
     if (formData.montage) servicesOptionnels.push('Montage/Démontage');
     if (formData.nettoyage) servicesOptionnels.push('Nettoyage');

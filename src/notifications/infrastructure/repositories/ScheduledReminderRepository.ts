@@ -59,29 +59,30 @@ export class ScheduledReminderRepository {
    */
   async create(data: CreateScheduledReminderData) {
     try {
-      const reminder = await this.prisma.scheduled_reminder.create({
+      const reminder = await this.prisma.scheduled_reminders.create({
         data: {
-          bookingId: data.bookingId,
-          professionalId: data.professionalId,
-          attributionId: data.attributionId,
-          reminderType: data.reminderType,
-          scheduledDate: data.scheduledDate,
-          serviceDate: data.serviceDate,
-          recipientEmail: data.recipientEmail,
-          recipientPhone: data.recipientPhone,
-          fullClientData: data.fullClientData,
+          booking_id: data.bookingId,
+          professional_id: data.professionalId,
+          attribution_id: data.attributionId,
+          reminder_type: data.reminderType,
+          scheduled_date: data.scheduledDate,
+          service_date: data.serviceDate,
+          recipient_email: data.recipientEmail,
+          recipient_phone: data.recipientPhone,
+          full_client_data: data.fullClientData,
           status: 'SCHEDULED', // Statut par défaut
           priority: data.priority || 'NORMAL',
-          maxAttempts: data.maxAttempts || 3,
+          max_attempts: data.maxAttempts || 3,
           attempts: 0,
-          metadata: data.metadata || {}
-        }
+          metadata: data.metadata || {},
+          updated_at: new Date()
+        } as any
       });
       
       this.logger.info('📝 Rappel programmé créé', { 
         id: reminder.id, 
-        reminderType: reminder.reminderType,
-        scheduledDate: reminder.scheduledDate 
+        reminderType: (reminder as any).reminder_type,
+        scheduledDate: (reminder as any).scheduled_date 
       });
       return reminder;
       
@@ -96,11 +97,11 @@ export class ScheduledReminderRepository {
    */
   async update(id: string, data: UpdateScheduledReminderData) {
     try {
-      const reminder = await this.prisma.scheduled_reminder.update({
+      const reminder = await this.prisma.scheduled_reminders.update({
         where: { id },
         data: {
           ...data,
-          updatedAt: new Date()
+          updated_at: new Date()
         }
       });
       
@@ -128,7 +129,7 @@ export class ScheduledReminderRepository {
    */
   async findById(id: string) {
     try {
-      return await this.prisma.scheduled_reminder.findUnique({
+      return await this.prisma.scheduled_reminders.findUnique({
         where: { id }
       });
     } catch (error) {
@@ -179,8 +180,8 @@ export class ScheduledReminderRepository {
     
     return this.update(id, {
       status: 'SENT',
-      sentAt: new Date()
-    });
+      sent_at: new Date()
+    } as any);
   }
 
   /**
@@ -229,14 +230,14 @@ export class ScheduledReminderRepository {
    */
   async findScheduledReady(limit: number = 100) {
     try {
-      return await this.prisma.scheduled_reminder.findMany({
+      return await this.prisma.scheduled_reminders.findMany({
         where: {
           status: 'SCHEDULED',
-          scheduledDate: { lte: new Date() }
+          scheduled_date: { lte: new Date() }
         },
         orderBy: [
           { priority: 'desc' },
-          { scheduledDate: 'asc' }
+          { scheduled_date: 'asc' }
         ],
         take: limit
       });
@@ -255,10 +256,10 @@ export class ScheduledReminderRepository {
       const expirationDate = new Date();
       expirationDate.setHours(expirationDate.getHours() - expirationHours);
       
-      return await this.prisma.scheduled_reminder.findMany({
+      return await this.prisma.scheduled_reminders.findMany({
         where: {
           status: { in: ['SCHEDULED', 'PROCESSING'] },
-          scheduledDate: { lt: expirationDate }
+          scheduled_date: { lt: expirationDate }
         }
       });
     } catch (error) {
@@ -272,9 +273,9 @@ export class ScheduledReminderRepository {
    */
   async findByBookingId(bookingId: string) {
     try {
-      return await this.prisma.scheduled_reminder.findMany({
-        where: { bookingId },
-        orderBy: { scheduledDate: 'asc' }
+      return await this.prisma.scheduled_reminders.findMany({
+        where: { booking_id: bookingId },
+        orderBy: { scheduled_date: 'asc' }
       });
     } catch (error) {
       this.logger.error('❌ Erreur recherche rappels par bookingId', { bookingId, error });
@@ -287,9 +288,9 @@ export class ScheduledReminderRepository {
    */
   async findByAttributionId(attributionId: string) {
     try {
-      return await this.prisma.scheduled_reminder.findMany({
-        where: { attributionId },
-        orderBy: { scheduledDate: 'asc' }
+      return await this.prisma.scheduled_reminders.findMany({
+        where: { attribution_id: attributionId },
+        orderBy: { scheduled_date: 'asc' }
       });
     } catch (error) {
       this.logger.error('❌ Erreur recherche rappels par attributionId', { attributionId, error });
@@ -305,7 +306,7 @@ export class ScheduledReminderRepository {
       return await this.circuitBreaker.call(async () => {
         const where = {
           ...(dateFrom && dateTo && {
-            createdAt: {
+            created_at: {
               gte: dateFrom,
               lte: dateTo
             }
@@ -313,14 +314,14 @@ export class ScheduledReminderRepository {
         };
         
         const [total, byStatus, byType] = await Promise.all([
-          this.prisma.scheduled_reminder.count({ where }),
-          this.prisma.scheduled_reminder.groupBy({
+          this.prisma.scheduled_reminders.count({ where }),
+          this.prisma.scheduled_reminders.groupBy({
             by: ['status'],
             where,
             _count: { id: true }
           }),
-          this.prisma.scheduled_reminder.groupBy({
-            by: ['reminderType'],
+          this.prisma.scheduled_reminders.groupBy({
+            by: ['reminder_type'],
             where,
             _count: { id: true }
           })
@@ -332,7 +333,7 @@ export class ScheduledReminderRepository {
         }, {} as Record<string, number>);
         
         const typeStats = byType.reduce((acc, item) => {
-          acc[item.reminderType] = item._count.id;
+          acc[(item as any).reminder_type] = item._count.id;
           return acc;
         }, {} as Record<string, number>);
         

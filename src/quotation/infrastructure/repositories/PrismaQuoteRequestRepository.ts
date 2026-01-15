@@ -50,11 +50,11 @@ export class PrismaQuoteRequestRepository implements IQuoteRequestRepository {
             } else {
                 // Création d'une nouvelle demande
                 logger.info('📁 [PrismaQuoteRequestRepository.ts] ➕ Création nouvelle demande');
-                const id = quoteRequest.getId() || undefined;
+                const quoteRequestId = quoteRequest.getId() || crypto.randomUUID();
                 const created = await this.prisma.quoteRequest.create({
                     data: {
                         ...quoteRequestData,
-                        id
+                        id: quoteRequestId
                     }
                 });
                 logger.info(`📁 [PrismaQuoteRequestRepository.ts] ✅ Demande créée en base: ${created.temporaryId}`);

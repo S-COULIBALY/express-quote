@@ -86,7 +86,6 @@ export class TemplateCache {
         port: this.config.redis.port,
         password: this.config.redis.password,
         db: this.config.redis.db,
-        retryDelayOnFailover: 100,
         enableReadyCheck: true,
         maxRetriesPerRequest: 3,
         lazyConnect: true,

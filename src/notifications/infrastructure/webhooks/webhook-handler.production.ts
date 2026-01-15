@@ -35,7 +35,7 @@ export interface WebhookConfig {
 
 export interface WebhookEvent {
   provider: 'email' | 'sms' | 'whatsapp';
-  eventType: 'delivered' | 'bounced' | 'failed' | 'opened' | 'clicked';
+  eventType: 'delivered' | 'bounced' | 'failed' | 'opened' | 'clicked' | 'read';
   externalId: string;
   timestamp: Date;
   metadata?: Record<string, any>;
@@ -141,8 +141,8 @@ export class WebhookHandler {
       }
       
       // 3. Trouver la notification correspondante
-      const notification = await this.repository.findByExternalId(event.externalId);
-      if (!notification) {
+      const notificationResult = await this.repository.findByExternalId(event.externalId);
+      if (!notificationResult || !notificationResult.success || !notificationResult.result) {
         this.logger.warn('⚠️ Notification non trouvée pour le webhook', { 
           provider, 
           externalId: event.externalId 
@@ -154,6 +154,8 @@ export class WebhookHandler {
           error: 'Notification not found'
         };
       }
+      
+      const notification = notificationResult.result;
       
       // 4. Traiter l'événement
       const processed = await this.processWebhookEvent(notification.id, event);

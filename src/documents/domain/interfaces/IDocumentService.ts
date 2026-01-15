@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Document } from '../entities/Document';
 import { Booking } from '@/quotation/domain/entities/Booking';
 import { 

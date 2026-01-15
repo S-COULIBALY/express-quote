@@ -1,8 +1,12 @@
 import { Entity, UniqueId } from './Entity';
-import { Service } from './Service';
 import { ContactInfo } from '../valueObjects/ContactInfo';
 import { Quote } from './Quote';
 import { Address } from '../valueObjects/Address';
+
+// Interface minimale pour Service (entité non implémentée)
+interface Service {
+    getId(): UniqueId;
+}
 
 export enum ProfessionalType {
     MOVER = 'MOVER',
@@ -79,7 +83,7 @@ export class Professional extends Entity {
     }
 
     public completeQuote(quoteId: UniqueId): void {
-        this.currentQuotes = this.currentQuotes.filter(quote => quote.getId() !== quoteId);
+        this.currentQuotes = this.currentQuotes.filter(quote => quote.id !== quoteId);
         this.updatedAt = new Date();
     }
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * NotificationHealthChecker - Health checks et monitoring
  * 

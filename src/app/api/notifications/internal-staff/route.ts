@@ -10,8 +10,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { InternalStaffNotificationService } from '@/internalStaffNotification/InternalStaffNotificationService';
-import { BookingService } from '@/quotation/application/services/BookingService';
+import { PrismaClient } from '@prisma/client';
 import { logger } from '@/lib/logger';
+
+const prisma = new PrismaClient();
 
 export interface InternalStaffNotificationRequest {
   bookingId: string;
@@ -46,12 +48,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Récupérer la réservation
-    const bookingService = new BookingService(
-      null, null, null, null, null, null, null, null, null, null, null, null
-    );
+    // Récupérer la réservation via Prisma
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        Customer: true
+      }
+    });
 
-    const booking = await bookingService.findById(bookingId);
     if (!booking) {
       return NextResponse.json(
         {
@@ -72,14 +76,14 @@ export async function POST(request: NextRequest) {
     requestLogger.info('✅ Validation réussie', {
       bookingId,
       trigger,
-      serviceType: booking.getType(),
+      serviceType: booking.type,
       hasContext: !!context
     });
 
     // Déclencher les notifications
     const notificationService = new InternalStaffNotificationService();
     const results = await notificationService.sendInternalStaffNotifications(
-      booking,
+      booking as any,
       trigger,
       context
     );

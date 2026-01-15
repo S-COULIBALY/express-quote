@@ -140,8 +140,15 @@ export class ReminderScheduler {
    */
   async scheduleReminder(reminderData: ReminderJobData): Promise<void> {
     const delay = Math.max(0, reminderData.scheduledFor.getTime() - Date.now());
-    
-    await this.queueManager.addJob('reminders', 'send', reminderData, {
+
+    // Créer les données de job avec id et type requis
+    const jobData = {
+      id: `reminder-${reminderData.bookingId}-${reminderData.reminderType}-${Date.now()}`,
+      type: 'reminder' as const,
+      ...reminderData
+    };
+
+    await this.queueManager.addJob('reminders', 'send', jobData, {
       delay,
       priority: reminderData.reminderType === '1h' ? 1 : 5
     });

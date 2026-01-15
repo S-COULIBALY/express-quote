@@ -1,8 +1,7 @@
 import { ServiceType } from "@/quotation/domain/enums/ServiceType";
 import { logger } from "@/lib/logger";
-import { Quote } from "@/quotation/domain/valueObjects/Quote";
+import { Quote, AppliedDiscount } from "@/quotation/domain/valueObjects/Quote";
 import { Money } from "@/quotation/domain/valueObjects/Money";
-import { AppliedRule } from "@/quotation/domain/valueObjects/AppliedRule";
 import {
   UnifiedDataService,
   ConfigurationCategory,
@@ -70,11 +69,16 @@ export class FallbackCalculatorService {
           ),
         ]);
 
-      const prices = {
+      // Services abandonnés : PACKING, CLEANING, DELIVERY, SERVICE
+      // Tous les services actifs sont des déménagements (MOVING, MOVING_PREMIUM)
+      const prices: Record<ServiceType, number> = {
         [ServiceType.MOVING]: movingPrice,
-        [ServiceType.PACKING]: packingPrice,
-        [ServiceType.CLEANING]: cleaningPrice,
-        [ServiceType.DELIVERY]: deliveryPrice,
+        [ServiceType.MOVING_PREMIUM]: movingPrice, // Même prix que MOVING
+        [ServiceType.PACKING]: packingPrice, // Abandonné mais gardé pour compatibilité
+        [ServiceType.CLEANING]: cleaningPrice, // Abandonné mais gardé pour compatibilité
+        [ServiceType.DELIVERY]: deliveryPrice, // Abandonné mais gardé pour compatibilité
+        [ServiceType.SERVICE]: movingPrice, // Abandonné mais gardé pour compatibilité
+        [ServiceType.CLEANING_PREMIUM]: cleaningPrice, // Abandonné mais gardé pour compatibilité
       };
 
       logger.info("✅ [FALLBACK-CALC] Prix par défaut récupérés:", prices);
@@ -86,11 +90,15 @@ export class FallbackCalculatorService {
       );
 
       // Fallback vers les anciennes valeurs hardcodées
+      // Services abandonnés : PACKING, CLEANING, DELIVERY, SERVICE
       return {
         [ServiceType.MOVING]: 400,
-        [ServiceType.PACKING]: 300,
-        [ServiceType.CLEANING]: 200,
-        [ServiceType.DELIVERY]: 250,
+        [ServiceType.MOVING_PREMIUM]: 400,
+        [ServiceType.PACKING]: 300, // Abandonné mais gardé pour compatibilité
+        [ServiceType.CLEANING]: 200, // Abandonné mais gardé pour compatibilité
+        [ServiceType.DELIVERY]: 250, // Abandonné mais gardé pour compatibilité
+        [ServiceType.SERVICE]: 400, // Abandonné mais gardé pour compatibilité
+        [ServiceType.CLEANING_PREMIUM]: 200, // Abandonné mais gardé pour compatibilité
       };
     }
   }
@@ -156,7 +164,7 @@ export class FallbackCalculatorService {
           20,
         ),
         this.unifiedDataService.getConfigurationValue(
-          ConfigurationCategory.SYSTEM_VALUES,
+          ConfigurationCategory.PRICING_FACTORS,
           "VAT_RATE", // ✅ OK
           0.2,
         ),
@@ -265,7 +273,7 @@ export class FallbackCalculatorService {
     // Créer les objets de domaine
     const baseMoneyPrice = new Money(defaultPrice);
     const finalMoneyPrice = new Money(finalPrice);
-    const discounts: AppliedRule[] = [];
+    const discounts: AppliedDiscount[] = [];
 
     // Créer un objet Quote
     const quote = new Quote(
@@ -435,7 +443,7 @@ export class FallbackCalculatorService {
     // Créer les objets de domaine
     const baseMoneyPrice = new Money(defaultPrice);
     const finalMoneyPrice = new Money(finalPrice);
-    const discounts: AppliedRule[] = [];
+    const discounts: AppliedDiscount[] = [];
 
     // Créer un objet Quote
     const quote = new Quote(
@@ -567,7 +575,7 @@ export class FallbackCalculatorService {
     // Créer les objets de domaine
     const baseMoneyPrice = new Money(defaultPrice);
     const finalMoneyPrice = new Money(finalPrice);
-    const discounts: AppliedRule[] = [];
+    const discounts: AppliedDiscount[] = [];
 
     // Créer un objet Quote
     const quote = new Quote(
@@ -709,7 +717,7 @@ export class FallbackCalculatorService {
     // Créer les objets de domaine
     const baseMoneyPrice = new Money(defaultPrice);
     const finalMoneyPrice = new Money(finalPrice);
-    const discounts: AppliedRule[] = [];
+    const discounts: AppliedDiscount[] = [];
 
     // Créer un objet Quote
     const quote = new Quote(
@@ -782,9 +790,9 @@ export class FallbackCalculatorService {
         vatAmount: details.vatAmount,
         totalWithVat: details.totalWithVat,
         discounts: quote.getDiscounts().map((d) => ({
-          description: d.getDescription(),
-          amount: d.getAmount().getAmount(),
-          type: d.getType(),
+          description: d.description,
+          amount: d.amount.getAmount(),
+          type: d.type,
         })),
         serviceType,
       },
@@ -850,7 +858,7 @@ export class FallbackCalculatorService {
    * @param configService Service de configuration à utiliser
    * @returns Une instance de calculateur configurée avec des règles par défaut
    */
-  public createFallbackCalculator(configService: ConfigurationService): any {
+  public createFallbackCalculator(configService: any): any {
     // Import dynamique des fonctions de création de règles
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const {
@@ -869,8 +877,7 @@ export class FallbackCalculatorService {
     const calculator = {
       configService,
       movingRulesList,
-      templateRulesList, // Remplace packRulesList
-      templateRulesList, // Remplace serviceRulesList
+      templateRulesList, // Remplace packRulesList et serviceRulesList (services abandonnés)
     };
 
     logger.info(

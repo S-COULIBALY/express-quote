@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DocumentService } from '@/documents/application/services/DocumentService';
-import { DocumentType } from '@/documents/domain/entities/Document';
+import { prisma } from '@/lib/prisma';
+import { DocumentType } from '@prisma/client';
 import { logger } from '@/lib/logger';
-
-// Instance partagée du DocumentService - instanciation simple
-let documentServiceInstance: DocumentService | null = null;
-
-function getDocumentService(): DocumentService {
-  if (!documentServiceInstance) {
-    // Instanciation simple sans IoC - le service configure ses dépendances
-    documentServiceInstance = new DocumentService();
-    logger.info('🏗️ DocumentService initialisé (module autonome)');
-  }
-  
-  return documentServiceInstance;
-}
 
 /**
  * GET /api/documents - Recherche de documents
@@ -24,29 +11,31 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const bookingId = searchParams.get('bookingId');
-    const type = searchParams.get('type') as DocumentType;
+    const type = searchParams.get('type') as DocumentType | null;
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
     logger.info('🔍 Recherche de documents', { bookingId, type, limit, offset });
 
-    const documentService = getDocumentService();
-    const documents = await documentService.searchDocuments({
-      bookingId: bookingId || undefined,
-      type: type || undefined,
-      limit,
-      offset
+    const documents = await prisma.document.findMany({
+      where: {
+        ...(bookingId ? { bookingId } : {}),
+        ...(type ? { type } : {})
+      },
+      take: limit,
+      skip: offset,
+      orderBy: { createdAt: 'desc' }
     });
 
     return NextResponse.json({
       success: true,
       data: {
         documents: documents.map(doc => ({
-          id: doc.getId(),
-          type: doc.getType(),
-          filename: doc.getFilename(),
-          bookingId: doc.getBooking().getId(),
-          createdAt: doc.getCreatedAt()
+          id: doc.id,
+          type: doc.type,
+          filename: doc.filename,
+          bookingId: doc.bookingId,
+          createdAt: doc.createdAt
         })),
         count: documents.length
       }
@@ -55,7 +44,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error('❌ Erreur lors de la recherche de documents', error as Error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: 'Erreur lors de la recherche de documents',
         message: error instanceof Error ? error.message : 'Erreur inconnue'
@@ -84,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // TODO: Récupérer la réservation via BookingService
     // Pour l'instant, simulation de succès avec l'orchestrateur
-    
+
     return NextResponse.json({
       success: true,
       message: 'Document généré avec succès (simulation)',
@@ -101,7 +90,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('❌ Erreur lors de la génération de document', error as Error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: 'Erreur lors de la génération de document',
         message: error instanceof Error ? error.message : 'Erreur inconnue'

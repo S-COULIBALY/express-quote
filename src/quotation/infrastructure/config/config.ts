@@ -14,6 +14,18 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 interface Config {
+  database: {
+    host: string;
+    port: number;
+    name: string;
+    user: string;
+    password?: string;
+  };
+  redis: {
+    host: string;
+    port: number;
+    password?: string;
+  };
   api: {
     port: number;
     environment: 'development' | 'production' | 'test';
@@ -22,16 +34,15 @@ interface Config {
     defaultTTL: number;
     prefix: string;
   };
+  logging: {
+    level: string;
+    enableDebug: boolean;
+  };
   rules: {
     versionCheck: {
       enabled: boolean;
       interval: number;
     };
-  };
-  redis: {
-    host: string;
-    port: number;
-    password?: string;
   };
 }
 

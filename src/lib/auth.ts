@@ -81,28 +81,28 @@ export const authOptions: NextAuthOptions = {
           }
 
           // Vérifier le staff interne
-          const internalStaff = await prisma.internalStaff.findUnique({
+          const internalStaff = await prisma.internal_staff.findUnique({
             where: {
               email: credentials.email
             },
             select: {
               id: true,
-              firstName: true,
-              lastName: true,
+              first_name: true,
+              last_name: true,
               email: true,
               password: true,
               role: true,
-              isActive: true
+              is_active: true
             }
           });
 
-          if (internalStaff && internalStaff.isActive && internalStaff.password) {
+          if (internalStaff && internalStaff.is_active && internalStaff.password) {
             // Vérifier le mot de passe haché avec bcrypt
             const isPasswordValid = await bcrypt.compare(credentials.password, internalStaff.password);
             if (isPasswordValid) {
               return {
                 id: internalStaff.id,
-                name: `${internalStaff.firstName} ${internalStaff.lastName}`,
+                name: `${internalStaff.first_name} ${internalStaff.last_name}`,
                 email: internalStaff.email,
                 role: internalStaff.role,
               };

@@ -395,9 +395,11 @@ export const ServiceReminder: React.FC<ServiceReminderData> = ({
                 {teamLeaderPhone}
               </Link>
             </Text>
-            <Text style={{ margin: '8px 0' }}>
-              <strong>Taille de l'équipe :</strong> {teamSize} personne{teamSize > 1 ? 's' : ''}
-            </Text>
+            {teamSize && (
+              <Text style={{ margin: '8px 0' }}>
+                <strong>Taille de l'équipe :</strong> {teamSize} personne{teamSize > 1 ? 's' : ''}
+              </Text>
+            )}
             {vehicleInfo && (
               <Text style={{ margin: '8px 0' }}>
                 <strong>Véhicule :</strong> {vehicleInfo}

@@ -1,14 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { NotificationController } from '@/notifications/interfaces/http/NotificationController';
-import { container } from '@/config/dependency-injection';
+import { PrismaClient } from '@prisma/client';
 
-const notificationController = container.resolve(NotificationController);
+const prisma = new PrismaClient();
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const result = await notificationController.markInternalStaffNotificationsAsRead(body);
-    return NextResponse.json(result);
+    const { notificationIds, staffId } = body;
+
+    if (!notificationIds || !Array.isArray(notificationIds)) {
+      return NextResponse.json(
+        { error: 'notificationIds array is required' },
+        { status: 400 }
+      );
+    }
+
+    // Marquer les notifications comme lues
+    const result = await prisma.notifications.updateMany({
+      where: {
+        id: { in: notificationIds },
+        ...(staffId ? { recipient_id: staffId } : {})
+      },
+      data: {
+        read_at: new Date(),
+        status: 'READ'
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      updatedCount: result.count
+    });
   } catch (error) {
     console.error('Error marking notifications as read:', error);
     return NextResponse.json(

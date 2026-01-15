@@ -156,11 +156,5 @@ export interface ProfessionalPaymentNotificationData {
   limitedData: LimitedClientData;
 }
 
-export default {
-  RestrictedClientData,
-  LimitedClientData,
-  ProfessionalPDFData,
-  ScheduledServiceReminder,
-  EnhancedAttributionRequest,
-  ProfessionalPaymentNotificationData
-};
+// Types exportés nommément (pas d'export default pour les types)
+// Utiliser les imports nommés : import { RestrictedClientData } from '@/types/professional-attribution'

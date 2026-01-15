@@ -286,14 +286,17 @@ export class TemplateService {
         return groups;
       }, {});
 
-      const revenueByType = Object.entries(typeGroups).map(([type, templates]: [string, any[]]) => ({
-        type,
-        count: templates.length,
-        itemsCount: templates.length, // Alias pour compatibilité frontend
-        avgPrice: templates.reduce((sum, t) => sum + t.getBasePrice().getAmount(), 0) / templates.length,
-        totalValue: templates.reduce((sum, t) => sum + t.getBasePrice().getAmount(), 0),
-        revenue: templates.reduce((sum, t) => sum + t.getBasePrice().getAmount(), 0) // Alias pour compatibilité frontend
-      }));
+      const revenueByType = Object.entries(typeGroups).map(([type, templates]) => {
+        const templatesArray = Array.isArray(templates) ? templates : [];
+        return {
+          type,
+          count: templatesArray.length,
+          itemsCount: templatesArray.length, // Alias pour compatibilité frontend
+          avgPrice: templatesArray.length > 0 ? templatesArray.reduce((sum, t) => sum + t.getBasePrice().getAmount(), 0) / templatesArray.length : 0,
+          totalValue: templatesArray.reduce((sum, t) => sum + t.getBasePrice().getAmount(), 0),
+          revenue: templatesArray.reduce((sum, t) => sum + t.getBasePrice().getAmount(), 0) // Alias pour compatibilité frontend
+        };
+      });
 
       // Templates par performance (basé sur le prix et type)
       const sortedByPrice = [...templates].sort((a, b) =>

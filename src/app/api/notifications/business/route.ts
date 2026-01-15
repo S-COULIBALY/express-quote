@@ -22,7 +22,7 @@ import {
 const prisma = new PrismaClient();
 
 // Configuration SMTP
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: false,
@@ -88,12 +88,12 @@ export async function POST(request: NextRequest) {
 
     switch (data.type) {
       case 'professional-attribution':
-        emailHtml = render(ProfessionalAttribution(data));
+        emailHtml = await render(ProfessionalAttribution(data as any));
         subject = `🚀 Nouvelle mission ${data.serviceType} - ${data.totalAmount}€ à ${data.locationCity}`;
         break;
 
       case 'mission-accepted-confirmation':
-        emailHtml = render(MissionAcceptedConfirmation(data));
+        emailHtml = await render(MissionAcceptedConfirmation(data as any));
         subject = `✅ Mission confirmée - ${data.serviceType} le ${data.scheduledDate}`;
         break;
 

@@ -10,16 +10,14 @@ export async function GET(
   try {
     const { id } = params
     
-    const item = await prisma.item.findUnique({
+    const item = await prisma.items.findUnique({
       where: { id },
       include: {
-        template: true,
-        customer: {
+        templates: true,
+        Customer: {
           select: { id: true, firstName: true, lastName: true, email: true }
         },
-        variants: {
-          select: { id: true, name: true, price: true, customerId: true }
-        }
+        other_items: true
       }
     })
     
@@ -50,19 +48,19 @@ export async function PUT(
     const body = await request.json()
     
     // Vérifier que l'item existe
-    const existingItem = await prisma.item.findUnique({
+    const existingItem = await prisma.items.findUnique({
       where: { id }
     })
-    
+
     if (!existingItem) {
       return Response.json(
         { error: 'Item non trouvé' },
         { status: 404 }
       )
     }
-    
+
     // Mise à jour de l'item
-    const updatedItem = await prisma.item.update({
+    const updatedItem = await prisma.items.update({
       where: { id },
       data: {
         name: body.name,
@@ -71,18 +69,18 @@ export async function PUT(
         workers: body.workers ? parseInt(body.workers) : undefined,
         duration: body.duration ? parseInt(body.duration) : undefined,
         features: body.features,
-        includedDistance: body.includedDistance ? parseInt(body.includedDistance) : undefined,
-        distanceUnit: body.distanceUnit,
+        included_distance: body.includedDistance ? parseInt(body.includedDistance) : undefined,
+        distance_unit: body.distanceUnit,
         includes: body.includes,
-        categoryId: body.categoryId,
+        category_id: body.categoryId,
         popular: body.popular,
-        imagePath: body.imagePath,
-        isActive: body.isActive,
-        updatedAt: new Date()
+        image_path: body.imagePath,
+        is_active: body.isActive,
+        updated_at: new Date()
       },
       include: {
-        template: true,
-        customer: true
+        templates: true,
+        Customer: true
       }
     })
     
@@ -105,19 +103,19 @@ export async function DELETE(
     const { id } = params
     
     // Vérifier que l'item existe
-    const existingItem = await prisma.item.findUnique({
+    const existingItem = await prisma.items.findUnique({
       where: { id }
     })
-    
+
     if (!existingItem) {
       return Response.json(
         { error: 'Item non trouvé' },
         { status: 404 }
       )
     }
-    
+
     // Supprimer l'item
-    await prisma.item.delete({
+    await prisma.items.delete({
       where: { id }
     })
     

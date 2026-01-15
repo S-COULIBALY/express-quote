@@ -88,7 +88,7 @@ export class PdfGeneratorService {
     saveToFile: boolean = true,
     footerText?: string
   ): Promise<Buffer> {
-    const finalFooterText = footerText || this.config.footerText;
+    const finalFooterText = footerText || this.config.footerText || 'Express Quote - Document généré automatiquement';
     return new Promise((resolve, reject) => {
       try {
         const doc = new PDFDocument({ margin: 50 });

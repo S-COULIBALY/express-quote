@@ -193,7 +193,8 @@ const getPaymentStatusInfo = (status: string): { emoji: string; color: string; t
 /**
  * Obtient l'emoji correspondant au type de service
  */
-const getServiceEmoji = (serviceType: string): string => {
+const getServiceEmoji = (serviceType?: string): string => {
+  if (!serviceType) return '⚡';
   switch (serviceType) {
     case 'MOVING': return '📦';
     case 'CLEANING': return '🧹';

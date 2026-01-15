@@ -452,7 +452,7 @@ export class CatalogueService {
           )
         }));
 
-      const duplicateSubcategories = [];
+      const duplicateSubcategories: Array<{ category: string; subcategory: string | null; count: number }> = [];
       const subcategoryMap = new Map();
       catalogues.forEach(c => {
         const key = `${c.getCategory()}-${c.getSubcategory()}`;

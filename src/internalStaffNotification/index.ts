@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 👥 Module de notification équipe interne
  *

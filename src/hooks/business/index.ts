@@ -1,12 +1,13 @@
-// ✅ REFACTOR PHASE 1: Export des configurations au lieu des hooks
-// Les hooks business ont été remplacés par useUnifiedSubmission
-// On garde uniquement les configurations qui contiennent la logique métier
+// ============================================================================
+// HOOKS BUSINESS INDEX - Express Quote
+// ============================================================================
+// Seul le service DEMENAGEMENT SUR MESURE est actif.
+// Les services CLEANING, DELIVERY, PACKING, MOVING (packs catalogue) ont été abandonnés.
+// Voir: docs/PLAN_REFACTORISATION_ANCIEN_SYSTEME.md
+// ============================================================================
 
-// Configurations pour les services du catalogue
-export { createCatalogueMovingItemSubmissionConfig } from './CatalogueMovingItem/catalogueMovingItemSubmissionConfig';
-export { createCatalogueCleaningItemSubmissionConfig } from './CatalogueCleaningItem/catalogueCleaningItemSubmissionConfig';
-export { createCatalogueDeliveryItemSubmissionConfig } from './CatalogueDeliveryItem/catalogueDeliveryItemSubmissionConfig';
-
-// Configurations pour les services sur mesure
-export { createDemenagementSurMesureSubmissionConfig, type DemenagementSurMesureData } from './DemenagementSurMesure/demenagementSurMesureSubmissionConfig';
-export { createMenageSurMesureSubmissionConfig, type MenageSurMesureData } from './MenageSurMesure/menageSurMesureSubmissionConfig';
+// Configuration pour le service sur mesure (SEUL SERVICE ACTIF)
+export {
+  createDemenagementSurMesureSubmissionConfig,
+  type DemenagementSurMesureData
+} from './DemenagementSurMesure/demenagementSurMesureSubmissionConfig';

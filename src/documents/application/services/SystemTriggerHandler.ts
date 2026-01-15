@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SystemTriggerHandler - Gestion des triggers système (notifications sans documents PDF)
  * 

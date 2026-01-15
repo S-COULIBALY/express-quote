@@ -391,7 +391,7 @@ export class NotificationStatus {
       history: this._history.map(h => ({
         ...h,
         timestamp: h.timestamp.toISOString()
-      })) as StatusTransition[],
+      })) as unknown as StatusTransition[],
       isTerminal: this.isTerminal(),
       totalDuration: this.getTotalDuration()
     };

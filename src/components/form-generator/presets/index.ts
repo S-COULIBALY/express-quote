@@ -1,22 +1,12 @@
-// Import des presets catalogue
-import {
-  CatalogueMovingItemPreset,
-  catalogueMovingItemSummaryConfig,
-  catalogueMovingItemDefaultValues,
-  catalogueMovingItemStyles,
-} from "./catalogueMovingItem-service/catalogueMovingItemPresets";
-import {
-  CatalogueCleaningItemPreset,
-  catalogueCleaningItemSummaryConfig,
-  catalogueCleaningItemDefaultValues,
-  catalogueCleaningItemStyles,
-} from "./catalogueCleaningItem-service/catalogueCleaningItemPresets";
-import {
-  CatalogueDeliveryItemPreset,
-  catalogueDeliveryItemSummaryConfig,
-  catalogueDeliveryItemDefaultValues,
-  catalogueDeliveryItemStyles,
-} from "./catalogueDeliveryItem-service/catalogueDeliveryItemPresets";
+// ============================================================================
+// PRESETS INDEX - Express Quote
+// ============================================================================
+// Seul le service DEMENAGEMENT SUR MESURE est actif.
+// Les services CLEANING, DELIVERY, PACKING, MOVING (packs catalogue) ont été abandonnés.
+// Voir: docs/PLAN_REFACTORISATION_ANCIEN_SYSTEME.md
+// ============================================================================
+
+// Import des presets par défaut
 import {
   ContactPreset,
   contactSummaryConfig,
@@ -29,51 +19,34 @@ import {
   defaultValues,
   defaultStyles,
 } from "./_shared/default";
+
+// Import du preset sur mesure (SEUL SERVICE ACTIF)
 import {
   demenagementSurMesureSummaryConfig,
   demenagementSurMesureDefaultValues,
   demenagementSurMesureStyles,
+  DemenagementSurMesurePreset,
+  getDemenagementSurMesureServiceConfig,
 } from "./demenagement-sur-mesure-service";
-import {
-  menageSurMesureSummaryConfig,
-  menageSurMesureDefaultValues,
-  menageSurMesureStyles,
-} from "./menage-sur-mesure-service";
+
+// Import du preset global et des utilitaires
 import {
   globalFormPreset,
   mergeWithGlobalPreset,
 } from "./_shared/globalPreset";
-import { IndustryPreset, PresetConfig, FormSummaryConfig } from "../types";
-
-// Import des presets sur mesure
-import {
-  DemenagementSurMesurePreset,
-  getDemenagementSurMesureServiceConfig,
-} from "./demenagement-sur-mesure-service";
-import {
-  MenageSurMesurePreset,
-  getMenageSurMesureServiceConfig,
-} from "./menage-sur-mesure-service";
+import { IndustryPreset, FormSummaryConfig } from "../types";
 
 // Import des utilitaires partagés
 import * as SharedFields from "./_shared/sharedFields";
 import * as SharedValidation from "./_shared/sharedValidation";
 
-// Export des presets catalogue
-export {
-  CatalogueMovingItemPreset,
-  CatalogueCleaningItemPreset,
-  CatalogueDeliveryItemPreset,
-  ContactPreset,
-  DefaultPreset,
-};
+// Export des presets par défaut
+export { ContactPreset, DefaultPreset };
 
-// Export des presets sur mesure
+// Export du preset sur mesure (SEUL SERVICE ACTIF)
 export {
   DemenagementSurMesurePreset,
-  MenageSurMesurePreset,
   getDemenagementSurMesureServiceConfig,
-  getMenageSurMesureServiceConfig,
 };
 
 // Export du preset global et des utilitaires
@@ -81,62 +54,32 @@ export { globalFormPreset, mergeWithGlobalPreset };
 export { SharedFields, SharedValidation };
 
 // Export des presets spécialisés
-export * from "./catalogueMovingItem-service";
-export * from "./catalogueCleaningItem-service";
-export * from "./catalogueDeliveryItem-service";
 export * from "./demenagement-sur-mesure-service";
-export * from "./menage-sur-mesure-service";
 
 // Export des configurations individuelles
 export {
-  catalogueMovingItemSummaryConfig,
-  catalogueCleaningItemSummaryConfig,
-  catalogueDeliveryItemSummaryConfig,
   contactSummaryConfig,
   defaultSummaryConfig,
-  catalogueMovingItemDefaultValues,
-  catalogueCleaningItemDefaultValues,
-  catalogueDeliveryItemDefaultValues,
   contactDefaultValues,
   defaultValues,
-  catalogueMovingItemStyles,
-  catalogueCleaningItemStyles,
-  catalogueDeliveryItemStyles,
   contactStyles,
   defaultStyles,
+  demenagementSurMesureSummaryConfig,
+  demenagementSurMesureDefaultValues,
+  demenagementSurMesureStyles,
 };
 
 // Export des données des presets
 export const presetData = {
-  catalogueMovingItem: {
-    summary: catalogueMovingItemSummaryConfig,
-    defaults: catalogueMovingItemDefaultValues,
-    styles: catalogueMovingItemStyles,
-  },
-  catalogueCleaningItem: {
-    summary: catalogueCleaningItemSummaryConfig,
-    defaults: catalogueCleaningItemDefaultValues,
-    styles: catalogueCleaningItemStyles,
-  },
-  catalogueDeliveryItem: {
-    summary: catalogueDeliveryItemSummaryConfig,
-    defaults: catalogueDeliveryItemDefaultValues,
-    styles: catalogueDeliveryItemStyles,
-  },
-  contact: {
-    summary: contactSummaryConfig,
-    defaults: contactDefaultValues,
-    styles: contactStyles,
-  },
   "demenagement-sur-mesure": {
     summary: demenagementSurMesureSummaryConfig,
     defaults: demenagementSurMesureDefaultValues,
     styles: demenagementSurMesureStyles,
   },
-  "menage-sur-mesure": {
-    summary: menageSurMesureSummaryConfig,
-    defaults: menageSurMesureDefaultValues,
-    styles: menageSurMesureStyles,
+  contact: {
+    summary: contactSummaryConfig,
+    defaults: contactDefaultValues,
+    styles: contactStyles,
   },
   default: {
     summary: defaultSummaryConfig,
@@ -149,47 +92,22 @@ export const presetData = {
 export const getPresetSummary = (
   industry: IndustryPreset,
 ): FormSummaryConfig => {
-  const data = presetData[industry] || presetData.default;
+  const data = presetData[industry as keyof typeof presetData] || presetData.default;
   return data.summary;
 };
 
-// Liste des presets disponibles
+// Liste des presets disponibles (seul déménagement sur mesure est actif)
 export const availablePresets: Array<{
   id: IndustryPreset;
   name: string;
   description: string;
   category: "catalogue" | "default" | "sur-mesure";
 }> = [
-  // Services du Catalogue
-  {
-    id: "catalogueMovingItem",
-    name: "Pack Déménagement",
-    description: "Éléments de déménagement du catalogue (packs prédéfinis)",
-    category: "catalogue",
-  },
-  {
-    id: "catalogueCleaningItem",
-    name: "Service Nettoyage",
-    description: "Éléments de nettoyage du catalogue (services sur mesure)",
-    category: "catalogue",
-  },
-  {
-    id: "catalogueDeliveryItem",
-    name: "Service Livraison",
-    description: "Éléments de livraison du catalogue (transport/livraison)",
-    category: "catalogue",
-  },
-  // Services Sur Mesure
+  // Service Sur Mesure (SEUL SERVICE ACTIF)
   {
     id: "demenagement-sur-mesure",
     name: "Déménagement Sur Mesure",
     description: "Service de déménagement personnalisé selon vos besoins",
-    category: "sur-mesure",
-  },
-  {
-    id: "menage-sur-mesure",
-    name: "Ménage Sur Mesure",
-    description: "Service de nettoyage personnalisé selon vos besoins",
     category: "sur-mesure",
   },
   // Defaults
@@ -206,4 +124,3 @@ export const availablePresets: Array<{
     category: "default",
   },
 ];
-

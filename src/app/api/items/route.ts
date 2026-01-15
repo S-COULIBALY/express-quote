@@ -33,15 +33,15 @@ export async function GET(request: NextRequest) {
     }
     
     if (isActive !== null) {
-      where.isActive = isActive === 'true'
+      where.is_active = isActive === 'true'
     }
-    
+
     if (customerId) {
-      where.customerId = customerId
+      where.customer_id = customerId
     }
-    
+
     if (templateId) {
-      where.templateId = templateId
+      where.template_id = templateId
     }
     
     if (popular !== null) {
@@ -50,24 +50,24 @@ export async function GET(request: NextRequest) {
     
     // Exécution de la requête avec pagination
     const [items, total] = await Promise.all([
-      prisma.item.findMany({
+      prisma.items.findMany({
         where,
         include: {
-          template: {
+          templates: {
             select: { id: true, name: true, price: true }
           },
-          customer: {
+          Customer: {
             select: { id: true, firstName: true, lastName: true }
           }
         },
         orderBy: [
           { popular: 'desc' },
-          { createdAt: 'desc' }
+          { created_at: 'desc' }
         ],
         skip,
         take: limit
       }),
-      prisma.item.count({ where })
+      prisma.items.count({ where })
     ])
     
     // Calcul de la pagination
@@ -118,8 +118,9 @@ export async function POST(request: NextRequest) {
     }
     
     // Création de l'item
-    const item = await prisma.item.create({
+    const item = await prisma.items.create({
       data: {
+        id: crypto.randomUUID(),
         type,
         name,
         description: body.description,
@@ -127,19 +128,20 @@ export async function POST(request: NextRequest) {
         workers: parseInt(workers),
         duration: parseInt(duration),
         features: body.features || [],
-        includedDistance: body.includedDistance ? parseInt(body.includedDistance) : null,
-        distanceUnit: body.distanceUnit || 'km',
+        included_distance: body.includedDistance ? parseInt(body.includedDistance) : null,
+        distance_unit: body.distanceUnit || 'km',
         includes: body.includes || [],
-        categoryId: body.categoryId,
+        category_id: body.categoryId,
         popular: body.popular || false,
-        imagePath: body.imagePath,
-        templateId: body.templateId,
-        customerId: body.customerId,
-        bookingId: body.bookingId
+        image_path: body.imagePath,
+        template_id: body.templateId,
+        customer_id: body.customerId,
+        booking_id: body.bookingId,
+        updated_at: new Date()
       },
       include: {
-        template: true,
-        customer: true
+        templates: true,
+        Customer: true
       }
     })
     

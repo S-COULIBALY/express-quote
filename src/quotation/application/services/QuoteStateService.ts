@@ -132,8 +132,9 @@ export class QuoteStateService {
     validateStatusTransition(currentStatus: QuoteRequestStatus, newStatus: QuoteRequestStatus): boolean {
         const allowedTransitions: Record<QuoteRequestStatus, QuoteRequestStatus[]> = {
             [QuoteRequestStatus.TEMPORARY]: [QuoteRequestStatus.CONFIRMED, QuoteRequestStatus.EXPIRED],
-            [QuoteRequestStatus.CONFIRMED]: [QuoteRequestStatus.EXPIRED],
-            [QuoteRequestStatus.EXPIRED]: [] // Aucune transition depuis EXPIRED
+            [QuoteRequestStatus.CONFIRMED]: [QuoteRequestStatus.EXPIRED, QuoteRequestStatus.CONVERTED],
+            [QuoteRequestStatus.EXPIRED]: [], // Aucune transition depuis EXPIRED
+            [QuoteRequestStatus.CONVERTED]: [] // Aucune transition depuis CONVERTED
         };
 
         const allowed = allowedTransitions[currentStatus] || [];

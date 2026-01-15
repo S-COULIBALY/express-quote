@@ -85,24 +85,9 @@ export class Booking extends Entity {
         professional?: Professional,
         id?: UniqueId
     ): Booking {
-        // Mapper le type de QuoteRequest vers BookingType
-        let bookingType: BookingType;
-        switch (quoteRequest.getType()) {
-            case 'MOVING':
-                bookingType = BookingType.MOVING_QUOTE;
-                break;
-            case 'PACK':
-            case 'PACKING':
-                bookingType = BookingType.PACKING;
-                break;
-            case 'SERVICE':
-            case 'CLEANING':
-            case 'DELIVERY':
-                bookingType = BookingType.SERVICE;
-                break;
-            default:
-                throw new Error(`Type de devis non supporté: ${quoteRequest.getType()}`);
-        }
+        // Tous les services actifs sont des déménagements (MOVING, MOVING_PREMIUM)
+        // Services abandonnés : PACK, PACKING, SERVICE, CLEANING, DELIVERY
+        const bookingType: BookingType = BookingType.MOVING_QUOTE;
 
         const booking = new Booking(
             bookingType,

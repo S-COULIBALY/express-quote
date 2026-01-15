@@ -141,10 +141,11 @@ export default function CataloguePage() {
 
   // Récupération des données du catalogue - Optimisée avec cache et retry
   useEffect(() => {
+    const CACHE_KEY = "catalogue-featured-items";
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // 1 seconde
+
     const fetchCatalogData = async (retryCount = 0): Promise<void> => {
-      const CACHE_KEY = "catalogue-featured-items";
-      const MAX_RETRIES = 3;
-      const RETRY_DELAY = 1000; // 1 seconde
 
       try {
         setLoading(true);

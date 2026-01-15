@@ -41,13 +41,12 @@ export function validate(data: any): ValidationError[] {
   }
   
   // Validation spécifique selon le type de réservation
+  // ✅ SERVICES ACTIFS (2026-01-15): Seul MOVING_QUOTE est actif
+  // ❌ SERVICES ABANDONNÉS: PACK, PACKING, SERVICE (supprimés)
   if (data.type === BookingType.MOVING_QUOTE || data.type === 'MOVING_QUOTE') {
     errors.push(...validateMoving(data));
-  } else if (data.type === BookingType.PACK || data.type === 'PACK') {
-    errors.push(...validatePack(data));
-  } else if (data.type === BookingType.SERVICE || data.type === 'SERVICE' || data.type === 'service') {
-    errors.push(...validateService(data));
   }
+  // Les types PACK et SERVICE sont obsolètes et ne sont plus supportés
   
   return errors;
 }

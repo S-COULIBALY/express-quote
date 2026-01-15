@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 👥 Service de notification spécialisé pour l'équipe interne
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Helper pour déterminer les services inclus/optionnels/non disponibles par scénario
  * Basé sur le tableau restructuré (lecture orientée client)

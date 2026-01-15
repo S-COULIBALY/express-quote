@@ -3,7 +3,7 @@
  * Architecture simple sans DDD ni IoC
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, ServiceType as PrismaServiceType } from '@prisma/client';
 import { ServiceType } from '@/quotation/domain/enums/ServiceType';
 import { ProfessionalLocationService } from './ProfessionalLocationService';
 import { BlacklistService } from './BlacklistService';
@@ -85,14 +85,16 @@ export class AttributionService {
     console.log(`🎯 Démarrage attribution pour booking ${request.bookingId}`);
 
     // 1. Créer l'enregistrement d'attribution
-    const attribution = await this.prisma.bookingAttribution.create({
+    const attribution = await this.prisma.booking_attributions.create({
       data: {
-        bookingId: request.bookingId,
-        serviceType: request.serviceType,
-        maxDistanceKm: request.maxDistanceKm || 100,
-        serviceLatitude: request.serviceLatitude,
-        serviceLongitude: request.serviceLongitude,
-        status: 'BROADCASTING'
+        id: crypto.randomUUID(),
+        booking_id: request.bookingId,
+        service_type: request.serviceType as unknown as PrismaServiceType,
+        max_distance_km: request.maxDistanceKm || 100,
+        service_latitude: request.serviceLatitude,
+        service_longitude: request.serviceLongitude,
+        status: 'BROADCASTING',
+        updated_at: new Date()
       }
     });
 
@@ -109,9 +111,9 @@ export class AttributionService {
     console.log(`📡 Diffusion pour attribution ${attributionId}`);
 
     // 1. Récupérer l'attribution actuelle
-    const attribution = await this.prisma.bookingAttribution.findUnique({
+    const attribution = await this.prisma.booking_attributions.findUnique({
       where: { id: attributionId },
-      include: { booking: true }
+      include: { Booking: true }
     });
 
     if (!attribution || attribution.status !== 'BROADCASTING') {
@@ -120,8 +122,8 @@ export class AttributionService {
     }
 
     // 2. Récupérer les professionnels exclus (blacklist + précédents refus)
-    const excludedIds = Array.isArray(attribution.excludedProfessionals) 
-      ? attribution.excludedProfessionals as string[]
+    const excludedIds = Array.isArray(attribution.excluded_professionals)
+      ? attribution.excluded_professionals as string[]
       : [];
 
     const blacklistedIds = await this.blacklistService.getBlacklistedProfessionals(request.serviceType);
@@ -140,9 +142,9 @@ export class AttributionService {
 
     if (eligibleProfessionals.length === 0) {
       // Aucun professionnel disponible
-      await this.prisma.bookingAttribution.update({
+      await this.prisma.booking_attributions.update({
         where: { id: attributionId },
-        data: { status: 'EXPIRED' }
+        data: { status: 'EXPIRED', updated_at: new Date() }
       });
       console.log(`❌ Aucun professionnel disponible pour attribution ${attributionId}`);
       return;
@@ -198,9 +200,9 @@ export class AttributionService {
 
     return await this.prisma.$transaction(async (tx) => {
       // 1. Vérifier l'état de l'attribution
-      const attribution = await tx.bookingAttribution.findUnique({
+      const attribution = await tx.booking_attributions.findUnique({
         where: { id: attributionId },
-        include: { booking: true }
+        include: { Booking: true }
       });
 
       if (!attribution) {
@@ -211,37 +213,39 @@ export class AttributionService {
         return { success: false, message: 'Cette mission n\'est plus disponible' };
       }
 
-      if (attribution.acceptedProfessionalId) {
+      if (attribution.accepted_professional_id) {
         return { success: false, message: 'Mission déjà acceptée par un autre professionnel' };
       }
 
       // 2. Accepter l'attribution
-      await tx.bookingAttribution.update({
+      await tx.booking_attributions.update({
         where: { id: attributionId },
         data: {
           status: 'ACCEPTED',
-          acceptedProfessionalId: professionalId
+          accepted_professional_id: professionalId,
+          updated_at: new Date()
         }
       });
 
       // 3. Assigner le professionnel à la réservation
       await tx.booking.update({
-        where: { id: attribution.bookingId },
+        where: { id: attribution.booking_id },
         data: { professionalId: professionalId }
       });
 
       // 4. Enregistrer la réponse
-      await tx.attributionResponse.create({
+      await tx.attribution_responses.create({
         data: {
-          attributionId: attributionId,
-          professionalId: professionalId,
-          responseType: 'ACCEPTED',
-          responseTime: new Date()
+          id: crypto.randomUUID(),
+          attribution_id: attributionId,
+          professional_id: professionalId,
+          response_type: 'ACCEPTED',
+          response_time: new Date()
         }
       });
 
       // 5. Réinitialiser le compteur de refus consécutifs pour ce professionnel
-      await this.blacklistService.resetConsecutiveRefusals(professionalId, attribution.serviceType);
+      await this.blacklistService.resetConsecutiveRefusals(professionalId, attribution.service_type as unknown as ServiceType);
 
       console.log(`🎉 Attribution ${attributionId} acceptée par professionnel ${professionalId}`);
 
@@ -259,18 +263,19 @@ export class AttributionService {
     console.log(`❌ Refus par professionnel ${professionalId} pour attribution ${attributionId}`);
 
     // 1. Enregistrer la réponse
-    await this.prisma.attributionResponse.create({
+    await this.prisma.attribution_responses.create({
       data: {
-        attributionId: attributionId,
-        professionalId: professionalId,
-        responseType: 'REFUSED',
-        responseTime: new Date(),
-        responseMessage: reason
+        id: crypto.randomUUID(),
+        attribution_id: attributionId,
+        professional_id: professionalId,
+        response_type: 'REFUSED',
+        response_time: new Date(),
+        response_message: reason
       }
     });
 
     // 2. Récupérer l'attribution
-    const attribution = await this.prisma.bookingAttribution.findUnique({
+    const attribution = await this.prisma.booking_attributions.findUnique({
       where: { id: attributionId }
     });
 
@@ -279,19 +284,20 @@ export class AttributionService {
     }
 
     // 3. Gérer la blacklist
-    await this.blacklistService.handleRefusal(professionalId, attribution.serviceType, attributionId);
+    await this.blacklistService.handleRefusal(professionalId, attribution.service_type as unknown as ServiceType, attributionId);
 
     // 4. Ajouter à la liste des exclus pour cette attribution
-    const currentExcluded = Array.isArray(attribution.excludedProfessionals) 
-      ? attribution.excludedProfessionals as string[]
+    const currentExcluded = Array.isArray(attribution.excluded_professionals)
+      ? attribution.excluded_professionals as string[]
       : [];
-    
+
     const updatedExcluded = [...new Set([...currentExcluded, professionalId])];
 
-    await this.prisma.bookingAttribution.update({
+    await this.prisma.booking_attributions.update({
       where: { id: attributionId },
       data: {
-        excludedProfessionals: updatedExcluded
+        excluded_professionals: updatedExcluded,
+        updated_at: new Date()
       }
     });
 
@@ -302,17 +308,17 @@ export class AttributionService {
   /**
    * Traite l'annulation par un professionnel qui avait accepté
    */
-  async handleProfessionalCancellation(attributionId: string, professionalId: string, reason?: string): Promise<{ success: boolean; message: string }> {
+  async handleProfessionalCancellation(attributionId: string, professionalId: string, _reason?: string): Promise<{ success: boolean; message: string }> {
     console.log(`🚫 Annulation par professionnel ${professionalId} pour attribution ${attributionId}`);
 
     return await this.prisma.$transaction(async (tx) => {
       // 1. Vérifier que ce professionnel a bien accepté cette attribution
-      const attribution = await tx.bookingAttribution.findUnique({
+      const attribution = await tx.booking_attributions.findUnique({
         where: { id: attributionId },
-        include: { booking: true }
+        include: { Booking: true }
       });
 
-      if (!attribution || attribution.acceptedProfessionalId !== professionalId) {
+      if (!attribution || attribution.accepted_professional_id !== professionalId) {
         return { success: false, message: 'Vous n\'êtes pas assigné à cette mission' };
       }
 
@@ -321,56 +327,59 @@ export class AttributionService {
       }
 
       // 2. Remettre en diffusion
-      await tx.bookingAttribution.update({
+      await tx.booking_attributions.update({
         where: { id: attributionId },
         data: {
           status: 'RE_BROADCASTING',
-          acceptedProfessionalId: null,
-          broadcastCount: { increment: 1 },
-          lastBroadcastAt: new Date()
+          accepted_professional_id: null,
+          broadcast_count: { increment: 1 },
+          last_broadcast_at: new Date(),
+          updated_at: new Date()
         }
       });
 
       // 3. Retirer l'assignation de la réservation
       await tx.booking.update({
-        where: { id: attribution.bookingId },
+        where: { id: attribution.booking_id },
         data: { professionalId: null }
       });
 
       // 4. Ajouter à la liste des exclus
-      const currentExcluded = Array.isArray(attribution.excludedProfessionals) 
-        ? attribution.excludedProfessionals as string[]
+      const currentExcluded = Array.isArray(attribution.excluded_professionals)
+        ? attribution.excluded_professionals as string[]
         : [];
-      
+
       const updatedExcluded = [...new Set([...currentExcluded, professionalId])];
 
-      await tx.bookingAttribution.update({
+      await tx.booking_attributions.update({
         where: { id: attributionId },
         data: {
-          excludedProfessionals: updatedExcluded
+          excluded_professionals: updatedExcluded,
+          updated_at: new Date()
         }
       });
 
       // 5. Pénaliser plus sévèrement l'annulation qu'un simple refus
-      await this.blacklistService.handleCancellation(professionalId, attribution.serviceType, attributionId);
+      await this.blacklistService.handleCancellation(professionalId, attribution.service_type as unknown as ServiceType, attributionId);
 
       console.log(`🔄 Remise en diffusion pour attribution ${attributionId}`);
 
       // 6. Relancer la diffusion
       // Note: On utilise les données de la réservation existante
+      const booking = attribution.Booking;
       const bookingData = {
-        totalAmount: attribution.booking.totalAmount,
-        scheduledDate: attribution.booking.scheduledDate || new Date(),
-        locationAddress: attribution.booking.locationAddress || 'Non spécifié',
-        additionalInfo: attribution.booking.additionalInfo
+        totalAmount: booking?.totalAmount || 0,
+        scheduledDate: booking?.scheduledDate || new Date(),
+        locationAddress: booking?.locationAddress || 'Non spécifié',
+        additionalInfo: booking?.additionalInfo
       };
 
       await this.broadcastToEligibleProfessionals(attributionId, {
-        bookingId: attribution.bookingId,
-        serviceType: attribution.serviceType,
-        serviceLatitude: attribution.serviceLatitude!,
-        serviceLongitude: attribution.serviceLongitude!,
-        maxDistanceKm: attribution.maxDistanceKm,
+        bookingId: attribution.booking_id,
+        serviceType: attribution.service_type as unknown as ServiceType,
+        serviceLatitude: attribution.service_latitude!,
+        serviceLongitude: attribution.service_longitude!,
+        maxDistanceKm: attribution.max_distance_km,
         bookingData
       });
 
@@ -382,21 +391,21 @@ export class AttributionService {
    * Récupère le statut d'une attribution
    */
   async getAttributionStatus(attributionId: string) {
-    const attribution = await this.prisma.bookingAttribution.findUnique({
+    const attribution = await this.prisma.booking_attributions.findUnique({
       where: { id: attributionId },
       include: {
-        booking: {
+        Booking: {
           include: {
-            customer: true
+            Customer: true
           }
         },
-        acceptedProfessional: true,
-        responses: {
+        Professional: true,
+        attribution_responses: {
           include: {
-            professional: true
+            Professional: true
           },
           orderBy: {
-            responseTime: 'desc'
+            response_time: 'desc'
           }
         }
       }
@@ -409,17 +418,17 @@ export class AttributionService {
    * Récupère les attributions pour un professionnel
    */
   async getProfessionalAttributions(professionalId: string, limit: number = 20) {
-    const responses = await this.prisma.attributionResponse.findMany({
-      where: { professionalId },
+    const responses = await this.prisma.attribution_responses.findMany({
+      where: { professional_id: professionalId },
       include: {
-        attribution: {
+        booking_attributions: {
           include: {
-            booking: true
+            Booking: true
           }
         }
       },
       orderBy: {
-        responseTime: 'desc'
+        response_time: 'desc'
       },
       take: limit
     });

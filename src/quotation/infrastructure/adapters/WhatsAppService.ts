@@ -152,7 +152,8 @@ export class WhatsAppService implements IWhatsAppService {
     public async sendReminderDocument(to: string, booking: Booking): Promise<string> {
         if (!this.isServiceEnabled()) return '';
 
-        const pdfPath = await this.pdfService.generateReminderPDF(booking, 1);
+        // Utilise generateBookingPDF car generateReminderPDF n'existe pas
+        const pdfPath = await this.pdfService.generateBookingPDF(booking);
         const mediaMessage = {
             type: 'document',
             url: pdfPath,

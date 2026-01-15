@@ -66,11 +66,11 @@ export const transformCatalogDataToCatalogueMovingItem = (catalogData: CatalogDa
       "Matériel de déménagement fourni",
       "Assurance transport incluse"
     ],
-    popular: sourceData.popular || catalogSelection.isFeatured,
-    imagePath: sourceData.imagePath,
+    popular: (sourceData as any).popular || catalogSelection.isFeatured,
+    imagePath: (sourceData as any).imagePath,
     
     // Propriétés requises pour Pack
-    scheduledDate: null, // Pas de date par défaut - sera rempli par l'utilisateur
+    scheduledDate: new Date(), // Date par défaut - sera modifiée par l'utilisateur
     pickupAddress: '', // Sera rempli par l'utilisateur
     deliveryAddress: '', // Sera rempli par l'utilisateur
     additionalInfo: '',
@@ -91,9 +91,9 @@ export const transformCatalogDataToCatalogueMovingItem = (catalogData: CatalogDa
     // ✅ Ajout du snapshot pour la comparaison PACKING non modifié
     __presetSnapshot: {
       // ✅ CORRECTION : Pas de volume pour PACKING (pas de volume par défaut dans l'item)
-      distance: item.includedDistance || 20,
-      workers: item.workers || template?.workers || 2,
-      duration: item.duration || template?.duration || 1,
+      distance: sourceData.includedDistance || 20,
+      workers: sourceData.workers || 2,
+      duration: sourceData.duration || 1,
       // ✅ AJOUT : Données de promotion pour la comparaison
       promotionCode: catalogSelection.promotionCode,
       promotionValue: catalogSelection.promotionValue,
@@ -115,27 +115,30 @@ export const transformCatalogDataToCatalogueMovingItem = (catalogData: CatalogDa
 export const transformCatalogDataToCatalogueCleaningItem = (catalogData: CatalogData): CatalogueCleaningItem => {
   const { catalogSelection, item, template } = catalogData;
   
+  // Utiliser item si disponible, sinon fallback sur template
+  const sourceData = item || template!;
+  
   const transformedData = {
-    id: item.id,
+    id: sourceData.id,
     bookingId: '', // Sera généré lors de la création du booking
-    name: catalogSelection.marketingTitle || item.name,
-    description: catalogSelection.marketingDescription || item.description || '',
-    price: catalogSelection.marketingPrice || item.price,
+    name: catalogSelection.marketingTitle || sourceData.name,
+    description: catalogSelection.marketingDescription || sourceData.description || '',
+    price: catalogSelection.marketingPrice || sourceData.price,
     originalPrice: catalogSelection.originalPrice,
-    duration: item.duration || template?.duration || 2, // en heures pour services
-    workers: item.workers || template?.workers || 1,
-    features: item.features || template?.features || [],
-    includes: item.includes || template?.includes || [
-      `${item.duration || 2} heure${(item.duration || 2) > 1 ? 's' : ''} de service`,
-      `${item.workers || 1} professionnel${(item.workers || 1) > 1 ? 's' : ''} qualifié${(item.workers || 1) > 1 ? 's' : ''}`,
+    duration: sourceData.duration || 2, // en heures pour services
+    workers: sourceData.workers || 1,
+    features: sourceData.features || [],
+    includes: sourceData.includes || [
+      `${sourceData.duration || 2} heure${(sourceData.duration || 2) > 1 ? 's' : ''} de service`,
+      `${sourceData.workers || 1} professionnel${(sourceData.workers || 1) > 1 ? 's' : ''} qualifié${(sourceData.workers || 1) > 1 ? 's' : ''}`,
       "Matériel professionnel inclus",
       "Assurance responsabilité civile"
     ],
-    imagePath: item.imagePath,
+    imagePath: (sourceData as any).imagePath,
     
     // Propriétés requises pour Service
     categoryId: catalogSelection.category, // Utiliser la catégorie comme categoryId
-    scheduledDate: null, // Pas de date par défaut - sera rempli par l'utilisateur
+    scheduledDate: new Date(), // Date par défaut - sera modifiée par l'utilisateur
     location: '', // Sera rempli par l'utilisateur
     additionalInfo: '',
     createdAt: new Date(),
@@ -147,8 +150,8 @@ export const transformCatalogDataToCatalogueCleaningItem = (catalogData: Catalog
     __presetSnapshot: {
       volume: 0, // Pas de volume pour le nettoyage
       distance: 0, // Pas de distance pour le nettoyage
-      workers: item.workers || template?.workers || 1,
-      duration: item.duration || template?.duration || 2
+      workers: sourceData.workers || 1,
+      duration: sourceData.duration || 2
     },
     
     // ✅ Ajout des données de promotion
@@ -165,21 +168,24 @@ export const transformCatalogDataToCatalogueCleaningItem = (catalogData: Catalog
 export const transformCatalogDataToCatalogueDeliveryItem = (catalogData: CatalogData): CatalogueDeliveryItem => {
   const { catalogSelection, item, template } = catalogData;
   
+  // Utiliser item si disponible, sinon fallback sur template
+  const sourceData = item || template!;
+  
   return {
-    id: item.id,
+    id: sourceData.id,
     bookingId: '', // Sera généré lors de la création du booking
-    name: catalogSelection.marketingTitle || item.name,
-    description: catalogSelection.marketingDescription || item.description || '',
-    price: catalogSelection.marketingPrice || item.price,
+    name: catalogSelection.marketingTitle || sourceData.name,
+    description: catalogSelection.marketingDescription || sourceData.description || '',
+    price: catalogSelection.marketingPrice || sourceData.price,
     originalPrice: catalogSelection.originalPrice,
-    features: item.features || template?.features || [],
-    includes: item.includes || template?.includes || [
+    features: sourceData.features || [],
+    includes: sourceData.includes || [
       "Transport sécurisé",
       "Suivi en temps réel", 
       "Assurance colis",
       "Notification SMS"
     ],
-    imagePath: item.imagePath,
+    imagePath: (sourceData as any).imagePath,
     
     // Propriétés spécifiques à la livraison avec valeurs par défaut
     packageType: 'colis', // Sera modifié par l'utilisateur
@@ -189,7 +195,7 @@ export const transformCatalogDataToCatalogueDeliveryItem = (catalogData: Catalog
     deliveryAddress: '', // Sera rempli par l'utilisateur
     pickupTime: '', // Sera rempli par l'utilisateur
     deliveryTime: '', // Sera rempli par l'utilisateur
-    scheduledDate: null, // Pas de date par défaut - sera rempli par l'utilisateur
+    scheduledDate: new Date(), // Date par défaut - sera modifiée par l'utilisateur
     additionalInfo: '',
     
     // Données catalogue pour traçabilité
@@ -217,8 +223,11 @@ export const transformCatalogDataToCatalogueDeliveryItem = (catalogData: Catalog
 export const transformCatalogDataToDemenagementSurMesure = (catalogData: CatalogData): any => {
   const { catalogSelection, item, template } = catalogData;
   
+  // Utiliser item si disponible, sinon fallback sur template
+  const sourceData = item || template!;
+  
   return {
-    id: item.id,
+    id: sourceData.id,
     name: catalogSelection.marketingTitle || 'Déménagement sur mesure',
     description: catalogSelection.marketingDescription || 'Service de déménagement personnalisé selon vos besoins',
     price: null, // Prix calculé dynamiquement selon les besoins du client
@@ -227,7 +236,7 @@ export const transformCatalogDataToDemenagementSurMesure = (catalogData: Catalog
     duration: null, // Durée calculée selon la complexité
     features: ['Service personnalisé', 'Devis adapté'],
     includes: ['Étude gratuite', 'Options modulables'],
-    imagePath: item.imagePath,
+    imagePath: (sourceData as any).imagePath,
     
     // Propriétés spécifiques au service sur mesure
     serviceType: 'demenagement-sur-mesure',
@@ -253,8 +262,11 @@ export const transformCatalogDataToDemenagementSurMesure = (catalogData: Catalog
 export const transformCatalogDataToMenageSurMesure = (catalogData: CatalogData): any => {
   const { catalogSelection, item, template } = catalogData;
   
+  // Utiliser item si disponible, sinon fallback sur template
+  const sourceData = item || template!;
+  
   return {
-    id: item.id,
+    id: sourceData.id,
     name: catalogSelection.marketingTitle || 'Ménage sur mesure',
     description: catalogSelection.marketingDescription || 'Service de nettoyage personnalisé selon vos besoins',
     price: null, // Prix calculé dynamiquement selon les besoins du client
@@ -263,7 +275,7 @@ export const transformCatalogDataToMenageSurMesure = (catalogData: CatalogData):
     duration: null, // Durée calculée selon la complexité
     features: ['Service personnalisé', 'Devis adapté'],
     includes: ['Étude gratuite', 'Options modulables'],
-    imagePath: item.imagePath,
+    imagePath: (sourceData as any).imagePath,
     
     // Propriétés spécifiques au service sur mesure
     serviceType: 'menage-sur-mesure',

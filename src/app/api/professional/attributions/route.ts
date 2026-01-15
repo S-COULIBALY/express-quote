@@ -28,11 +28,11 @@ export async function GET(request: NextRequest) {
     // Filtrer par statut si demandé
     let filteredAttributions = attributions;
     if (status && status !== 'all') {
-      filteredAttributions = attributions.filter(attr => attr.responseType === status.toUpperCase());
+      filteredAttributions = attributions.filter((attr: any) => attr.responseType === status.toUpperCase());
     }
 
     // Formater la réponse
-    const formattedAttributions = filteredAttributions.map(attr => ({
+    const formattedAttributions = filteredAttributions.map((attr: any) => ({
       id: attr.id,
       attributionId: attr.attributionId,
       responseType: attr.responseType,
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         id: attr.attribution.id,
         status: attr.attribution.status,
         serviceType: attr.attribution.serviceType,
-        maxDistanceKm: attr.attribution.maxDistanceKm,
+        max_distance_km: attr.attribution.max_distance_km,
         createdAt: attr.attribution.createdAt,
         booking: {
           id: attr.attribution.booking.id,
@@ -59,10 +59,10 @@ export async function GET(request: NextRequest) {
     // Statistiques du professionnel
     const stats = {
       total: attributions.length,
-      accepted: attributions.filter(a => a.responseType === 'ACCEPTED').length,
-      refused: attributions.filter(a => a.responseType === 'REFUSED').length,
-      acceptanceRate: attributions.length > 0 
-        ? Math.round((attributions.filter(a => a.responseType === 'ACCEPTED').length / attributions.length) * 100)
+      accepted: attributions.filter((a: any) => a.responseType === 'ACCEPTED').length,
+      refused: attributions.filter((a: any) => a.responseType === 'REFUSED').length,
+      acceptanceRate: attributions.length > 0
+        ? Math.round((attributions.filter((a: any) => a.responseType === 'ACCEPTED').length / attributions.length) * 100)
         : 0
     };
 

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       const booking = await prisma.booking.findUnique({
         where: { id: bookingId },
         include: {
-          customer: {
+          Customer: {
             select: {
               id: true,
               firstName: true,
@@ -53,11 +53,11 @@ export async function GET(request: NextRequest) {
       const cartData = {
         id: booking.id,
         status: booking.status,
-        customer: booking.customer ? {
-          id: booking.customer.id,
-          firstName: booking.customer.firstName,
-          lastName: booking.customer.lastName,
-          email: booking.customer.email
+        customer: booking.Customer ? {
+          id: booking.Customer.id,
+          firstName: booking.Customer.firstName,
+          lastName: booking.Customer.lastName,
+          email: booking.Customer.email
         } : null,
         cart: {
           items: [

@@ -47,20 +47,20 @@ export async function POST(request: NextRequest) {
       userType = 'external';
     } else {
       // 2. Rechercher dans le staff interne
-      const internalStaff = await prisma.internalStaff.findUnique({
+      const internalStaff = await prisma.internal_staff.findUnique({
         where: { email: emailLower },
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          first_name: true,
+          last_name: true,
           email: true,
           password: true,
           role: true,
           department: true,
-          serviceTypes: true,
-          isActive: true,
+          service_types: true,
+          is_active: true,
           phone: true,
-          lastLoginAt: true
+          last_login_at: true
         }
       });
 
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (userType === 'internal' && !user.isActive) {
+    if (userType === 'internal' && !user.is_active) {
       return NextResponse.json(
         { success: false, error: 'Compte désactivé. Contactez l\'administration.' },
         { status: 403 }
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       name: user.companyName,
       type: 'external_professional',
       businessType: user.businessType,
-      serviceTypes: user.serviceTypes
+      service_types: user.service_types
     } : {
       userId: user.id,
       email: user.email,
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       type: 'internal_staff',
       role: user.role,
       department: user.department,
-      serviceTypes: user.serviceTypes
+      service_types: user.service_types
     };
 
     const token = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '24h' });
@@ -137,9 +137,9 @@ export async function POST(request: NextRequest) {
         data: { last_login_at: new Date() }
       });
     } else {
-      await prisma.internalStaff.update({
+      await prisma.internal_staff.update({
         where: { id: user.id },
-        data: { lastLoginAt: new Date() }
+        data: { last_login_at: new Date() }
       });
     }
 
@@ -162,11 +162,11 @@ export async function POST(request: NextRequest) {
       companyName: user.companyName,
       email: user.email,
       verified: user.verified,
-      isAvailable: user.is_available,
+      is_available: user.is_available,
       city: user.city,
       businessType: user.businessType,
       phone: user.phone,
-      serviceTypes: user.service_types,
+      service_types: user.service_types,
       type: 'external'
     } : {
       id: user.id,
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
       role: user.role,
       department: user.department,
-      serviceTypes: user.service_types,
+      service_types: user.service_types,
       isActive: user.isActive,
       phone: user.phone,
       type: 'internal'

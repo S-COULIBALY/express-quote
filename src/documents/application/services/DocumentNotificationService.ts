@@ -66,7 +66,7 @@ export class DocumentNotificationService {
       // Préparer les données de notification enrichies
       const notificationData = {
         email: customer.getEmail(),
-        customerName: `${customer.getFirstName()} ${customer.getLastName()}`,
+        customerName: customer.getFullName(),
         bookingId: booking.getId()!,
         bookingReference: `EQ-${booking.getId()!.slice(-8).toUpperCase()}`,
         serviceDate: context.quoteData.scheduledDate || new Date().toISOString().split('T')[0],
@@ -91,7 +91,7 @@ export class DocumentNotificationService {
       // Envoyer via l'API de notifications enrichie
       await this.sendNotificationWithAttachments({
         email: customer.getEmail(),
-        customerName: `${customer.getFirstName()} ${customer.getLastName()}`,
+        customerName: customer.getFullName(),
         bookingId: booking.getId()!,
         templateType: 'booking-confirmation',
         data: notificationData,
@@ -135,7 +135,7 @@ export class DocumentNotificationService {
 
       const notificationData = {
         email: customer.getEmail(),
-        customerName: `${customer.getFirstName()} ${customer.getLastName()}`,
+        customerName: customer.getFullName(),
         bookingId: booking.getId()!,
         bookingReference: `EQ-${booking.getId()!.slice(-8).toUpperCase()}`,
         serviceType: booking.getType(),
@@ -150,7 +150,7 @@ export class DocumentNotificationService {
 
       await this.sendNotificationWithAttachments({
         email: customer.getEmail(),
-        customerName: `${customer.getFirstName()} ${customer.getLastName()}`,
+        customerName: customer.getFullName(),
         bookingId: booking.getId()!,
         templateType: 'document-generated',
         data: notificationData,
@@ -189,7 +189,7 @@ export class DocumentNotificationService {
 
       const notificationData = {
         email: customer.getEmail(),
-        customerName: `${customer.getFirstName()} ${customer.getLastName()}`,
+        customerName: customer.getFullName(),
         bookingId: booking.getId()!,
         bookingReference: `EQ-${booking.getId()!.slice(-8).toUpperCase()}`,
         amount: paymentData.amount,
@@ -201,7 +201,7 @@ export class DocumentNotificationService {
 
       await this.sendNotificationWithAttachments({
         email: customer.getEmail(),
-        customerName: `${customer.getFirstName()} ${customer.getLastName()}`,
+        customerName: customer.getFullName(),
         bookingId: booking.getId()!,
         templateType: 'payment-confirmation',
         data: notificationData,
@@ -346,7 +346,7 @@ export class DocumentNotificationService {
         totalAmount: booking.getTotalAmount().getAmount(),
         
         // Données client
-        customerName: `${customer.getFirstName()} ${customer.getLastName()}`,
+        customerName: customer.getFullName(),
         customerEmail: customer.getEmail(),
         customerPhone: customer.getPhone(),
         
@@ -428,7 +428,7 @@ export class DocumentNotificationService {
         currency: booking.getTotalAmount().getCurrency(),
         
         // Données client pour facturation
-        customerName: `${customer.getFirstName()} ${customer.getLastName()}`,
+        customerName: customer.getFullName(),
         customerEmail: customer.getEmail(),
         customerPhone: customer.getPhone(),
         

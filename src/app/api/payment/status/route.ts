@@ -81,7 +81,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // Importer Stripe dynamiquement pour éviter les problèmes d'initialisation
       const Stripe = (await import('stripe')).default;
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-        apiVersion: '2024-11-20.acacia'
+        apiVersion: '2025-08-27.basil'
       });
 
       // Récupérer le PaymentIntent complet depuis Stripe pour obtenir les metadata

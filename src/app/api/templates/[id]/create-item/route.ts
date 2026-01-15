@@ -12,7 +12,7 @@ export async function POST(
     const body = await request.json()
     
     // Vérifier que le template existe
-    const template = await prisma.template.findUnique({
+    const template = await prisma.templates.findUnique({
       where: { id: templateId }
     })
     
@@ -32,8 +32,9 @@ export async function POST(
     }
     
     // Créer l'item basé sur le template
-    const newItem = await prisma.item.create({
+    const newItem = await prisma.items.create({
       data: {
+        id: crypto.randomUUID(),
         // Copier les propriétés du template
         type: template.type,
         name: body.name || template.name,
@@ -42,26 +43,27 @@ export async function POST(
         workers: body.workers ? parseInt(body.workers) : template.workers,
         duration: body.duration ? parseInt(body.duration) : template.duration,
         features: body.features || template.features,
-        includedDistance: body.includedDistance ? parseInt(body.includedDistance) : template.includedDistance,
-        distanceUnit: body.distanceUnit || template.distanceUnit,
+        included_distance: body.includedDistance ? parseInt(body.includedDistance) : template.included_distance,
+        distance_unit: body.distanceUnit || template.distance_unit,
         includes: body.includes || template.includes,
-        categoryId: body.categoryId || template.categoryId,
-        imagePath: body.imagePath || template.imagePath,
-        
+        category_id: body.categoryId || template.category_id,
+        image_path: body.imagePath || template.image_path,
+
         // Propriétés spécifiques à l'item
-        customerId: body.customerId,
-        templateId: templateId,
-        bookingId: body.bookingId,
-        
+        customer_id: body.customerId,
+        template_id: templateId,
+        booking_id: body.bookingId,
+
         // Propriétés par défaut
         popular: false,
-        isActive: true
+        is_active: true,
+        updated_at: new Date()
       },
       include: {
-        template: {
+        templates: {
           select: { id: true, name: true, price: true }
         },
-        customer: {
+        Customer: {
           select: { id: true, firstName: true, lastName: true }
         }
       }
@@ -94,7 +96,7 @@ export async function GET(
     const { id: templateId } = params
     
     // Récupérer le template
-    const template = await prisma.template.findUnique({
+    const template = await prisma.templates.findUnique({
       where: { id: templateId },
       include: {
         _count: {
@@ -121,11 +123,11 @@ export async function GET(
         workers: template.workers,
         duration: template.duration,
         features: template.features,
-        includedDistance: template.includedDistance,
-        distanceUnit: template.distanceUnit,
+        includedDistance: template.included_distance,
+        distanceUnit: template.distance_unit,
         includes: template.includes,
-        categoryId: template.categoryId,
-        imagePath: template.imagePath,
+        categoryId: template.category_id,
+        imagePath: template.image_path,
         note: 'Ces valeurs peuvent être modifiées lors de la création de l\'item'
       },
       usage: {

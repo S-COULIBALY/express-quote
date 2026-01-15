@@ -1,19 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { NotificationController } from '@/notifications/interfaces/http/NotificationController';
-import { container } from '@/config/dependency-injection';
+import { PrismaClient } from '@prisma/client';
 
-const notificationController = container.resolve(NotificationController);
+const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
+
+    // Health check
     if (searchParams.has('health')) {
-      const health = await notificationController.checkHealth();
-      return NextResponse.json(health);
+      return NextResponse.json({
+        status: 'healthy',
+        service: 'notifications',
+        timestamp: new Date().toISOString()
+      });
     }
-    
-    const notifications = await notificationController.getNotifications();
-    return NextResponse.json(notifications);
+
+    // Get recent notifications
+    const recipientId = searchParams.get('recipientId');
+    const limit = parseInt(searchParams.get('limit') || '20');
+
+    const notifications = await prisma.notifications.findMany({
+      where: recipientId ? { recipient_id: recipientId } : {},
+      orderBy: { created_at: 'desc' },
+      take: limit
+    });
+
+    return NextResponse.json({
+      success: true,
+      notifications,
+      count: notifications.length
+    });
   } catch (error) {
     console.error('Error with notifications:', error);
     return NextResponse.json(

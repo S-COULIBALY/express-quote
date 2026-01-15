@@ -126,7 +126,7 @@ async function getInternalUpdates(
         }
       },
       include: {
-        customer: {
+        Customer: {
           select: {
             firstName: true,
             lastName: true,
@@ -149,7 +149,7 @@ async function getInternalUpdates(
         }
       },
       include: {
-        customer: {
+        Customer: {
           select: {
             firstName: true,
             lastName: true
@@ -163,7 +163,7 @@ async function getInternalUpdates(
     });
 
     // ÉTAPE 3: Attributions complétées
-    const attributionUpdates = await prisma.bookingAttribution.findMany({
+    const attributionUpdates = await prisma.booking_attributions.findMany({
       where: {
         status: 'ACCEPTED',
         updatedAt: {
@@ -188,7 +188,7 @@ async function getInternalUpdates(
     const updates: InternalUpdate[] = [];
 
     // Réservations confirmées
-    bookingUpdates.forEach(booking => {
+    bookingUpdates.forEach((booking: any) => {
       updates.push({
         id: `booking_${booking.id}`,
         type: 'BOOKING_CONFIRMED',
@@ -210,7 +210,7 @@ async function getInternalUpdates(
     });
 
     // Paiements complétés
-    paymentUpdates.forEach(booking => {
+    paymentUpdates.forEach((booking: any) => {
       updates.push({
         id: `payment_${booking.id}`,
         type: 'PAYMENT_COMPLETED',
@@ -230,7 +230,7 @@ async function getInternalUpdates(
     });
 
     // Attributions complétées
-    attributionUpdates.forEach(attribution => {
+    attributionUpdates.forEach((attribution: any) => {
       updates.push({
         id: `attribution_${attribution.id}`,
         type: 'ATTRIBUTION_COMPLETED',

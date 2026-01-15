@@ -56,12 +56,12 @@ export async function GET(request: NextRequest) {
     if (decoded.type === 'external_professional') {
       userData = await prisma.professional.findUnique({
         where: { id: decoded.userId },
-      select: {
+        select: {
           id: true,
           companyName: true,
           email: true,
           verified: true,
-          isAvailable: true,
+          is_available: true,
           city: true,
           address: true,
           postalCode: true,
@@ -69,32 +69,32 @@ export async function GET(request: NextRequest) {
           phone: true,
           website: true,
           description: true,
-          serviceTypes: true,
-          maxDistanceKm: true,
+          service_types: true,
+          max_distance_km: true,
           latitude: true,
           longitude: true,
-          lastLoginAt: true,
-          totalAttributions: true,
-          acceptedAttributions: true,
-          cancelledAttributions: true,
+          last_login_at: true,
+          total_attributions: true,
+          accepted_attributions: true,
+          cancelled_attributions: true,
           createdAt: true
         }
       });
     } else if (decoded.type === 'internal_staff') {
-      userData = await prisma.internalStaff.findUnique({
+      userData = await prisma.internal_staff.findUnique({
         where: { id: decoded.userId },
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          first_name: true,
+          last_name: true,
           email: true,
           role: true,
           department: true,
-          serviceTypes: true,
-          isActive: true,
+          service_types: true,
+          is_active: true,
           phone: true,
-          lastLoginAt: true,
-          createdAt: true
+          last_login_at: true,
+          created_at: true
         }
       });
     }
@@ -116,12 +116,12 @@ export async function GET(request: NextRequest) {
       }
 
       // Calculer les statistiques pour les professionnels externes
-      const acceptanceRate = userData.totalAttributions > 0
-        ? Math.round((userData.acceptedAttributions / userData.totalAttributions) * 100)
+      const acceptanceRate = userData.total_attributions > 0
+        ? Math.round((userData.accepted_attributions / userData.total_attributions) * 100)
         : 0;
 
-      const cancellationRate = userData.acceptedAttributions > 0
-        ? Math.round((userData.cancelledAttributions / userData.acceptedAttributions) * 100)
+      const cancellationRate = userData.accepted_attributions > 0
+        ? Math.round((userData.cancelled_attributions / userData.accepted_attributions) * 100)
         : 0;
 
       return NextResponse.json({

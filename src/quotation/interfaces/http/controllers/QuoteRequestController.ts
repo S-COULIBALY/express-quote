@@ -3,19 +3,22 @@ import { QuoteRequestService } from '../../../application/services/QuoteRequestS
 import { ValidationError } from '../../../domain/errors/ValidationError';
 import { logger } from '@/lib/logger';
 import { priceSignatureService } from '../../../application/services/PriceSignatureService';
-import { PriceService } from '../../../application/services/PriceService';
+// Nouveau système de calcul modulaire
+import { BaseCostEngine } from '@/quotation-module/core/BaseCostEngine';
+import { FormAdapter } from '@/quotation-module/adapters/FormAdapter';
+import { getAllModules } from '@/quotation-module/core/ModuleRegistry';
 
 /**
  * Contrôleur HTTP pour la gestion des demandes de devis
  * Endpoints REST pour le cycle de vie complet des QuoteRequest
  */
 export class QuoteRequestController {
-    private readonly priceService: PriceService;
+    private readonly baseCostEngine: BaseCostEngine;
 
     constructor(
         private readonly quoteRequestService: QuoteRequestService
     ) {
-        this.priceService = new PriceService();
+        this.baseCostEngine = new BaseCostEngine(getAllModules());
     }
 
     /**
@@ -85,7 +88,20 @@ export class QuoteRequestController {
                 additionalServices: Object.keys(additionalServices).length > 0 ? additionalServices : undefined
             };
 
-            const serverPrice = await this.priceService.calculatePrice(priceCalculationRequest);
+            // Utiliser le nouveau système de calcul modulaire
+            const context = FormAdapter.toQuoteContext(priceCalculationRequest);
+            const engineResult = this.baseCostEngine.execute(context);
+            const calculationId = crypto.randomUUID();
+
+            const serverPrice = {
+                summary: {
+                    total: engineResult.baseCost || 0,
+                    base: engineResult.baseCost || 0
+                },
+                context: {
+                    calculationId
+                }
+            };
 
             // Comparer prix client vs serveur
             const priceDifference = Math.abs(clientCalculatedPrice - serverPrice.summary.total);
@@ -235,7 +251,7 @@ export class QuoteRequestController {
                             currency: quote.getBasePrice().getCurrency()
                         };
                     } catch (error) {
-                        logger.error('❌ Impossible de recalculer le prix', { temporaryId, error: error.message });
+                        logger.error('❌ Impossible de recalculer le prix', { temporaryId, error: error instanceof Error ? error.message : String(error) });
                     }
                 }
             } else {
@@ -275,7 +291,7 @@ export class QuoteRequestController {
                         };
                     }
                 } catch (error) {
-                    logger.warn('⚠️ Impossible de récupérer les infos catalogue', { temporaryId, error: error.message });
+                    logger.warn('⚠️ Impossible de récupérer les infos catalogue', { temporaryId, error: error instanceof Error ? error.message : String(error) });
                 }
             }
 
@@ -348,14 +364,9 @@ export class QuoteRequestController {
                             amount: quote.getTotalPrice().getAmount(),
                             currency: quote.getTotalPrice().getCurrency()
                         },
-                        discounts: quote.getDiscounts().map(discount => ({
-                            type: discount.getType(),
-                            amount: discount.getAmount().getAmount(),
-                            description: discount.getDescription()
-                        })),
+                        details: quote.getDetails(),
                         serviceType: quote.getServiceType(),
-                        calculatedAt: quote.getCalculationDate(),
-                        hasDiscounts: quote.hasDiscounts()
+                        calculatedAt: quote.getCalculationDate()
                     }
                 }
             };

@@ -225,7 +225,8 @@ async function runAllTests() {
     console.log(`${status} ${testName}: ${result.message}`);
     
     if (result.success && result.data) {
-      console.log(`   📋 Notifications: ${result.data.notifications?.length || 'N/A'}`);
+      const notifications = 'notifications' in result.data ? result.data.notifications : undefined;
+      console.log(`   📋 Notifications: ${notifications?.length || 'N/A'}`);
     }
     
     if (!result.success && result.error) {

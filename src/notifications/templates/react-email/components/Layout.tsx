@@ -285,7 +285,7 @@ export const Layout: React.FC<LayoutProps> = ({
         {/* Fonts Google pour une meilleure lisibilité */}
         <Font
           fontFamily="Inter"
-          fallbackFontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          fallbackFontFamily="sans-serif"
           webFont={{
             url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
             format: 'woff2',
@@ -420,13 +420,13 @@ export const Subtitle: React.FC<{ children: React.ReactNode }> = ({ children }) 
 );
 
 // Paragraphe standard
-export const Paragraph: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Text style={styles.text}>{children}</Text>
+export const Paragraph: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
+  <Text style={{ ...styles.text, ...style }}>{children}</Text>
 );
 
 // Texte petit (pour les notes, disclaimers, etc.)
-export const SmallText: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Text style={styles.textSmall}>{children}</Text>
+export const SmallText: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
+  <Text style={{ ...styles.textSmall, ...style }}>{children}</Text>
 );
 
 // Bouton principal
@@ -468,8 +468,9 @@ export const SecondaryButton: React.FC<{
 export const Card: React.FC<{
   children: React.ReactNode;
   highlight?: boolean;
-}> = ({ children, highlight = false }) => (
-  <Section style={highlight ? styles.cardHighlight : styles.card}>
+  style?: React.CSSProperties;
+}> = ({ children, highlight = false, style }) => (
+  <Section style={{ ...(highlight ? styles.cardHighlight : styles.card), ...style }}>
     {children}
   </Section>
 );

@@ -270,6 +270,9 @@ export interface NotificationTracking {
     replies: number;
     unsubscribes: number;
   };
+
+  /** Métadonnées additionnelles */
+  metadata?: Record<string, unknown>;
 }
 
 /**

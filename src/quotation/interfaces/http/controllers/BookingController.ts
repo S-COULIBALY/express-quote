@@ -552,7 +552,7 @@ export class BookingController extends BaseApiController {
 
         // Pour l'instant, retourner les services stockés dans additionalInfo
         // En production, il faudrait une table services séparée
-        const services = []; // À implémenter selon le schéma DB
+        const services: Array<{ id: string; name: string; price: number }> = []; // À implémenter selon le schéma DB
 
         return {
           success: true,

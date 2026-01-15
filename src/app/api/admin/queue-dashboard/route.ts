@@ -64,27 +64,15 @@ async function initializeDashboard(): Promise<ExpressAdapter> {
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const adapter = await initializeDashboard();
+    // Éviter l'initialisation Redis pendant le build
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      return new NextResponse('Dashboard unavailable during build', { status: 503 });
+    }
+
     const { pathname } = new URL(request.url);
     
     // Extraire le chemin après /api/admin/queue-dashboard
     const dashboardPath = pathname.replace('/api/admin/queue-dashboard', '') || '/';
-    
-    // Créer une requête simulée pour Express
-    const mockReq = {
-      method: 'GET',
-      url: dashboardPath,
-      headers: Object.fromEntries(request.headers.entries()),
-      query: Object.fromEntries(new URL(request.url).searchParams.entries())
-    } as any;
-
-    const mockRes = {
-      status: (code: number) => mockRes,
-      send: (content: string) => content,
-      setHeader: (name: string, value: string) => mockRes,
-      redirect: (url: string) => NextResponse.redirect(url),
-      locals: {}
-    } as any;
 
     // Si c'est la page principale du dashboard
     if (dashboardPath === '/' || dashboardPath === '') {

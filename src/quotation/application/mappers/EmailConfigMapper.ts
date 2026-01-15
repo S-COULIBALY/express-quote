@@ -18,27 +18,63 @@ export class EmailConfigMapper {
       smtpPassword: config.smtpPassword,
       emailFrom: config.emailFrom,
       
-      salesTeamEmails: config.salesTeamEmails,
-      accountingEmails: config.accountingEmails,
-      professionalsEmails: config.professionalsEmails,
-      notificationsEmails: config.notificationsEmails,
+      notificationEmails: config.notificationsEmails || [],
+      
+      internalTeams: {
+        salesTeam: {
+          emails: config.salesTeamEmails || [],
+          config: {
+            enabled: true,
+            messageTypes: [],
+            channels: ['email']
+          }
+        },
+        accounting: {
+          emails: config.accountingEmails || [],
+          config: {
+            enabled: true,
+            messageTypes: [],
+            channels: ['email']
+          }
+        },
+        professionals: {
+          emails: config.professionalsEmails || [],
+          config: {
+            enabled: true,
+            messageTypes: [],
+            channels: ['email']
+          }
+        },
+        notifications: {
+          emails: config.notificationsEmails || [],
+          config: {
+            enabled: true,
+            messageTypes: [],
+            channels: ['email']
+          }
+        },
+        operations: {
+          emails: [],
+          config: {
+            enabled: true,
+            messageTypes: [],
+            channels: ['email']
+          }
+        }
+      },
       
       externalProviders: config.externalProviders.map(provider => ({
         id: provider.id,
         name: provider.name,
         email: provider.email,
         category: provider.category,
-        isActive: provider.isActive
+        channels: ['email'] as const,
+        messageTypes: [] as const
       })),
       
-      emailTypes: Object.entries(config.emailTypes).reduce((acc, [key, value]) => {
-        acc[key] = {
-          internal: value.internal,
-          external: value.external,
-          includeClient: value.includeClient
-        };
-        return acc;
-      }, {} as Record<string, any>),
+      professionals: [],
+      
+      documents: {},
       
       reminderDays: config.reminderDays,
       
@@ -61,25 +97,18 @@ export class EmailConfigMapper {
       dto.smtpUser,
       dto.smtpPassword,
       dto.emailFrom,
-      dto.salesTeamEmails,
-      dto.accountingEmails,
-      dto.professionalsEmails,
-      dto.notificationsEmails,
+      dto.internalTeams.salesTeam?.emails || [],
+      dto.internalTeams.accounting?.emails || [],
+      dto.internalTeams.professionals?.emails || [],
+      dto.internalTeams.notifications?.emails || [],
       dto.externalProviders.map(provider => new ExternalProvider(
         provider.id || '',
         provider.name,
         provider.email,
         provider.category,
-        provider.isActive ?? true
+        true
       )),
-      Object.entries(dto.emailTypes).reduce((acc, [key, value]) => {
-        acc[key] = new EmailTypeConfig(
-          value.internal,
-          value.external,
-          value.includeClient
-        );
-        return acc;
-      }, {} as Record<string, EmailTypeConfig>),
+      {},
       dto.reminderDays
     );
   }

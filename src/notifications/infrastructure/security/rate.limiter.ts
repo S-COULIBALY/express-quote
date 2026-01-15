@@ -38,12 +38,13 @@ export class RateLimiter {
   private storage: Map<string, { count: number; resetTime: number }> = new Map();
   private cleanupInterval: NodeJS.Timeout;
   
-  constructor(config: RateLimitConfig) {
+  constructor(config: Partial<RateLimitConfig>) {
     this.config = {
-      windowMs: 60000, // 1 minute par défaut
-      maxRequests: 100,
-      keyGenerator: (context) => context.ip || 'default',
-      ...config
+      windowMs: config.windowMs ?? 60000, // 1 minute par défaut
+      maxRequests: config.maxRequests ?? 100,
+      keyGenerator: config.keyGenerator ?? ((context) => context.ip || 'default'),
+      skipSuccessful: config.skipSuccessful,
+      skipFailed: config.skipFailed
     };
     
     // Nettoyage automatique des entrées expirées

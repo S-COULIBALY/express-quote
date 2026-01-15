@@ -1,15 +1,13 @@
 import crypto from 'crypto';
-import { Booking, BookingStatus } from '../../domain/entities/Booking';
+import { Booking, BookingStatus, BookingType } from '../../domain/entities/Booking';
 import { Customer } from '../../domain/entities/Customer';
 import { ItemType } from '../../domain/entities/Item';
-import { Transaction, TransactionStatus } from '../../domain/entities/Transaction';
-import { BookingType } from '../../domain/enums/BookingType';
 import { ServiceType } from '../../domain/enums/ServiceType';
 import { CustomerService } from './CustomerService';
-import { QuoteCalculator } from './QuoteCalculator';
 import { QuoteRequest, QuoteRequestStatus } from '../../domain/entities/QuoteRequest';
 import { Quote } from '../../domain/entities/Quote';
 import { Money } from '../../domain/valueObjects/Money';
+import { ContactInfo } from '../../domain/valueObjects/ContactInfo';
 import { BookingSearchCriteriaVO, BookingSearchCriteria } from '../../domain/valueObjects/BookingSearchCriteria';
 
 // Repositories
@@ -18,30 +16,32 @@ import { ICustomerRepository } from '../../domain/repositories/ICustomerReposito
 import { IQuoteRequestRepository } from '../../domain/repositories/IQuoteRequestRepository';
 
 // Services externes
-import { ITransactionService } from '../../domain/services/ITransactionService';
-import { IEmailService } from '../../domain/services/IEmailService';
-import { IPDFService } from '../../domain/services/IPDFService';
+import { IPaymentService } from '../../domain/services/IPaymentService';
+import { IEmailService } from '../../domain/interfaces/IEmailService';
+import { IPDFService } from '../../domain/interfaces/IPDFService';
 
 // Documents - Service client uniquement (les autres notifications sont gérées par APIs)
 import { DocumentNotificationService } from '@/documents/application/services/DocumentNotificationService';
 
 // Erreurs domaine
-import { 
-  BookingNotFoundError, 
-  BookingAlreadyCancelledError, 
+import {
+  BookingNotFoundError,
+  BookingAlreadyCancelledError,
   BookingCannotBeCancelledError,
-  BookingAlreadyCompletedError,
   BookingInvalidStatusTransitionError,
   BookingUpdateNotAllowedError,
   BookingDeletionNotAllowedError,
-  BookingConcurrencyError
 } from '../../domain/errors/BookingErrors';
 
 import { logger } from '@/lib/logger';
 import { AttributionUtils } from '@/bookingAttribution/AttributionUtils';
 import { UnifiedDataService, ConfigurationCategory } from '@/quotation/infrastructure/services/UnifiedDataService';
 import { PricingFactorsConfigKey } from '@/quotation/domain/configuration/ConfigurationKey';
-import { PriceService } from './PriceService';
+
+// Nouveau système de calcul modulaire
+import { BaseCostEngine } from '@/quotation-module/core/BaseCostEngine';
+import { FormAdapter } from '@/quotation-module/adapters/FormAdapter';
+import { getAllModules } from '@/quotation-module/core/ModuleRegistry';
 
 /**
  * Service de gestion des réservations migré vers le système Template/Item
@@ -50,15 +50,14 @@ import { PriceService } from './PriceService';
 export class BookingService {
   private readonly unifiedDataService: UnifiedDataService;
   private readonly documentNotificationService: DocumentNotificationService;
+  private readonly baseCostEngine: BaseCostEngine;
 
   constructor(
     private readonly bookingRepository: IBookingRepository,
     private readonly customerRepository: ICustomerRepository,
-    private readonly quoteCalculator: QuoteCalculator = QuoteCalculator.getInstance(),
     private readonly quoteRequestRepository: IQuoteRequestRepository,
     private readonly customerService: CustomerService,
-    private readonly priceService: PriceService = new PriceService(),
-    private readonly transactionService?: ITransactionService,
+    private readonly transactionService?: IPaymentService,
     private readonly emailService?: IEmailService,
     private readonly pdfService?: IPDFService
   ) {
@@ -67,6 +66,9 @@ export class BookingService {
 
     // ✅ NOUVEAU: Initialiser le service de configuration unifié
     this.unifiedDataService = UnifiedDataService.getInstance();
+
+    // ✅ NOUVEAU: Utiliser le moteur de calcul modulaire
+    this.baseCostEngine = new BaseCostEngine(getAllModules());
   }
 
   /**
@@ -147,7 +149,7 @@ export class BookingService {
       
       logger.info(`📋 [TRACE UTILISATEUR] Customer créé/récupéré:`, {
         id: customer.getId(),
-        email: customer.getEmail(),
+        email: customer.getContactInfo().getEmail(),
         phone: customer.getContactInfo().getPhone(),
         phoneIsEmpty: !customer.getContactInfo().getPhone() || customer.getContactInfo().getPhone().trim() === ''
       });
@@ -341,8 +343,8 @@ export class BookingService {
             body: JSON.stringify({
               bookingId: savedBooking.getId(),
               customerEmail: savedBooking.getCustomer().getContactInfo().getEmail(),
-              customerName: `${savedBooking.getCustomer().getFirstName()} ${savedBooking.getCustomer().getLastName()}`,
-              bookingReference: savedBooking.getReference() || `EQ-${savedBooking.getId()?.slice(-8).toUpperCase()}`,
+              customerName: savedBooking.getCustomer().getFullName(),
+              bookingReference: `EQ-${savedBooking.getId()?.slice(-8).toUpperCase()}`,
               serviceType: savedBooking.getType(),
               serviceName: savedBooking.getType() || 'Service Express Quote',
               totalAmount: savedBooking.getTotalAmount().getAmount(),
@@ -444,9 +446,11 @@ export class BookingService {
       }
       
       // Créer ou récupérer le client
-      const customer = await this.getOrCreateCustomer({
-        ...quoteRequest.getQuoteData(),
-        ...customerDetails
+      const customer = await this.getOrCreateCustomerFromData({
+        firstName: customerDetails.firstName || quoteRequest.getQuoteData().customerInfo?.firstName || '',
+        lastName: customerDetails.lastName || quoteRequest.getQuoteData().customerInfo?.lastName || '',
+        email: customerDetails.email || quoteRequest.getQuoteData().customerInfo?.email || '',
+        phone: customerDetails.phone || quoteRequest.getQuoteData().customerInfo?.phone || ''
       });
 
       // ✅ MIGRÉ: Calculer le prix avec les options (depuis configuration)
@@ -462,12 +466,18 @@ export class BookingService {
       }
 
       // Créer le devis formel
-      const quote = new Quote(
-        customer.getId()!,
-        new Money(totalAmount),
-        quoteRequest.getType(),
-        quoteRequest.getQuoteData()
-      );
+      const quote = new Quote({
+        type: quoteRequest.getType() as any,
+        status: 'DRAFT' as any,
+        customer: {
+          id: customer.getId()!,
+          firstName: customer.getContactInfo().getFirstName(),
+          lastName: customer.getContactInfo().getLastName(),
+          email: customer.getContactInfo().getEmail(),
+          phone: customer.getContactInfo().getPhone()
+        },
+        totalAmount: new Money(totalAmount, 'EUR')
+      });
 
       // Mettre à jour le statut
       await this.quoteRequestRepository.updateStatus(
@@ -522,138 +532,46 @@ export class BookingService {
    * Mappe les anciens ServiceType vers les nouveaux ItemType
    */
   private mapServiceTypeToItemType(serviceType: ServiceType): ItemType {
+    // Tous les services actifs sont des déménagements (MOVING, MOVING_PREMIUM)
+    // Services abandonnés : PACKING, CLEANING, DELIVERY, SERVICE
     switch (serviceType) {
+      case ServiceType.MOVING:
       case ServiceType.MOVING_PREMIUM:
-      case ServiceType.PACKING:
         return ItemType.DEMENAGEMENT;
-      case ServiceType.CLEANING:
-        return ItemType.MENAGE;
-      case ServiceType.DELIVERY:
-        return ItemType.TRANSPORT;
+      // Services abandonnés - ne plus gérer, retourner déménagement par défaut
       default:
         return ItemType.DEMENAGEMENT;
     }
   }
 
   /**
-   * Recalcule le prix côté serveur avec extraction correcte des globalServices
+   * Recalcule le prix côté serveur avec le nouveau système modulaire
    * Utilisé comme fallback si la signature HMAC est invalide ou absente
    */
   private async recalculatePriceWithGlobalServices(
     quoteData: any,
     serviceType: string
   ): Promise<number> {
-    logger.info('🔄 Recalcul du prix avec extraction des globalServices...');
+    logger.info('🔄 Recalcul du prix avec le système modulaire...');
 
-    // Préparer les données pour le recalcul (aplatir la structure)
-    const flatData: Record<string, any> = {
-      serviceType,
-    };
+    try {
+      // Convertir les données du formulaire vers le contexte du moteur de calcul
+      const context = FormAdapter.toQuoteContext({
+        ...quoteData,
+        serviceType: serviceType || ServiceType.MOVING
+      });
 
-    // Extraire toutes les données au niveau racine
-    Object.keys(quoteData).forEach(key => {
-      if (key !== 'quoteData' && key !== 'calculatedPrice' && key !== 'formData') {
-        flatData[key] = quoteData[key];
-      }
-    });
+      // Exécuter le calcul avec le moteur modulaire
+      const result = this.baseCostEngine.execute(context);
+      const recalculatedPrice = result.baseCost || 0;
 
-    // ✅ S'assurer que les champs critiques sont présents
-    const criticalFields = [
-      'pickupLogisticsConstraints',
-      'deliveryLogisticsConstraints',
-      'additionalServices',
-      'pickupServices',
-      'deliveryServices',
-      'volume',
-      'distance',
-      'workers',
-      'duration',
-      'pickupAddress',
-      'deliveryAddress',
-      'catalogId',
-      '__presetSnapshot'
-    ];
-
-    // Les champs critiques sont au niveau racine (plus de fallback formData nécessaire)
-
-    // 🔧 EXTRACTION DES GLOBAL SERVICES (Transport piano, Stockage temporaire, etc.)
-    let extractedGlobalServices: Record<string, boolean> = {};
-
-    if (flatData.pickupLogisticsConstraints?.globalServices) {
-      extractedGlobalServices = {
-        ...extractedGlobalServices,
-        ...flatData.pickupLogisticsConstraints.globalServices
-      };
-      logger.info(`📦 GlobalServices extraits depuis pickup:`, Object.keys(flatData.pickupLogisticsConstraints.globalServices));
+      logger.info(`✅ Prix recalculé avec système modulaire: ${recalculatedPrice}€`);
+      return recalculatedPrice;
+    } catch (error) {
+      logger.error('❌ Erreur lors du recalcul du prix:', error);
+      // Retourner le prix existant en fallback
+      return quoteData.totalPrice || quoteData.calculatedPrice?.totalPrice || 0;
     }
-
-    if (flatData.deliveryLogisticsConstraints?.globalServices) {
-      extractedGlobalServices = {
-        ...extractedGlobalServices,
-        ...flatData.deliveryLogisticsConstraints.globalServices
-      };
-      logger.info(`📦 GlobalServices extraits depuis delivery:`, Object.keys(flatData.deliveryLogisticsConstraints.globalServices));
-    }
-
-    // Merger les globalServices extraits dans additionalServices
-    if (Object.keys(extractedGlobalServices).length > 0) {
-      flatData.additionalServices = {
-        ...(flatData.additionalServices || {}),
-        ...extractedGlobalServices
-      };
-      logger.info(`✅ GlobalServices mergés dans additionalServices:`, Object.keys(extractedGlobalServices));
-    }
-
-    // 🔒 Nettoyer les contraintes pour retirer les clés structurelles non-UUID
-    const cleanConstraints = (constraints: any): string[] | Record<string, boolean> | undefined => {
-      if (!constraints) return undefined;
-
-      if (Array.isArray(constraints)) {
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        return constraints.filter((id: string) => typeof id === 'string' && uuidRegex.test(id));
-      }
-
-      if (typeof constraints === 'object') {
-        const cleaned: Record<string, boolean> = {};
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-        if ('globalServices' in constraints || 'addressConstraints' in constraints || 'addressServices' in constraints) {
-          if (constraints.addressConstraints && typeof constraints.addressConstraints === 'object') {
-            Object.keys(constraints.addressConstraints).forEach(key => {
-              if (uuidRegex.test(key) && constraints.addressConstraints[key] === true) {
-                cleaned[key] = true;
-              }
-            });
-          }
-        } else {
-          Object.keys(constraints).forEach(key => {
-            if (uuidRegex.test(key) && constraints[key] === true) {
-              cleaned[key] = true;
-            }
-          });
-        }
-
-        return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-      }
-
-      return undefined;
-    };
-
-    // Nettoyer les contraintes avant le recalcul
-    if (flatData.pickupLogisticsConstraints) {
-      flatData.pickupLogisticsConstraints = cleanConstraints(flatData.pickupLogisticsConstraints);
-    }
-    if (flatData.deliveryLogisticsConstraints) {
-      flatData.deliveryLogisticsConstraints = cleanConstraints(flatData.deliveryLogisticsConstraints);
-    }
-
-    // Recalculer le prix côté serveur
-    const priceResponse = await this.priceService.calculatePrice(flatData);
-    const recalculatedPrice = priceResponse.summary?.total ?? priceResponse.totalPrice ?? 0;
-
-    logger.info(`✅ Prix recalculé: ${recalculatedPrice}€`);
-
-    return recalculatedPrice;
   }
 
   /**
@@ -668,11 +586,18 @@ export class BookingService {
     const quoteData = quoteRequest.getQuoteData();
 
     // Créer un Quote simple pour la réservation
-    const quote = new Quote(
-      quoteData.serviceName || 'Service',
-      new Money(totalAmount),
-      []  // items vides pour l'instant
-    );
+    const quote = new Quote({
+      type: quoteRequest.getType() as any,
+      status: 'DRAFT' as any,
+      customer: {
+        id: customer.getId()!,
+        firstName: customer.getContactInfo().getFirstName(),
+        lastName: customer.getContactInfo().getLastName(),
+        email: customer.getContactInfo().getEmail(),
+        phone: customer.getContactInfo().getPhone()
+      },
+      totalAmount: new Money(totalAmount, 'EUR')
+    });
 
     // Créer la réservation en utilisant la factory
     const booking = Booking.fromQuoteRequest(
@@ -696,13 +621,12 @@ export class BookingService {
    * Mappe ItemType vers BookingType pour compatibilité
    */
   private mapItemTypeToBookingType(itemType: ItemType): BookingType {
+    // Tous les services actifs sont des déménagements
+    // Services abandonnés : MENAGE, TRANSPORT, LIVRAISON
     switch (itemType) {
       case ItemType.DEMENAGEMENT:
         return BookingType.MOVING_QUOTE;
-      case ItemType.MENAGE:
-      case ItemType.TRANSPORT:
-      case ItemType.LIVRAISON:
-        return BookingType.SERVICE;
+      // Services abandonnés - ne plus gérer, retourner MOVING_QUOTE par défaut
       default:
         return BookingType.MOVING_QUOTE;
     }
@@ -776,7 +700,7 @@ export class BookingService {
       throw new BookingDeletionNotAllowedError(id, 'Booking cannot be deleted due to business rules');
     }
 
-    await this.bookingRepository.delete(id);
+    await this.bookingRepository.hardDelete(id);
     logger.info(`✅ Réservation ${id} supprimée avec succès`);
   }
 
@@ -998,9 +922,11 @@ export class BookingService {
 
       // Les champs critiques sont au niveau racine (plus de fallback formData nécessaire)
 
-      // Recalculer le prix côté serveur
-      const priceResponse = await this.priceService.calculatePrice(flatData);
-      const serverCalculatedPrice = priceResponse.summary?.total ?? priceResponse.totalPrice ?? 0;
+      // Recalculer le prix côté serveur avec le système modulaire
+      const serverCalculatedPrice = await this.recalculatePriceWithGlobalServices(
+        flatData,
+        flatData.serviceType || ServiceType.MOVING
+      );
       
       logger.info(`✅ Prix recalculé côté serveur: ${serverCalculatedPrice}€ (ancien prix client: ${quoteRequest.getQuoteData()?.calculatedPrice?.totalPrice || quoteRequest.getQuoteData()?.totalPrice || 'N/A'}€)`);
 
@@ -1019,12 +945,29 @@ export class BookingService {
       }
       
       // 5. Créer la réservation avec statut DRAFT (utiliser le prix recalculé)
+      // Déterminer le BookingType depuis le type de QuoteRequest
+      // Tous les services actifs sont des déménagements (MOVING, MOVING_PREMIUM)
+      // Services abandonnés : PACKING, SERVICE, CLEANING, DELIVERY
+      const bookingType: BookingType = BookingType.MOVING_QUOTE;
+      
+      const quote = new Quote({
+        type: quoteRequest.getType() as any,
+        status: 'DRAFT' as any,
+        customer: {
+          id: customer.getId()!,
+          firstName: customer.getContactInfo().getFirstName(),
+          lastName: customer.getContactInfo().getLastName(),
+          email: customer.getContactInfo().getEmail(),
+          phone: customer.getContactInfo().getPhone()
+        },
+        totalAmount: new Money(finalPrice, 'EUR')
+      });
+      
       const booking = new Booking(
+        bookingType,
         customer,
-        quoteRequest.getType(),
-        new Money(finalPrice, 'EUR'),
-        quoteRequest.getQuoteData(),
-        BookingStatus.DRAFT
+        quote,
+        new Money(finalPrice, 'EUR')
       );
       
       // 6. Sauvegarder avec statut DRAFT
@@ -1094,8 +1037,8 @@ export class BookingService {
           body: JSON.stringify({
             bookingId: savedBooking.getId(),
             customerEmail: savedBooking.getCustomer().getContactInfo().getEmail(),
-            customerName: `${savedBooking.getCustomer().getFirstName()} ${savedBooking.getCustomer().getLastName()}`,
-            bookingReference: savedBooking.getReference() || `EQ-${savedBooking.getId()?.slice(-8).toUpperCase()}`,
+            customerName: savedBooking.getCustomer().getFullName(),
+            bookingReference: `EQ-${savedBooking.getId()?.slice(-8).toUpperCase()}`,
             serviceType: savedBooking.getType(),
             serviceName: savedBooking.getType() || 'Service Express Quote',
             totalAmount: savedBooking.getTotalAmount().getAmount(),
@@ -1138,8 +1081,8 @@ export class BookingService {
         });
       }
       
-      // 9. Mettre à jour la QuoteRequest comme utilisée
-      quoteRequest.markAsUsed();
+      // 9. Mettre à jour la QuoteRequest comme convertie
+      quoteRequest.updateStatus(QuoteRequestStatus.CONVERTED);
       await this.quoteRequestRepository.save(quoteRequest);
       
       logger.info(`🎉 Réservation confirmée avec succès: ${savedBooking.getId()}`);
@@ -1188,7 +1131,7 @@ export class BookingService {
       if (existingCustomer) {
         logger.info(`👤 [TRACE UTILISATEUR] Client existant trouvé:`, {
           id: existingCustomer.getId(),
-          email: existingCustomer.getEmail(),
+          email: existingCustomer.getContactInfo().getEmail(),
           phone: existingCustomer.getContactInfo().getPhone(),
           phoneIsEmpty: !existingCustomer.getContactInfo().getPhone() || existingCustomer.getContactInfo().getPhone().trim() === ''
         });
@@ -1225,7 +1168,7 @@ export class BookingService {
       
       logger.info('📋 [TRACE UTILISATEUR] Customer créé (avant sauvegarde):', {
         id: customer.getId(),
-        email: customer.getEmail(),
+        email: customer.getContactInfo().getEmail(),
         phone: customer.getContactInfo().getPhone(),
         phoneIsEmpty: !customer.getContactInfo().getPhone() || customer.getContactInfo().getPhone().trim() === ''
       });
@@ -1234,7 +1177,7 @@ export class BookingService {
       
       logger.info('📋 [TRACE UTILISATEUR] Customer sauvegardé avec succès:', {
         id: savedCustomer.getId(),
-        email: savedCustomer.getEmail(),
+        email: savedCustomer.getContactInfo().getEmail(),
         phone: savedCustomer.getContactInfo().getPhone(),
         phoneIsEmpty: !savedCustomer.getContactInfo().getPhone() || savedCustomer.getContactInfo().getPhone().trim() === ''
       });
@@ -1294,19 +1237,19 @@ export class BookingService {
             },
             body: JSON.stringify({
               email: booking.getCustomer().getContactInfo().getEmail(),
-              customerName: booking.getCustomer().getFirstName() + ' ' + booking.getCustomer().getLastName(),
+              customerName: booking.getCustomer().getFullName(),
               bookingId: bookingId,
               amount: booking.getTotalAmount().getAmount(),
               currency: 'EUR',
               paymentMethod: 'Carte bancaire (Stripe)',
               transactionId: paymentData.paymentIntentId,
               paymentDate: new Date().toISOString(),
-              bookingReference: booking.getReference() || `EQ-${bookingId.slice(-8).toUpperCase()}`,
+              bookingReference: `EQ-${bookingId.slice(-8).toUpperCase()}`,
               serviceType: booking.getType() || 'CUSTOM',
               serviceName: booking.getType() || 'Service Express Quote',
               serviceDate: booking.getScheduledDate()?.toISOString() || new Date().toISOString(),
               serviceTime: '09:00',
-              customerPhone: booking.getCustomer().getPhone(),
+              customerPhone: booking.getCustomer().getContactInfo().getPhone(),
               trigger: 'PAYMENT_COMPLETED',
               viewBookingUrl: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${bookingId}`,
               supportUrl: `${process.env.NEXT_PUBLIC_APP_URL}/contact`
@@ -1408,7 +1351,7 @@ export class BookingService {
     
     const contactInfo = customer.getContactInfo();
     const notificationData = {
-      email: customer.getEmail(),
+        email: customer.getContactInfo().getEmail(),
       customerName: contactInfo.getFullName(),
       bookingId: booking.getId()!,
       bookingReference: `EQ-${booking.getId()!.slice(-8).toUpperCase()}`,
@@ -1416,7 +1359,7 @@ export class BookingService {
       serviceTime: context.quoteData.scheduledTime || '09:00',
       serviceAddress: context.quoteData.locationAddress || context.quoteData.pickupAddress || 'Adresse à définir',
       totalAmount: context.totalAmount,
-      customerPhone: customer.getPhone(),
+      customerPhone: customer.getContactInfo().getPhone(),
       serviceType: booking.getType(),
       sessionId: context.sessionId,
       // Données supplémentaires pour le template
@@ -1454,8 +1397,8 @@ export class BookingService {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.INTERNAL_API_URL || 'http://localhost:3000';
     
     const notificationData = {
-      email: booking.getCustomer().getEmail(),
-      customerName: `${booking.getCustomer().getFirstName()} ${booking.getCustomer().getLastName()}`,
+      email: booking.getCustomer().getContactInfo().getEmail(),
+      customerName: booking.getCustomer().getFullName(),
       bookingId: booking.getId()!,
       bookingReference: `EQ-${booking.getId()!.slice(-8).toUpperCase()}`,
       reason: reason || 'Non spécifiée',
@@ -1496,7 +1439,7 @@ export class BookingService {
       const coordinates = await this.extractBookingCoordinates(booking);
       if (!coordinates) {
         logger.error(`❌ Coordonnées non disponibles pour booking ${booking.getId()}, attribution annulée`);
-        logger.error(`   Adresse: ${booking.getLocationAddress() || booking.getPickupAddress() || 'Non spécifiée'}`);
+        logger.error(`   Adresse: Non spécifiée`);
         logger.error(`   Type: ${booking.getType()}`);
         return;
       }
@@ -1507,7 +1450,7 @@ export class BookingService {
       if (!locationService.isWithinParisRadius(coordinates.latitude, coordinates.longitude, 50)) {
         logger.error(`❌ Coordonnées hors du rayon de 50km de Paris pour booking ${booking.getId()}`);
         logger.error(`   Coordonnées: (${coordinates.latitude}, ${coordinates.longitude})`);
-        logger.error(`   Adresse: ${booking.getLocationAddress() || booking.getPickupAddress() || 'Non spécifiée'}`);
+        logger.error(`   Adresse: Non spécifiée`);
         // Pour l'instant, on continue quand même (validation business à faire ailleurs)
         // Mais on log l'erreur pour monitoring
       } else {
@@ -1518,16 +1461,16 @@ export class BookingService {
       const serviceType = this.mapBookingTypeToServiceType(booking.getType());
 
       // 🆕 Préparer les données avec séparation complète/limitée pour le flux en 2 étapes
-      const customerFullName = `${booking.getCustomer().getFirstName()} ${booking.getCustomer().getLastName()}`.trim();
-      const customerFirstName = booking.getCustomer().getFirstName() || '';
+      const customerFullName = booking.getCustomer().getFullName();
+      const customerFirstName = booking.getCustomer().getContactInfo().getFirstName();
       const scheduledDate = booking.getScheduledDate() || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const totalAmount = booking.getTotalAmount().getAmount();
-      const locationAddress = booking.getLocationAddress() || 'Adresse à préciser';
+      const locationAddress = 'Adresse à préciser'; // TODO: Extraire depuis quoteData
 
       const bookingData = {
         // Nouvelles données étendues pour le flux en 2 étapes
         bookingId: booking.getId(),
-        bookingReference: booking.getReference() || `EQ-${booking.getId()?.slice(-8).toUpperCase()}`,
+        bookingReference: `EQ-${booking.getId()?.slice(-8).toUpperCase()}`,
         serviceDate: scheduledDate,
         serviceTime: '09:00', // Heure par défaut
         priority: AttributionUtils.determinePriority(scheduledDate),
@@ -1536,16 +1479,16 @@ export class BookingService {
         fullClientData: {
           customerName: customerFullName,
           customerEmail: booking.getCustomer().getContactInfo().getEmail(),
-          customerPhone: booking.getCustomer().getPhone(),
+          customerPhone: booking.getCustomer().getContactInfo().getPhone(),
           fullPickupAddress: locationAddress,
-          fullDeliveryAddress: booking.getDeliveryAddress() || undefined
+          fullDeliveryAddress: undefined // TODO: Extraire depuis quoteData
         },
 
         // Données limitées (pour prestataires)
         limitedClientData: {
-          customerName: `${customerFirstName.charAt(0)}. ${booking.getCustomer().getLastName()}`.trim(),
+          customerName: `${customerFirstName.charAt(0)}. ${booking.getCustomer().getContactInfo().getLastName()}`.trim(),
           pickupAddress: AttributionUtils.extractCityFromAddress(locationAddress),
-          deliveryAddress: booking.getDeliveryAddress() ? AttributionUtils.extractCityFromAddress(booking.getDeliveryAddress()!) : undefined,
+          deliveryAddress: undefined, // TODO: Extraire depuis quoteData
           serviceType: booking.getType() || 'CUSTOM',
           quoteDetails: {
             estimatedAmount: Math.round(totalAmount * await this.getEstimationFactor()), // ✅ MIGRÉ: Facteur d'estimation depuis configuration
@@ -1558,10 +1501,10 @@ export class BookingService {
         totalAmount,
         scheduledDate,
         locationAddress,
-        customerFirstName: booking.getCustomer().getFirstName(),
-        customerLastName: booking.getCustomer().getLastName(),
-        customerPhone: booking.getCustomer().getPhone(),
-        additionalInfo: booking.getAdditionalInfo()
+        customerFirstName: booking.getCustomer().getContactInfo().getFirstName(),
+        customerLastName: booking.getCustomer().getContactInfo().getLastName(),
+        customerPhone: booking.getCustomer().getContactInfo().getPhone(),
+        additionalInfo: {} // TODO: Extraire depuis quoteData
       };
 
       // Lancer l'attribution
@@ -1641,7 +1584,7 @@ export class BookingService {
       }
 
       // 3. Géocoder l'adresse si disponible
-      const address = booking.getLocationAddress() || booking.getPickupAddress();
+      const address = undefined; // TODO: Extraire depuis quoteData
       if (address) {
         try {
           const { ProfessionalLocationService } = await import('@/bookingAttribution/ProfessionalLocationService');
@@ -1694,14 +1637,14 @@ export class BookingService {
    * Mappe le type de réservation vers le type de service pour l'attribution
    */
   private mapBookingTypeToServiceType(bookingType: BookingType): ServiceType {
+    // Tous les services actifs sont des déménagements
+    // Services abandonnés : PACKING, SERVICE
     switch (bookingType) {
       case BookingType.MOVING_QUOTE:
         return ServiceType.MOVING;
-      case BookingType.PACKING:
-        return ServiceType.PACKING;
-      case BookingType.SERVICE:
+      // PACKING et SERVICE abandonnés - ne plus gérer
       default:
-        return ServiceType.SERVICE;
+        return ServiceType.MOVING; // Par défaut, déménagement
     }
   }
 

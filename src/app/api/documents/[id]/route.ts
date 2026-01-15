@@ -1,30 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DocumentService } from '@/documents/application/services/DocumentService';
+import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-
-// Instance partagée du DocumentService - instanciation simple
-let documentServiceInstance: DocumentService | null = null;
-
-function getDocumentService(): DocumentService {
-  if (!documentServiceInstance) {
-    documentServiceInstance = new DocumentService();
-  }
-  return documentServiceInstance;
-}
 
 /**
  * GET /api/documents/{id} - Récupère un document par ID
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params;
     logger.info('🔍 Récupération de document', { documentId: id });
 
-    const documentService = getDocumentService();
-    const document = await documentService.getDocument(id);
+    const document = await prisma.document.findUnique({
+      where: { id }
+    });
 
     if (!document) {
       return NextResponse.json(
@@ -36,18 +27,18 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        id: document.getId(),
-        type: document.getType(),
-        filename: document.getFilename(),
-        bookingId: document.getBooking().getId(),
-        createdAt: document.getCreatedAt()
+        id: document.id,
+        type: document.type,
+        filename: document.filename,
+        bookingId: document.bookingId,
+        createdAt: document.createdAt
       }
     });
 
   } catch (error) {
     logger.error('❌ Erreur lors de la récupération de document', error as Error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: 'Erreur lors de la récupération de document',
         message: error instanceof Error ? error.message : 'Erreur inconnue'
@@ -61,17 +52,18 @@ export async function GET(
  * DELETE /api/documents/{id} - Supprime un document
  */
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params;
     logger.info('🗑️ Suppression de document', { documentId: id });
 
-    const documentService = getDocumentService();
-    const success = await documentService.deleteDocument(id);
+    const document = await prisma.document.delete({
+      where: { id }
+    });
 
-    if (!success) {
+    if (!document) {
       return NextResponse.json(
         { success: false, error: 'Impossible de supprimer le document' },
         { status: 500 }
@@ -86,7 +78,7 @@ export async function DELETE(
   } catch (error) {
     logger.error('❌ Erreur lors de la suppression de document', error as Error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: 'Erreur lors de la suppression de document',
         message: error instanceof Error ? error.message : 'Erreur inconnue'

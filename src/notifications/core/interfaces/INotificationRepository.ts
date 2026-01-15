@@ -528,16 +528,4 @@ export interface IEventAwareNotificationRepository extends INotificationReposito
   onStatusChanged(callback: (id: string, oldStatus: string, newStatus: string) => void): void;
 }
 
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
-export {
-  INotificationRepository,
-  ICacheableNotificationRepository,
-  IEventAwareNotificationRepository,
-  NotificationSearchCriteria,
-  NotificationSearchResult,
-  NotificationRepositoryStats,
-  TransactionOptions
-};
+// Note: Toutes les interfaces sont déjà exportées avec 'export interface' ci-dessus

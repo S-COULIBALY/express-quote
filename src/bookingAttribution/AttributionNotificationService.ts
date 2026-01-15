@@ -10,6 +10,7 @@ import { ProfessionalDocumentService } from '@/documents/application/services/Pr
 import { AttributionUtils } from './AttributionUtils';
 import { logger } from '@/lib/logger';
 import { getGlobalNotificationService } from '@/notifications/interfaces/http/GlobalNotificationService';
+import * as fs from 'fs/promises';
 
 interface AttributionNotificationData {
   attributionId: string;
@@ -157,14 +158,19 @@ export class AttributionNotificationService {
       // ✅ ÉTAPE 2 : Ajouter à la queue via système de notification
       const notificationService = await getGlobalNotificationService();
 
-      // Préparer les pièces jointes
-      const attachments = documentsResult.documents.map(doc => ({
-        filename: doc.filename,
-        path: doc.path,
-        content: doc.content ? Buffer.from(doc.content) : undefined,
-        contentType: doc.mimeType || 'application/pdf',
-        size: doc.size
-      })).filter(att => att.path || att.content);
+      // Préparer les pièces jointes en lisant le contenu des fichiers
+      const attachments = await Promise.all(
+        documentsResult.documents
+          .filter(doc => doc.path)
+          .map(async doc => {
+            const content = await fs.readFile(doc.path);
+            return {
+              filename: doc.filename,
+              content: content,
+              contentType: doc.mimeType || 'application/pdf'
+            };
+          })
+      );
 
       this.notificationLogger.info('📧 Ajout attribution prestataire à la queue', {
         professionalCompany: professional.companyName,
@@ -731,6 +737,10 @@ export class AttributionNotificationService {
         companyName: prof.companyName,
         email: prof.email,
         phone: prof.phone,
+        latitude: prof.latitude,
+        longitude: prof.longitude,
+        city: prof.city,
+        address: prof.address,
         distanceKm: 0 // Distance sera calculée si nécessaire
       };
 
@@ -908,11 +918,21 @@ export class AttributionNotificationService {
 
       // 2. Générer document de confirmation avec données RESTREINTES uniquement
       const confirmationDoc = await this.professionalDocService.generateProfessionalDocuments({
+        attributionId,
         professionalId,
         professionalEmail: professional.email,
         professionalCompany: professional.companyName,
         bookingId: attribution.bookingId,
         bookingReference: attribution.bookingReference,
+        serviceDate: attribution.serviceDate,
+        serviceTime: attribution.serviceTime,
+        serviceType: attribution.serviceType || 'SERVICE',
+        estimatedDuration: attribution.estimatedDuration || '2h',
+        priority: attribution.priority || 'normal',
+        distanceKm: 0,
+        acceptUrl: '',
+        refuseUrl: '',
+        timeoutDate: new Date().toISOString(),
         documentType: 'MISSION_CONFIRMATION',
 
         // 🔒 DONNÉES LIMITÉES SEULEMENT (respect RGPD)

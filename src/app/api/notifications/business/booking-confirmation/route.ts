@@ -76,7 +76,7 @@ async function handleBookingConfirmationWithAttachments(data: any) {
       path: att.path, // Si le fichier est déjà sur le disque
       contentType: att.mimeType || att.contentType || 'application/pdf',
       size: att.content ? Buffer.from(att.content, 'base64').length : att.size
-    })).filter(att => att.content || att.path); // Filtrer les attachments valides
+    })).filter((att: any) => att.content || att.path); // Filtrer les attachments valides
 
     // ✅ Ajouter à la queue email avec pièces jointes
     logger.info('📧 Ajout email de confirmation à la queue', {

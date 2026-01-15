@@ -40,7 +40,7 @@ import {
   SecondaryButton,
   Card,
   Separator,
-} from '../components/Layout';
+} from './components/Layout';
 
 /**
  * Interface des données pour le template d'attribution professionnel externe

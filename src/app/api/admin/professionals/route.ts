@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { NextRequest, NextResponse } from 'next/server';
 import { ProfessionalType as PrismaProfessionalType } from '@prisma/client';
 import { getServerSession } from 'next-auth';

@@ -214,8 +214,11 @@ export class BookingAttributionService {
    * @returns Le ServiceType déterminé
    */
   private async determineServiceType(booking: Booking): Promise<ServiceType> {
+    const bookingType = booking.getType();
+    // Convertir BookingType de entities vers BookingType de enums
+    const bookingTypeEnum = bookingType as any as import('../../../../domain/enums/BookingType').BookingType;
     const fallbackServiceType = bookingTypeMapper.mapBookingTypeToServiceType(
-      booking.getType()
+      bookingTypeEnum
     );
 
     let quoteRequest: QuoteRequest | null = null;

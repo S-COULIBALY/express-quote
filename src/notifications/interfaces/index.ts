@@ -16,6 +16,7 @@
 
 // Contrôleur principal (architecture simple sans DI)
 export { NotificationController } from './http/NotificationController';
+import { NotificationController } from './http/NotificationController';
 
 // ============================================================================
 // EXPORTS CRON - SYSTÈME DE TÂCHES PROGRAMMÉES
@@ -36,6 +37,7 @@ export {
   type TaskResult,
   type TaskStats
 } from './cron';
+import type { SchedulerManager } from './cron';
 
 // ============================================================================
 // FACTORY SIMPLIFIÉE POUR CONFIGURATION RAPIDE

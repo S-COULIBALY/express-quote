@@ -1,11 +1,13 @@
 // Note: Notifications envoyées via API business pour cohérence avec BookingService
 
 export interface SubmissionConfig {
-  submissionType: 'MOVING' | 'PACK' | 'SERVICE';
-  validateFormData: (formData: any, extraData?: any) => boolean | string;
-  prepareRequestData: (formData: any, extraData?: any) => any;
-  getSuccessRedirectUrl: (responseData: any, extraData?: any) => string;
-  getNotificationData?: (formData: any, responseData: any, extraData?: any) => any;
+  // MOVING et MOVING_PREMIUM sont les seuls services actifs
+  // PACK et SERVICE sont conservés pour compatibilité historique
+  submissionType: 'MOVING' | 'MOVING_PREMIUM' | 'PACK' | 'SERVICE';
+  validateFormData: (formData: Record<string, unknown>, extraData?: unknown) => boolean | string;
+  prepareRequestData: (formData: Record<string, unknown>, extraData?: unknown) => Record<string, unknown>;
+  getSuccessRedirectUrl: (responseData: Record<string, unknown>, extraData?: unknown) => string;
+  getNotificationData?: (formData: Record<string, unknown>, responseData: unknown, extraData?: unknown) => Record<string, unknown>;
 }
 
 // Appel API standardisé pour la soumission

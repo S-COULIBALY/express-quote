@@ -2,11 +2,15 @@ import { QuoteRequest } from '../../domain/entities/QuoteRequest';
 import { IQuoteRequestRepository } from '../../domain/repositories/IQuoteRequestRepository';
 import { ServiceType } from '../../domain/enums/ServiceType';
 import { Quote } from '../../domain/valueObjects/Quote';
+import { Money } from '../../domain/valueObjects/Money';
 import { ValidationError } from '../../domain/errors/ValidationError';
 import { logger } from '@/lib/logger';
-import { QuoteCalculationService } from './QuoteCalculationService';
 import { QuoteValidationService } from './QuoteValidationService';
 import { QuoteStateService } from './QuoteStateService';
+// Nouveau système de calcul modulaire
+import { BaseCostEngine } from '@/quotation-module/core/BaseCostEngine';
+import { FormAdapter } from '@/quotation-module/adapters/FormAdapter';
+import { getAllModules } from '@/quotation-module/core/ModuleRegistry';
 
 /**
  * Service applicatif pour la gestion des demandes de devis
@@ -14,14 +18,14 @@ import { QuoteStateService } from './QuoteStateService';
  * Orchestre les opérations entre les différents services spécialisés
  */
 export class QuoteRequestService {
-    private readonly calculationService: QuoteCalculationService;
+    private readonly baseCostEngine: BaseCostEngine;
     private readonly validationService: QuoteValidationService;
     private readonly stateService: QuoteStateService;
 
     constructor(
         private readonly quoteRequestRepository: IQuoteRequestRepository
     ) {
-        this.calculationService = new QuoteCalculationService();
+        this.baseCostEngine = new BaseCostEngine(getAllModules());
         this.validationService = new QuoteValidationService();
         this.stateService = new QuoteStateService(quoteRequestRepository);
     }
@@ -94,11 +98,34 @@ export class QuoteRequestService {
             
             // Validation des données de calcul
             this.validationService.validateCalculationData(dataForCalculation);
-            
-            // Calcul via le service spécialisé
-            const quote = await this.calculationService.calculateQuotePrice(quoteRequest.getType(), dataForCalculation);
-            
-            logger.info(`✅ Prix calculé - temporaryId: ${temporaryId}, serviceType: ${quoteRequest.getType()}, basePrice: ${quote.getBasePrice().getAmount()}, totalPrice: ${quote.getTotalPrice().getAmount()}`);
+
+            // Calcul via le système modulaire
+            const context = FormAdapter.toQuoteContext(dataForCalculation);
+            const result = this.baseCostEngine.execute(context);
+            const calculatedPrice = result.baseCost || 0;
+
+            // Créer un objet Quote avec le prix calculé
+            const basePrice = new Money(calculatedPrice, 'EUR');
+            const totalPrice = new Money(calculatedPrice, 'EUR');
+
+            // Construire les détails depuis le breakdown
+            const details: { label: string; amount: number }[] = [];
+            if (result.breakdown) {
+                details.push({ label: 'Carburant', amount: result.breakdown.transport.fuel });
+                details.push({ label: 'Péages', amount: result.breakdown.transport.tolls });
+                details.push({ label: 'Véhicule', amount: result.breakdown.transport.vehicle });
+                details.push({ label: 'Main d\'oeuvre', amount: result.breakdown.labor.cost });
+            }
+
+            const quote = new Quote(
+                basePrice,
+                totalPrice,
+                [], // pas de discounts pour l'instant
+                quoteRequest.getType() as ServiceType,
+                details
+            );
+
+            logger.info(`✅ Prix calculé - temporaryId: ${temporaryId}, serviceType: ${quoteRequest.getType()}, totalPrice: ${calculatedPrice}`);
             
             return quote;
         } catch (error) {

@@ -10,16 +10,16 @@ export class PrismaTemplateRepository implements ITemplateRepository {
     try {
       console.log('🔍 DEBUG: PrismaTemplateRepository.findAll() - Début');
       console.log('🔍 DEBUG: Prisma instance:', !!this.prisma);
-      console.log('🔍 DEBUG: Prisma.template:', !!this.prisma?.template);
+      console.log('🔍 DEBUG: Prisma.templates:', !!this.prisma?.templates);
 
-      const results = await this.prisma.template.findMany({
-        where: { isActive: true },
+      const results = await this.prisma.templates.findMany({
+        where: { is_active: true },
         include: {
           items: true
         },
         orderBy: [
           { popular: 'desc' },
-          { createdAt: 'desc' }
+          { created_at: 'desc' }
         ]
       });
 
@@ -42,7 +42,7 @@ export class PrismaTemplateRepository implements ITemplateRepository {
   }
 
   async findById(id: string): Promise<Template | null> {
-    const result = await this.prisma.template.findUnique({
+    const result = await this.prisma.templates.findUnique({
       where: { id },
       include: {
         items: true
@@ -56,18 +56,18 @@ export class PrismaTemplateRepository implements ITemplateRepository {
     // Mapping du serviceType vers ItemType
     const itemType = this.mapServiceTypeToItemType(serviceType);
     
-    const results = await this.prisma.template.findMany({
-      where: { 
-        type: itemType,
-        isActive: true 
-      },
+      const results = await this.prisma.templates.findMany({
+        where: { 
+          type: itemType,
+          is_active: true 
+        },
       include: {
         items: true
       },
-      orderBy: [
-        { popular: 'desc' },
-        { createdAt: 'desc' }
-      ]
+        orderBy: [
+          { popular: 'desc' },
+          { created_at: 'desc' }
+        ]
     });
 
     return results.map(result => this.mapToEntity(result));
@@ -83,16 +83,17 @@ export class PrismaTemplateRepository implements ITemplateRepository {
       workers: template.getWorkers(),
       duration: template.getDuration(),
       features: [], // À étendre si nécessaire
-      includedDistance: null,
-      distanceUnit: 'km',
+      included_distance: null,
+      distance_unit: 'km',
       includes: [],
-      categoryId: null,
+      category_id: null,
       popular: false,
-      imagePath: null,
-      isActive: true,
+      image_path: null,
+      is_active: true,
+      updated_at: new Date(),
     };
 
-    const result = await this.prisma.template.upsert({
+    const result = await this.prisma.templates.upsert({
       where: { id: template.getId() },
       create: data,
       update: data,
@@ -112,10 +113,11 @@ export class PrismaTemplateRepository implements ITemplateRepository {
       price: template.getBasePrice().getAmount(),
       workers: template.getWorkers(),
       duration: template.getDuration(),
-      isActive: true,
+      is_active: true,
+      updated_at: new Date(),
     };
 
-    const result = await this.prisma.template.update({
+    const result = await this.prisma.templates.update({
       where: { id },
       data: updateData,
       include: {
@@ -129,9 +131,9 @@ export class PrismaTemplateRepository implements ITemplateRepository {
   async delete(id: string): Promise<boolean> {
     try {
       // Suppression logique
-      await this.prisma.template.update({
+      await this.prisma.templates.update({
         where: { id },
-        data: { isActive: false }
+        data: { is_active: false }
       });
       return true;
     } catch (error) {
@@ -141,11 +143,11 @@ export class PrismaTemplateRepository implements ITemplateRepository {
   }
 
   async findWithItems(id: string): Promise<Template | null> {
-    const result = await this.prisma.template.findUnique({
+    const result = await this.prisma.templates.findUnique({
       where: { id },
       include: {
         items: {
-          where: { isActive: true }
+          where: { is_active: true }
         }
       }
     });
@@ -162,8 +164,8 @@ export class PrismaTemplateRepository implements ITemplateRepository {
       new Money(data.price),
       data.duration,
       data.workers,
-      data.createdAt,
-      data.updatedAt
+      data.created_at,
+      data.updated_at
     );
   }
 

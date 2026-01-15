@@ -1,5 +1,6 @@
 // 🧠 Composant principal
 export { FormGenerator } from "./FormGenerator";
+export type { FormGeneratorRef } from "./FormGenerator";
 
 // 📦 Types
 export * from "./types";

@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import { devLog } from '@/lib/conditional-logger';

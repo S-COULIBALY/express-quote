@@ -34,15 +34,15 @@ export class InternalStaffService {
     try {
       logger.info(`🔍 Recherche des responsables pour le service: ${serviceType}`);
 
-      const staff = await this.prisma.internalStaff.findMany({
+      const staff = await this.prisma.internal_staff.findMany({
         where: {
-          isActive: true,
-          receiveEmail: true,
+          is_active: true,
+          receive_email: true,
           OR: [
             // Responsables spécifiques au service
             {
-              serviceTypes: {
-                path: '$',
+              service_types: {
+                path: ['$'],
                 array_contains: serviceType
               }
             },
@@ -64,13 +64,13 @@ export class InternalStaffService {
         firstName: member.first_name,
         lastName: member.last_name,
         role: member.role,
-        department: member.department,
+        department: member.department ?? undefined,
         serviceTypes: Array.isArray(member.service_types) ? member.service_types as string[] : [],
         isActive: member.is_active,
         receiveEmail: member.receive_email,
         receiveSMS: member.receive_sms,
         receiveWhatsApp: member.receive_whatsapp,
-        phone: member.phone,
+        phone: member.phone ?? undefined,
         workingHours: member.working_hours
       }));
     } catch (error) {
@@ -84,10 +84,10 @@ export class InternalStaffService {
    */
   async getAccountingStaff(): Promise<InternalStaffMember[]> {
     try {
-      const staff = await this.prisma.internalStaff.findMany({
+      const staff = await this.prisma.internal_staff.findMany({
         where: {
-          isActive: true,
-          receiveEmail: true,
+          is_active: true,
+          receive_email: true,
           role: 'ACCOUNTING'
         }
       });
@@ -98,13 +98,13 @@ export class InternalStaffService {
         firstName: member.first_name,
         lastName: member.last_name,
         role: member.role,
-        department: member.department,
+        department: member.department ?? undefined,
         serviceTypes: Array.isArray(member.service_types) ? member.service_types as string[] : [],
         isActive: member.is_active,
         receiveEmail: member.receive_email,
         receiveSMS: member.receive_sms,
         receiveWhatsApp: member.receive_whatsapp,
-        phone: member.phone,
+        phone: member.phone ?? undefined,
         workingHours: member.working_hours
       }));
     } catch (error) {

@@ -1,36 +1,39 @@
 import { Booking } from '../../domain/entities/Booking';
 import { BookingType } from '../../domain/enums/BookingType';
 import { Moving } from '../../domain/entities/Moving';
-import { Customer } from '../../domain/entities/Customer';
 import { IBookingRepository } from '../../domain/repositories/IBookingRepository';
 import { IMovingRepository } from '../../domain/repositories/IMovingRepository';
 import { IItemRepository } from '../../domain/repositories/IItemRepository';
 import { ITemplateRepository } from '../../domain/repositories/ITemplateRepository';
 import { IQuoteRequestRepository } from '../../domain/repositories/IQuoteRequestRepository';
 import { Money } from '../../domain/valueObjects/Money';
-import { QuoteCalculator } from './QuoteCalculator';
-import { QuoteContext } from '../../domain/valueObjects/QuoteContext';
 import { QuoteRequest } from '../../domain/entities/QuoteRequest';
 import { CustomerService } from './CustomerService';
 import { ServiceType } from '../../domain/enums/ServiceType';
 import { Item, ItemType } from '../../domain/entities/Item';
 import { Template } from '../../domain/entities/Template';
-import { createTemplateRules } from '../../domain/rules/TemplateRules';
+// Nouveau système de calcul modulaire
+import { BaseCostEngine } from '@/quotation-module/core/BaseCostEngine';
+import { FormAdapter } from '@/quotation-module/adapters/FormAdapter';
+import { getAllModules } from '@/quotation-module/core/ModuleRegistry';
 
 export class TemplateBookingService {
+  private readonly baseCostEngine: BaseCostEngine;
+
   constructor(
     private readonly bookingRepository: IBookingRepository,
     private readonly movingRepository: IMovingRepository,
     private readonly itemRepository: IItemRepository,
     private readonly templateRepository: ITemplateRepository,
-    private readonly quoteCalculator: QuoteCalculator = QuoteCalculator.getInstance(),
     private readonly quoteRequestRepository: IQuoteRequestRepository,
     private readonly customerService: CustomerService,
     private readonly transactionService: any,
     private readonly documentService: any,
     private readonly emailService: any,
     private readonly pdfService: any
-  ) {}
+  ) {
+    this.baseCostEngine = new BaseCostEngine(getAllModules());
+  }
 
   /**
    * Crée une demande de devis basée sur un template
@@ -115,43 +118,36 @@ export class TemplateBookingService {
   }
 
   /**
-   * Calcule le prix personnalisé en appliquant les règles Template
+   * Calcule le prix personnalisé avec le système modulaire
    */
   private async calculateCustomPrice(template: Template, dto: any): Promise<Money> {
     console.log('💰 [TemplateBookingService] Calcul du prix personnalisé pour template:', template.getId());
-    
+
     const basePrice = template.getBasePrice();
-    
-    // Créer le contexte pour les règles
-    const context = new QuoteContext(ServiceType.MOVING_PREMIUM);
-    context.setValue('templateId', template.getId());
-    context.setValue('itemType', this.mapServiceTypeToItemType(template.getServiceType()));
-    context.setValue('basePrice', basePrice.getAmount());
-    context.setValue('duration', dto.duration || template.getDuration());
-    context.setValue('workers', dto.workers || template.getWorkers());
-    context.setValue('distance', dto.distance || 0);
-    context.setValue('volume', dto.volume || 0);
-    context.setValue('scheduledDate', dto.scheduledDate || dto.serviceDate);
-    context.setValue('popular', dto.popular || false);
-    context.setValue('isReturningCustomer', dto.isReturningCustomer || false);
-    context.setValue('requiresSpecialEquipment', dto.requiresSpecialEquipment || false);
-    
-    // Appliquer les règles Template
-    const rules = createTemplateRules();
-    let finalPrice = basePrice.getAmount();
-    
-    for (const rule of rules) {
-      if (rule.isApplicable(context)) {
-        const result = rule.apply(new Money(finalPrice), context);
-        if (result.isApplied) {
-          finalPrice = result.newPrice.getAmount();
-          console.log(`📊 Règle "${rule.name}" appliquée: ${result.impact > 0 ? '+' : ''}${result.impact}%`);
-        }
-      }
+
+    try {
+      // Utiliser le nouveau système de calcul modulaire
+      const formData = {
+        serviceType: template.getServiceType() || ServiceType.MOVING,
+        templateId: template.getId(),
+        duration: dto.duration || template.getDuration(),
+        workers: dto.workers || template.getWorkers(),
+        distance: dto.distance || 0,
+        volume: dto.volume || 0,
+        scheduledDate: dto.scheduledDate || dto.serviceDate,
+        ...dto
+      };
+
+      const context = FormAdapter.toQuoteContext(formData);
+      const result = this.baseCostEngine.execute(context);
+      const finalPrice = result.baseCost || basePrice.getAmount();
+
+      console.log(`💰 Prix final calculé avec système modulaire: ${basePrice.getAmount()}€ -> ${finalPrice}€`);
+      return new Money(finalPrice);
+    } catch (error) {
+      console.error('❌ Erreur calcul prix, utilisation prix de base:', error);
+      return basePrice;
     }
-    
-    console.log(`💰 Prix final calculé: ${basePrice.getAmount()}€ -> ${finalPrice}€`);
-    return new Money(finalPrice);
   }
 
   /**
@@ -179,7 +175,7 @@ export class TemplateBookingService {
     
     // Créer la réservation
     const booking = new Booking(
-      this.mapQuoteRequestTypeToBookingType(quoteRequest.getType()),
+      this.mapQuoteRequestTypeToBookingType(quoteRequest.getType()) as any,
       customer,
       null as any, // Quote sera ajouté plus tard
       new Money(item.getPrice().getAmount()),

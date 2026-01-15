@@ -105,8 +105,8 @@ export class AdministrationDocumentDistributor {
             },
             body: JSON.stringify({
               email: staff.email,
-              firstName: staff.first_name || 'Équipe',
-              lastName: staff.last_name || 'Comptabilité',
+              firstName: staff.firstName || 'Équipe',
+              lastName: staff.lastName || 'Comptabilité',
               role: staff.role || 'ACCOUNTANT',
               department: 'Accounting',
               staffMemberId: staff.id,

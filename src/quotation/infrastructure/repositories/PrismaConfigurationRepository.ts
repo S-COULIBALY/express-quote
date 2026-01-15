@@ -468,22 +468,24 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
           description: options.description,
           tags: options.tags || [],
           priority: options.priority,
-          validationSchema: options.validationSchema,
-          changeReason: options.changeReason,
+          validation_schema: options.validationSchema,
+          change_reason: options.changeReason,
           updatedAt: new Date()
         },
         create: {
+          id: crypto.randomUUID(),
           category,
           key,
           value,
           description: options.description,
           isActive: true,
           environment: options.environment || 'production',
-          createdBy: options.createdBy || 'system',
+          created_by: options.createdBy || 'system',
           tags: options.tags || [],
           priority: options.priority || 100,
-          validationSchema: options.validationSchema,
-          changeReason: options.changeReason || 'Configuration créée'
+          validation_schema: options.validationSchema,
+          change_reason: options.changeReason || 'Configuration créée',
+          updatedAt: new Date()
         }
       });
 

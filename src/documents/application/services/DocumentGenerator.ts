@@ -200,7 +200,7 @@ export class DocumentGenerator {
       const { Quote } = await import('@/quotation/domain/entities/Quote');
       const { Money } = await import('@/quotation/domain/valueObjects/Money');
       const { ContactInfo } = await import('@/quotation/domain/valueObjects/ContactInfo');
-      
+
       const contactInfo = new ContactInfo(
         customerInfo.firstName || customerName.split(' ')[0] || 'Client',
         customerInfo.lastName || customerName.split(' ').slice(1).join(' ') || '',
@@ -208,11 +208,11 @@ export class DocumentGenerator {
         customerInfo.phone || ''
       );
       const customer = new Customer(crypto.randomUUID(), contactInfo);
-      
+
       const { QuoteType } = await import('@/quotation/domain/enums/QuoteType');
       const serviceTypeValue = quoteRequest.getType();
       let quoteType: any = QuoteType.SERVICE;
-      let bookingType: BookingType = BookingType.SERVICE;
+      let bookingType = BookingType.SERVICE;
       
       if (serviceTypeValue === 'MOVING') {
         quoteType = QuoteType.MOVING_QUOTE;

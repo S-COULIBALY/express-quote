@@ -20,7 +20,7 @@ export interface AttributionStartRequest {
     latitude: number;
     longitude: number;
   };
-  maxDistanceKm?: number;
+  max_distance_km?: number;
   bookingData: {
     bookingReference: string;
     totalAmount: number;
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       serviceType: serviceType as ServiceType,
       serviceLatitude: coordinates.latitude,
       serviceLongitude: coordinates.longitude,
-      maxDistanceKm: body.maxDistanceKm || 100,
+      max_distance_km: body.max_distance_km || 100,
       bookingData: {
         // Données étendues pour le nouveau flux
         bookingId,
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
       message: 'Attribution démarrée avec succès',
       details: {
         serviceType,
-        maxDistanceKm: body.maxDistanceKm || 100,
+        max_distance_km: body.max_distance_km || 100,
         dataType: 'restricted', // Confirme que les données sont restreintes
         notificationMethod: 'payment-confirmation-api'
       }

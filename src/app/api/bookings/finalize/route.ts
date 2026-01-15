@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
   const bookingService = new BookingService(
     bookingRepository,
     customerRepository,
-    undefined, // QuoteCalculator - sera injecté par défaut
     quoteRequestRepository,
     customerService
   );

@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     try {
       // ÉTAPE 1: Récupérer attributions actives
-      const activeAttributions = await prisma.bookingAttribution.findMany({
+      const activeAttributions = await prisma.booking_attributions.findMany({
         where: {
           status: {
             in: ['BROADCASTING', 'RE_BROADCASTING']
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
         criticalAlerts
       ] = await Promise.all([
         // Attributions complétées aujourd'hui
-        prisma.bookingAttribution.count({
+        prisma.booking_attributions.count({
           where: {
             status: 'COMPLETED',
             updatedAt: {
@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
           broadcastCount: attr.broadcastCount,
           lastBroadcastAt: attr.lastBroadcastAt,
           acceptedProfessionalId: attr.acceptedProfessionalId,
-          maxDistanceKm: attr.maxDistanceKm
+          max_distance_km: attr.max_distance_km
         })),
         professionalSessions: professionalSessions.map((session: any) => ({
           id: session.id,
@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
  */
 async function calculateAverageResponseTime(prisma: any): Promise<number> {
   try {
-    const recentAttributions = await prisma.bookingAttribution.findMany({
+    const recentAttributions = await prisma.booking_attributions.findMany({
       where: {
         status: 'ACCEPTED',
         updatedAt: {
@@ -467,15 +467,15 @@ async function handleCleanupOldData(logger: any): Promise<NextResponse> {
  */
 async function calculateAcceptanceRate(prisma: any) {
   try {
-    const totalAttributions = await prisma.bookingAttribution.count();
-    const acceptedAttributions = await prisma.bookingAttribution.count({
+    const total_attributions = await prisma.booking_attributions.count();
+    const accepted_attributions = await prisma.booking_attributions.count({
       where: { status: { in: ['ACCEPTED', 'COMPLETED'] } }
     });
 
     return {
-      rate: totalAttributions > 0 ? Math.round((acceptedAttributions / totalAttributions) * 100) : 0,
-      total: totalAttributions,
-      accepted: acceptedAttributions
+      rate: total_attributions > 0 ? Math.round((accepted_attributions / total_attributions) * 100) : 0,
+      total: total_attributions,
+      accepted: accepted_attributions
     };
   } catch (error) {
     return { rate: 0, total: 0, accepted: 0 };
@@ -487,18 +487,18 @@ async function calculateAcceptanceRate(prisma: any) {
  */
 async function calculateAverageDistance(prisma: any) {
   try {
-    const acceptedDistances = await prisma.bookingAttribution.aggregate({
+    const acceptedDistances = await prisma.booking_attributions.aggregate({
       where: { status: { in: ['ACCEPTED', 'COMPLETED'] } },
-      _avg: { maxDistanceKm: true }
+      _avg: { max_distance_km: true }
     });
 
-    const allDistances = await prisma.bookingAttribution.aggregate({
-      _avg: { maxDistanceKm: true }
+    const allDistances = await prisma.booking_attributions.aggregate({
+      _avg: { max_distance_km: true }
     });
 
     return {
-      accepted: Math.round(acceptedDistances._avg.maxDistanceKm || 0),
-      overall: Math.round(allDistances._avg.maxDistanceKm || 0)
+      accepted: Math.round(acceptedDistances._avg.max_distance_km || 0),
+      overall: Math.round(allDistances._avg.max_distance_km || 0)
     };
   } catch (error) {
     return { accepted: 0, overall: 0 };
@@ -511,7 +511,7 @@ async function calculateAverageDistance(prisma: any) {
 async function calculateBusinessMetrics(prisma: any) {
   try {
     // Récupérer les attributions avec les montants des bookings
-    const activeAttributions = await prisma.bookingAttribution.findMany({
+    const activeAttributions = await prisma.booking_attributions.findMany({
       where: {
         status: { in: ['BROADCASTING', 'RE_BROADCASTING', 'ACCEPTED'] }
       },
@@ -522,7 +522,7 @@ async function calculateBusinessMetrics(prisma: any) {
       }
     });
 
-    const lostAttributions = await prisma.bookingAttribution.findMany({
+    const lostAttributions = await prisma.booking_attributions.findMany({
       where: {
         status: { in: ['EXPIRED', 'CANCELLED'] }
       },
@@ -533,7 +533,7 @@ async function calculateBusinessMetrics(prisma: any) {
       }
     });
 
-    const completedAttributions = await prisma.bookingAttribution.findMany({
+    const completedAttributions = await prisma.booking_attributions.findMany({
       where: { status: 'COMPLETED' },
       include: {
         booking: {
@@ -582,26 +582,26 @@ async function calculateBusinessMetrics(prisma: any) {
  */
 async function calculateGeographicCoverage(prisma: any) {
   try {
-    const uniqueZones = await prisma.bookingAttribution.groupBy({
+    const uniqueZones = await prisma.booking_attributions.groupBy({
       by: ['serviceType'],
       _count: { id: true }
     });
 
-    const avgRadius = await prisma.bookingAttribution.aggregate({
-      _avg: { maxDistanceKm: true }
+    const avgRadius = await prisma.booking_attributions.aggregate({
+      _avg: { max_distance_km: true }
     });
 
     // Estimation des demandes non couvertes
-    const uncoveredEstimate = await prisma.bookingAttribution.count({
+    const uncoveredEstimate = await prisma.booking_attributions.count({
       where: {
         status: { in: ['EXPIRED', 'CANCELLED'] },
-        maxDistanceKm: { gt: 100 } // Plus de 100km = zone mal couverte
+        max_distance_km: { gt: 100 } // Plus de 100km = zone mal couverte
       }
     });
 
     return {
       zones: uniqueZones.length,
-      averageRadius: Math.round(avgRadius._avg.maxDistanceKm || 0),
+      averageRadius: Math.round(avgRadius._avg.max_distance_km || 0),
       uncoveredDemand: uncoveredEstimate
     };
   } catch (error) {
@@ -614,8 +614,8 @@ async function calculateGeographicCoverage(prisma: any) {
  */
 async function calculateRebroadcastRate(prisma: any) {
   try {
-    const totalAttributions = await prisma.bookingAttribution.count();
-    const rebroadcastAttributions = await prisma.bookingAttribution.count({
+    const total_attributions = await prisma.booking_attributions.count();
+    const rebroadcastAttributions = await prisma.booking_attributions.count({
       where: {
         OR: [
           { status: 'RE_BROADCASTING' },
@@ -626,7 +626,7 @@ async function calculateRebroadcastRate(prisma: any) {
 
     return {
       total: rebroadcastAttributions,
-      percentage: totalAttributions > 0 ? Math.round((rebroadcastAttributions / totalAttributions) * 100) : 0
+      percentage: total_attributions > 0 ? Math.round((rebroadcastAttributions / total_attributions) * 100) : 0
     };
   } catch (error) {
     return { total: 0, percentage: 0 };
@@ -643,7 +643,7 @@ async function calculateCriticalAlerts(prisma: any) {
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
     // Alertes critiques
-    const expiredAttributions = await prisma.bookingAttribution.count({
+    const expiredAttributions = await prisma.booking_attributions.count({
       where: {
         status: 'BROADCASTING',
         createdAt: { lt: oneHourAgo }
@@ -657,10 +657,10 @@ async function calculateCriticalAlerts(prisma: any) {
       }
     });
 
-    const highDistanceRequests = await prisma.bookingAttribution.count({
+    const highDistanceRequests = await prisma.booking_attributions.count({
       where: {
         status: { in: ['BROADCASTING', 'RE_BROADCASTING'] },
-        maxDistanceKm: { gt: 120 }
+        max_distance_km: { gt: 120 }
       }
     });
 

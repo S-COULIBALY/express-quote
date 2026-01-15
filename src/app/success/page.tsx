@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
 
@@ -22,10 +22,9 @@ interface BookingData {
 }
 
 /**
- * Page de succès après paiement réussi
- * Attend la création du Booking par le webhook, puis affiche les détails
+ * Composant interne qui utilise useSearchParams
  */
-export default function SuccessRedirect() {
+function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const paymentIntentId = searchParams.get('payment_intent');
@@ -277,5 +276,26 @@ export default function SuccessRedirect() {
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Page de succès après paiement réussi
+ * Attend la création du Booking par le webhook, puis affiche les détails
+ */
+export default function SuccessRedirect() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-6">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600"></div>
+          </div>
+          <h2 className="text-2xl font-bold mb-2 text-gray-800">Chargement...</h2>
+        </div>
+      </div>
+    }>
+      <SuccessContent />
+    </Suspense>
   );
 }

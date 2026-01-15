@@ -50,7 +50,11 @@ export class ProductionLogger {
     /auth/i
   ];
   
-  constructor(config: Partial<LoggerConfig>) {
+  constructor(configOrServiceName?: Partial<LoggerConfig> | string) {
+    const config = typeof configOrServiceName === 'string'
+      ? { service: configOrServiceName }
+      : configOrServiceName || {};
+
     this.config = {
       level: 'info',
       format: 'json',

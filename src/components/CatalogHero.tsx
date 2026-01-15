@@ -40,7 +40,7 @@ export const CatalogHero: React.FC<CatalogHeroProps> = React.memo(({
     const isSurMesure = catalogSelection.subcategory === "sur-mesure";
     const displayPrice = isSurMesure
       ? null
-      : catalogSelection.marketingPrice || item.price;
+      : catalogSelection.marketingPrice || item?.price;
     const originalPrice = catalogSelection.originalPrice;
 
     const hasPromotion =
@@ -67,22 +67,24 @@ export const CatalogHero: React.FC<CatalogHeroProps> = React.memo(({
     catalogSelection.promotionCode,
     catalogSelection.promotionType,
     catalogSelection.promotionValue,
-    item.price
+    item?.price
   ]);
 
   // Fonctionnalités et données techniques calculées une seule fois
-  const { features, includes, duration, workers, includedDistance } = React.useMemo(() => ({
-    features: item.features || template?.features || [],
-    includes: item.includes || template?.includes || [],
-    duration: isSurMesure ? null : item.duration || template?.duration || 1,
-    workers: isSurMesure ? null : item.workers || template?.workers || 1,
-    includedDistance: item.includedDistance || template?.includedDistance
+  const { features, includes, duration, workers, includedDistance, distanceUnit } = React.useMemo(() => ({
+    features: item?.features || template?.features || [],
+    includes: item?.includes || template?.includes || [],
+    duration: isSurMesure ? null : item?.duration || template?.duration || 1,
+    workers: isSurMesure ? null : item?.workers || template?.workers || 1,
+    includedDistance: item?.includedDistance || template?.includedDistance,
+    distanceUnit: item?.distanceUnit || 'km'
   }), [
-    item.features,
-    item.includes,
-    item.duration,
-    item.workers,
-    item.includedDistance,
+    item?.features,
+    item?.includes,
+    item?.duration,
+    item?.workers,
+    item?.includedDistance,
+    item?.distanceUnit,
     template?.features,
     template?.includes,
     template?.duration,
@@ -116,7 +118,7 @@ export const CatalogHero: React.FC<CatalogHeroProps> = React.memo(({
           </Link>
           <span className="text-gray-300 flex-shrink-0">›</span>
           <span className="text-gray-900 font-medium truncate">
-            {catalogSelection.marketingTitle || item.name}
+            {catalogSelection.marketingTitle || item?.name}
           </span>
         </nav>
 
@@ -137,7 +139,7 @@ export const CatalogHero: React.FC<CatalogHeroProps> = React.memo(({
              <div className="flex items-center gap-1.5">
                <span className={`text-lg ${colors.text}`}>{categoryIcon}</span>
                <h1 className="text-lg font-semibold text-gray-900">
-                 {catalogSelection.marketingTitle || item.name}
+                 {catalogSelection.marketingTitle || item?.name}
                </h1>
              </div>
 
@@ -210,7 +212,7 @@ export const CatalogHero: React.FC<CatalogHeroProps> = React.memo(({
                 )}
               </div>
 
-              {displayPrice !== null && (
+              {displayPrice != null && typeof displayPrice === 'number' && (
                 <div className="flex items-center justify-between text-sm border-t border-gray-50 pt-2">
                   <div className="flex items-center gap-4">
                     <span className="text-gray-500">TVA {Math.round(displayPrice * 0.2)}€</span>
@@ -264,7 +266,7 @@ export const CatalogHero: React.FC<CatalogHeroProps> = React.memo(({
                         <span className="text-xs text-gray-600">Distance</span>
                       </div>
                       <span className="text-xs font-medium text-gray-900">
-                        {includedDistance} {item.distanceUnit || "km"}
+                        {includedDistance} {distanceUnit}
                       </span>
                     </div>
                   ) : (
@@ -295,7 +297,7 @@ export const CatalogHero: React.FC<CatalogHeroProps> = React.memo(({
           {/* Description et Note d'évaluation */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {/* Description */}
-            {(catalogSelection.marketingDescription || item.description) && (
+            {(catalogSelection.marketingDescription || item?.description) && (
               <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
@@ -306,7 +308,7 @@ export const CatalogHero: React.FC<CatalogHeroProps> = React.memo(({
                   </div>
                 </div>
                 <p className="text-gray-600 text-xs leading-relaxed">
-                  {catalogSelection.marketingDescription || item.description}
+                  {catalogSelection.marketingDescription || item?.description}
                 </p>
               </div>
             )}

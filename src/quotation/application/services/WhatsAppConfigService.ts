@@ -1,5 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { PrismaClient } from '@prisma/client';
+import crypto from 'crypto';
 import { WhatsAppConfigDTO, WhatsAppTemplateDTO, WhatsAppDocumentConfigDTO, WhatsAppRecipientConfigDTO } from '../dtos/WhatsAppConfigDTO';
 
 @injectable()
@@ -9,58 +10,42 @@ export class WhatsAppConfigService {
   ) {}
 
   async getWhatsAppConfig(): Promise<WhatsAppConfigDTO> {
-    const config = await this.prisma.whatsAppConfiguration.findFirst({
-      where: { isActive: true }
-    });
-
-    return config?.value as WhatsAppConfigDTO;
-  }
-
-  async updateWhatsAppConfig(config: WhatsAppConfigDTO): Promise<WhatsAppConfigDTO> {
-    const updated = await this.prisma.whatsAppConfiguration.upsert({
-      where: { key: 'whatsapp_config' },
-      update: { 
-        value: config,
-        apiKey: config.apiKey,
-        phoneNumberId: config.phoneNumberId,
-        businessAccountId: config.businessAccountId,
-        webhookVerifyToken: config.webhookVerifyToken,
-        sessionTimeout: config.sessionTimeout,
-        maxMessagesPerDay: config.maxMessagesPerDay,
-        templates: config.templates,
-        documents: config.documents,
-        recipients: config.recipients,
-        analytics: {
-          trackMessageMetrics: config.trackMessageMetrics,
-          trackUserEngagement: config.trackUserEngagement,
-          generateReports: config.generateReports,
-          reportFrequency: config.reportFrequency
-        }
-      },
-      create: {
-        key: 'whatsapp_config',
+    const config = await this.prisma.configuration.findFirst({
+      where: { 
         category: 'whatsapp',
-        value: config,
-        apiKey: config.apiKey,
-        phoneNumberId: config.phoneNumberId,
-        businessAccountId: config.businessAccountId,
-        webhookVerifyToken: config.webhookVerifyToken,
-        sessionTimeout: config.sessionTimeout,
-        maxMessagesPerDay: config.maxMessagesPerDay,
-        templates: config.templates,
-        documents: config.documents,
-        recipients: config.recipients,
-        analytics: {
-          trackMessageMetrics: config.trackMessageMetrics,
-          trackUserEngagement: config.trackUserEngagement,
-          generateReports: config.generateReports,
-          reportFrequency: config.reportFrequency
-        },
-        isActive: true
+        key: 'whatsapp_config',
+        isActive: true 
       }
     });
 
-    return updated.value as WhatsAppConfigDTO;
+    return config?.value as unknown as WhatsAppConfigDTO;
+  }
+
+  async updateWhatsAppConfig(config: WhatsAppConfigDTO): Promise<WhatsAppConfigDTO> {
+    const updated = await this.prisma.configuration.upsert({
+      where: { 
+        category_key: {
+          category: 'whatsapp',
+          key: 'whatsapp_config'
+        }
+      },
+      update: { 
+        value: config as any,
+        updatedAt: new Date()
+      },
+      create: {
+        id: crypto.randomUUID(),
+        category: 'whatsapp',
+        key: 'whatsapp_config',
+        value: config as any,
+        isActive: true,
+        validFrom: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    return updated.value as unknown as WhatsAppConfigDTO;
   }
 
   async updateTemplate(template: WhatsAppTemplateDTO): Promise<WhatsAppTemplateDTO> {

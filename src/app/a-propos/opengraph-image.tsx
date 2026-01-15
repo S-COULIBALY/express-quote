@@ -1,5 +1,7 @@
 import { ImageResponse } from "next/og";
 
+export const runtime = 'edge';
+
 export const alt = "Express Quote - À propos de nous";
 export const size = {
   width: 1200,

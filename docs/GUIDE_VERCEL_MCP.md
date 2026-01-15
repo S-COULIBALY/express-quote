@@ -1,73 +1,177 @@
-# 🚀 Guide d'Utilisation de Vercel MCP
+# 🚀 Guide Complet Vercel : CLI vs MCP
 
 **Date** : 2026-01-10  
-**Version** : 1.0  
+**Version** : 2.0  
 **Source** : [Documentation Vercel MCP](https://vercel.com/docs/mcp)
 
 ---
 
-## 📖 Qu'est-ce que Vercel MCP ?
+## 📖 Vue d'Ensemble
 
-**Model Context Protocol (MCP)** est un protocole standard qui permet aux assistants IA d'interagir avec des outils et services externes de manière standardisée.
-
-**Vercel MCP** est le serveur MCP officiel de Vercel qui permet de :
-
-- ✅ Gérer vos projets Vercel
-- ✅ Déployer des applications
-- ✅ Analyser les logs de déploiement
-- ✅ Naviguer dans la documentation Vercel
-- ✅ Interagir avec vos applications déployées
-
-**Référence** : [vercel.com/docs/mcp](https://vercel.com/docs/mcp)
+Ce guide explique les deux méthodes principales pour interagir avec Vercel :
+1. **Vercel CLI** : Outil en ligne de commande traditionnel
+2. **Vercel MCP** : Intégration avec les assistants IA via Model Context Protocol
 
 ---
 
-## 🎯 Avantages de Vercel MCP
+## 🔄 CLI Vercel vs MCP Vercel : Comparaison
 
-### Pour le Déploiement
+### CLI Vercel (Command Line Interface)
 
-1. **Déploiement simplifié** : Déployer directement depuis votre assistant IA
-2. **Gestion des projets** : Créer, configurer et gérer vos projets Vercel
-3. **Analyse des logs** : Consulter les logs de build et de déploiement en temps réel
-4. **Gestion des variables d'environnement** : Configurer les variables directement depuis l'IA
+**Qu'est-ce que c'est ?**
+- Outil en ligne de commande installé localement sur votre machine
+- Utilisé via le terminal (PowerShell, Bash, etc.)
+- Nécessite l'installation de Node.js et npm
 
-### Pour le Développement
+**Avantages :**
+- ✅ Contrôle total via commandes explicites
+- ✅ Scriptable et automatisable (CI/CD)
+- ✅ Fonctionne dans tous les environnements (local, serveurs, CI)
+- ✅ Accès direct à toutes les fonctionnalités Vercel
+- ✅ Pas de dépendance à un IDE ou assistant IA
 
-1. **Intégration native** : Fonctionne avec Cursor, Claude Code, ChatGPT, etc.
-2. **Authentification sécurisée** : OAuth pour sécuriser l'accès
-3. **API complète** : Accès à toutes les fonctionnalités Vercel via MCP
+**Inconvénients :**
+- ❌ Nécessite de connaître les commandes exactes
+- ❌ Pas d'assistance contextuelle
+- ❌ Interface en ligne de commande uniquement
+
+**Quand l'utiliser :**
+- Déploiements automatisés (CI/CD)
+- Scripts de déploiement
+- Environnements serveurs sans interface graphique
+- Quand vous préférez le contrôle manuel
+
+**Exemples d'utilisation :**
+```bash
+# Lister les projets
+vercel projects ls
+
+# Déployer en production
+vercel --prod
+
+# Voir les logs
+vercel logs
+
+# Configurer les variables d'environnement
+vercel env add DATABASE_URL
+```
 
 ---
 
-## 🔧 Configuration de Vercel MCP avec Cursor
+### MCP Vercel (Model Context Protocol)
 
-### Étape 1 : Vérifier la Compatibilité
+**Qu'est-ce que c'est ?**
+- Serveur MCP officiel de Vercel
+- Intégration native avec les assistants IA (Cursor, Claude, ChatGPT, etc.)
+- Communication via protocole standardisé MCP
 
-Vercel MCP est compatible avec :
+**Avantages :**
+- ✅ Interaction naturelle en langage humain
+- ✅ Assistance contextuelle intelligente
+- ✅ Intégration native dans votre IDE
+- ✅ Pas besoin de connaître les commandes exactes
+- ✅ Automatisation intelligente des tâches complexes
 
-- ✅ **Cursor** (votre IDE actuel)
-- ✅ Claude Code
-- ✅ ChatGPT
-- ✅ VS Code avec Copilot
-- ✅ Devin
-- ✅ Raycast
-- ✅ Windsurf
-- ✅ Goose
+**Inconvénients :**
+- ❌ Nécessite un assistant IA compatible
+- ❌ Dépend de la configuration MCP
+- ❌ En version bêta (certaines fonctionnalités peuvent évoluer)
 
-**Source** : [vercel.com/docs/mcp/vercel-mcp](https://vercel.com/docs/mcp/vercel-mcp)
+**Quand l'utiliser :**
+- Développement interactif avec assistance IA
+- Exploration et découverte de fonctionnalités
+- Tâches complexes nécessitant de la réflexion
+- Quand vous travaillez dans un IDE avec assistant IA
 
-### Étape 2 : Configurer Vercel MCP dans Cursor
+**Exemples d'utilisation :**
+```
+"Liste mes projets Vercel"
+"Montre-moi les détails du projet express-quote"
+"Déploie express-quote sur Vercel en production"
+"Quels sont les logs du dernier déploiement ?"
+```
 
-#### Option A : Configuration via Interface Cursor
+---
 
-1. **Ouvrir les paramètres MCP de Cursor** :
-   - Aller dans **Settings** → **Features** → **MCP Servers**
-   - Ou utiliser le raccourci : `Cmd/Ctrl + Shift + P` → "MCP Settings"
+## 📊 Tableau Comparatif
 
-2. **Ajouter un nouveau serveur MCP** :
-   - Cliquer sur **"Add MCP Server"**
-   - Remplir les informations suivantes :
+| Critère | CLI Vercel | MCP Vercel |
+|---------|------------|------------|
+| **Interface** | Terminal/Commande | Langage naturel |
+| **Installation** | `npm i -g vercel` | Configuration dans l'IDE |
+| **Authentification** | `vercel login` | OAuth via l'IDE |
+| **Utilisation** | Commandes explicites | Requêtes en langage naturel |
+| **Scriptabilité** | ✅ Excellente | ⚠️ Via assistant IA |
+| **CI/CD** | ✅ Parfait | ❌ Non adapté |
+| **Assistance** | ❌ Aucune | ✅ Intelligente |
+| **Apprentissage** | ⚠️ Documentation requise | ✅ Intuitif |
+| **Automatisation** | ✅ Scripts personnalisés | ✅ Intelligente |
 
+---
+
+## 🛠️ Installation et Configuration
+
+### CLI Vercel
+
+#### Installation
+
+```bash
+# Installation globale
+npm i -g vercel
+
+# Vérifier l'installation
+vercel --version
+```
+
+#### Configuration
+
+```bash
+# Se connecter à Vercel
+vercel login
+
+# Lier un projet existant
+vercel link
+
+# Vérifier la connexion
+vercel whoami
+```
+
+#### Utilisation de Base
+
+```bash
+# Déployer (preview)
+vercel
+
+# Déployer en production
+vercel --prod
+
+# Lister les projets
+vercel projects ls
+
+# Voir les déploiements
+vercel ls
+
+# Voir les logs
+vercel logs [deployment-url]
+
+# Variables d'environnement
+vercel env ls
+vercel env add VARIABLE_NAME
+```
+
+---
+
+### MCP Vercel
+
+#### Configuration dans Cursor
+
+**Option A : Via l'Interface Cursor**
+
+1. Ouvrir les paramètres MCP :
+   - `Settings` → `Features` → `MCP Servers`
+   - Ou `Ctrl + Shift + P` → "MCP Settings"
+
+2. Ajouter le serveur Vercel :
    ```json
    {
      "name": "Vercel",
@@ -78,20 +182,16 @@ Vercel MCP est compatible avec :
    }
    ```
 
-3. **Autoriser l'accès OAuth** :
-   - Cursor ouvrira votre navigateur
-   - Connectez-vous avec votre compte Vercel
-   - Autorisez l'accès à votre compte
+3. Autoriser l'accès OAuth (Cursor ouvrira votre navigateur)
 
-#### Option B : Configuration via Fichier de Configuration
+**Option B : Via Fichier de Configuration**
 
-1. **Localiser le fichier de configuration MCP** :
-   - Sur macOS : `~/Library/Application Support/Cursor/User/globalStorage/mcp.json`
-   - Sur Windows : `%APPDATA%\Cursor\User\globalStorage\mcp.json`
-   - Sur Linux : `~/.config/Cursor/User/globalStorage/mcp.json`
+1. Localiser le fichier de configuration :
+   - **Windows** : `%APPDATA%\Cursor\User\globalStorage\mcp.json`
+   - **macOS** : `~/Library/Application Support/Cursor/User/globalStorage/mcp.json`
+   - **Linux** : `~/.config/Cursor/User/globalStorage/mcp.json`
 
-2. **Ajouter la configuration** :
-
+2. Ajouter la configuration :
    ```json
    {
      "mcpServers": {
@@ -105,17 +205,68 @@ Vercel MCP est compatible avec :
    }
    ```
 
-3. **Redémarrer Cursor** pour appliquer les changements
+3. Redémarrer Cursor
+
+#### Vérification
+
+Une fois configuré, testez avec :
+```
+"Liste mes projets Vercel"
+```
 
 ---
 
-## 🛠️ Outils Disponibles via Vercel MCP
+## 🎯 Cas d'Usage Recommandés
 
-Une fois configuré, vous pouvez utiliser les outils suivants via votre assistant IA :
+### Utiliser CLI Vercel pour :
+
+1. **CI/CD Pipelines**
+   ```yaml
+   # .github/workflows/deploy.yml
+   - name: Deploy to Vercel
+     run: vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+   ```
+
+2. **Scripts de Déploiement**
+   ```bash
+   # deploy.sh
+   vercel --prod
+   vercel env pull .env.production
+   ```
+
+3. **Automatisation Serveur**
+   ```bash
+   # Sur un serveur de build
+   vercel deploy --prod
+   ```
+
+### Utiliser MCP Vercel pour :
+
+1. **Développement Interactif**
+   ```
+   "Montre-moi les erreurs du dernier déploiement"
+   "Quels sont les projets qui ont échoué récemment ?"
+   ```
+
+2. **Exploration et Découverte**
+   ```
+   "Comment configurer les variables d'environnement pour express-quote ?"
+   "Quelle est la différence entre preview et production ?"
+   ```
+
+3. **Tâches Complexes**
+   ```
+   "Déploie express-quote, vérifie les logs, et si tout est OK, 
+    ajoute la variable DATABASE_URL avec la valeur [valeur]"
+   ```
+
+---
+
+## 🛠️ Outils Disponibles via MCP Vercel
 
 ### Gestion des Projets
 
-- `vercel_list_projects` : Lister tous vos projets Vercel
+- `vercel_list_projects` : Lister tous vos projets
 - `vercel_get_project` : Obtenir les détails d'un projet
 - `vercel_create_project` : Créer un nouveau projet
 - `vercel_update_project` : Mettre à jour un projet
@@ -130,148 +281,146 @@ Une fois configuré, vous pouvez utiliser les outils suivants via votre assistan
 
 ### Logs et Monitoring
 
-- `vercel_get_deployment_logs` : Obtenir les logs d'un déploiement
-- `vercel_get_build_logs` : Obtenir les logs de build
-- `vercel_get_function_logs` : Obtenir les logs des fonctions
+- `vercel_get_deployment_logs` : Logs d'un déploiement
+- `vercel_get_build_logs` : Logs de build
+- `vercel_get_function_logs` : Logs des fonctions
 
 ### Variables d'Environnement
 
-- `vercel_list_env_vars` : Lister les variables d'environnement
-- `vercel_add_env_var` : Ajouter une variable d'environnement
+- `vercel_list_env_vars` : Lister les variables
+- `vercel_add_env_var` : Ajouter une variable
 - `vercel_update_env_var` : Mettre à jour une variable
 - `vercel_delete_env_var` : Supprimer une variable
 
 ### Documentation
 
-- `vercel_search_docs` : Rechercher dans la documentation Vercel
+- `vercel_search_docs` : Rechercher dans la documentation
 - `vercel_get_doc` : Obtenir un document spécifique
 
 ---
 
-## 💡 Exemples d'Utilisation
+## 💡 Exemples d'Utilisation MCP
 
-### Exemple 1 : Déployer le Projet Express Quote
-
-Une fois Vercel MCP configuré, vous pouvez simplement demander :
+### Exemple 1 : Déploiement avec Vérification
 
 ```
-"Déploie le projet express-quote sur Vercel en production"
+"Déploie express-quote sur Vercel en production et montre-moi les logs"
 ```
 
-L'assistant IA utilisera automatiquement les outils MCP pour :
+L'assistant IA va :
+1. Déclencher le déploiement
+2. Surveiller les logs en temps réel
+3. Vous informer du résultat
 
-1. Vérifier que le projet existe
-2. Déclencher un nouveau déploiement
-3. Surveiller les logs de build
-4. Vous informer du résultat
-
-### Exemple 2 : Vérifier les Logs de Déploiement
+### Exemple 2 : Diagnostic de Problème
 
 ```
-"Montre-moi les logs du dernier déploiement de express-quote"
+"Le dernier déploiement de express-quote a échoué. 
+ Analyse les logs et explique-moi l'erreur"
 ```
 
-### Exemple 3 : Configurer les Variables d'Environnement
+### Exemple 3 : Configuration Complète
 
 ```
-"Ajoute la variable DATABASE_URL au projet express-quote avec la valeur [valeur]"
-```
-
-### Exemple 4 : Promouvoir un Déploiement Preview
-
-```
-"Promouvoir le déploiement [deployment-id] en production"
+"Configure le projet express-quote avec :
+ - Variable DATABASE_URL = [valeur]
+ - Variable NODE_ENV = production
+ Puis déploie en production"
 ```
 
 ---
 
 ## 🔐 Sécurité et Authentification
 
-### OAuth avec Vercel
+### CLI Vercel
 
-Vercel MCP utilise **OAuth 2.0** pour sécuriser l'accès :
+- Authentification via `vercel login`
+- Token stocké localement
+- Peut être utilisé avec tokens pour CI/CD
 
-1. **Première connexion** :
-   - Cursor vous redirige vers Vercel pour autoriser l'accès
-   - Vous devez vous connecter avec votre compte Vercel
-   - Autoriser l'application Cursor
+### MCP Vercel
 
-2. **Renouvellement du token** :
-   - Les tokens OAuth sont automatiquement renouvelés
-   - Pas besoin de vous reconnecter régulièrement
+- Authentification OAuth 2.0
+- Géré automatiquement par l'IDE
+- Tokens renouvelés automatiquement
+- Révocable depuis le compte Vercel
 
-3. **Permissions** :
-   - Vercel MCP demande uniquement les permissions nécessaires
-   - Vous pouvez révoquer l'accès à tout moment depuis votre compte Vercel
-
-### Bonnes Pratiques
-
-- ✅ Ne partagez jamais vos tokens OAuth
+**Bonnes Pratiques :**
+- ✅ Ne partagez jamais vos tokens
 - ✅ Révoquez l'accès si vous perdez l'accès à votre machine
-- ✅ Utilisez des comptes Vercel séparés pour dev/prod si nécessaire
+- ✅ Utilisez des comptes séparés pour dev/prod si nécessaire
 
 ---
 
-## 📚 Ressources Supplémentaires
+## 🚀 Workflow Recommandé
+
+### Développement Local
+
+1. **Utiliser MCP Vercel** pour :
+   - Explorer les projets
+   - Vérifier les logs
+   - Configurer les variables d'environnement
+   - Obtenir de l'aide contextuelle
+
+2. **Utiliser CLI Vercel** pour :
+   - Déploiements locaux de test
+   - Scripts de build personnalisés
+   - Automatisation locale
+
+### Production et CI/CD
+
+1. **Utiliser CLI Vercel** exclusivement :
+   - Pipelines CI/CD
+   - Déploiements automatisés
+   - Scripts de déploiement
+   - Environnements serveurs
+
+### Développement Collaboratif
+
+1. **MCP Vercel** pour l'exploration et l'aide
+2. **CLI Vercel** pour les scripts partagés
+3. **Dashboard Vercel** pour la visualisation
+
+---
+
+## ⚠️ Limitations
+
+### CLI Vercel
+- Aucune limitation majeure
+- Outil stable et mature
+
+### MCP Vercel
+- ⚠️ Version bêta publique
+- Certaines fonctionnalités peuvent évoluer
+- Nécessite un assistant IA compatible
+- Pas adapté pour CI/CD automatisé
+
+---
+
+## 📚 Ressources
 
 ### Documentation Officielle
 
+- **Vercel CLI** : [vercel.com/docs/cli](https://vercel.com/docs/cli)
 - **Vercel MCP** : [vercel.com/docs/mcp](https://vercel.com/docs/mcp)
 - **Vercel MCP Server** : [vercel.com/docs/mcp/vercel-mcp](https://vercel.com/docs/mcp/vercel-mcp)
-- **Déployer des serveurs MCP** : [vercel.com/docs/mcp/deploy-mcp-servers-to-vercel](https://vercel.com/docs/mcp/deploy-mcp-servers-to-vercel)
 
 ### Support
 
 - **Changelog Vercel** : [vercel.com/changelog](https://vercel.com/changelog)
-- **Community** : [github.com/modelcontextprotocol](https://github.com/modelcontextprotocol)
-
----
-
-## ⚠️ Limitations Actuelles
-
-### Statut Beta
-
-Vercel MCP est actuellement en **version bêta publique** :
-
-- ✅ Disponible sur tous les plans Vercel
-- ⚠️ Certaines fonctionnalités peuvent évoluer
-- ⚠️ L'API peut changer légèrement
-
-### Compatibilité
-
-- ✅ Compatible avec la plupart des clients IA modernes
-- ⚠️ Certains outils peuvent nécessiter des mises à jour
-
----
-
-## 🚀 Prochaines Étapes
-
-### Pour Utiliser Vercel MCP Maintenant
-
-1. **Configurer Vercel MCP dans Cursor** (voir section ci-dessus)
-2. **Tester la connexion** en demandant : "Liste mes projets Vercel"
-3. **Déployer express-quote** en utilisant les outils MCP
-
-### Alternative : Déploiement Traditionnel
-
-Si vous préférez ne pas utiliser MCP pour l'instant, vous pouvez toujours :
-
-- ✅ Utiliser le dashboard Vercel
-- ✅ Utiliser la CLI Vercel (`vercel --prod`)
-- ✅ Utiliser l'intégration GitHub (déploiement automatique)
-
-**Voir** : `docs/DEPLOIEMENT_VERCEL.md` pour les méthodes traditionnelles
+- **Community MCP** : [github.com/modelcontextprotocol](https://github.com/modelcontextprotocol)
 
 ---
 
 ## 📝 Notes Importantes
 
-1. **Vercel MCP nécessite un compte Vercel actif**
-2. **L'authentification OAuth est requise**
-3. **Les outils MCP sont disponibles uniquement après configuration**
-4. **Le projet doit être connecté à Vercel (via GitHub ou CLI)**
+1. **CLI et MCP sont complémentaires** : Utilisez-les selon le contexte
+2. **CLI pour l'automatisation** : Parfait pour CI/CD et scripts
+3. **MCP pour l'interaction** : Idéal pour le développement avec assistance IA
+4. **Les deux nécessitent un compte Vercel actif**
+5. **L'authentification est différente mais sécurisée dans les deux cas**
 
 ---
 
 **Dernière mise à jour** : 2026-01-10  
-**Statut** : ✅ Configuration possible - Prêt à utiliser
+**Statut** : ✅ CLI et MCP opérationnels - Prêt à utiliser

@@ -42,22 +42,22 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function getDashboardDataForProfessional(professionalId: string) {
+async function getDashboardDataForProfessional(professional_id: string) {
   // Récupérer les informations du professionnel
   const professional = await prisma.professional.findUnique({
-    where: { id: professionalId },
+    where: { id: professional_id },
     select: {
       id: true,
       companyName: true,
       email: true,
       city: true,
       businessType: true,
-      isAvailable: true,
-      serviceTypes: true,
-      maxDistanceKm: true,
-      totalAttributions: true,
-      acceptedAttributions: true,
-      cancelledAttributions: true
+      is_available: true,
+      service_types: true,
+      max_distance_km: true,
+      total_attributions: true,
+      accepted_attributions: true,
+      cancelled_attributions: true
     }
   });
 
@@ -66,71 +66,64 @@ async function getDashboardDataForProfessional(professionalId: string) {
   }
 
   // 1. Missions disponibles (attributions en cours de diffusion)
-  const availableMissions = await prisma.bookingAttribution.findMany({
+  const availableMissions = await prisma.booking_attributions.findMany({
     where: {
       status: { in: ['BROADCASTING', 'RE_BROADCASTING'] },
-      serviceType: { in: professional.serviceTypes as string[] },
-      // Correction: Syntaxe PostgreSQL pour JSON array
-      NOT: {
-        excludedProfessionals: {
-          path: ['$'],
-          array_contains: professionalId
-        }
-      }
+      service_type: { in: professional.service_types as any }
     },
     include: {
-      booking: {
+      Booking: {
         include: {
-          customer: true
+          Customer: true
         }
       },
-      responses: {
-        where: { professionalId },
-        select: { responseType: true }
+      attribution_responses: {
+        where: { professional_id },
+        select: { response_type: true }
       }
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { created_at: 'desc' },
     take: 10
   });
 
   // Filtrer celles où le professionnel n'a pas encore répondu
-  const filteredAvailableMissions = availableMissions.filter(attr => 
-    attr.responses.length === 0 && professional.isAvailable
+  const filteredAvailableMissions = availableMissions.filter((attr: any) =>
+    attr.attribution_responses.length === 0 && professional.is_available
   );
 
   // 2. Missions du professionnel (acceptées)
-  const myMissions = await prisma.bookingAttribution.findMany({
+  const myMissions = await prisma.booking_attributions.findMany({
     where: {
-      acceptedProfessionalId: professionalId,
+      accepted_professional_id: professional_id,
       status: 'ACCEPTED'
     },
     include: {
-      booking: {
+      Booking: {
         include: {
-          customer: true
+          Customer: true
         }
       }
     },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: { updated_at: 'desc' },
     take: 10
   });
 
   // 3. Historique des réponses
-  const missionHistory = await prisma.attributionResponse.findMany({
-    where: { professionalId },
+  const missionHistory = await prisma.attribution_responses.findMany({
+    where: { professional_id },
     include: {
-      attribution: {
+      booking_attributions: {
         include: {
-          booking: true
+          Booking: true
         }
       }
     },
-    orderBy: { responseTime: 'desc' },
+    orderBy: { response_time: 'desc' },
     take: 20
   });
 
   // 4. Statistiques
-  const stats = await calculateProfessionalStats(professionalId, professional);
+  const stats = await calculateProfessionalStats(professional_id, professional);
 
   return {
     user: professional,
@@ -146,7 +139,7 @@ function formatAvailableMission(attribution: any) {
   const customer = booking.customer;
   
   // Calculer le temps écoulé depuis la diffusion
-  const diffusedAt = new Date(attribution.lastBroadcastAt);
+  const diffusedAt = new Date(attribution.last_broadcast_at);
   const now = new Date();
   const minutesAgo = Math.floor((now.getTime() - diffusedAt.getTime()) / (1000 * 60));
   
@@ -161,18 +154,18 @@ function formatAvailableMission(attribution: any) {
 
   return {
     attributionId: attribution.id,
-    serviceType: getServiceTypeLabel(attribution.serviceType),
+    service_type: getServiceTypeLabel(attribution.service_type),
     amount: booking.totalAmount,
     location: extractLocationSummary(booking.locationAddress || booking.pickupAddress),
     scheduledDate: booking.scheduledDate ? 
       new Date(booking.scheduledDate).toLocaleDateString('fr-FR') : 
       'À planifier',
-    distanceKm: attribution.maxDistanceKm || 100,
+    distanceKm: attribution.max_distance_km || 100,
     timeAgo,
     priority: attribution.status === 'RE_BROADCASTING' ? 'high' : 'normal',
     // Informations client masquées jusqu'à acceptation
     customerInitials: `${customer.firstName.charAt(0)}.${customer.lastName.charAt(0)}.`,
-    broadcastCount: attribution.broadcastCount
+    broadcast_count: attribution.broadcast_count
   };
 }
 
@@ -184,7 +177,7 @@ function formatMyMission(attribution: any) {
     id: booking.id,
     attributionId: attribution.id,
     reference: `EQ-${booking.id.slice(-8).toUpperCase()}`,
-    serviceType: getServiceTypeLabel(attribution.serviceType),
+    service_type: getServiceTypeLabel(attribution.service_type),
     amount: booking.totalAmount,
     location: booking.locationAddress || booking.pickupAddress || 'Adresse à préciser',
     scheduledDate: booking.scheduledDate ? 
@@ -195,7 +188,7 @@ function formatMyMission(attribution: any) {
     customerPhone: customer.phone,
     customerEmail: customer.email,
     status: attribution.status,
-    acceptedAt: new Date(attribution.updatedAt).toLocaleDateString('fr-FR'),
+    acceptedAt: new Date(attribution.updated_at).toLocaleDateString('fr-FR'),
     canCancel: true // Pour l'instant, toujours possible
   };
 }
@@ -208,57 +201,57 @@ function formatMissionHistory(response: any) {
     id: response.id,
     bookingId: booking.id,
     reference: `EQ-${booking.id.slice(-8).toUpperCase()}`,
-    serviceType: getServiceTypeLabel(attribution.serviceType),
+    service_type: getServiceTypeLabel(attribution.service_type),
     amount: booking.totalAmount,
     location: extractLocationSummary(booking.locationAddress || booking.pickupAddress),
-    date: new Date(response.responseTime).toLocaleDateString('fr-FR'),
-    responseType: response.responseType,
-    status: response.responseType === 'ACCEPTED' ? 'ACCEPTED' : 'REFUSED',
-    responseMessage: response.responseMessage
+    date: new Date(response.response_time).toLocaleDateString('fr-FR'),
+    response_type: response.response_type,
+    status: response.response_type === 'ACCEPTED' ? 'ACCEPTED' : 'REFUSED',
+    response_message: response.response_message
   };
 }
 
-async function calculateProfessionalStats(professionalId: string, professional: any) {
+async function calculateProfessionalStats(professional_id: string, professional: any) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   // Revenus du mois (missions acceptées via attributions)
-  const monthlyAttributions = await prisma.bookingAttribution.findMany({
+  const monthlyAttributions = await prisma.booking_attributions.findMany({
     where: {
-      acceptedProfessionalId: professionalId,
+      accepted_professional_id: professional_id,
       status: { in: ['ACCEPTED', 'COMPLETED'] },
-      updatedAt: { gte: startOfMonth }
+      updated_at: { gte: startOfMonth }
     },
     include: {
-      booking: {
+      Booking: {
         select: { totalAmount: true, status: true }
       }
     }
   });
 
   const monthlyEarnings = monthlyAttributions
-    .filter(attr => attr.booking.status === 'COMPLETED')
-    .reduce((sum, attr) => sum + attr.booking.totalAmount, 0);
+    .filter((attr: any) => attr.Booking.status === 'COMPLETED')
+    .reduce((sum: number, attr: any) => sum + attr.Booking.totalAmount, 0);
 
   // Taux d'acceptation
-  const acceptanceRate = professional.totalAttributions > 0 ?
-    Math.round((professional.acceptedAttributions / professional.totalAttributions) * 100) : 0;
+  const acceptanceRate = professional.total_attributions > 0 ?
+    Math.round((professional.accepted_attributions / professional.total_attributions) * 100) : 0;
 
   // Taux d'annulation
-  const cancellationRate = professional.acceptedAttributions > 0 ?
-    Math.round((professional.cancelledAttributions / professional.acceptedAttributions) * 100) : 0;
+  const cancellationRate = professional.accepted_attributions > 0 ?
+    Math.round((professional.cancelled_attributions / professional.accepted_attributions) * 100) : 0;
 
   return {
     monthlyEarnings,
     acceptanceRate,
     cancellationRate,
-    totalMissions: professional.totalAttributions,
-    completedMissions: monthlyAttributions.filter(attr => attr.booking.status === 'COMPLETED').length,
+    totalMissions: professional.total_attributions,
+    completedMissions: monthlyAttributions.filter((attr: any) => attr.Booking.status === 'COMPLETED').length,
     reliability: Math.max(0, 100 - cancellationRate) // Score de fiabilité
   };
 }
 
-function getServiceTypeLabel(serviceType: string): string {
+function getServiceTypeLabel(service_type: string): string {
   const labels: Record<string, string> = {
     'MOVING': 'Déménagement',
     'CLEANING': 'Ménage',
@@ -267,7 +260,7 @@ function getServiceTypeLabel(serviceType: string): string {
     'PACKING': 'Emballage',
     'SERVICE': 'Service'
   };
-  return labels[serviceType] || serviceType;
+  return labels[service_type] || service_type;
 }
 
 function extractLocationSummary(address: string): string {

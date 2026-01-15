@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { container } from 'tsyringe';
-import { WhatsAppConfigService } from '@/quotation/application/services/WhatsAppConfigService';
-import {
-  WhatsAppConfigDTO
-} from '@/quotation/application/dtos/WhatsAppConfigDTO';
+import { prisma } from '@/lib/prisma';
+import crypto from 'crypto';
 
-// Types temporaires pour éviter les erreurs de build
-type DocumentConfigDTO = any;
+// Types
+type WhatsAppConfigDTO = any;
 type TemplateConfigDTO = any;
-type SessionConfigDTO = any;
-type AnalyticsConfigDTO = any;
-import '@/quotation/application/container';
+type DocumentConfigDTO = any;
 
 // Logger simplifié
 const logger = {
@@ -21,15 +16,20 @@ const logger = {
 // GET - Récupérer la configuration actuelle
 export async function GET() {
   try {
-    const whatsappConfigService = container.resolve(WhatsAppConfigService);
-    const config = await whatsappConfigService.getWhatsAppConfig();
-    
-    return NextResponse.json(config);
+    const config = await prisma.configuration.findFirst({
+      where: {
+        category: 'whatsapp',
+        key: 'whatsapp_config',
+        isActive: true
+      }
+    });
+
+    return NextResponse.json(config?.value || null);
   } catch (error) {
     logger.error('Erreur lors de la récupération de la configuration:', error);
-    
+
     return NextResponse.json(
-      { 
+      {
         error: 'Erreur lors de la récupération de la configuration',
         details: error instanceof Error ? error.message : String(error)
       },
@@ -42,25 +42,45 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    
+
     if (!data) {
       return NextResponse.json(
         { error: 'Aucune donnée fournie' },
         { status: 400 }
       );
     }
-    
-    const whatsappConfigService = container.resolve(WhatsAppConfigService);
-    const updatedConfig = await whatsappConfigService.updateWhatsAppConfig(data as WhatsAppConfigDTO);
-    
+
+    const updated = await prisma.configuration.upsert({
+      where: {
+        category_key: {
+          category: 'whatsapp',
+          key: 'whatsapp_config'
+        }
+      },
+      update: {
+        value: data as any,
+        updatedAt: new Date()
+      },
+      create: {
+        id: crypto.randomUUID(),
+        category: 'whatsapp',
+        key: 'whatsapp_config',
+        value: data as any,
+        isActive: true,
+        validFrom: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Configuration WhatsApp sauvegardée avec succès',
-      config: updatedConfig
+      config: updated.value
     });
   } catch (error) {
     logger.error('Erreur lors de la mise à jour de la configuration:', error);
-    
+
     return NextResponse.json(
       {
         error: 'Erreur lors de la mise à jour de la configuration',
@@ -75,8 +95,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const data = await request.json();
-    const whatsappConfigService = container.resolve(WhatsAppConfigService);
-    
+
     if (!data.operation) {
       return NextResponse.json(
         { error: 'Opération non spécifiée' },
@@ -84,56 +103,83 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    let result;
-    
+    // Récupérer la config actuelle
+    const currentConfig = await prisma.configuration.findFirst({
+      where: {
+        category: 'whatsapp',
+        key: 'whatsapp_config',
+        isActive: true
+      }
+    });
+
+    const configValue = (currentConfig?.value as any) || {};
+    let updatedValue = { ...configValue };
+
     switch (data.operation) {
       case 'updateTemplate':
-        result = await whatsappConfigService.updateTemplate(data.template as TemplateConfigDTO);
+        updatedValue.templates = updatedValue.templates || [];
+        const templateIndex = updatedValue.templates.findIndex((t: any) => t.id === data.template.id);
+        if (templateIndex >= 0) {
+          updatedValue.templates[templateIndex] = data.template;
+        } else {
+          updatedValue.templates.push(data.template);
+        }
         break;
 
       case 'updateDocumentConfig':
-        result = await whatsappConfigService.updateDocumentConfig(data.document as DocumentConfigDTO);
+        updatedValue.documentConfig = data.document;
         break;
 
       case 'updateRecipientConfig':
-        result = await whatsappConfigService.updateRecipientConfig(data.recipient as any);
+        updatedValue.recipientConfig = data.recipient;
         break;
 
       case 'updateSessionConfig':
-        // TODO: Implémenter updateSessionConfig dans WhatsAppConfigService
-        return NextResponse.json(
-          { error: 'updateSessionConfig non implémenté' },
-          { status: 501 }
-        );
-
       case 'updateAnalyticsConfig':
-        // TODO: Implémenter updateAnalyticsConfig dans WhatsAppConfigService
+      case 'testConnection':
         return NextResponse.json(
-          { error: 'updateAnalyticsConfig non implémenté' },
+          { error: `${data.operation} non implémenté` },
           { status: 501 }
         );
 
-      case 'testConnection':
-        // TODO: Implémenter testConnection dans WhatsAppConfigService
-        return NextResponse.json(
-          { error: 'testConnection non implémenté' },
-          { status: 501 }
-        );
-        
       default:
         return NextResponse.json(
           { error: 'Opération non reconnue' },
           { status: 400 }
         );
     }
-    
+
+    // Sauvegarder la mise à jour
+    const updated = await prisma.configuration.upsert({
+      where: {
+        category_key: {
+          category: 'whatsapp',
+          key: 'whatsapp_config'
+        }
+      },
+      update: {
+        value: updatedValue,
+        updatedAt: new Date()
+      },
+      create: {
+        id: crypto.randomUUID(),
+        category: 'whatsapp',
+        key: 'whatsapp_config',
+        value: updatedValue,
+        isActive: true,
+        validFrom: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
     return NextResponse.json({
       success: true,
-      data: result
+      data: updated.value
     });
   } catch (error) {
     logger.error('Erreur lors de la mise à jour partielle:', error);
-    
+
     return NextResponse.json(
       {
         error: 'Erreur lors de la mise à jour',

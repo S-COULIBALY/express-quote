@@ -8,7 +8,7 @@ export class AccessConstraintsService {
       const rules = await prisma.rules.findMany({
         where: {
           ruleType: 'CONSTRAINT' as RuleType,
-          serviceType: 'MOVING' as ServiceType,
+          serviceType: ServiceType.MOVING,
           isActive: true,
           condition: {
             path: ['type'],

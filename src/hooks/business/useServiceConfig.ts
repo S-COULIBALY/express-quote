@@ -1,27 +1,17 @@
+// ============================================================================
+// USE SERVICE CONFIG - Express Quote
+// ============================================================================
+// Seul le service DEMENAGEMENT SUR MESURE est actif.
+// Les services CLEANING, DELIVERY, PACKING, MOVING (packs catalogue) ont été abandonnés.
+// Voir: docs/PLAN_REFACTORISATION_ANCIEN_SYSTEME.md
+// ============================================================================
+
 import { useMemo } from 'react';
 import { CatalogData } from '@/hooks/useCatalogPreFill';
 import { ServiceType } from '@/quotation/domain/enums/ServiceType';
-import {
-  getDemenagementSurMesureServiceConfig,
-  getMenageSurMesureServiceConfig,
-  getCatalogueMovingItemConfig,
-  getCatalogueCleaningItemConfig,
-  getCatalogueDeliveryItemServiceConfig
-} from '@/components/form-generator';
-import {
-  transformCatalogDataToCatalogueMovingItem,
-  transformCatalogDataToCatalogueCleaningItem,
-  transformCatalogDataToCatalogueDeliveryItem,
-  transformCatalogDataToDemenagementSurMesure,
-  transformCatalogDataToMenageSurMesure
-} from '@/utils/catalogTransformers';
-import {
-  createCatalogueMovingItemSubmissionConfig,
-  createCatalogueCleaningItemSubmissionConfig,
-  createCatalogueDeliveryItemSubmissionConfig,
-  createDemenagementSurMesureSubmissionConfig,
-  createMenageSurMesureSubmissionConfig
-} from '@/hooks/business';
+import { getDemenagementSurMesureServiceConfig } from '@/components/form-generator';
+import { transformCatalogDataToDemenagementSurMesure } from '@/utils/catalogTransformers';
+import { createDemenagementSurMesureSubmissionConfig } from '@/hooks/business';
 
 /**
  * Hook pour la configuration du service
@@ -31,23 +21,19 @@ import {
  * - Transformer les données du catalogue
  * - Retourner la config complète (form + submission + serviceType)
  *
- * Extrait de DetailForm.tsx pour réduire la complexité
+ * NOTE: Seul le déménagement sur mesure est supporté.
  */
 export const useServiceConfig = (
   presetType: string,
   catalogData: CatalogData,
   distance: number = 0
 ) => {
-  // Sélectionner le mapping de configuration
+  // Sélectionner le mapping de configuration (seul demenagement-sur-mesure est actif)
   const config = useMemo(() => {
-    const mapping = CONFIG_MAPPINGS[presetType];
-
-    if (!mapping) {
-      console.error(`Preset inconnu: ${presetType}, fallback sur cleaning`);
-      return CONFIG_MAPPINGS['catalogueCleaningItem-service'];
+    if (presetType !== 'demenagement-sur-mesure') {
+      console.warn(`Preset "${presetType}" non supporté, utilisation de demenagement-sur-mesure`);
     }
-
-    return mapping;
+    return CONFIG_MAPPING;
   }, [presetType]);
 
   // Transformer les données du catalogue
@@ -58,7 +44,7 @@ export const useServiceConfig = (
       console.error('useServiceConfig: Erreur lors de la transformation des données', error);
       return null;
     }
-  }, [config, catalogData.catalogSelection.id, catalogData.item?.id]);
+  }, [config, catalogData.catalogSelection?.id, catalogData.item?.id]);
 
   // Générer la config du formulaire
   const formConfig = useMemo(() => {
@@ -76,6 +62,7 @@ export const useServiceConfig = (
 
   // Générer la config de soumission
   const submissionConfig = useMemo(() => {
+    if (!transformedData) return null;
     return config.createSubmissionConfig(transformedData, distance);
   }, [config, transformedData, distance]);
 
@@ -88,38 +75,11 @@ export const useServiceConfig = (
 };
 
 /**
- * Configuration mapping consolidée
- * Remplace le gigantesque switch case de DetailForm.tsx
+ * Configuration pour le déménagement sur mesure (seul service actif)
  */
-const CONFIG_MAPPINGS = {
-  'catalogueMovingItem-service': {
-    getConfig: getCatalogueMovingItemConfig,
-    transformer: transformCatalogDataToCatalogueMovingItem,
-    createSubmissionConfig: createCatalogueMovingItemSubmissionConfig,
-    serviceType: ServiceType.PACKING
-  },
-  'catalogueCleaningItem-service': {
-    getConfig: getCatalogueCleaningItemConfig,
-    transformer: transformCatalogDataToCatalogueCleaningItem,
-    createSubmissionConfig: createCatalogueCleaningItemSubmissionConfig,
-    serviceType: ServiceType.CLEANING
-  },
-  'catalogueDeliveryItem-service': {
-    getConfig: getCatalogueDeliveryItemServiceConfig,
-    transformer: transformCatalogDataToCatalogueDeliveryItem,
-    createSubmissionConfig: createCatalogueDeliveryItemSubmissionConfig,
-    serviceType: ServiceType.DELIVERY
-  },
-  'demenagement-sur-mesure': {
-    getConfig: getDemenagementSurMesureServiceConfig,
-    transformer: transformCatalogDataToDemenagementSurMesure,
-    createSubmissionConfig: createDemenagementSurMesureSubmissionConfig,
-    serviceType: ServiceType.MOVING_PREMIUM
-  },
-  'menage-sur-mesure': {
-    getConfig: getMenageSurMesureServiceConfig,
-    transformer: transformCatalogDataToMenageSurMesure,
-    createSubmissionConfig: createMenageSurMesureSubmissionConfig,
-    serviceType: ServiceType.CLEANING_PREMIUM
-  }
-} as const;
+const CONFIG_MAPPING = {
+  getConfig: getDemenagementSurMesureServiceConfig,
+  transformer: transformCatalogDataToDemenagementSurMesure,
+  createSubmissionConfig: createDemenagementSurMesureSubmissionConfig,
+  serviceType: ServiceType.MOVING_PREMIUM
+};

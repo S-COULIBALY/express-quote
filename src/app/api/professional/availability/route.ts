@@ -37,9 +37,9 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         companyName: true,
-        isAvailable: true,
-        serviceTypes: true,
-        maxDistanceKm: true,
+        is_available: true,
+        service_types: true,
+        max_distance_km: true,
         city: true
       }
     });
@@ -54,9 +54,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       availability: {
-        isAvailable: professional.isAvailable,
-        serviceTypes: professional.serviceTypes,
-        maxDistanceKm: professional.maxDistanceKm,
+        is_available: professional.is_available,
+        service_types: professional.service_types,
+        max_distance_km: professional.max_distance_km,
         location: professional.city
       }
     });
@@ -80,36 +80,36 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const professionalId = await authenticateProfessional(request);
-    const { isAvailable, maxDistanceKm, serviceTypes } = await request.json();
+    const { is_available, max_distance_km, service_types } = await request.json();
 
     // Validation
-    if (typeof isAvailable !== 'boolean') {
+    if (typeof is_available !== 'boolean') {
       return NextResponse.json(
         { success: false, error: 'Statut de disponibilité invalide' },
         { status: 400 }
       );
     }
 
-    const updateData: any = { isAvailable };
+    const updateData: any = { is_available };
 
-    if (maxDistanceKm !== undefined) {
-      if (typeof maxDistanceKm !== 'number' || maxDistanceKm < 0 || maxDistanceKm > 500) {
+    if (max_distance_km !== undefined) {
+      if (typeof max_distance_km !== 'number' || max_distance_km < 0 || max_distance_km > 500) {
         return NextResponse.json(
           { success: false, error: 'Distance maximale invalide (0-500km)' },
           { status: 400 }
         );
       }
-      updateData.maxDistanceKm = maxDistanceKm;
+      updateData.max_distance_km = max_distance_km;
     }
 
-    if (serviceTypes !== undefined) {
-      if (!Array.isArray(serviceTypes)) {
+    if (service_types !== undefined) {
+      if (!Array.isArray(service_types)) {
         return NextResponse.json(
           { success: false, error: 'Types de service invalides' },
           { status: 400 }
         );
       }
-      updateData.serviceTypes = serviceTypes;
+      updateData.service_types = service_types;
     }
 
     const updatedProfessional = await prisma.professional.update({
@@ -118,21 +118,21 @@ export async function PUT(request: NextRequest) {
       select: {
         id: true,
         companyName: true,
-        isAvailable: true,
-        serviceTypes: true,
-        maxDistanceKm: true
+        is_available: true,
+        service_types: true,
+        max_distance_km: true
       }
     });
 
-    console.log(`🔄 Disponibilité mise à jour pour ${updatedProfessional.companyName}: ${isAvailable ? 'DISPONIBLE' : 'INDISPONIBLE'}`);
+    console.log(`🔄 Disponibilité mise à jour pour ${updatedProfessional.companyName}: ${is_available ? 'DISPONIBLE' : 'INDISPONIBLE'}`);
 
     return NextResponse.json({
       success: true,
       message: 'Disponibilité mise à jour',
       availability: {
-        isAvailable: updatedProfessional.isAvailable,
-        serviceTypes: updatedProfessional.serviceTypes,
-        maxDistanceKm: updatedProfessional.maxDistanceKm
+        is_available: updatedProfessional.is_available,
+        service_types: updatedProfessional.service_types,
+        max_distance_km: updatedProfessional.max_distance_km
       }
     });
 
