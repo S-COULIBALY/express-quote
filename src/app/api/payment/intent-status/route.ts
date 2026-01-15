@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-08-27.basil'
-});
+// Rendre cette route dynamique pour éviter l'initialisation Stripe pendant le build
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Initialiser Stripe uniquement si la clé est disponible
+function getStripeInstance(): Stripe | null {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey || secretKey.trim() === '') {
+    logger.warn('⚠️ STRIPE_SECRET_KEY non définie - Les paiements ne fonctionneront pas');
+    return null;
+  }
+  return new Stripe(secretKey, {
+    apiVersion: '2025-08-27.basil'
+  });
+}
 
 /**
  * GET /api/payment/intent-status?payment_intent=pi_xxx
@@ -12,6 +24,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    const stripe = getStripeInstance();
+    if (!stripe) {
+      return NextResponse.json(
+        { error: 'Configuration Stripe manquante' },
+        { status: 500 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const paymentIntentId = searchParams.get('payment_intent');
 
