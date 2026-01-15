@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 
+// Rendre cette route dynamique pour éviter l'initialisation Stripe pendant le build
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * GET /api/payment/status?payment_intent=pi_xxx
  * Vérifie si un Booking a été créé pour un PaymentIntent donné
@@ -80,7 +84,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     try {
       // Importer Stripe dynamiquement pour éviter les problèmes d'initialisation
       const Stripe = (await import('stripe')).default;
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+      const secretKey = process.env.STRIPE_SECRET_KEY;
+      if (!secretKey || secretKey.trim() === '') {
+        logger.warn('⚠️ STRIPE_SECRET_KEY non définie - Impossible de récupérer le PaymentIntent');
+        return NextResponse.json(
+          { success: false, error: 'Configuration Stripe manquante' },
+          { status: 500 }
+        );
+      }
+      const stripe = new Stripe(secretKey, {
         apiVersion: '2025-08-27.basil'
       });
 
