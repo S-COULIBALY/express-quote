@@ -4,6 +4,7 @@ import { IndustryPreset } from './presets';
 export interface FormFieldOption {
   value: string; //   value: "express",
   label: string; //   label: "Livraison Express"
+  description?: string; // Description optionnelle pour les options de volume
 }
 
 export interface FormFieldValidation {
@@ -39,9 +40,12 @@ export interface FormField {
     | "address-pickup" // Pour PickupAddressAutocomplete
     | "address-delivery" // Pour DeliveryAddressAutocomplete
     | "access-constraints" // Pour AccessConstraintsModal (système unifié)
-    | "whatsapp-consent"; // Pour WhatsAppOptInConsent
-  label?: ReactNode; //   label: "Option de livraison" | <CustomLabel />,                  
-  required?: boolean; //   required: true,
+    | "whatsapp-consent" // Pour WhatsAppOptInConsent
+    | "furniture-lift-checkbox" // Pour le composant Monte-meubles
+    | "cross-selling"; // Pour le composant de sélection cross-selling
+  label?: ReactNode; //   label: "Option de livraison" | <CustomLabel />,
+  required?: boolean | ((formData: any) => boolean); //   required: true,
+  helpText?: string; // Texte d'aide affiché sous le champ
   options?: FormFieldOption[]; //   options: [
   //     { value: "standard", label: "Standard (2-3 jours)" },
   //     { value: "express", label: "Express (24h)" }
@@ -112,7 +116,7 @@ export interface FormConfig {
   // 🌍 Configuration globale avancée (nouveau)
   globalConfig?: GlobalFormConfig;
   layout?: {
-    type?: "sidebar" | "custom" | "auth" | "package" | "package-edit" | "package-card" | "service-summary";
+    type?: "default" | "sidebar" | "custom" | "auth" | "package" | "package-edit" | "package-card" | "service-summary";
     autoSummary?: "moving" | "contact" | React.ComponentType<any>;
     summaryConfig?: any;
     component?: React.ComponentType<any>; // Pour layout custom

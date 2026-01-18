@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCrossSellingOptional } from '@/contexts';
 
@@ -39,10 +39,14 @@ export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
   };
 
   // Compter les services/fournitures déjà sélectionnés
-  const selectedCount = crossSelling ?
-    crossSelling.selection.services.length +
-    crossSelling.selection.supplies.reduce((acc, s) => acc + s.quantity, 0)
-    : 0;
+  // Utiliser useMemo pour optimiser et forcer la réactivité
+  const selectedCount = useMemo(() => {
+    if (!crossSelling) return 0;
+    // Utiliser directement l'objet selection pour forcer le re-render quand il change
+    const servicesCount = crossSelling.selection.services.length;
+    const suppliesCount = crossSelling.selection.supplies.reduce((acc, s) => acc + s.quantity, 0);
+    return servicesCount + suppliesCount;
+  }, [crossSelling?.selection]);
 
   const handleClick = () => {
     // Construire l'URL avec les paramètres du formulaire

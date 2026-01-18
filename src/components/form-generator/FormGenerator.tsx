@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { FormGeneratorProps, FormSection as FormSectionType } from "./types";
 import { SidebarLayout } from "./layouts/SidebarLayout";
 import { ServiceSummaryLayout } from "./layouts/ServiceSummaryLayout";
+import { SimpleLayout } from "./layouts/SimpleLayout";
 import { FormStylesSimplified } from "./styles/FormStylesSimplified";
 import { FormSection } from "./components/FormSection";
 import { useFormPersistence } from "@/hooks/shared/useFormPersistence";
@@ -372,6 +373,11 @@ export const FormGenerator = forwardRef<FormGeneratorRef, FormGeneratorProps>(({
           return <CustomLayout {...layoutProps}>{formElement}</CustomLayout>;
         }
         return <SidebarLayout {...layoutProps}>{formElement}</SidebarLayout>;
+      }
+
+      case "default": {
+        // Layout simple sans sidebar - formulaire en pleine largeur
+        return <SimpleLayout {...layoutProps}>{formElement}</SimpleLayout>;
       }
 
       default:

@@ -40,6 +40,7 @@ export interface FormSummarySection {
     format?: (value: any, formData: any) => string;
     condition?: (value: any, formData: any) => boolean;
     style?: string;
+    suffix?: string; // Suffixe à ajouter après la valeur (ex: " m²")
   }>;
 }
 

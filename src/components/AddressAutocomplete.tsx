@@ -145,7 +145,7 @@ export function AddressAutocomplete({
         )}
       </div>
       {!isValid && inputValue && (
-        <p id={`${id}-error`} className={`text-sm ${errorType && ['NUMERIC_ONLY', 'TOO_SHORT', 'MAPS_API_ERROR'].includes(errorType) ? 'text-red-600' : 'text-yellow-600'}`}>
+        <p id={`${id}-error`} className={`text-xs sm:text-sm mt-1 ${errorType && ['NUMERIC_ONLY', 'TOO_SHORT', 'MAPS_API_ERROR'].includes(errorType) ? 'text-red-600' : 'text-yellow-600'}`}>
           {getErrorMessage()}
         </p>
       )}

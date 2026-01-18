@@ -2,6 +2,7 @@
 
 import { memo, Suspense, lazy, useEffect, useState } from 'react'
 import { NotificationProvider } from '@/contexts/NotificationContext'
+import { CrossSellingProvider } from '@/contexts/CrossSellingContext'
 import { QueryProvider } from '@/providers/QueryProvider'
 import Navbar from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
@@ -47,16 +48,18 @@ export default function RootLayoutClient({
   return (
     <QueryProvider>
       <NotificationProvider>
-        {/* Charger Google Maps uniquement si nécessaire */}
-        {mapNeeded && (
-          <Suspense fallback={null}>
-            <LazyGoogleMapsScript />
-          </Suspense>
-        )}
-        <MainLayout>
-          {children}
-        </MainLayout>
-        <Toaster />
+        <CrossSellingProvider>
+          {/* Charger Google Maps uniquement si nécessaire */}
+          {mapNeeded && (
+            <Suspense fallback={null}>
+              <LazyGoogleMapsScript />
+            </Suspense>
+          )}
+          <MainLayout>
+            {children}
+          </MainLayout>
+          <Toaster />
+        </CrossSellingProvider>
       </NotificationProvider>
     </QueryProvider>
   )

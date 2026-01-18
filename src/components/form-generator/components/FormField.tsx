@@ -14,6 +14,8 @@ import {
 } from "@/components/AddressAutocomplete";
 import { WhatsAppOptInConsent } from "@/components/WhatsAppOptInConsent";
 import { AccessConstraintsModal } from "./AccessConstraintsModal";
+import { CrossSellingButton } from "./CrossSellingButton";
+import { FurnitureLiftCheckbox } from "./FurnitureLiftCheckbox";
 
 interface FormFieldProps {
   field: FormFieldType;
@@ -51,7 +53,7 @@ export const FormField: React.FC<FormFieldProps> = ({
     return (
       <label
         htmlFor={field.name}
-        className="absolute -top-2 left-2 sm:left-3 px-1 sm:px-2 bg-white text-xs sm:text-sm font-medium text-gray-900 z-10"
+        className="absolute -top-2 left-2 sm:left-3 px-1.5 sm:px-1.5 md:px-1 py-0.5 md:py-0 bg-white text-[11px] sm:text-xs md:text-xs font-medium text-gray-900 z-10"
       >
         <>{field.label}</>
         {field.required && <span className="text-emerald-600">*</span>}
@@ -416,6 +418,29 @@ export const FormField: React.FC<FormFieldProps> = ({
             )}
             <div className="flex-grow border-t border-blue-600"></div>
           </div>
+        );
+
+      case "cross-selling":
+        return (
+          <CrossSellingButton
+            formData={formData}
+            onChange={onChange}
+            value={value}
+          />
+        );
+
+      case "furniture-lift-checkbox":
+        return (
+          <FurnitureLiftCheckbox
+            addressType={field.componentProps?.addressType || "pickup"}
+            floorFieldName={field.componentProps?.floorFieldName || ""}
+            elevatorFieldName={field.componentProps?.elevatorFieldName || ""}
+            thresholds={field.componentProps?.thresholds || { HIGH: 3, CRITICAL: 5 }}
+            value={typeof value === 'boolean' ? value : false}
+            onChange={onChange}
+            formData={formData}
+            error={error}
+          />
         );
 
       case "custom":

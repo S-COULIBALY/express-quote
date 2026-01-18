@@ -39,7 +39,7 @@ export const FormSection: React.FC<FormSectionProps> = ({
   const effectiveColumns = section.columns ?? (layoutType === "sidebar" ? 2 : 1);
 
   return (
-    <div className={`space-y-6 sm:space-y-4 ${section.className || ""}`}>
+    <div className={`space-y-8 sm:space-y-6 md:space-y-4 ${section.className || ""}`}>
       {/* En-tête de section */}
       {(section.title || section.description) && (
         <div className="border-b border-gray-200 pb-1 sm:pb-3">
@@ -50,7 +50,7 @@ export const FormSection: React.FC<FormSectionProps> = ({
               }`}
               onClick={toggleExpanded}
             >
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
                 {section.title}
               </h3>
               {section.collapsible && (
@@ -91,9 +91,11 @@ export const FormSection: React.FC<FormSectionProps> = ({
         <div className={`${
           effectiveColumns === 3
             ? "grid grid-cols-3 gap-x-2 gap-y-6 sm:gap-4"
-            : effectiveColumns === 2 
-              ? "grid grid-cols-2 gap-x-2 gap-y-6 sm:gap-4" 
-              : "space-y-6 sm:space-y-4 max-w-md"
+            : effectiveColumns === 2
+              ? "grid grid-cols-2 gap-x-2 gap-y-6 sm:gap-4"
+              : layoutType === "default"
+                ? "space-y-6 sm:space-y-4 w-full max-w-full"
+                : "space-y-6 sm:space-y-4 max-w-md"
         }`}>
           {section.fields.map((field, index) => {
             // Vérifier les conditions d'affichage
