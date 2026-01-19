@@ -14,10 +14,10 @@ interface FormStylesSimplifiedProps {
  * Utilise les nouvelles classes utilitaires au lieu de générer du CSS inline
  * Réduit de 828 lignes à ~50 lignes
  */
-export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({ 
-  preset = "default", 
+export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
+  preset = "default",
   customStyles,
-  globalConfig 
+  globalConfig,
 }) => {
   // 🎨 Styles minimaux pour les cas spécifiques uniquement
   const minimalStyles = `
@@ -46,9 +46,13 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
     }
 
     /* 🍏 Styles iOS 18 pour les champs de formulaire */
-    .form-generator input,
-    .form-generator select,
-    .form-generator textarea {
+    /* EXCLURE form-compact-fields qui a ses propres styles optimisés pour mobile */
+    .form-generator:not(.form-compact-fields) input,
+    .form-generator:not(.form-compact-fields) select,
+    .form-generator:not(.form-compact-fields) textarea,
+    .form-generator input:not(.form-compact-fields *),
+    .form-generator select:not(.form-compact-fields *),
+    .form-generator textarea:not(.form-compact-fields *) {
       border-radius: var(--form-border-radius) !important;
       border: 1px solid rgba(0, 0, 0, 0.15) !important;
       background-color: transparent !important;
@@ -59,9 +63,13 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
       color: #000000 !important;
     }
 
-    .form-generator input:focus,
-    .form-generator select:focus,
-    .form-generator textarea:focus {
+    /* EXCLURE form-compact-fields */
+    .form-generator:not(.form-compact-fields) input:focus,
+    .form-generator:not(.form-compact-fields) select:focus,
+    .form-generator:not(.form-compact-fields) textarea:focus,
+    .form-generator input:not(.form-compact-fields *):focus,
+    .form-generator select:not(.form-compact-fields *):focus,
+    .form-generator textarea:not(.form-compact-fields *):focus {
       border-color: var(--form-primary-color) !important;
       background-color: rgba(255, 255, 255, 0.9) !important;
       box-shadow: 0 0 0 4px rgba(27, 94, 32, 0.15) !important;
@@ -121,14 +129,18 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
     }
 
     /* 📱 Mobile-first optimizations */
+    /* EXCLURE form-compact-fields qui a ses propres styles optimisés */
     @media (max-width: 768px) {
-      .form-generator {
+      .form-generator:not(.form-compact-fields) {
         font-size: 16px !important; /* Évite le zoom sur iOS */
       }
 
-      .form-generator input,
-      .form-generator select,
-      .form-generator textarea {
+      .form-generator:not(.form-compact-fields) input,
+      .form-generator:not(.form-compact-fields) select,
+      .form-generator:not(.form-compact-fields) textarea,
+      .form-generator input:not(.form-compact-fields *),
+      .form-generator select:not(.form-compact-fields *),
+      .form-generator textarea:not(.form-compact-fields *) {
         font-size: 16px !important; /* Critical pour éviter le zoom sur iOS */
         padding: 19px 14px !important; /* +2px supplémentaires de hauteur */
         min-height: 49px !important; /* +2px supplémentaires */
@@ -197,9 +209,13 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
         padding: 0 !important; /* Supprime le padding container sur mobile */
       }
 
-      .form-generator input,
-      .form-generator select,
-      .form-generator textarea {
+      /* EXCLURE form-compact-fields */
+      .form-generator:not(.form-compact-fields) input,
+      .form-generator:not(.form-compact-fields) select,
+      .form-generator:not(.form-compact-fields) textarea,
+      .form-generator input:not(.form-compact-fields *),
+      .form-generator select:not(.form-compact-fields *),
+      .form-generator textarea:not(.form-compact-fields *) {
         padding: 19px 12px !important; /* +2px supplémentaires sur très petits écrans */
         border-color: rgba(0, 0, 0, 0.40) !important; /* Bordures encore plus visibles */
         border-width: 1.5px !important; /* Légère augmentation d'épaisseur */
@@ -231,17 +247,24 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
 
     /* 🌙 Dark mode pour les formulaires */
     @media (prefers-color-scheme: dark) {
-      .form-generator input,
-      .form-generator select,
-      .form-generator textarea {
+      /* EXCLURE form-compact-fields */
+      .form-generator:not(.form-compact-fields) input,
+      .form-generator:not(.form-compact-fields) select,
+      .form-generator:not(.form-compact-fields) textarea,
+      .form-generator input:not(.form-compact-fields *),
+      .form-generator select:not(.form-compact-fields *),
+      .form-generator textarea:not(.form-compact-fields *) {
         background-color: transparent !important;
         border-color: rgba(255, 255, 255, 0.2) !important;
         color: #FFFFFF !important;
       }
 
-      .form-generator input:focus,
-      .form-generator select:focus,
-      .form-generator textarea:focus {
+      .form-generator:not(.form-compact-fields) input:focus,
+      .form-generator:not(.form-compact-fields) select:focus,
+      .form-generator:not(.form-compact-fields) textarea:focus,
+      .form-generator input:not(.form-compact-fields *):focus,
+      .form-generator select:not(.form-compact-fields *):focus,
+      .form-generator textarea:not(.form-compact-fields *):focus {
         background-color: rgba(255, 255, 255, 0.05) !important;
         border-color: var(--form-primary-color) !important;
       }
@@ -252,15 +275,16 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
       }
     }
 
-    ${customStyles || ''}
+    ${customStyles || ""}
   `;
 
   // 🎨 Debug en développement (supprimé pour éviter les logs répétitifs)
 
   return (
-    <style dangerouslySetInnerHTML={{
-      __html: minimalStyles
-    }} />
+    <style
+      dangerouslySetInnerHTML={{
+        __html: minimalStyles,
+      }}
+    />
   );
 };
-
