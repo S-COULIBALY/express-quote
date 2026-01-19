@@ -46,7 +46,7 @@ export const FormField: React.FC<FormFieldProps> = ({
   const error = errors[field.name]?.message as string | undefined;
 
   // Helper pour rendre le label flottant
-  const renderFloatingLabel = (): React.ReactNode => {
+  const renderFloatingLabel = (): JSX.Element | null => {
     const excludedTypes: string[] = [
       "checkbox",
       "radio",
