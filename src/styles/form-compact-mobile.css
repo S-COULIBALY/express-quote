@@ -1,0 +1,453 @@
+/**
+ * Styles pour le formulaire compact sur mobile
+ * Ce fichier remplace les styles inline pour éviter les problèmes de minification CSS en production
+ *
+ * IMPORTANT: Ces styles sont critiques pour le rendu mobile correct sur Vercel/Production
+ */
+
+/* =============================================================================
+   LAYOUT GRID 2fr/3fr POUR DESKTOP
+   ============================================================================= */
+@media (min-width: 1024px) {
+  /* Forcer le grid à respecter les proportions 2fr 3fr */
+  .form-layout-grid {
+    grid-template-columns: 2fr 3fr !important;
+    display: grid !important;
+  }
+
+  /* Forcer les colonnes à prendre toute leur largeur disponible */
+  .form-layout-grid > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* S'assurer que le formulaire prend toute la largeur de sa colonne */
+  .form-compact-fields,
+  .form-compact-fields .form-generator,
+  .form-compact-fields .form-generator form,
+  .form-compact-fields .form-section,
+  .form-compact-fields .form-section > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Annuler toute contrainte max-width dans les sections */
+  .form-compact-fields .form-section > div.space-y-6,
+  .form-compact-fields .form-section > div.space-y-4,
+  .form-compact-fields .form-section > div.max-w-md {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* =============================================================================
+   STYLES MOBILE FIRST - CHAMPS FORMULAIRE
+   ============================================================================= */
+
+/* MOBILE : Padding et hauteur optimisés pour une meilleure UX tactile */
+.form-compact-fields .form-generator input:not([type="checkbox"]):not([type="radio"]),
+.form-compact-fields .form-generator select,
+.form-compact-fields .form-generator textarea {
+  padding: 12px 16px !important;
+  min-height: 52px !important;
+  height: auto !important;
+  width: 100% !important;
+  font-size: 16px !important; /* Empêche le zoom automatique sur iOS */
+  box-sizing: border-box !important;
+}
+
+/* TABLETTE+ (640px) */
+@media (min-width: 640px) {
+  .form-compact-fields .form-generator input:not([type="checkbox"]):not([type="radio"]),
+  .form-compact-fields .form-generator select,
+  .form-compact-fields .form-generator textarea {
+    padding: 10px 16px !important;
+    min-height: 42px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* DESKTOP (1024px) */
+@media (min-width: 1024px) {
+  .form-compact-fields .form-generator input:not([type="checkbox"]):not([type="radio"]),
+  .form-compact-fields .form-generator select,
+  .form-compact-fields .form-generator textarea {
+    padding: 10px 18px !important;
+    min-height: 42px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* =============================================================================
+   MAX-WIDTH CORRECTIONS
+   ============================================================================= */
+
+/* Allonger les champs - prendre toute la largeur disponible */
+.form-compact-fields .form-section > div {
+  max-width: 100% !important;
+}
+
+.form-compact-fields .space-y-6,
+.form-compact-fields .space-y-4,
+.form-compact-fields .max-w-md {
+  max-width: 100% !important;
+}
+
+/* =============================================================================
+   ESPACEMENT ENTRE LES CHAMPS
+   ============================================================================= */
+
+/* MOBILE : Plus de respiration (32px) */
+.form-compact-fields .space-y-6 > * + * {
+  margin-top: 2rem !important;
+}
+
+/* TABLETTE+ (640px) */
+@media (min-width: 640px) {
+  .form-compact-fields .space-y-6 > * + * {
+    margin-top: 1.5rem !important; /* 24px */
+  }
+  .form-compact-fields .space-y-4 > * + * {
+    margin-top: 0.875rem !important; /* 14px */
+  }
+}
+
+/* =============================================================================
+   GRILLES
+   ============================================================================= */
+
+/* Assurer que les grilles prennent toute la largeur */
+.form-compact-fields .grid {
+  width: 100% !important;
+}
+
+/* =============================================================================
+   COMPOSANT WHATSAPP - ÉVITER L'ÉTIREMENT
+   ============================================================================= */
+
+.form-compact-fields .form-generator .flex.items-start.space-x-3 {
+  width: 100% !important;
+  max-width: 100% !important;
+  align-items: flex-start !important;
+}
+
+.form-compact-fields .form-generator .flex.items-start.space-x-3 > input[type="checkbox"] {
+  flex-shrink: 0 !important;
+  width: auto !important;
+  margin-top: 0.25rem !important;
+}
+
+.form-compact-fields .form-generator .flex.items-start.space-x-3 > div.flex-1 {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  width: auto !important;
+}
+
+/* Labels et paragraphes dans WhatsApp */
+.form-compact-fields .form-generator .flex.items-start.space-x-3 label {
+  width: 100% !important;
+  display: block !important;
+}
+
+.form-compact-fields .form-generator .flex.items-start.space-x-3 label > div {
+  width: 100% !important;
+  display: flex !important;
+  align-items: flex-start !important;
+}
+
+/* Sections Notifications */
+.form-compact-fields .form-section:has(input[type="checkbox"][id="whatsapp-opt-in"]) {
+  width: 100% !important;
+}
+
+.form-compact-fields .form-section:has(input[type="checkbox"][id="whatsapp-opt-in"]) > div {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* =============================================================================
+   SECTION DURÉE DE STOCKAGE - VERSION DISCRÈTE
+   ============================================================================= */
+
+.form-compact-fields .storage-duration-section {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  padding-bottom: 0.5rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+@media (min-width: 640px) {
+  .form-compact-fields .storage-duration-section {
+    padding-bottom: 0.75rem !important;
+    gap: 1rem !important;
+    margin-bottom: 0.875rem !important;
+  }
+}
+
+/* En-tête (titre + description) sur la même ligne */
+.form-compact-fields .storage-duration-section .border-b {
+  border: none !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.form-compact-fields .storage-duration-section .flex.items-center.justify-between {
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+}
+
+.form-compact-fields .storage-duration-section h3 {
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  color: rgba(75, 85, 99, 0.7) !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+}
+
+@media (min-width: 640px) {
+  .form-compact-fields .storage-duration-section h3 {
+    font-size: 0.875rem !important;
+  }
+}
+
+.form-compact-fields .storage-duration-section p {
+  font-size: 0.625rem !important;
+  color: rgba(107, 114, 128, 0.6) !important;
+  margin: 0 !important;
+  font-style: italic !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+@media (min-width: 640px) {
+  .form-compact-fields .storage-duration-section p {
+    font-size: 0.6875rem !important;
+  }
+}
+
+/* Grille des champs - sur la même ligne */
+.form-compact-fields .storage-duration-section .grid {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
+}
+
+.form-compact-fields .storage-duration-section .col-span-2 {
+  grid-column: unset !important;
+  width: auto !important;
+}
+
+/* Champ input sur la même ligne */
+.form-compact-fields .storage-duration-section .relative {
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 150px !important;
+  flex-shrink: 0 !important;
+}
+
+.form-compact-fields .storage-duration-section input[type="number"] {
+  width: 100% !important;
+  min-width: 100px !important;
+  max-width: 150px !important;
+  padding: 6px 10px !important;
+  font-size: 0.75rem !important;
+}
+
+@media (min-width: 640px) {
+  .form-compact-fields .storage-duration-section input[type="number"] {
+    padding: 8px 12px !important;
+    font-size: 0.875rem !important;
+  }
+}
+
+/* Masquer le label flottant si présent */
+.form-compact-fields .storage-duration-section label {
+  display: none !important;
+}
+
+/* =============================================================================
+   ANIMATION DE CLIGNOTEMENT POUR CHAMP OBLIGATOIRE
+   ============================================================================= */
+
+@keyframes storage-required-blink {
+  0%, 100% {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 1);
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3);
+  }
+}
+
+.form-compact-fields .storage-required-blinking {
+  animation: storage-required-blink 1.5s ease-in-out infinite !important;
+  border-color: rgba(239, 68, 68, 0.8) !important;
+  border-width: 2px !important;
+}
+
+.form-compact-fields .storage-required-blinking:focus {
+  animation: none !important;
+  border-color: rgba(239, 68, 68, 1) !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* =============================================================================
+   OPTIMISATION MOBILE - LABELS ET PLACEHOLDERS COMPACTS
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  .form-compact-fields .form-generator label.absolute {
+    font-size: 9px !important;
+    padding: 0 3px !important;
+    line-height: 1.2 !important;
+  }
+
+  .form-compact-fields .form-generator ::placeholder {
+    font-size: 11px !important;
+  }
+
+  .form-compact-fields .form-generator input,
+  .form-compact-fields .form-generator select,
+  .form-compact-fields .form-generator textarea {
+    font-size: 14px !important;
+  }
+}
+
+/* =============================================================================
+   FIX POUR SAFARI iOS - EMPÊCHER LE ZOOM AU FOCUS
+   ============================================================================= */
+
+@supports (-webkit-touch-callout: none) {
+  .form-compact-fields .form-generator input,
+  .form-compact-fields .form-generator select,
+  .form-compact-fields .form-generator textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* =============================================================================
+   CONTENEUR DE CHAMPS - OVERFLOW
+   ============================================================================= */
+
+.form-compact-fields .field-container,
+.form-compact-fields .form-field {
+  overflow: visible !important;
+  width: 100% !important;
+}
+
+/* Empêcher le débordement horizontal */
+.form-compact-fields {
+  overflow-x: hidden !important;
+}
+
+/* =============================================================================
+   LABELS FLOTTANTS - POSITIONNEMENT CORRECT
+   ============================================================================= */
+
+.form-compact-fields .form-generator .relative {
+  position: relative !important;
+}
+
+.form-compact-fields .form-generator label.absolute {
+  position: absolute !important;
+  top: -0.5rem !important;
+  left: 0.75rem !important;
+  background-color: white !important;
+  padding: 0 0.25rem !important;
+  font-size: 0.75rem !important;
+  z-index: 10 !important;
+  line-height: 1 !important;
+}
+
+@media (min-width: 640px) {
+  .form-compact-fields .form-generator label.absolute {
+    font-size: 0.6875rem !important;
+    top: -0.4rem !important;
+  }
+}
+
+/* =============================================================================
+   BOUTONS
+   ============================================================================= */
+
+/* MOBILE : Boutons pleine largeur et tactiles */
+.form-compact-fields .form-generator button[type="submit"],
+.form-compact-fields .form-generator .btn-primary {
+  min-height: 52px !important;
+  font-size: 16px !important;
+  width: 100% !important;
+  padding: 14px 24px !important;
+}
+
+/* TABLETTE+ */
+@media (min-width: 640px) {
+  .form-compact-fields .form-generator button[type="submit"],
+  .form-compact-fields .form-generator .btn-primary {
+    min-height: 44px !important;
+    font-size: 14px !important;
+    padding: 10px 20px !important;
+  }
+}
+
+/* =============================================================================
+   SECTIONS DE FORMULAIRE
+   ============================================================================= */
+
+/* MOBILE : Padding généreux */
+.form-compact-fields .form-section {
+  padding: 16px !important;
+  margin-bottom: 16px !important;
+}
+
+/* TABLETTE+ */
+@media (min-width: 640px) {
+  .form-compact-fields .form-section {
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+  }
+}
+
+/* =============================================================================
+   TITRES DE SECTIONS
+   ============================================================================= */
+
+/* MOBILE */
+.form-compact-fields h3,
+.form-compact-fields .section-title {
+  font-size: 18px !important;
+  margin-bottom: 16px !important;
+}
+
+/* TABLETTE+ */
+@media (min-width: 640px) {
+  .form-compact-fields h3,
+  .form-compact-fields .section-title {
+    font-size: 16px !important;
+    margin-bottom: 12px !important;
+  }
+}
+
+/* DESKTOP */
+@media (min-width: 1024px) {
+  .form-compact-fields h3,
+  .form-compact-fields .section-title {
+    font-size: 14px !important;
+    margin-bottom: 10px !important;
+  }
+}

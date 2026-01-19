@@ -1,79 +1,85 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FormGenerator, type FormGeneratorRef } from '@/components/form-generator';
-import { FormStylesSimplified } from '@/components/form-generator/styles/FormStylesSimplified';
-import { globalFormPreset } from '@/components/form-generator/presets/_shared/globalPreset';
-import { getDemenagementSurMesureServiceConfig } from '@/components/form-generator/presets/demenagement-sur-mesure-service';
-import { transformCatalogDataToDemenagementSurMesure } from '@/utils/catalogTransformers';
-import { useModularQuotation } from '@/hooks/shared/useModularQuotation';
-import { useUnifiedSubmission } from '@/hooks/generic/useUnifiedSubmission';
-import { createDemenagementSurMesureSubmissionConfig } from '@/hooks/business';
-import { toast } from 'react-hot-toast';
-import { ServicesNavigation } from '@/components/ServicesNavigation';
-import { PriceProvider, usePrice } from '@/components/PriceProvider';
-import { MultiOffersDisplay } from '@/components/MultiOffersDisplay';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import {
+  FormGenerator,
+  type FormGeneratorRef,
+} from "@/components/form-generator";
+import { FormStylesSimplified } from "@/components/form-generator/styles/FormStylesSimplified";
+import { globalFormPreset } from "@/components/form-generator/presets/_shared/globalPreset";
+import { getDemenagementSurMesureServiceConfig } from "@/components/form-generator/presets/demenagement-sur-mesure-service";
+import { transformCatalogDataToDemenagementSurMesure } from "@/utils/catalogTransformers";
+import { useModularQuotation } from "@/hooks/shared/useModularQuotation";
+import { useUnifiedSubmission } from "@/hooks/generic/useUnifiedSubmission";
+import { createDemenagementSurMesureSubmissionConfig } from "@/hooks/business";
+import { toast } from "react-hot-toast";
+import { ServicesNavigation } from "@/components/ServicesNavigation";
+import { PriceProvider, usePrice } from "@/components/PriceProvider";
+import { MultiOffersDisplay } from "@/components/MultiOffersDisplay";
 import {
   INSURANCE_CONFIG,
   calculateInsurancePremium,
   formatInsuranceRate,
-} from '@/quotation-module/config/insurance.config';
+} from "@/quotation-module/config/insurance.config";
+
+// Import CSS externe pour les styles mobile (évite les problèmes de minification Vercel)
+import "@/styles/form-compact-mobile.css";
 
 // Service initial (simulation des données catalogue)
 const initialService = {
-  id: 'demenagement-sur-mesure',
-  name: 'Déménagement Sur Mesure',
-  description: 'Service de déménagement personnalisé selon vos besoins',
+  id: "demenagement-sur-mesure",
+  name: "Déménagement Sur Mesure",
+  description: "Service de déménagement personnalisé selon vos besoins",
   price: null, // Prix calculé dynamiquement
   duration: null, // Durée calculée selon volume
   workers: null, // Nombre de travailleurs calculé selon besoins
-  features: ['Service personnalisé', 'Devis adapté'],
-  includes: ['Étude gratuite', 'Options modulables'],
-  serviceType: 'demenagement-sur-mesure',
+  features: ["Service personnalisé", "Devis adapté"],
+  includes: ["Étude gratuite", "Options modulables"],
+  serviceType: "demenagement-sur-mesure",
   isPremium: true,
   requiresVolume: true,
   requiresCustomPricing: true,
-  isDynamicPricing: true
+  isDynamicPricing: true,
 };
 
 // ✅ Composant pour mettre à jour le PriceProvider avec le prix calculé
-const PriceUpdater: React.FC<{ 
+const PriceUpdater: React.FC<{
   quotation: ReturnType<typeof useModularQuotation>;
   selectedScenario: string | null;
 }> = ({ quotation, selectedScenario }) => {
   const { updatePrice } = usePrice();
-  
+
   useEffect(() => {
     // Si une variante est sélectionnée, utiliser son prix
     if (selectedScenario && quotation.multiOffers) {
       const selectedQuote = quotation.multiOffers.quotes.find(
-        q => q.scenarioId === selectedScenario
+        (q) => q.scenarioId === selectedScenario,
       );
-      
+
       if (selectedQuote && selectedQuote.pricing?.finalPrice) {
         updatePrice(selectedQuote.pricing.finalPrice, {
           scenarioId: selectedScenario,
           selectedQuote: selectedQuote,
-          source: 'multi-offer'
+          source: "multi-offer",
         });
         return;
       }
     }
-    
+
     // Sinon, utiliser le prix du devis unique (standard)
     const calculatedPrice = quotation?.calculatedPrice || 0;
     updatePrice(calculatedPrice, {
       ...quotation?.priceDetails,
-      source: 'standard-quote'
+      source: "standard-quote",
     });
   }, [
-    quotation?.calculatedPrice, 
-    quotation?.priceDetails, 
+    quotation?.calculatedPrice,
+    quotation?.priceDetails,
     quotation?.multiOffers,
     selectedScenario,
-    updatePrice
+    updatePrice,
   ]);
-  
+
   return null;
 };
 
@@ -85,7 +91,11 @@ const PaymentPriceSection: React.FC<{
   onDeclaredValueInsuranceChange: (value: boolean) => void;
   declaredValue: number;
   onDeclaredValueChange: (value: number) => void;
-  onSubmit: (options: { fragileProtection: boolean; declaredValueInsurance: boolean; declaredValue: number }) => void;
+  onSubmit: (options: {
+    fragileProtection: boolean;
+    declaredValueInsurance: boolean;
+    declaredValue: number;
+  }) => void;
   isSubmitting: boolean;
   isCalculating?: boolean;
 }> = ({
@@ -97,21 +107,29 @@ const PaymentPriceSection: React.FC<{
   onDeclaredValueChange,
   onSubmit,
   isSubmitting,
-  isCalculating = false
+  isCalculating = false,
 }) => {
   const { calculatedPrice } = usePrice();
 
   // Calcul de la prime d'assurance valeur déclarée (source unique de vérité)
-  const insurancePremium = declaredValueInsuranceSelected ? calculateInsurancePremium(declaredValue) : 0;
+  const insurancePremium = declaredValueInsuranceSelected
+    ? calculateInsurancePremium(declaredValue)
+    : 0;
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(price);
+    return new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "EUR",
+    }).format(price);
   };
 
-  const totalPrice = (calculatedPrice || 0) + (fragileProtectionSelected ? 29 : 0) + insurancePremium;
+  const totalPrice =
+    (calculatedPrice || 0) +
+    (fragileProtectionSelected ? 29 : 0) +
+    insurancePremium;
   const depositAmount = Math.round(totalPrice * 0.3);
   const hasValidPrice = totalPrice > 0 && !isCalculating;
-  
+
   return (
     <>
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden pb-20 sm:pb-0">
@@ -121,26 +139,40 @@ const PaymentPriceSection: React.FC<{
             <div className="flex-1 min-w-0">
               {hasValidPrice ? (
                 <>
-                  <span className="text-xl sm:text-2xl md:text-2xl font-bold text-emerald-600">{formatPrice(totalPrice)}</span>
-                  <span className="text-[10px] sm:text-xs text-gray-500 ml-1.5">TTC</span>
+                  <span className="text-xl sm:text-2xl md:text-2xl font-bold text-emerald-600">
+                    {formatPrice(totalPrice)}
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-gray-500 ml-1.5">
+                    TTC
+                  </span>
                 </>
               ) : isCalculating ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm sm:text-base text-gray-600">Calcul en cours...</span>
+                  <span className="text-sm sm:text-base text-gray-600">
+                    Calcul en cours...
+                  </span>
                 </div>
               ) : (
                 <div className="flex flex-col">
-                  <span className="text-sm sm:text-base text-gray-500 italic">Remplissez le formulaire</span>
-                  <span className="text-xs sm:text-sm text-gray-400">pour voir le prix</span>
+                  <span className="text-sm sm:text-base text-gray-500 italic">
+                    Remplissez le formulaire
+                  </span>
+                  <span className="text-xs sm:text-sm text-gray-400">
+                    pour voir le prix
+                  </span>
                 </div>
               )}
             </div>
             {hasValidPrice && (
-            <div className="text-right flex-shrink-0">
-                <span className="text-lg sm:text-xl md:text-2xl font-bold text-orange-500">{formatPrice(depositAmount)}</span>
-                <span className="text-[10px] sm:text-xs text-gray-500 ml-1.5">acompte</span>
-            </div>
+              <div className="text-right flex-shrink-0">
+                <span className="text-lg sm:text-xl md:text-2xl font-bold text-orange-500">
+                  {formatPrice(depositAmount)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-gray-500 ml-1.5">
+                  acompte
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -150,58 +182,83 @@ const PaymentPriceSection: React.FC<{
           {/* Options - Empilées sur mobile, côte à côte sur desktop */}
           <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 md:gap-2.5">
             {/* Assurance */}
-            <div className={`flex-1 border rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm cursor-pointer transition-all min-h-[48px] sm:min-h-auto ${declaredValueInsuranceSelected ? 'border-emerald-400 bg-emerald-50 shadow-sm' : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}
-                 onClick={() => onDeclaredValueInsuranceChange(!declaredValueInsuranceSelected)}>
+            <div
+              className={`flex-1 border rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm cursor-pointer transition-all min-h-[48px] sm:min-h-auto ${declaredValueInsuranceSelected ? "border-emerald-400 bg-emerald-50 shadow-sm" : "border-gray-200 hover:bg-gray-50 hover:border-gray-300"}`}
+              onClick={() =>
+                onDeclaredValueInsuranceChange(!declaredValueInsuranceSelected)
+              }
+            >
               <div className="flex items-start gap-2">
-                <input 
-                  type="checkbox" 
-                  checked={declaredValueInsuranceSelected} 
-                  onChange={() => {}} 
-                  className="mt-0.5 text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500" 
+                <input
+                  type="checkbox"
+                  checked={declaredValueInsuranceSelected}
+                  onChange={() => {}}
+                  className="mt-0.5 text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-semibold text-gray-900">🛡️ Assurance Valeur déclarée</span>
-                    <span className="text-[10px] sm:text-xs text-gray-500">(valeur estimée de vos biens)</span>
-              </div>
+                    <span className="font-semibold text-gray-900">
+                      🛡️ Assurance Valeur déclarée
+                    </span>
+                    <span className="text-[10px] sm:text-xs text-gray-500">
+                      (valeur estimée de vos biens)
+                    </span>
+                  </div>
                   <div className="text-[10px] sm:text-xs text-gray-500 mt-1">
-                Assureur {INSURANCE_CONFIG.INSURER_NAME} • Tout risque ({formatInsuranceRate()})
-              </div>
-              {declaredValueInsuranceSelected && (
+                    Assureur {INSURANCE_CONFIG.INSURER_NAME} • Tout risque (
+                    {formatInsuranceRate()})
+                  </div>
+                  {declaredValueInsuranceSelected && (
                     <div className="mt-2.5 flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="number"
-                      min="0"
-                      step="500"
-                      value={declaredValue}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => onDeclaredValueChange(Math.max(0, parseInt(e.target.value) || 0))}
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          min="0"
+                          step="500"
+                          value={declaredValue}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) =>
+                            onDeclaredValueChange(
+                              Math.max(0, parseInt(e.target.value) || 0),
+                            )
+                          }
                           className="w-full px-2.5 py-1.5 pr-7 text-xs sm:text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                           placeholder="Ex: 15000"
-                    />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">€</span>
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                          €
+                        </span>
                       </div>
-                      <span className="text-xs sm:text-sm text-emerald-600 font-semibold whitespace-nowrap">+{formatPrice(insurancePremium)}</span>
-                  </div>
+                      <span className="text-xs sm:text-sm text-emerald-600 font-semibold whitespace-nowrap">
+                        +{formatPrice(insurancePremium)}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
 
             {/* Fragiles */}
-            <div className={`flex-1 border rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm cursor-pointer transition-all min-h-[48px] sm:min-h-auto ${fragileProtectionSelected ? 'border-emerald-400 bg-emerald-50 shadow-sm' : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}
-                 onClick={() => onFragileProtectionChange(!fragileProtectionSelected)}>
+            <div
+              className={`flex-1 border rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm cursor-pointer transition-all min-h-[48px] sm:min-h-auto ${fragileProtectionSelected ? "border-emerald-400 bg-emerald-50 shadow-sm" : "border-gray-200 hover:bg-gray-50 hover:border-gray-300"}`}
+              onClick={() =>
+                onFragileProtectionChange(!fragileProtectionSelected)
+              }
+            >
               <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
-                  checked={fragileProtectionSelected} 
-                  onChange={() => {}} 
-                  className="text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500" 
+                <input
+                  type="checkbox"
+                  checked={fragileProtectionSelected}
+                  onChange={() => {}}
+                  className="text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500"
                 />
                 <div className="flex-1 flex items-center justify-between gap-2">
-                  <span className="font-semibold text-gray-900">📦 Assurance Protection objets fragiles</span>
-                  <span className="text-xs sm:text-sm text-emerald-600 font-semibold whitespace-nowrap">+29€</span>
+                  <span className="font-semibold text-gray-900">
+                    📦 Assurance Protection objets fragiles
+                  </span>
+                  <span className="text-xs sm:text-sm text-emerald-600 font-semibold whitespace-nowrap">
+                    +29€
+                  </span>
                 </div>
               </div>
             </div>
@@ -210,12 +267,20 @@ const PaymentPriceSection: React.FC<{
           {/* RC Pro - Une ligne */}
           <div className="text-[10px] sm:text-xs text-blue-600 bg-blue-50 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
             <span className="text-blue-500">✓</span>
-            <span><strong>RC Pro incluse</strong> gratuite</span>
+            <span>
+              <strong>RC Pro incluse</strong> gratuite
+            </span>
           </div>
 
           {/* Bouton - Visible sur desktop uniquement */}
           <button
-            onClick={() => onSubmit({ fragileProtection: fragileProtectionSelected, declaredValueInsurance: declaredValueInsuranceSelected, declaredValue })}
+            onClick={() =>
+              onSubmit({
+                fragileProtection: fragileProtectionSelected,
+                declaredValueInsurance: declaredValueInsuranceSelected,
+                declaredValue,
+              })
+            }
             disabled={isSubmitting || !hasValidPrice}
             className="hidden sm:block w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3.5 sm:py-3 rounded-lg text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 min-h-[44px] sm:min-h-[48px]"
           >
@@ -226,11 +291,17 @@ const PaymentPriceSection: React.FC<{
               </span>
             ) : hasValidPrice ? (
               <div className="flex flex-col items-center gap-0.5">
-                <span className="font-semibold">Réserver • {formatPrice(totalPrice)} TTC</span>
-                <span className="text-xs font-normal opacity-90">Acompte {formatPrice(depositAmount)}</span>
+                <span className="font-semibold">
+                  Réserver • {formatPrice(totalPrice)} TTC
+                </span>
+                <span className="text-xs font-normal opacity-90">
+                  Acompte {formatPrice(depositAmount)}
+                </span>
               </div>
             ) : (
-              <span className="text-xs sm:text-sm">Remplissez le formulaire pour réserver</span>
+              <span className="text-xs sm:text-sm">
+                Remplissez le formulaire pour réserver
+              </span>
             )}
           </button>
         </div>
@@ -239,7 +310,13 @@ const PaymentPriceSection: React.FC<{
       {/* Bouton sticky en bas sur mobile */}
       <div className="fixed bottom-0 left-0 right-0 sm:hidden z-50 bg-white border-t border-gray-200 shadow-lg px-3 py-3">
         <button
-          onClick={() => onSubmit({ fragileProtection: fragileProtectionSelected, declaredValueInsurance: declaredValueInsuranceSelected, declaredValue })}
+          onClick={() =>
+            onSubmit({
+              fragileProtection: fragileProtectionSelected,
+              declaredValueInsurance: declaredValueInsuranceSelected,
+              declaredValue,
+            })
+          }
           disabled={isSubmitting || !hasValidPrice}
           className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3.5 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 min-h-[48px]"
         >
@@ -250,11 +327,17 @@ const PaymentPriceSection: React.FC<{
             </span>
           ) : hasValidPrice ? (
             <div className="flex flex-col items-center gap-0.5">
-              <span className="font-semibold">Réserver • {formatPrice(totalPrice)} TTC</span>
-              <span className="text-xs font-normal opacity-90">Acompte {formatPrice(depositAmount)}</span>
+              <span className="font-semibold">
+                Réserver • {formatPrice(totalPrice)} TTC
+              </span>
+              <span className="text-xs font-normal opacity-90">
+                Acompte {formatPrice(depositAmount)}
+              </span>
             </div>
           ) : (
-            <span className="text-xs">Remplissez le formulaire pour réserver</span>
+            <span className="text-xs">
+              Remplissez le formulaire pour réserver
+            </span>
           )}
         </button>
       </div>
@@ -265,12 +348,18 @@ const PaymentPriceSection: React.FC<{
 export default function DemenagementSurMesurePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const [selectedScenario, setSelectedScenario] = useState<string | null>('STANDARD');
-  const [fragileProtectionSelected, setFragileProtectionSelected] = useState(false);
-  const [declaredValueInsuranceSelected, setDeclaredValueInsuranceSelected] = useState(false);
-  const [declaredValue, setDeclaredValue] = useState<number>(INSURANCE_CONFIG.DEFAULT_DECLARED_VALUE);
+  const [selectedScenario, setSelectedScenario] = useState<string | null>(
+    "STANDARD",
+  );
+  const [fragileProtectionSelected, setFragileProtectionSelected] =
+    useState(false);
+  const [declaredValueInsuranceSelected, setDeclaredValueInsuranceSelected] =
+    useState(false);
+  const [declaredValue, setDeclaredValue] = useState<number>(
+    INSURANCE_CONFIG.DEFAULT_DECLARED_VALUE,
+  );
   const formRef = useRef<FormGeneratorRef>(null);
-  const lastFormDataRef = useRef<string>('');
+  const lastFormDataRef = useRef<string>("");
 
   // Effet pour gérer l'hydration
   useEffect(() => {
@@ -281,25 +370,25 @@ export default function DemenagementSurMesurePage() {
   const transformedService = transformCatalogDataToDemenagementSurMesure({
     catalogSelection: {
       id: initialService.id,
-      category: 'DEMENAGEMENT',
-      subcategory: 'sur-mesure',
+      category: "DEMENAGEMENT",
+      subcategory: "sur-mesure",
       marketingTitle: initialService.name,
-      marketingSubtitle: 'Service personnalisé',
+      marketingSubtitle: "Service personnalisé",
       marketingDescription: initialService.description,
       marketingPrice: 0,
       isFeatured: true,
-      isNewOffer: false
+      isNewOffer: false,
     },
     item: {
       ...initialService,
-      type: 'service',
+      type: "service",
       price: 0, // Prix calculé dynamiquement
       workers: 0, // Calculé selon le volume
       duration: 0, // Calculée selon le volume
-      popular: false
+      popular: false,
     },
     template: undefined,
-    formDefaults: {}
+    formDefaults: {},
   });
 
   // 2. Hook de calcul modulaire (remplace useRealTimePricing)
@@ -313,21 +402,24 @@ export default function DemenagementSurMesurePage() {
       try {
         const formData = formRef.current?.getFormData() || {};
         const formDataString = JSON.stringify(formData);
-        
+
         // Vérifier si les données ont changé
-        if (formDataString !== lastFormDataRef.current && Object.keys(formData).length > 0) {
+        if (
+          formDataString !== lastFormDataRef.current &&
+          Object.keys(formData).length > 0
+        ) {
           lastFormDataRef.current = formDataString;
-          
+
           // Vérifier que les données essentielles sont présentes
-          const hasEssentialData = 
-            formData.departureAddress || 
-            formData.arrivalAddress || 
-            formData.volume || 
+          const hasEssentialData =
+            formData.departureAddress ||
+            formData.arrivalAddress ||
+            formData.volume ||
             formData.movingDate ||
             formData.pickupAddress ||
             formData.deliveryAddress ||
             formData.volumeEstime;
-          
+
           if (hasEssentialData) {
             quotation.calculateWithDebounce(formData);
           }
@@ -345,7 +437,15 @@ export default function DemenagementSurMesurePage() {
     if (formRef.current) {
       const formData = formRef.current.getFormData();
       // Vérifier si on a au moins les données minimales pour calculer
-      if (formData && (formData.pickupAddress || formData.deliveryAddress || formData.volumeEstime || formData.departureAddress || formData.arrivalAddress || formData.volume)) {
+      if (
+        formData &&
+        (formData.pickupAddress ||
+          formData.deliveryAddress ||
+          formData.volumeEstime ||
+          formData.departureAddress ||
+          formData.arrivalAddress ||
+          formData.volume)
+      ) {
         quotation.calculateWithDebounce(formData);
       }
     }
@@ -354,19 +454,19 @@ export default function DemenagementSurMesurePage() {
   // 4. Hook de soumission unifié
   const submissionConfig = createDemenagementSurMesureSubmissionConfig(
     transformedService,
-    quotation.multiOffers?.distanceKm || 0
+    quotation.multiOffers?.distanceKm || 0,
   );
-  
+
   const submissionHook = useUnifiedSubmission(
     submissionConfig,
-    quotation.calculatedPrice
+    quotation.calculatedPrice,
   );
 
   // 5. Handlers
   const handlePriceCalculated = async (price: number, details: any) => {
     // Récupérer les données du formulaire et calculer avec le système modulaire
     const formData = formRef.current?.getFormData() || {};
-    
+
     // Utiliser le debounce pour éviter trop d'appels API
     quotation.calculateWithDebounce(formData);
   };
@@ -376,7 +476,11 @@ export default function DemenagementSurMesurePage() {
     toast.success(`Formule ${scenarioId} sélectionnée`);
   }, []);
 
-  const handleSubmitFromPaymentCard = async (options: { fragileProtection: boolean; declaredValueInsurance: boolean; declaredValue: number }) => {
+  const handleSubmitFromPaymentCard = async (options: {
+    fragileProtection: boolean;
+    declaredValueInsurance: boolean;
+    declaredValue: number;
+  }) => {
     setIsSubmitting(true);
     try {
       // Récupérer les données du formulaire
@@ -391,7 +495,7 @@ export default function DemenagementSurMesurePage() {
       let scenarioPrice = quotation.calculatedPrice; // Fallback sur le prix recommandé
       if (selectedScenario && quotation.multiOffers) {
         const selectedQuote = quotation.multiOffers.quotes.find(
-          q => q.scenarioId === selectedScenario
+          (q) => q.scenarioId === selectedScenario,
         );
         if (selectedQuote?.pricing?.finalPrice) {
           scenarioPrice = selectedQuote.pricing.finalPrice;
@@ -400,7 +504,8 @@ export default function DemenagementSurMesurePage() {
 
       // ✅ Calculer le prix total avec les options d'assurance (correspond au prix affiché)
       const fragileProtectionAmount = options.fragileProtection ? 29 : 0;
-      const totalPriceWithOptions = scenarioPrice + fragileProtectionAmount + insurancePremium;
+      const totalPriceWithOptions =
+        scenarioPrice + fragileProtectionAmount + insurancePremium;
 
       // Ajouter les options et le scénario sélectionné
       const dataWithOptions = {
@@ -414,16 +519,21 @@ export default function DemenagementSurMesurePage() {
         fragileProtectionAmount: fragileProtectionAmount,
         // Assurance valeur déclarée (optionnelle)
         declaredValueInsurance: options.declaredValueInsurance,
-        declaredValue: options.declaredValueInsurance ? options.declaredValue : 0,
+        declaredValue: options.declaredValueInsurance
+          ? options.declaredValue
+          : 0,
         insurancePremium: insurancePremium,
         // Scénario sélectionné
-        selectedScenario: selectedScenario || 'STANDARD',
+        selectedScenario: selectedScenario || "STANDARD",
       };
 
       await submissionHook.submit(dataWithOptions);
-      toast.success('Demande créée avec succès !');
+      toast.success("Demande créée avec succès !");
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la création de la demande';
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Erreur lors de la création de la demande";
       toast.error(`Erreur: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
@@ -435,9 +545,12 @@ export default function DemenagementSurMesurePage() {
     setIsSubmitting(true);
     try {
       await submissionHook.submit(data);
-      toast.success('Demande créée avec succès !');
+      toast.success("Demande créée avec succès !");
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la création de la demande';
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Erreur lors de la création de la demande";
       toast.error(`Erreur: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
@@ -445,7 +558,7 @@ export default function DemenagementSurMesurePage() {
   };
 
   const handleError = (_error: unknown) => {
-    toast.error('Une erreur est survenue. Veuillez réessayer.');
+    toast.error("Une erreur est survenue. Veuillez réessayer.");
   };
 
   // 6. Configuration du formulaire avec le preset
@@ -453,7 +566,7 @@ export default function DemenagementSurMesurePage() {
     service: transformedService,
     onPriceCalculated: handlePriceCalculated,
     onSubmitSuccess: handleSubmitSuccess,
-    onError: handleError
+    onError: handleError,
   });
 
   // Éviter le rendu pendant l'hydration
@@ -479,11 +592,18 @@ export default function DemenagementSurMesurePage() {
             <div className="text-center lg:text-left flex-1">
               <h2 className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 mb-1 sm:mb-1.5">
                 <span className="sm:hidden">⭐ Devis instantané</span>
-                <span className="hidden sm:inline">⭐ Déménagement Sur Mesure - Devis Instantané !</span>
+                <span className="hidden sm:inline">
+                  ⭐ Déménagement Sur Mesure - Devis Instantané !
+                </span>
               </h2>
               <p className="text-xs sm:text-sm text-gray-600 max-w-2xl">
-                <span className="sm:hidden">Configurez et obtenez votre prix en temps réel.</span>
-                <span className="hidden sm:inline">Service personnalisé selon vos besoins avec tarification transparente.</span>
+                <span className="sm:hidden">
+                  Configurez et obtenez votre prix en temps réel.
+                </span>
+                <span className="hidden sm:inline">
+                  Service personnalisé selon vos besoins avec tarification
+                  transparente.
+                </span>
               </p>
               {/* Indicateur de calcul en temps réel */}
               {quotation.isPriceLoading && (
@@ -493,20 +613,24 @@ export default function DemenagementSurMesurePage() {
                 </div>
               )}
             </div>
-            
+
             {/* Encart promotionnel - version compacte sur mobile, complète sur desktop */}
             <div className="flex items-center gap-2">
               <div className="lg:hidden bg-gradient-to-r from-orange-500 to-red-600 text-white px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-md">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base sm:text-lg">💰</span>
-                  <span className="text-xs sm:text-sm font-medium">Temps réel</span>
+                  <span className="text-xs sm:text-sm font-medium">
+                    Temps réel
+                  </span>
                 </div>
               </div>
               <div className="hidden lg:block bg-gradient-to-r from-orange-500 to-red-600 text-white px-3 py-2 rounded-lg shadow-lg">
                 <div className="text-center">
                   <div className="text-lg font-bold">💰</div>
                   <div className="text-xs font-medium">Prix en temps réel</div>
-                  <div className="text-xs opacity-90">Mise à jour instantanée</div>
+                  <div className="text-xs opacity-90">
+                    Mise à jour instantanée
+                  </div>
                 </div>
               </div>
             </div>
@@ -518,327 +642,41 @@ export default function DemenagementSurMesurePage() {
       {/* Sur mobile : 100% viewport (pas de padding) comme la section "Devis instantané" */}
       <div className="w-full px-0 sm:px-4 md:px-5 lg:px-6 mt-3 sm:mt-4 md:mt-5 lg:mt-6">
         <PriceProvider initialPrice={0}>
-          <PriceUpdater quotation={quotation} selectedScenario={selectedScenario} />
+          <PriceUpdater
+            quotation={quotation}
+            selectedScenario={selectedScenario}
+          />
           <div className="w-full max-w-7xl lg:max-w-[1600px] mx-auto">
             {/* Mobile: formulaire en haut, offres en bas | Desktop: 40% formulaire / 60% offres */}
             {/* Note: lg: = 1024px. Layout 2 colonnes activé uniquement à partir de 1024px pour éviter les colonnes trop serrées */}
-            <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-3 sm:gap-4 md:gap-5 lg:gap-6">
-              <style dangerouslySetInnerHTML={{__html: `
-                @media (min-width: 1024px) {
-                  /* Forcer le grid à respecter les proportions 2fr 3fr */
-                  .grid.grid-cols-1.lg\\:grid-cols-\\[2fr_3fr\\] {
-                    grid-template-columns: 2fr 3fr !important;
-                    display: grid !important;
-                  }
-                  
-                  /* Forcer les colonnes à prendre toute leur largeur disponible */
-                  .grid.grid-cols-1.lg\\:grid-cols-\\[2fr_3fr\\] > div {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    min-width: 0 !important;
-                    box-sizing: border-box !important;
-                  }
-                  
-                  /* S'assurer que le formulaire prend toute la largeur de sa colonne */
-                  .form-compact-fields,
-                  .form-compact-fields .form-generator,
-                  .form-compact-fields .form-generator form,
-                  .form-compact-fields .form-section,
-                  .form-compact-fields .form-section > div {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    box-sizing: border-box !important;
-                  }
-                  
-                  /* Annuler toute contrainte max-width dans les sections */
-                  .form-compact-fields .form-section > div.space-y-6,
-                  .form-compact-fields .form-section > div.space-y-4,
-                  .form-compact-fields .form-section > div.max-w-md {
-                    max-width: 100% !important;
-                    width: 100% !important;
-                  }
-                }
-              `}} />
+            {/* Styles externalisés dans @/styles/form-compact-mobile.css pour éviter les problèmes de minification Vercel */}
+            <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-3 sm:gap-4 md:gap-5 lg:gap-6 form-layout-grid">
               {/* Colonne gauche (40% sur desktop) - Formulaire de réservation */}
               <div className="w-full order-1 lg:order-1">
                 <div className="lg:sticky lg:top-4">
                   {/* Sur mobile : padding horizontal pour le contenu, mais pas de padding sur le conteneur parent */}
+                  {/* Styles externalisés dans @/styles/form-compact-mobile.css pour éviter les problèmes de minification Vercel */}
                   <div className="bg-white border-t border-b sm:border sm:rounded-lg border-gray-200 shadow-sm p-3 sm:p-4 md:p-4 lg:p-4 form-compact-fields">
-                    <style dangerouslySetInnerHTML={{__html: `
-                      /* Styles spécifiques pour réduire la hauteur et allonger les champs du formulaire */
-                      /* Exclure les composants spéciaux (whatsapp-consent, access-constraints, etc.) */
-                      /* MOBILE FIRST : Padding et hauteur optimisés pour une meilleure UX tactile */
-                      .form-compact-fields .form-generator input:not([type="checkbox"]):not([type="radio"]),
-                      .form-compact-fields .form-generator select,
-                      .form-compact-fields .form-generator textarea {
-                        padding: 12px 16px !important;
-                        min-height: 52px !important;
-                        height: auto !important;
-                        width: 100% !important;
-                      }
-                      
-                      @media (min-width: 640px) {
-                        .form-compact-fields .form-generator input:not([type="checkbox"]):not([type="radio"]),
-                        .form-compact-fields .form-generator select,
-                        .form-compact-fields .form-generator textarea {
-                          padding: 10px 16px !important;
-                          min-height: 42px !important;
-                        }
-                      }
-                      
-                      @media (min-width: 1024px) {
-                        .form-compact-fields .form-generator input:not([type="checkbox"]):not([type="radio"]),
-                        .form-compact-fields .form-generator select,
-                        .form-compact-fields .form-generator textarea {
-                          padding: 10px 18px !important;
-                          min-height: 42px !important;
-                        }
-                      }
-                      
-                      /* Allonger les champs - prendre toute la largeur disponible */
-                      /* Exclure les sections avec composants spéciaux */
-                      .form-compact-fields .form-section > div {
-                        max-width: 100% !important;
-                      }
-                      
-                      .form-compact-fields .space-y-6,
-                      .form-compact-fields .space-y-4,
-                      .form-compact-fields .max-w-md {
-                        max-width: 100% !important;
-                      }
-                      
-                      /* Espacement entre les champs - Optimisé mobile pour meilleure lisibilité */
-                      .form-compact-fields .space-y-6 > * + * {
-                        margin-top: 2rem !important; /* 32px sur mobile pour plus de respiration */
-                      }
-                      
-                      @media (min-width: 640px) {
-                        .form-compact-fields .space-y-6 > * + * {
-                          margin-top: 1.5rem !important; /* 24px sur tablette+ */
-                        }
-                        .form-compact-fields .space-y-4 > * + * {
-                          margin-top: 0.875rem !important;
-                        }
-                      }
-                      
-                      /* Assurer que les grilles prennent toute la largeur */
-                      .form-compact-fields .grid {
-                        width: 100% !important;
-                      }
-                      
-                      /* Corriger le composant WhatsApp - éviter l'étirement et l'espace vide */
-                      .form-compact-fields .form-generator .flex.items-start.space-x-3 {
-                        width: 100% !important;
-                        max-width: 100% !important;
-                        align-items: flex-start !important;
-                      }
-                      
-                      .form-compact-fields .form-generator .flex.items-start.space-x-3 > input[type="checkbox"] {
-                        flex-shrink: 0 !important;
-                        width: auto !important;
-                        margin-top: 0.25rem !important;
-                      }
-                      
-                      .form-compact-fields .form-generator .flex.items-start.space-x-3 > div.flex-1 {
-                        flex: 1 1 0% !important;
-                        min-width: 0 !important;
-                        width: auto !important;
-                      }
-                      
-                      /* Corriger les labels et paragraphes dans WhatsApp */
-                      .form-compact-fields .form-generator .flex.items-start.space-x-3 label {
-                        width: 100% !important;
-                        display: block !important;
-                      }
-                      
-                      .form-compact-fields .form-generator .flex.items-start.space-x-3 label > div {
-                        width: 100% !important;
-                        display: flex !important;
-                        align-items: flex-start !important;
-                      }
-                      
-                      /* Corriger les sections Notifications */
-                      .form-compact-fields .form-section:has(input[type="checkbox"][id="whatsapp-opt-in"]) {
-                        width: 100% !important;
-                      }
-                      
-                      .form-compact-fields .form-section:has(input[type="checkbox"][id="whatsapp-opt-in"]) > div {
-                        width: 100% !important;
-                        max-width: 100% !important;
-                      }
-                      
-                      /* Section Durée de stockage - Version discrète sur une ligne (titre + description + champ) */
-                      .form-compact-fields .storage-duration-section {
-                        display: flex !important;
-                        flex-direction: row !important;
-                        align-items: center !important;
-                        gap: 0.75rem !important;
-                        border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-                        padding-bottom: 0.5rem !important;
-                        margin-bottom: 0.75rem !important;
-                      }
-                      
-                      @media (min-width: 640px) {
-                        .form-compact-fields .storage-duration-section {
-                          padding-bottom: 0.75rem !important;
-                          gap: 1rem !important;
-                          margin-bottom: 0.875rem !important;
-                        }
-                      }
-                      
-                      /* En-tête (titre + description) sur la même ligne */
-                      .form-compact-fields .storage-duration-section .border-b {
-                        border: none !important;
-                        padding: 0 !important;
-                        display: flex !important;
-                        flex-direction: row !important;
-                        align-items: center !important;
-                        gap: 0.5rem !important;
-                        flex: 1 !important;
-                        min-width: 0 !important;
-                      }
-                      
-                      .form-compact-fields .storage-duration-section .flex.items-center.justify-between {
-                        flex: 0 0 auto !important;
-                        margin: 0 !important;
-                      }
-                      
-                      .form-compact-fields .storage-duration-section h3 {
-                        font-size: 0.75rem !important;
-                        font-weight: 500 !important;
-                        color: rgba(75, 85, 99, 0.7) !important;
-                        margin: 0 !important;
-                        white-space: nowrap !important;
-                      }
-                      
-                      @media (min-width: 640px) {
-                        .form-compact-fields .storage-duration-section h3 {
-                          font-size: 0.875rem !important;
-                        }
-                      }
-                      
-                      .form-compact-fields .storage-duration-section p {
-                        font-size: 0.625rem !important;
-                        color: rgba(107, 114, 128, 0.6) !important;
-                        margin: 0 !important;
-                        font-style: italic !important;
-                        white-space: nowrap !important;
-                        overflow: hidden !important;
-                        text-overflow: ellipsis !important;
-                      }
-                      
-                      @media (min-width: 640px) {
-                        .form-compact-fields .storage-duration-section p {
-                          font-size: 0.6875rem !important;
-                        }
-                      }
-                      
-                      /* Grille des champs - sur la même ligne */
-                      .form-compact-fields .storage-duration-section .grid {
-                        display: flex !important;
-                        flex-direction: row !important;
-                        align-items: center !important;
-                        gap: 0.5rem !important;
-                        flex: 0 0 auto !important;
-                        width: auto !important;
-                      }
-                      
-                      .form-compact-fields .storage-duration-section .col-span-2 {
-                        grid-column: unset !important;
-                        width: auto !important;
-                      }
-                      
-                      /* Champ input sur la même ligne */
-                      .form-compact-fields .storage-duration-section .relative {
-                        width: 120px !important;
-                        min-width: 120px !important;
-                        max-width: 150px !important;
-                        flex-shrink: 0 !important;
-                      }
-                      
-                      .form-compact-fields .storage-duration-section input[type="number"] {
-                        width: 100% !important;
-                        min-width: 100px !important;
-                        max-width: 150px !important;
-                        padding: 6px 10px !important;
-                        font-size: 0.75rem !important;
-                      }
-                      
-                      @media (min-width: 640px) {
-                        .form-compact-fields .storage-duration-section input[type="number"] {
-                          padding: 8px 12px !important;
-                          font-size: 0.875rem !important;
-                        }
-                      }
-                      
-                      /* Masquer le label flottant si présent */
-                      .form-compact-fields .storage-duration-section label {
-                        display: none !important;
-                      }
-                      
-                      /* Animation de clignotement pour le champ obligatoire si stockage est coché */
-                      @keyframes storage-required-blink {
-                        0%, 100% {
-                          border-color: rgba(239, 68, 68, 0.5);
-                          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-                        }
-                        50% {
-                          border-color: rgba(239, 68, 68, 1);
-                          box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3);
-                        }
-                      }
-                      
-                      .form-compact-fields .storage-required-blinking {
-                        animation: storage-required-blink 1.5s ease-in-out infinite !important;
-                        border-color: rgba(239, 68, 68, 0.8) !important;
-                        border-width: 2px !important;
-                      }
-                      
-                      .form-compact-fields .storage-required-blinking:focus {
-                        animation: none !important;
-                        border-color: rgba(239, 68, 68, 1) !important;
-                        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3) !important;
-                      }
-                      
-                      /* Optimisation mobile : Labels et placeholders encore plus compacts */
-                      @media (max-width: 640px) {
-                        .form-compact-fields .form-generator label.absolute {
-                          font-size: 9px !important;
-                          padding: 0 3px !important;
-                          line-height: 1.2 !important;
-                        }
-                        
-                        .form-compact-fields .form-generator ::placeholder {
-                          font-size: 11px !important;
-                        }
-                        
-                        .form-compact-fields .form-generator input,
-                        .form-compact-fields .form-generator select,
-                        .form-compact-fields .form-generator textarea {
-                          font-size: 14px !important;
-                        }
-                      }
-                    `}} />
                     <FormGenerator
-                    ref={formRef}
-                    config={{
-                      ...formConfig,
-                      isLoading: isSubmitting,
-                      hideDefaultSubmit: true,
-                      layout: {
-                        ...formConfig.layout,
-                        showPriceCalculation: true,
-                        showConstraintsByAddress: true,
-                        showModificationsSummary: true,
-                        serviceInfo: {
-                          name: transformedService.name,
-                          description: transformedService.description,
-                          icon: '🚛',
-                          features: transformedService.includes
-                        }
-                      }
-                    }}
-                  />
+                      ref={formRef}
+                      config={{
+                        ...formConfig,
+                        isLoading: isSubmitting,
+                        hideDefaultSubmit: true,
+                        layout: {
+                          ...formConfig.layout,
+                          showPriceCalculation: true,
+                          showConstraintsByAddress: true,
+                          showModificationsSummary: true,
+                          serviceInfo: {
+                            name: transformedService.name,
+                            description: transformedService.description,
+                            icon: "🚛",
+                            features: transformedService.includes,
+                          },
+                        },
+                      }}
+                    />
                   </div>
                 </div>
               </div>
@@ -851,17 +689,25 @@ export default function DemenagementSurMesurePage() {
                     <div className="bg-white border-t border-b sm:border sm:rounded-lg border-gray-200 shadow-sm p-0 sm:p-3 md:p-3 lg:p-4">
                       <MultiOffersDisplay
                         multiOffers={quotation.multiOffers}
-                        isCalculating={quotation.isCalculatingMultiOffers || quotation.isPriceLoading}
+                        isCalculating={
+                          quotation.isCalculatingMultiOffers ||
+                          quotation.isPriceLoading
+                        }
                         selectedScenario={selectedScenario}
                         onSelectOffer={handleSelectOffer}
                       />
                     </div>
-                  ) : (quotation.isCalculatingMultiOffers || quotation.isPriceLoading) ? (
+                  ) : quotation.isCalculatingMultiOffers ||
+                    quotation.isPriceLoading ? (
                     <div className="bg-white border-t border-b sm:border sm:rounded-lg border-gray-200 shadow-sm p-4 sm:p-5 md:p-6">
                       <div className="text-center text-gray-600">
                         <div className="animate-spin rounded-full h-8 w-8 sm:h-10 sm:w-10 border-b-2 border-emerald-600 mx-auto mb-3"></div>
-                        <div className="text-sm sm:text-base font-medium">Calcul des offres en cours...</div>
-                        <div className="text-xs sm:text-sm text-gray-500 mt-1">Veuillez patienter quelques instants</div>
+                        <div className="text-sm sm:text-base font-medium">
+                          Calcul des offres en cours...
+                        </div>
+                        <div className="text-xs sm:text-sm text-gray-500 mt-1">
+                          Veuillez patienter quelques instants
+                        </div>
                       </div>
                     </div>
                   ) : null}
@@ -870,8 +716,12 @@ export default function DemenagementSurMesurePage() {
                   <PaymentPriceSection
                     fragileProtectionSelected={fragileProtectionSelected}
                     onFragileProtectionChange={setFragileProtectionSelected}
-                    declaredValueInsuranceSelected={declaredValueInsuranceSelected}
-                    onDeclaredValueInsuranceChange={setDeclaredValueInsuranceSelected}
+                    declaredValueInsuranceSelected={
+                      declaredValueInsuranceSelected
+                    }
+                    onDeclaredValueInsuranceChange={
+                      setDeclaredValueInsuranceSelected
+                    }
                     declaredValue={declaredValue}
                     onDeclaredValueChange={setDeclaredValue}
                     onSubmit={handleSubmitFromPaymentCard}
@@ -908,7 +758,9 @@ export default function DemenagementSurMesurePage() {
             {/* Réservation instantanée */}
             <div className="group bg-white rounded-xl p-3 sm:p-4 md:p-4 lg:p-5 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100">
               <div className="bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl p-1.5 sm:p-2 w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mb-2 sm:mb-3 lg:mb-4 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
-                <span className="text-base sm:text-lg md:text-xl text-white">⚡</span>
+                <span className="text-base sm:text-lg md:text-xl text-white">
+                  ⚡
+                </span>
               </div>
               <h3 className="text-sm sm:text-base md:text-lg lg:text-lg font-bold text-gray-900 mb-1.5 sm:mb-2">
                 Réservation instantanée
@@ -925,13 +777,16 @@ export default function DemenagementSurMesurePage() {
               style={{ animationDelay: "0.1s" }}
             >
               <div className="bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl p-1.5 sm:p-2 w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mb-2 sm:mb-3 lg:mb-4 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
-                <span className="text-base sm:text-lg md:text-xl text-white">🛡️</span>
+                <span className="text-base sm:text-lg md:text-xl text-white">
+                  🛡️
+                </span>
               </div>
               <h3 className="text-sm sm:text-base md:text-lg lg:text-lg font-bold text-gray-900 mb-1.5 sm:mb-2">
                 RC Pro incluse
               </h3>
               <p className="text-gray-600 leading-relaxed text-xs sm:text-sm md:text-sm">
-                Responsabilité civile professionnelle incluse gratuitement (couverture de base)
+                Responsabilité civile professionnelle incluse gratuitement
+                (couverture de base)
               </p>
             </div>
 
@@ -941,7 +796,9 @@ export default function DemenagementSurMesurePage() {
               style={{ animationDelay: "0.2s" }}
             >
               <div className="bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl p-1.5 sm:p-2 w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mb-2 sm:mb-3 lg:mb-4 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
-                <span className="text-base sm:text-lg md:text-xl text-white">⭐</span>
+                <span className="text-base sm:text-lg md:text-xl text-white">
+                  ⭐
+                </span>
               </div>
               <h3 className="text-sm sm:text-base md:text-lg lg:text-lg font-bold text-gray-900 mb-1.5 sm:mb-2">
                 Service premium
