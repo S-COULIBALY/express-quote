@@ -1,7 +1,6 @@
-// @ts-nocheck
 "use client";
 
-import { devLog } from '@/lib/conditional-logger';
+import { devLog } from "@/lib/conditional-logger";
 
 import React from "react";
 import { UseFormRegister, FieldErrors } from "react-hook-form";
@@ -48,12 +47,17 @@ export const FormField: React.FC<FormFieldProps> = ({
 
   // Helper pour rendre le label flottant
   const renderFloatingLabel = (): React.ReactElement | null => {
-    const excludedTypes = ["checkbox", "radio", "whatsapp-consent", "separator"];
+    const excludedTypes = [
+      "checkbox",
+      "radio",
+      "whatsapp-consent",
+      "separator",
+    ];
     if (excludedTypes.includes(field.type) || !field.label) return null;
     return (
       <label
         htmlFor={field.name}
-        className="absolute -top-2 left-2 sm:left-3 px-1.5 sm:px-1.5 md:px-1 py-0.5 md:py-0 bg-white text-[11px] sm:text-xs md:text-xs font-medium text-gray-900 z-10"
+        className="absolute -top-2 left-2 sm:left-3 px-1.5 sm:px-1.5 md:px-1 py-0.5 md:py-0 bg-white text-[10px] sm:text-[10px] md:text-[10px] font-medium text-gray-900 z-10"
       >
         <>{field.label}</>
         {field.required && <span className="text-emerald-600">*</span>}
@@ -61,15 +65,19 @@ export const FormField: React.FC<FormFieldProps> = ({
     );
   };
 
-  devLog.debug('FormField', "🔧 [ÉTAPE 9.2] FormField - Rendu champ individuel:", {
-    fieldName: field.name,
-    type: field.type,
-    register: typeof register,
-    value: value,
-    hasError: !!error,
-    required: field.required,
-    hasOptions: !!field.options?.length,
-  });
+  devLog.debug(
+    "FormField",
+    "🔧 [ÉTAPE 9.2] FormField - Rendu champ individuel:",
+    {
+      fieldName: field.name,
+      type: field.type,
+      register: typeof register,
+      value: value,
+      hasError: !!error,
+      required: field.required,
+      hasOptions: !!field.options?.length,
+    },
+  );
 
   // Props communs pour tous les champs - style minimaliste adaptatif
   const getInputWidth = () => {
@@ -120,12 +128,16 @@ export const FormField: React.FC<FormFieldProps> = ({
       e.target.type === "checkbox"
         ? (e.target as HTMLInputElement).checked
         : e.target.value;
-    devLog.debug('FormField', "🎯 [ÉTAPE 9.3] FormField handleChange - User input détecté:", {
-      fieldName: field.name,
-      oldValue: value,
-      newValue: newValue,
-      valueType: typeof newValue,
-    });
+    devLog.debug(
+      "FormField",
+      "🎯 [ÉTAPE 9.3] FormField handleChange - User input détecté:",
+      {
+        fieldName: field.name,
+        oldValue: value,
+        newValue: newValue,
+        valueType: typeof newValue,
+      },
+    );
     // Appeler le callback onChange personnalisé
     onChange?.(newValue);
   };
@@ -148,7 +160,7 @@ export const FormField: React.FC<FormFieldProps> = ({
   );
 
   // 📊 Log des props register pour debug
-  devLog.debug('FormField', "⚙️ [ÉTAPE 9.2] Register Hook Form binding:", {
+  devLog.debug("FormField", "⚙️ [ÉTAPE 9.2] Register Hook Form binding:", {
     fieldName: field.name,
     propsValue: value,
     finalValue: value !== undefined ? value : "",
@@ -230,7 +242,8 @@ export const FormField: React.FC<FormFieldProps> = ({
           <select
             {...commonProps}
             {...registerProps}
-            className={`${cleanInputClasses} bg-white/70 cursor-pointer`}
+            className={`${cleanInputClasses} bg-white cursor-pointer w-full`}
+            style={{ width: "100%", maxWidth: "100%", minWidth: 0 }}
             onChange={(e) => {
               registerProps.onChange(e); // Appeler le onChange de register
               handleChange(e); // Appeler notre gestionnaire personnalisé
@@ -314,7 +327,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         return (
           <PickupAddressAutocomplete
             id={field.name}
-            label={typeof field.label === 'string' ? field.label : ""}
+            label={typeof field.label === "string" ? field.label : ""}
             value={value ? String(value) : ""}
             onChange={(value, place) => onChange?.(value)}
             required={field.required}
@@ -327,7 +340,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         return (
           <DeliveryAddressAutocomplete
             id={field.name}
-            label={typeof field.label === 'string' ? field.label : ""}
+            label={typeof field.label === "string" ? field.label : ""}
             value={value ? String(value) : ""}
             onChange={(value, place) => onChange?.(value)}
             required={field.required}
@@ -338,37 +351,57 @@ export const FormField: React.FC<FormFieldProps> = ({
 
       case "access-constraints":
         // ✅ Extraire les données du formulaire pour l'auto-détection
-        const type = field.componentProps?.type || 'pickup';
-        const prefix = type === 'pickup' ? 'pickup' : 'delivery';
+        const type = field.componentProps?.type || "pickup";
+        const prefix = type === "pickup" ? "pickup" : "delivery";
 
         // Récupérer les valeurs du formulaire
         const floor = formData?.[`${prefix}Floor`] as number | undefined;
-        const elevator = formData?.[`${prefix}Elevator`] as 'no' | 'small' | 'medium' | 'large' | undefined;
-        const carryDistance = formData?.[`${prefix}CarryDistance`] as '0-10' | '10-30' | '30+' | undefined;
-        const volume = formData?.['volume'] as number | undefined;
+        const elevator = formData?.[`${prefix}Elevator`] as
+          | "no"
+          | "small"
+          | "medium"
+          | "large"
+          | undefined;
+        const carryDistance = formData?.[`${prefix}CarryDistance`] as
+          | "0-10"
+          | "10-30"
+          | "30+"
+          | undefined;
+        const volume = formData?.["volume"] as number | undefined;
 
         // 🔧 CORRECTION: Récupérer le serviceType depuis componentProps
         const serviceTypeFromProps = field.componentProps?.serviceType;
 
-        devLog.debug('FormField', `🏗️ [FormField] AccessConstraintsModal - Données extraites:`, {
-          type,
-          floor,
-          elevator,
-          carryDistance,
-          volume,
-          serviceTypeFromProps,
-          componentProps: field.componentProps,
-          formData
-        });
+        devLog.debug(
+          "FormField",
+          `🏗️ [FormField] AccessConstraintsModal - Données extraites:`,
+          {
+            type,
+            floor,
+            elevator,
+            carryDistance,
+            volume,
+            serviceTypeFromProps,
+            componentProps: field.componentProps,
+            formData,
+          },
+        );
 
         // Wrapper pour gérer la séparation contraintes/services
         const handleAccessConstraintsChange = (separatedData: any) => {
-          devLog.debug('FormField', `🔄 [FormField] Réception données séparées du modal ${type}:`, separatedData);
+          devLog.debug(
+            "FormField",
+            `🔄 [FormField] Réception données séparées du modal ${type}:`,
+            separatedData,
+          );
 
           // Si separatedData contient addressConstraints et globalServices (nouvelle structure)
-          if (separatedData && typeof separatedData === 'object' &&
-              ('addressConstraints' in separatedData || 'globalServices' in separatedData)) {
-
+          if (
+            separatedData &&
+            typeof separatedData === "object" &&
+            ("addressConstraints" in separatedData ||
+              "globalServices" in separatedData)
+          ) {
             // Appeler onChange avec la structure séparée
             // Le FormGenerator/DetailForm va gérer la fusion
             onChange?.(separatedData);
@@ -401,7 +434,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         return (
           <WhatsAppOptInConsent
             onOptInChange={(optedIn) => onChange?.(optedIn)}
-            initialValue={typeof value === 'boolean' ? value : false}
+            initialValue={typeof value === "boolean" ? value : false}
             required={field.required}
             {...(field.componentProps || {})}
           />
@@ -435,8 +468,10 @@ export const FormField: React.FC<FormFieldProps> = ({
             addressType={field.componentProps?.addressType || "pickup"}
             floorFieldName={field.componentProps?.floorFieldName || ""}
             elevatorFieldName={field.componentProps?.elevatorFieldName || ""}
-            thresholds={field.componentProps?.thresholds || { HIGH: 3, CRITICAL: 5 }}
-            value={typeof value === 'boolean' ? value : false}
+            thresholds={
+              field.componentProps?.thresholds || { HIGH: 3, CRITICAL: 5 }
+            }
+            value={typeof value === "boolean" ? value : false}
             onChange={onChange}
             formData={formData}
             error={error}

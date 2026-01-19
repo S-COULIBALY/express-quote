@@ -62,6 +62,8 @@
   min-height: 52px !important;
   height: auto !important;
   width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
   font-size: 16px !important; /* Empêche le zoom automatique sur iOS */
   box-sizing: border-box !important;
   /* Override FormStylesSimplified */
@@ -70,6 +72,22 @@
   background-color: #ffffff !important;
   transition: all 0.2s ease-in-out !important;
   color: #000000 !important;
+}
+
+/* FIX CRITIQUE POUR SELECT : Forcer la largeur et éviter la compression */
+.form-compact-fields.form-compact-fields .form-generator select {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 0% !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 16px center !important;
+  background-size: 12px !important;
+  padding-right: 40px !important;
 }
 
 /* TABLETTE+ (640px) */
@@ -91,6 +109,11 @@
     padding: 10px 18px !important;
     min-height: 42px !important;
     font-size: 14px !important;
+  }
+  
+  /* SELECT : Maintenir la largeur et le padding pour la flèche */
+  .form-compact-fields.form-compact-fields .form-generator select {
+    padding-right: 42px !important;
   }
 }
 
@@ -362,6 +385,25 @@
 .form-compact-fields .form-field {
   overflow: visible !important;
   width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* FIX CRITIQUE : Conteneurs SELECT - Forcer la largeur complète */
+.form-compact-fields .form-generator .relative,
+.form-compact-fields .form-section .relative,
+.form-compact-fields .form-field .relative {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* FIX CRITIQUE : Sections de formulaire - Pas de contrainte de largeur */
+.form-compact-fields .form-section,
+.form-compact-fields .form-section > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
 }
 
 /* Empêcher le débordement horizontal */
@@ -383,14 +425,14 @@
   left: 0.75rem !important;
   background-color: white !important;
   padding: 0 0.25rem !important;
-  font-size: 0.75rem !important;
+  font-size: 0.6875rem !important; /* 11px - Réduit de 12px */
   z-index: 10 !important;
   line-height: 1 !important;
 }
 
 @media (min-width: 640px) {
   .form-compact-fields .form-generator label.absolute {
-    font-size: 0.6875rem !important;
+    font-size: 0.625rem !important; /* 10px - Réduit de 11px */
     top: -0.4rem !important;
   }
 }
