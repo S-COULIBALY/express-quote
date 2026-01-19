@@ -46,21 +46,25 @@ export const FormField: React.FC<FormFieldProps> = ({
   const error = errors[field.name]?.message as string | undefined;
 
   // Helper pour rendre le label flottant
-  const renderFloatingLabel = (): React.ReactElement | null => {
-    const excludedTypes = [
+  const renderFloatingLabel = (): React.ReactNode => {
+    const excludedTypes: string[] = [
       "checkbox",
       "radio",
       "whatsapp-consent",
       "separator",
     ];
     if (excludedTypes.includes(field.type) || !field.label) return null;
+    const labelText =
+      typeof field.label === "string" ? field.label : String(field.label);
+    const isRequired =
+      typeof field.required === "boolean" ? field.required : false;
     return (
       <label
         htmlFor={field.name}
         className="absolute -top-2 left-2 sm:left-3 px-1.5 sm:px-1.5 md:px-1 py-0.5 md:py-0 bg-white text-[10px] sm:text-[10px] md:text-[10px] font-medium text-gray-900 z-10"
       >
-        <>{field.label}</>
-        {field.required && <span className="text-emerald-600">*</span>}
+        {labelText}
+        {isRequired && <span className="text-emerald-600">*</span>}
       </label>
     );
   };
@@ -329,8 +333,10 @@ export const FormField: React.FC<FormFieldProps> = ({
             id={field.name}
             label={typeof field.label === "string" ? field.label : ""}
             value={value ? String(value) : ""}
-            onChange={(value, place) => onChange?.(value)}
-            required={field.required}
+            onChange={(value, _place) => onChange?.(value)}
+            required={
+              typeof field.required === "boolean" ? field.required : false
+            }
             hideLabel={true}
             {...(field.componentProps || {})}
           />
@@ -342,8 +348,10 @@ export const FormField: React.FC<FormFieldProps> = ({
             id={field.name}
             label={typeof field.label === "string" ? field.label : ""}
             value={value ? String(value) : ""}
-            onChange={(value, place) => onChange?.(value)}
-            required={field.required}
+            onChange={(value, _place) => onChange?.(value)}
+            required={
+              typeof field.required === "boolean" ? field.required : false
+            }
             hideLabel={true}
             {...(field.componentProps || {})}
           />
@@ -435,7 +443,9 @@ export const FormField: React.FC<FormFieldProps> = ({
           <WhatsAppOptInConsent
             onOptInChange={(optedIn) => onChange?.(optedIn)}
             initialValue={typeof value === "boolean" ? value : false}
-            required={field.required}
+            required={
+              typeof field.required === "boolean" ? field.required : false
+            }
             {...(field.componentProps || {})}
           />
         );
@@ -497,7 +507,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         {renderInput()}
 
         {/* Label flottant en overlay sur la bordure - optimisé mobile */}
-        {renderFloatingLabel() as React.ReactNode}
+        {renderFloatingLabel()}
 
         {/* Indicateur de validation visuel - plus discret */}
         {value &&
