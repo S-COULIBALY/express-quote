@@ -45,29 +45,19 @@ export const FormField: React.FC<FormFieldProps> = ({
 
   const error = errors[field.name]?.message as string | undefined;
 
-  // Helper pour rendre le label flottant
-  const renderFloatingLabel = (): JSX.Element | null => {
-    const excludedTypes: string[] = [
-      "checkbox",
-      "radio",
-      "whatsapp-consent",
-      "separator",
-    ];
-    if (excludedTypes.includes(field.type) || !field.label) return null;
-    const labelText =
-      typeof field.label === "string" ? field.label : String(field.label);
-    const isRequired =
-      typeof field.required === "boolean" ? field.required : false;
-    return (
-      <label
-        htmlFor={field.name}
-        className="absolute -top-2 left-2 sm:left-3 px-1.5 sm:px-1.5 md:px-1 py-0.5 md:py-0 bg-white text-[10px] sm:text-[10px] md:text-[10px] font-medium text-gray-900 z-10"
-      >
-        {labelText}
-        {isRequired && <span className="text-emerald-600">*</span>}
-      </label>
-    );
-  };
+  // Déterminer si le label flottant doit être affiché
+  const excludedLabelTypes: string[] = [
+    "checkbox",
+    "radio",
+    "whatsapp-consent",
+    "separator",
+  ];
+  const shouldShowFloatingLabel =
+    !excludedLabelTypes.includes(field.type) && !!field.label;
+  const labelText =
+    typeof field.label === "string" ? field.label : String(field.label || "");
+  const isRequired =
+    typeof field.required === "boolean" ? field.required : false;
 
   devLog.debug(
     "FormField",
@@ -507,7 +497,15 @@ export const FormField: React.FC<FormFieldProps> = ({
         {renderInput()}
 
         {/* Label flottant en overlay sur la bordure - optimisé mobile */}
-        {renderFloatingLabel()}
+        {shouldShowFloatingLabel ? (
+          <label
+            htmlFor={field.name}
+            className="absolute -top-2 left-2 sm:left-3 px-1.5 sm:px-1.5 md:px-1 py-0.5 md:py-0 bg-white text-[10px] sm:text-[10px] md:text-[10px] font-medium text-gray-900 z-10"
+          >
+            {labelText}
+            {isRequired ? <span className="text-emerald-600">*</span> : null}
+          </label>
+        ) : null}
 
         {/* Indicateur de validation visuel - plus discret */}
         {value &&
