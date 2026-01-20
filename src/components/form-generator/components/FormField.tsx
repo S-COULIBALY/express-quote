@@ -52,11 +52,13 @@ export const FormField: React.FC<FormFieldProps> = ({
     "whatsapp-consent",
     "separator",
   ];
-  const shouldShowFloatingLabel =
-    !excludedLabelTypes.includes(field.type) && !!field.label;
-  const labelText =
-    typeof field.label === "string" ? field.label : String(field.label || "");
-  const isRequired =
+  const hasLabel: boolean =
+    field.label !== undefined && field.label !== null && field.label !== "";
+  const shouldShowFloatingLabel: boolean =
+    !excludedLabelTypes.includes(field.type) && hasLabel;
+  const labelText: string =
+    typeof field.label === "string" ? field.label : String(field.label ?? "");
+  const isRequired: boolean =
     typeof field.required === "boolean" ? field.required : false;
 
   devLog.debug(
