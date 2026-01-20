@@ -499,18 +499,18 @@ export const FormField: React.FC<FormFieldProps> = ({
         {renderInput()}
 
         {/* Label flottant en overlay sur la bordure - optimisé mobile */}
-        {shouldShowFloatingLabel ? (
+        {shouldShowFloatingLabel && (
           <label
             htmlFor={field.name}
             className="absolute -top-2 left-2 sm:left-3 px-1.5 sm:px-1.5 md:px-1 py-0.5 md:py-0 bg-white text-[10px] sm:text-[10px] md:text-[10px] font-medium text-gray-900 z-10"
           >
             {labelText}
-            {isRequired ? <span className="text-emerald-600">*</span> : null}
+            {isRequired && <span className="text-emerald-600">*</span>}
           </label>
-        ) : null}
+        )}
 
         {/* Indicateur de validation visuel - plus discret */}
-        {value &&
+        {Boolean(value) &&
           !error &&
           (field.type === "email" || field.type === "text") && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
