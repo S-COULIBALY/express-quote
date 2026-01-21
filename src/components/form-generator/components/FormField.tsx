@@ -104,7 +104,7 @@ export const FormField: React.FC<FormFieldProps> = ({
     // États et interactions - style très propre
     error
       ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-      : "border-gray-300 hover:border-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20",
+      : "border-gray-500 hover:border-gray-600 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20",
 
     // Focus et outline
     "focus:outline-none",

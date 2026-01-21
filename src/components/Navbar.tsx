@@ -1,96 +1,117 @@
-'use client'
+"use client";
 
-import { memo } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Bars3Icon, XMarkIcon, ShoppingBagIcon } from '@heroicons/react/24/outline'
-import { useState, useEffect, useCallback } from 'react'
+import { memo } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Bars3Icon,
+  XMarkIcon,
+  ShoppingBagIcon,
+} from "@heroicons/react/24/outline";
+import { useState, useEffect, useCallback } from "react";
 
 // Memoize les liens pour éviter de les re-rendre inutilement
-const NavLink = memo(({ href, isActive, children, className, onClick }: { 
-  href: string;
-  isActive: boolean;
-  children: React.ReactNode;
-  className?: string;
-  onClick?: () => void;
-}) => (
-  <Link
-    href={href}
-    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-      isActive
-        ? 'border-[#067857] text-gray-900'
-        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-    } ${className || ''}`}
-    onClick={onClick}
-  >
-    {children}
-  </Link>
-));
+const NavLink = memo(
+  ({
+    href,
+    isActive,
+    children,
+    className,
+    onClick,
+  }: {
+    href: string;
+    isActive: boolean;
+    children: React.ReactNode;
+    className?: string;
+    onClick?: () => void;
+  }) => (
+    <Link
+      href={href}
+      className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+        isActive
+          ? "border-[#067857] text-gray-900"
+          : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+      } ${className || ""}`}
+      onClick={onClick}
+    >
+      {children}
+    </Link>
+  ),
+);
 
-NavLink.displayName = 'NavLink';
+NavLink.displayName = "NavLink";
 
 // Memoize le bouton d'action
-const ActionButton = memo(({ href, children }: { href: string; children: React.ReactNode }) => (
-  <Link
-    href={href}
-    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[#E67E22] hover:bg-[#E67E22]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E67E22] rounded-lg"
-  >
-    {children}
-  </Link>
-));
+const ActionButton = memo(
+  ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <Link
+      href={href}
+      className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[#E67E22] hover:bg-[#E67E22]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E67E22] rounded-lg"
+    >
+      {children}
+    </Link>
+  ),
+);
 
-ActionButton.displayName = 'ActionButton';
+ActionButton.displayName = "ActionButton";
 
 export default function Navbar() {
-  const pathname = usePathname()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [hasItemInBasket, setHasItemInBasket] = useState(true) // ✅ TEST: Afficher le panier pour test
-  const [lastCheckTime, setLastCheckTime] = useState(0)
-  const [isMounted, setIsMounted] = useState(false)
+  const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [hasItemInBasket, setHasItemInBasket] = useState(true); // ✅ TEST: Afficher le panier pour test
+  const [lastCheckTime, setLastCheckTime] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
 
-  const isActive = useCallback((path: string) => {
-    return pathname === path
-  }, [pathname])
+  const isActive = useCallback(
+    (path: string) => {
+      return pathname === path;
+    },
+    [pathname],
+  );
 
   const closeMobileMenu = useCallback(() => {
-    setIsMobileMenuOpen(false)
-  }, [])
-  
+    setIsMobileMenuOpen(false);
+  }, []);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   useEffect(() => {
     if (!isMounted) return;
-    
+
     // ✅ Vérification simplifiée du panier
     const checkBasket = async () => {
       try {
         // Vérifier le localStorage d'abord (plus rapide)
-        const localBasket = localStorage.getItem('currentBooking');
+        const localBasket = localStorage.getItem("currentBooking");
         if (localBasket) {
           const booking = JSON.parse(localBasket);
-          const hasItems = !!(booking && 
-                            booking.details && 
-                            booking.details.items && 
-                            booking.details.items.length > 0);
+          const hasItems = !!(
+            booking &&
+            booking.details &&
+            booking.details.items &&
+            booking.details.items.length > 0
+          );
           setHasItemInBasket(hasItems);
           return;
         }
 
         // Sinon, vérifier l'API
-        const response = await fetch('/api/bookings/current', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store'
+        const response = await fetch("/api/bookings/current", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
         });
-        
+
         if (response.ok) {
           const currentBooking = await response.json();
-          const hasItems = !!(currentBooking && 
-                            currentBooking.details && 
-                            currentBooking.details.items && 
-                            currentBooking.details.items.length > 0);
+          const hasItems = !!(
+            currentBooking &&
+            currentBooking.details &&
+            currentBooking.details.items &&
+            currentBooking.details.items.length > 0
+          );
           setHasItemInBasket(hasItems);
         } else {
           setHasItemInBasket(false);
@@ -101,7 +122,7 @@ export default function Navbar() {
         // setHasItemInBasket(false);
       }
     };
-    
+
     // Vérifier au chargement de la page
     checkBasket();
   }, [isMounted]);
@@ -122,25 +143,43 @@ export default function Navbar() {
               </Link>
             </div>
             <div className="hidden sm:flex sm:ml-6 sm:space-x-8 items-center">
-              
-              <NavLink href="/catalogue" isActive={isActive('/catalogue')} onClick={closeMobileMenu}>
-                Nos Forfaits
+              <NavLink
+                href="/catalogue"
+                isActive={isActive("/catalogue")}
+                onClick={closeMobileMenu}
+              >
+                Catalogue
               </NavLink>
-              
 
-              <NavLink href="/bookings" isActive={isActive('/bookings')} onClick={closeMobileMenu}>
+              <NavLink
+                href="/bookings"
+                isActive={isActive("/bookings")}
+                onClick={closeMobileMenu}
+              >
                 Réservations
               </NavLink>
 
-              <NavLink href="/admin" isActive={isActive('/admin')} onClick={closeMobileMenu}>
+              <NavLink
+                href="/admin"
+                isActive={isActive("/admin")}
+                onClick={closeMobileMenu}
+              >
                 Administration
               </NavLink>
 
-              <NavLink href="/a-propos" isActive={isActive('/a-propos')} onClick={closeMobileMenu}>
+              <NavLink
+                href="/a-propos"
+                isActive={isActive("/a-propos")}
+                onClick={closeMobileMenu}
+              >
                 À propos
               </NavLink>
-              
-              <NavLink href="/contact" isActive={isActive('/contact')} onClick={closeMobileMenu}>
+
+              <NavLink
+                href="/contact"
+                isActive={isActive("/contact")}
+                onClick={closeMobileMenu}
+              >
                 Contact
               </NavLink>
             </div>
@@ -161,7 +200,7 @@ export default function Navbar() {
                 </span>
               </Link>
             )}
-            
+
             <Link
               href="/login"
               className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#067857] rounded-lg"
@@ -174,14 +213,14 @@ export default function Navbar() {
             >
               S'inscrire
             </Link>
-            
+
             {/* ✅ Bouton de test pour le panier */}
             <button
               onClick={() => setHasItemInBasket(!hasItemInBasket)}
               className="px-2 py-1 text-xs bg-blue-500 text-white rounded"
               title="Toggle panier (test)"
             >
-              🛒 {hasItemInBasket ? 'ON' : 'OFF'}
+              🛒 {hasItemInBasket ? "ON" : "OFF"}
             </button>
           </div>
 
@@ -200,7 +239,7 @@ export default function Navbar() {
                 </span>
               </Link>
             )}
-            
+
             <button
               type="button"
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#067857]"
@@ -220,46 +259,76 @@ export default function Navbar() {
       </div>
 
       {/* Menu mobile */}
-      <div 
+      <div
         id="mobile-menu"
-        className={`sm:hidden ${isMobileMenuOpen ? 'block' : 'hidden'} absolute w-full bg-white shadow-lg z-50`}
+        className={`sm:hidden ${isMobileMenuOpen ? "block" : "hidden"} absolute w-full bg-white shadow-lg z-50`}
       >
         <div className="pt-2 pb-3 space-y-1">
-          <NavLink href="/catalogue" isActive={isActive('/catalogue')} onClick={closeMobileMenu}>
+          <NavLink
+            href="/catalogue"
+            isActive={isActive("/catalogue")}
+            onClick={closeMobileMenu}
+          >
             Catalogue
           </NavLink>
-          <NavLink href="/bookings" isActive={isActive('/bookings')} onClick={closeMobileMenu}>
+          <NavLink
+            href="/bookings"
+            isActive={isActive("/bookings")}
+            onClick={closeMobileMenu}
+          >
             Réservations
           </NavLink>
-          <NavLink href="/a-propos" isActive={isActive('/a-propos')} onClick={closeMobileMenu}>
+          <NavLink
+            href="/a-propos"
+            isActive={isActive("/a-propos")}
+            onClick={closeMobileMenu}
+          >
             À propos
           </NavLink>
-          <NavLink href="/contact" isActive={isActive('/contact')} onClick={closeMobileMenu}>
+          <NavLink
+            href="/contact"
+            isActive={isActive("/contact")}
+            onClick={closeMobileMenu}
+          >
             Contact
           </NavLink>
-          
+
           {/* Panier dans le menu mobile */}
           {isMounted && hasItemInBasket && (
-            <NavLink href="/checkout/summary" isActive={isActive('/checkout/summary')} onClick={closeMobileMenu}>
+            <NavLink
+              href="/checkout/summary"
+              isActive={isActive("/checkout/summary")}
+              onClick={closeMobileMenu}
+            >
               <div className="flex items-center">
                 <ShoppingBagIcon className="h-5 w-5 text-emerald-600 mr-2" />
                 <span>Panier</span>
-                <span className="ml-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">1</span>
+                <span className="ml-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  1
+                </span>
               </div>
             </NavLink>
           )}
 
           {/* Boutons de connexion mobile */}
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <NavLink href="/login" isActive={isActive('/login')} onClick={closeMobileMenu}>
+            <NavLink
+              href="/login"
+              isActive={isActive("/login")}
+              onClick={closeMobileMenu}
+            >
               S'identifier
             </NavLink>
-            <NavLink href="/register" isActive={isActive('/register')} onClick={closeMobileMenu}>
+            <NavLink
+              href="/register"
+              isActive={isActive("/register")}
+              onClick={closeMobileMenu}
+            >
               S'inscrire
             </NavLink>
           </div>
         </div>
       </div>
     </nav>
-  )
-} 
+  );
+}

@@ -183,7 +183,7 @@ const PaymentPriceSection: React.FC<{
           <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 md:gap-2.5">
             {/* Assurance */}
             <div
-              className={`flex-1 border rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm cursor-pointer transition-all min-h-[48px] sm:min-h-auto ${declaredValueInsuranceSelected ? "border-emerald-400 bg-emerald-50 shadow-sm" : "border-gray-200 hover:bg-gray-50 hover:border-gray-300"}`}
+              className={`flex-1 border rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm cursor-pointer transition-all min-h-[48px] sm:min-h-auto ${declaredValueInsuranceSelected ? "border-emerald-400 bg-emerald-50 shadow-sm" : "border-gray-500 hover:bg-gray-50 hover:border-gray-600"}`}
               onClick={() =>
                 onDeclaredValueInsuranceChange(!declaredValueInsuranceSelected)
               }
@@ -222,7 +222,7 @@ const PaymentPriceSection: React.FC<{
                               Math.max(0, parseInt(e.target.value) || 0),
                             )
                           }
-                          className="w-full px-2.5 py-1.5 pr-7 text-xs sm:text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          className="w-full px-2.5 py-1.5 pr-7 text-xs sm:text-sm border border-gray-500 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                           placeholder="Ex: 15000"
                         />
                         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">
@@ -240,7 +240,7 @@ const PaymentPriceSection: React.FC<{
 
             {/* Fragiles */}
             <div
-              className={`flex-1 border rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm cursor-pointer transition-all min-h-[48px] sm:min-h-auto ${fragileProtectionSelected ? "border-emerald-400 bg-emerald-50 shadow-sm" : "border-gray-200 hover:bg-gray-50 hover:border-gray-300"}`}
+              className={`flex-1 border rounded-lg p-3 sm:p-2.5 text-xs sm:text-sm cursor-pointer transition-all min-h-[48px] sm:min-h-auto ${fragileProtectionSelected ? "border-emerald-400 bg-emerald-50 shadow-sm" : "border-gray-500 hover:bg-gray-50 hover:border-gray-600"}`}
               onClick={() =>
                 onFragileProtectionChange(!fragileProtectionSelected)
               }
