@@ -1,0 +1,41 @@
+# Fichiers à exclure du déploiement Vercel
+# Pour éviter de dépasser la limite de 250 MB des fonctions serverless
+
+# Cache webpack Next.js (très volumineux)
+.next/cache/
+
+# Données Redis locales
+data/
+data/redis/
+
+# Dossier git
+.git/
+
+# Documents stockés localement
+storage/
+
+# Tests
+src/__tests__/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Fichiers de développement
+.vscode/
+.idea/
+*.log
+*.backup
+*.bak
+
+# Images de développement volumineuses
+public/images/formulaire-devis-capture.png
+
+# Autres fichiers inutiles en production
+coverage/
+.nyc_output/
