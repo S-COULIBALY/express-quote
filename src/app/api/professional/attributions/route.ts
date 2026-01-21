@@ -3,32 +3,40 @@
  * Route: GET /api/professional/attributions
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { AttributionService } from '@/bookingAttribution/AttributionService';
+import { NextRequest, NextResponse } from "next/server";
+import { AttributionService } from "@/bookingAttribution/AttributionService";
+
+// Force le rendu dynamique (évite erreur de build Vercel)
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const professionalId = searchParams.get('professionalId');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const status = searchParams.get('status'); // 'accepted', 'refused', 'all'
+    const professionalId = searchParams.get("professionalId");
+    const limit = parseInt(searchParams.get("limit") || "20");
+    const status = searchParams.get("status"); // 'accepted', 'refused', 'all'
 
     if (!professionalId) {
       return NextResponse.json(
-        { success: false, error: 'ID professionnel requis' },
-        { status: 400 }
+        { success: false, error: "ID professionnel requis" },
+        { status: 400 },
       );
     }
 
     // TODO: Vérifier l'authentification du professionnel
 
     const attributionService = new AttributionService();
-    const attributions = await attributionService.getProfessionalAttributions(professionalId, limit);
+    const attributions = await attributionService.getProfessionalAttributions(
+      professionalId,
+      limit,
+    );
 
     // Filtrer par statut si demandé
     let filteredAttributions = attributions;
-    if (status && status !== 'all') {
-      filteredAttributions = attributions.filter((attr: any) => attr.responseType === status.toUpperCase());
+    if (status && status !== "all") {
+      filteredAttributions = attributions.filter(
+        (attr: any) => attr.responseType === status.toUpperCase(),
+      );
     }
 
     // Formater la réponse
@@ -51,19 +59,27 @@ export async function GET(request: NextRequest) {
           totalAmount: attr.attribution.booking.totalAmount,
           scheduledDate: attr.attribution.booking.scheduledDate,
           locationAddress: attr.attribution.booking.locationAddress,
-          status: attr.attribution.booking.status
-        }
-      }
+          status: attr.attribution.booking.status,
+        },
+      },
     }));
 
     // Statistiques du professionnel
     const stats = {
       total: attributions.length,
-      accepted: attributions.filter((a: any) => a.responseType === 'ACCEPTED').length,
-      refused: attributions.filter((a: any) => a.responseType === 'REFUSED').length,
-      acceptanceRate: attributions.length > 0
-        ? Math.round((attributions.filter((a: any) => a.responseType === 'ACCEPTED').length / attributions.length) * 100)
-        : 0
+      accepted: attributions.filter((a: any) => a.responseType === "ACCEPTED")
+        .length,
+      refused: attributions.filter((a: any) => a.responseType === "REFUSED")
+        .length,
+      acceptanceRate:
+        attributions.length > 0
+          ? Math.round(
+              (attributions.filter((a: any) => a.responseType === "ACCEPTED")
+                .length /
+                attributions.length) *
+                100,
+            )
+          : 0,
     };
 
     return NextResponse.json({
@@ -73,20 +89,19 @@ export async function GET(request: NextRequest) {
       pagination: {
         limit,
         count: formattedAttributions.length,
-        hasMore: attributions.length === limit
-      }
+        hasMore: attributions.length === limit,
+      },
     });
-
   } catch (error) {
-    console.error('❌ Erreur lors de la récupération des attributions:', error);
+    console.error("❌ Erreur lors de la récupération des attributions:", error);
 
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Erreur interne du serveur',
-        details: error instanceof Error ? error.message : 'Erreur inconnue'
+      {
+        success: false,
+        error: "Erreur interne du serveur",
+        details: error instanceof Error ? error.message : "Erreur inconnue",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

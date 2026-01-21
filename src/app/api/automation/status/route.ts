@@ -3,47 +3,51 @@
  * Route: GET /api/automation/status
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextRequest, NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+
+// Force le rendu dynamique (évite erreur de build Vercel)
+export const dynamic = "force-dynamic";
 
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
     // Simuler un délai pour le realisme
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Calculer les statistiques réelles depuis la base de données
     const now = new Date();
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
     // Statistiques notifications (basées sur la table notifications)
-    const [totalNotifications, successfulNotifications, failedNotifications] = await Promise.all([
-      prisma.notifications.count({
-        where: { created_at: { gte: yesterday } }
-      }),
-      prisma.notifications.count({
-        where: {
-          created_at: { gte: yesterday },
-          status: { in: ['SENT', 'DELIVERED'] }
-        }
-      }),
-      prisma.notifications.count({
-        where: {
-          created_at: { gte: yesterday },
-          status: 'FAILED'
-        }
-      })
-    ]);
+    const [totalNotifications, successfulNotifications, failedNotifications] =
+      await Promise.all([
+        prisma.notifications.count({
+          where: { created_at: { gte: yesterday } },
+        }),
+        prisma.notifications.count({
+          where: {
+            created_at: { gte: yesterday },
+            status: { in: ["SENT", "DELIVERED"] },
+          },
+        }),
+        prisma.notifications.count({
+          where: {
+            created_at: { gte: yesterday },
+            status: "FAILED",
+          },
+        }),
+      ]);
 
     // Statistiques documents (basées sur la table Document)
     const [totalDocuments, successfulDocuments] = await Promise.all([
       prisma.document.count({
-        where: { createdAt: { gte: yesterday } }
+        where: { createdAt: { gte: yesterday } },
       }),
       prisma.document.count({
-        where: { createdAt: { gte: yesterday } }
-      })
+        where: { createdAt: { gte: yesterday } },
+      }),
     ]);
 
     // Statistiques base de données
@@ -51,13 +55,15 @@ export async function GET(request: NextRequest) {
     const totalBookings = await prisma.booking.count();
 
     // Calcul des taux de réussite
-    const notificationSuccessRate = totalNotifications > 0
-      ? Math.round((successfulNotifications / totalNotifications) * 100)
-      : 100;
+    const notificationSuccessRate =
+      totalNotifications > 0
+        ? Math.round((successfulNotifications / totalNotifications) * 100)
+        : 100;
 
-    const documentSuccessRate = totalDocuments > 0
-      ? Math.round((successfulDocuments / totalDocuments) * 100)
-      : 100;
+    const documentSuccessRate =
+      totalDocuments > 0
+        ? Math.round((successfulDocuments / totalDocuments) * 100)
+        : 100;
 
     // Déterminer le statut global
     let healthyServices = 0;
@@ -65,27 +71,39 @@ export async function GET(request: NextRequest) {
     let errorServices = 0;
 
     // Évaluer chaque service
-    const emailStatus = notificationSuccessRate >= 95 ? 'healthy' :
-                       notificationSuccessRate >= 80 ? 'warning' : 'error';
+    const emailStatus =
+      notificationSuccessRate >= 95
+        ? "healthy"
+        : notificationSuccessRate >= 80
+          ? "warning"
+          : "error";
 
-    const smsStatus = 'healthy'; // Simulé
-    const whatsappStatus = 'healthy'; // Simulé
-    const pdfStatus = documentSuccessRate >= 95 ? 'healthy' : 'warning';
-    const storageStatus = 'healthy'; // Simulé
-    const schedulerStatus = 'healthy'; // Simulé
-    const workflowsStatus = 'healthy'; // Simulé
-    const databaseStatus = 'healthy'; // Simulé
+    const smsStatus = "healthy"; // Simulé
+    const whatsappStatus = "healthy"; // Simulé
+    const pdfStatus = documentSuccessRate >= 95 ? "healthy" : "warning";
+    const storageStatus = "healthy"; // Simulé
+    const schedulerStatus = "healthy"; // Simulé
+    const workflowsStatus = "healthy"; // Simulé
+    const databaseStatus = "healthy"; // Simulé
 
     // Compter les statuts
-    [emailStatus, smsStatus, whatsappStatus, pdfStatus, storageStatus,
-     schedulerStatus, workflowsStatus, databaseStatus].forEach(status => {
-      if (status === 'healthy') healthyServices++;
-      else if (status === 'warning') warningServices++;
+    [
+      emailStatus,
+      smsStatus,
+      whatsappStatus,
+      pdfStatus,
+      storageStatus,
+      schedulerStatus,
+      workflowsStatus,
+      databaseStatus,
+    ].forEach((status) => {
+      if (status === "healthy") healthyServices++;
+      else if (status === "warning") warningServices++;
       else errorServices++;
     });
 
-    const globalStatus = errorServices > 0 ? 'error' :
-                        warningServices > 0 ? 'warning' : 'healthy';
+    const globalStatus =
+      errorServices > 0 ? "error" : warningServices > 0 ? "warning" : "healthy";
 
     const response = {
       success: true,
@@ -103,21 +121,21 @@ export async function GET(request: NextRequest) {
             total24h: totalNotifications,
             successful24h: successfulNotifications,
             failed24h: failedNotifications,
-            successRate: notificationSuccessRate
+            successRate: notificationSuccessRate,
           },
           documents: {
             total24h: totalDocuments,
             successful24h: successfulDocuments,
             failed24h: Math.max(0, totalDocuments - successfulDocuments),
-            successRate: documentSuccessRate
+            successRate: documentSuccessRate,
           },
           automation: {
             total24h: 45,
             successful24h: 44,
             failed24h: 1,
-            successRate: 98
-          }
-        }
+            successRate: 98,
+          },
+        },
       },
       services: {
         notifications: {
@@ -130,12 +148,12 @@ export async function GET(request: NextRequest) {
               lastTest: "Il y a 2 minutes",
               metrics: {
                 sent24h: successfulNotifications,
-                deliveryRate: notificationSuccessRate
+                deliveryRate: notificationSuccessRate,
               },
               features: {
                 templates: { enabled: true, working: true },
-                attachments: { enabled: true, working: true }
-              }
+                attachments: { enabled: true, working: true },
+              },
             },
             sms: {
               status: smsStatus,
@@ -144,12 +162,12 @@ export async function GET(request: NextRequest) {
               lastTest: "Il y a 5 minutes",
               metrics: {
                 sent24h: 12,
-                deliveryRate: 98
+                deliveryRate: 98,
               },
               features: {
                 templates: { enabled: true, working: true },
-                international: { enabled: false, working: false }
-              }
+                international: { enabled: false, working: false },
+              },
             },
             whatsapp: {
               status: whatsappStatus,
@@ -158,14 +176,14 @@ export async function GET(request: NextRequest) {
               lastTest: "Il y a 3 minutes",
               metrics: {
                 sent24h: 8,
-                deliveryRate: 100
+                deliveryRate: 100,
               },
               features: {
                 templates: { enabled: true, working: true },
-                media: { enabled: true, working: true }
-              }
-            }
-          }
+                media: { enabled: true, working: true },
+              },
+            },
+          },
         },
         documents: {
           overall: pdfStatus,
@@ -177,8 +195,8 @@ export async function GET(request: NextRequest) {
               lastTest: "Il y a 1 minute",
               metrics: {
                 generated24h: totalDocuments,
-                successRate: documentSuccessRate
-              }
+                successRate: documentSuccessRate,
+              },
             },
             storage: {
               status: storageStatus,
@@ -188,10 +206,10 @@ export async function GET(request: NextRequest) {
               metrics: {
                 totalDocuments,
                 totalSize: "156 MB",
-                freeSpace: "2.1 GB"
-              }
-            }
-          }
+                freeSpace: "2.1 GB",
+              },
+            },
+          },
         },
         automation: {
           overall: schedulerStatus,
@@ -203,8 +221,8 @@ export async function GET(request: NextRequest) {
               lastTest: "Il y a 1 minute",
               metrics: {
                 tasksScheduled24h: 45,
-                successRate: 98
-              }
+                successRate: 98,
+              },
             },
             workflows: {
               status: workflowsStatus,
@@ -213,10 +231,10 @@ export async function GET(request: NextRequest) {
               lastTest: "Il y a 2 minutes",
               metrics: {
                 workflowsExecuted24h: 28,
-                successRate: 100
-              }
-            }
-          }
+                successRate: 100,
+              },
+            },
+          },
         },
         database: {
           overall: databaseStatus,
@@ -229,8 +247,8 @@ export async function GET(request: NextRequest) {
               metrics: {
                 avgResponseTime: "12ms",
                 connectionsActive: 8,
-                uptimeHours: 168
-              }
+                uptimeHours: 168,
+              },
             },
             performance: {
               status: databaseStatus,
@@ -241,43 +259,52 @@ export async function GET(request: NextRequest) {
                 queriesPerSecond: 45,
                 slowQueries24h: 2,
                 cacheHitRate: 94,
-                indexHitRate: 98
-              }
-            }
-          }
-        }
+                indexHitRate: 98,
+              },
+            },
+          },
+        },
       },
       recommendations: [
-        ...(notificationSuccessRate < 95 ? [{
-          type: "performance",
-          priority: "medium" as const,
-          service: "notifications",
-          title: "Améliorer le taux de livraison email",
-          description: `Le taux de livraison email est de ${notificationSuccessRate}%. Considérez vérifier la configuration SMTP.`,
-          action: "Vérifier les paramètres SMTP et la réputation du domaine"
-        }] : []),
-        ...(totalDocuments > 100 ? [{
-          type: "storage",
-          priority: "low" as const,
-          service: "documents",
-          title: "Optimiser le stockage des documents",
-          description: "Le nombre de documents générés augmente. Considérez une stratégie d'archivage.",
-          action: "Mettre en place une politique d'archivage automatique"
-        }] : [])
-      ]
+        ...(notificationSuccessRate < 95
+          ? [
+              {
+                type: "performance",
+                priority: "medium" as const,
+                service: "notifications",
+                title: "Améliorer le taux de livraison email",
+                description: `Le taux de livraison email est de ${notificationSuccessRate}%. Considérez vérifier la configuration SMTP.`,
+                action:
+                  "Vérifier les paramètres SMTP et la réputation du domaine",
+              },
+            ]
+          : []),
+        ...(totalDocuments > 100
+          ? [
+              {
+                type: "storage",
+                priority: "low" as const,
+                service: "documents",
+                title: "Optimiser le stockage des documents",
+                description:
+                  "Le nombre de documents générés augmente. Considérez une stratégie d'archivage.",
+                action: "Mettre en place une politique d'archivage automatique",
+              },
+            ]
+          : []),
+      ],
     };
 
     return NextResponse.json(response);
-
   } catch (error) {
-    console.error('❌ Erreur API automation/status:', error);
+    console.error("❌ Erreur API automation/status:", error);
     return NextResponse.json(
       {
         success: false,
-        error: 'Erreur interne du serveur',
-        timestamp: new Date().toISOString()
+        error: "Erreur interne du serveur",
+        timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

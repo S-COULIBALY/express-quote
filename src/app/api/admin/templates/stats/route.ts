@@ -3,11 +3,14 @@
  * Architecture DDD avec TemplateController - Migration corrective
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { TemplateController } from '@/quotation/interfaces/http/controllers/TemplateController';
-import { TemplateService } from '@/quotation/application/services/TemplateService';
-import { PrismaTemplateRepository } from '@/quotation/infrastructure/repositories/PrismaTemplateRepository';
-import { logger } from '@/lib/logger';
+import { NextRequest, NextResponse } from "next/server";
+
+// Force le rendu dynamique (évite erreur de build Vercel)
+export const dynamic = "force-dynamic";
+import { TemplateController } from "@/quotation/interfaces/http/controllers/TemplateController";
+import { TemplateService } from "@/quotation/application/services/TemplateService";
+import { PrismaTemplateRepository } from "@/quotation/infrastructure/repositories/PrismaTemplateRepository";
+import { logger } from "@/lib/logger";
 
 // Instance partagée du contrôleur avec injection de dépendances DDD
 let controllerInstance: TemplateController | null = null;
@@ -19,7 +22,9 @@ function getController(): TemplateController {
     const templateService = new TemplateService(templateRepository);
     controllerInstance = new TemplateController(templateService);
 
-    logger.info('🏗️ Admin TemplateController (stats) initialisé avec architecture DDD');
+    logger.info(
+      "🏗️ Admin TemplateController (stats) initialisé avec architecture DDD",
+    );
   }
 
   return controllerInstance;
@@ -31,21 +36,22 @@ function getController(): TemplateController {
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    logger.info('📊 GET /api/admin/templates/stats - Via TemplateController DDD corrigé');
+    logger.info(
+      "📊 GET /api/admin/templates/stats - Via TemplateController DDD corrigé",
+    );
 
     const controller = getController();
     return await controller.getTemplateStatistics(request);
-
   } catch (error) {
-    logger.error('❌ Erreur dans GET /api/admin/templates/stats:', error);
+    logger.error("❌ Erreur dans GET /api/admin/templates/stats:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Erreur lors de la récupération des statistiques',
-        message: error instanceof Error ? error.message : 'Erreur inconnue'
+        error: "Erreur lors de la récupération des statistiques",
+        message: error instanceof Error ? error.message : "Erreur inconnue",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

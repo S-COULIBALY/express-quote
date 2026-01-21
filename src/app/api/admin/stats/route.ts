@@ -1,54 +1,59 @@
-import { NextRequest } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-import { ProfessionalAuthService } from '@/lib/auth/ProfessionalAuthService'
+import { NextRequest } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import { ProfessionalAuthService } from "@/lib/auth/ProfessionalAuthService";
 
-const prisma = new PrismaClient()
+// Force le rendu dynamique (évite erreur de build Vercel)
+export const dynamic = "force-dynamic";
+
+const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   // 🔓 AUTHENTIFICATION DÉSACTIVÉE TEMPORAIREMENT
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = new URL(request.url);
 
     // Mode rapide pour page d'accueil (stats basiques seulement)
-    const quickMode = searchParams.get('quick') === 'true'
-    
+    const quickMode = searchParams.get("quick") === "true";
+
     // Paramètres de période
-    const period = searchParams.get('period') || '30d' // 7d, 30d, 90d, 1y
-    const compareWith = searchParams.get('compare') || 'previous' // previous, year_ago
-    
+    const period = searchParams.get("period") || "30d"; // 7d, 30d, 90d, 1y
+    const compareWith = searchParams.get("compare") || "previous"; // previous, year_ago
+
     // Calculer les dates de début et fin
-    const endDate = new Date()
-    const startDate = new Date()
-    
+    const endDate = new Date();
+    const startDate = new Date();
+
     switch (period) {
-      case '7d':
-        startDate.setDate(endDate.getDate() - 7)
-        break
-      case '30d':
-        startDate.setDate(endDate.getDate() - 30)
-        break
-      case '90d':
-        startDate.setDate(endDate.getDate() - 90)
-        break
-      case '1y':
-        startDate.setFullYear(endDate.getFullYear() - 1)
-        break
+      case "7d":
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case "30d":
+        startDate.setDate(endDate.getDate() - 30);
+        break;
+      case "90d":
+        startDate.setDate(endDate.getDate() - 90);
+        break;
+      case "1y":
+        startDate.setFullYear(endDate.getFullYear() - 1);
+        break;
       default:
-        startDate.setDate(endDate.getDate() - 30)
+        startDate.setDate(endDate.getDate() - 30);
     }
-    
+
     // Dates de comparaison
-    const compareEndDate = new Date(startDate)
-    const compareStartDate = new Date(startDate)
-    const periodDays = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-    
-    if (compareWith === 'previous') {
-      compareStartDate.setDate(compareStartDate.getDate() - periodDays)
+    const compareEndDate = new Date(startDate);
+    const compareStartDate = new Date(startDate);
+    const periodDays = Math.floor(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (compareWith === "previous") {
+      compareStartDate.setDate(compareStartDate.getDate() - periodDays);
     } else {
-      compareStartDate.setFullYear(compareStartDate.getFullYear() - 1)
-      compareEndDate.setFullYear(compareEndDate.getFullYear() - 1)
+      compareStartDate.setFullYear(compareStartDate.getFullYear() - 1);
+      compareEndDate.setFullYear(compareEndDate.getFullYear() - 1);
     }
-    
+
     // Mode rapide : récupération des données essentielles seulement
     if (quickMode) {
       const [
@@ -60,7 +65,7 @@ export async function GET(request: NextRequest) {
         totalQuoteRequests,
         paidBookings,
         // Demandes en attente
-        pendingRequests
+        pendingRequests,
       ] = await Promise.all([
         prisma.templates.count(),
         prisma.booking.count(),
@@ -69,10 +74,10 @@ export async function GET(request: NextRequest) {
           where: {
             createdAt: {
               gte: startDate,
-              lte: endDate
-            }
+              lte: endDate,
+            },
           },
-          _sum: { totalAmount: true }
+          _sum: { totalAmount: true },
         }),
         // Total devis générés
         prisma.quoteRequest.count(),
@@ -80,32 +85,34 @@ export async function GET(request: NextRequest) {
         prisma.booking.count({
           where: {
             status: {
-              in: ['PAYMENT_COMPLETED', 'COMPLETED']
-            }
-          }
+              in: ["PAYMENT_COMPLETED", "COMPLETED"],
+            },
+          },
         }),
         // Demandes en attente (QuoteRequests temporaires)
         prisma.quoteRequest.count({
           where: {
-            status: 'TEMPORARY'
-          }
-        })
-      ])
+            status: "TEMPORARY",
+          },
+        }),
+      ]);
 
       // Calcul des vrais taux
-      const conversionRate = totalQuoteRequests > 0
-        ? parseFloat(((paidBookings / totalQuoteRequests) * 100).toFixed(1))
-        : 0
+      const conversionRate =
+        totalQuoteRequests > 0
+          ? parseFloat(((paidBookings / totalQuoteRequests) * 100).toFixed(1))
+          : 0;
 
-      const recoveryRate = totalBookings > 0
-        ? parseFloat(((paidBookings / totalBookings) * 100).toFixed(1))
-        : 0
+      const recoveryRate =
+        totalBookings > 0
+          ? parseFloat(((paidBookings / totalBookings) * 100).toFixed(1))
+          : 0;
 
-      console.log('🔍 DEBUG API Stats:', {
+      console.log("🔍 DEBUG API Stats:", {
         totalCustomers,
         totalBookings,
         monthlyRevenue: currentPeriodRevenue._sum.totalAmount,
-        period: { startDate, endDate }
+        period: { startDate, endDate },
       });
 
       return Response.json({
@@ -113,12 +120,14 @@ export async function GET(request: NextRequest) {
         data: {
           totalCustomers,
           totalBookings,
-          monthlyRevenue: parseFloat((currentPeriodRevenue._sum.totalAmount || 0).toFixed(2)),
+          monthlyRevenue: parseFloat(
+            (currentPeriodRevenue._sum.totalAmount || 0).toFixed(2),
+          ),
           conversionRate,
           recoveryRate,
-          pendingRequests
-        }
-      })
+          pendingRequests,
+        },
+      });
     }
 
     // Mode complet : récupération de toutes les données
@@ -150,7 +159,7 @@ export async function GET(request: NextRequest) {
       totalQuoteRequestsComplete,
       paidBookingsComplete,
       // Demandes en attente (mode complet)
-      pendingRequestsComplete
+      pendingRequestsComplete,
     ] = await Promise.all([
       // Totaux généraux
       prisma.templates.count(),
@@ -162,18 +171,18 @@ export async function GET(request: NextRequest) {
         where: {
           createdAt: {
             gte: startDate,
-            lte: endDate
-          }
-        }
+            lte: endDate,
+          },
+        },
       }),
       prisma.booking.aggregate({
         where: {
           createdAt: {
             gte: startDate,
-            lte: endDate
-          }
+            lte: endDate,
+          },
         },
-        _sum: { totalAmount: true }
+        _sum: { totalAmount: true },
       }),
 
       // Période de comparaison
@@ -181,30 +190,30 @@ export async function GET(request: NextRequest) {
         where: {
           createdAt: {
             gte: compareStartDate,
-            lte: compareEndDate
-          }
-        }
+            lte: compareEndDate,
+          },
+        },
       }),
       prisma.booking.aggregate({
         where: {
           createdAt: {
             gte: compareStartDate,
-            lte: compareEndDate
-          }
+            lte: compareEndDate,
+          },
         },
-        _sum: { totalAmount: true }
+        _sum: { totalAmount: true },
       }),
 
       // Répartition par type de service
       prisma.booking.groupBy({
-        by: ['type'],
+        by: ["type"],
         _count: { id: true },
         _sum: { totalAmount: true },
-        _avg: { totalAmount: true }
+        _avg: { totalAmount: true },
       }),
       prisma.templates.groupBy({
-        by: ['type'],
-        _count: { id: true }
+        by: ["type"],
+        _count: { id: true },
       }),
 
       // Top templates les plus utilisés (basé sur items dans bookings)
@@ -217,36 +226,36 @@ export async function GET(request: NextRequest) {
                   Booking: {
                     createdAt: {
                       gte: startDate,
-                      lte: endDate
-                    }
-                  }
-                }
-              }
-            }
-          }
+                      lte: endDate,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
         orderBy: {
           items: {
-            _count: 'desc'
-          }
+            _count: "desc",
+          },
         },
-        take: 10
+        take: 10,
       }),
 
       // Activité récente (dernières réservations)
       prisma.booking.findMany({
         where: {
           createdAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-          }
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          },
         },
         include: {
           Customer: {
-            select: { id: true, firstName: true, lastName: true }
-          }
+            select: { id: true, firstName: true, lastName: true },
+          },
         },
-        orderBy: { createdAt: 'desc' },
-        take: 20
+        orderBy: { createdAt: "desc" },
+        take: 20,
       }),
 
       // Données pour calcul des taux (mode complet)
@@ -254,74 +263,95 @@ export async function GET(request: NextRequest) {
       prisma.booking.count({
         where: {
           status: {
-            in: ['PAYMENT_COMPLETED', 'COMPLETED']
-          }
-        }
+            in: ["PAYMENT_COMPLETED", "COMPLETED"],
+          },
+        },
       }),
       // Demandes en attente (QuoteRequests temporaires - mode complet)
       prisma.quoteRequest.count({
         where: {
-          status: 'TEMPORARY'
-        }
-      })
-    ])
-    
-    // Calcul des pourcentages de variation
-    const bookingsGrowth = comparePeriodBookings > 0
-      ? ((currentPeriodBookings - comparePeriodBookings) / comparePeriodBookings * 100).toFixed(1)
-      : currentPeriodBookings > 0 ? '100.0' : '0.0'
+          status: "TEMPORARY",
+        },
+      }),
+    ]);
 
-    const revenueGrowth = (comparePeriodRevenue._sum.totalAmount || 0) > 0
-      ? (((currentPeriodRevenue._sum.totalAmount || 0) - (comparePeriodRevenue._sum.totalAmount || 0)) / (comparePeriodRevenue._sum.totalAmount || 0) * 100).toFixed(1)
-      : (currentPeriodRevenue._sum.totalAmount || 0) > 0 ? '100.0' : '0.0'
+    // Calcul des pourcentages de variation
+    const bookingsGrowth =
+      comparePeriodBookings > 0
+        ? (
+            ((currentPeriodBookings - comparePeriodBookings) /
+              comparePeriodBookings) *
+            100
+          ).toFixed(1)
+        : currentPeriodBookings > 0
+          ? "100.0"
+          : "0.0";
+
+    const revenueGrowth =
+      (comparePeriodRevenue._sum.totalAmount || 0) > 0
+        ? (
+            (((currentPeriodRevenue._sum.totalAmount || 0) -
+              (comparePeriodRevenue._sum.totalAmount || 0)) /
+              (comparePeriodRevenue._sum.totalAmount || 0)) *
+            100
+          ).toFixed(1)
+        : (currentPeriodRevenue._sum.totalAmount || 0) > 0
+          ? "100.0"
+          : "0.0";
 
     // Calcul des vrais taux pour le mode complet
-    const conversionRateComplete = totalQuoteRequestsComplete > 0
-      ? parseFloat(((paidBookingsComplete / totalQuoteRequestsComplete) * 100).toFixed(1))
-      : 0
+    const conversionRateComplete =
+      totalQuoteRequestsComplete > 0
+        ? parseFloat(
+            ((paidBookingsComplete / totalQuoteRequestsComplete) * 100).toFixed(
+              1,
+            ),
+          )
+        : 0;
 
-    const recoveryRateComplete = totalBookings > 0
-      ? parseFloat(((paidBookingsComplete / totalBookings) * 100).toFixed(1))
-      : 0
-    
+    const recoveryRateComplete =
+      totalBookings > 0
+        ? parseFloat(((paidBookingsComplete / totalBookings) * 100).toFixed(1))
+        : 0;
+
     // Calcul des tendances par jour
-    const dailyTrends = []
+    const dailyTrends = [];
     for (let i = 0; i < periodDays; i++) {
-      const date = new Date(startDate)
-      date.setDate(date.getDate() + i)
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
 
-      const dayStart = new Date(date)
-      dayStart.setHours(0, 0, 0, 0)
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
 
-      const dayEnd = new Date(date)
-      dayEnd.setHours(23, 59, 59, 999)
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
 
       const dayBookings = await prisma.booking.count({
         where: {
           createdAt: {
             gte: dayStart,
-            lte: dayEnd
-          }
-        }
-      })
+            lte: dayEnd,
+          },
+        },
+      });
 
       const dayRevenue = await prisma.booking.aggregate({
         where: {
           createdAt: {
             gte: dayStart,
-            lte: dayEnd
-          }
+            lte: dayEnd,
+          },
         },
-        _sum: { totalAmount: true }
-      })
+        _sum: { totalAmount: true },
+      });
 
       dailyTrends.push({
-        date: date.toISOString().split('T')[0],
+        date: date.toISOString().split("T")[0],
         bookings: dayBookings,
-        revenue: parseFloat((dayRevenue._sum.totalAmount || 0).toFixed(2))
-      })
+        revenue: parseFloat((dayRevenue._sum.totalAmount || 0).toFixed(2)),
+      });
     }
-    
+
     // Compilation des résultats
     const stats = {
       overview: {
@@ -331,16 +361,24 @@ export async function GET(request: NextRequest) {
         period: {
           start: startDate.toISOString(),
           end: endDate.toISOString(),
-          days: periodDays
-        }
+          days: periodDays,
+        },
       },
-      
+
       currentPeriod: {
         bookings: currentPeriodBookings,
-        revenue: parseFloat((currentPeriodRevenue._sum.totalAmount || 0).toFixed(2)),
-        avgOrderValue: currentPeriodBookings > 0
-          ? parseFloat(((currentPeriodRevenue._sum.totalAmount || 0) / currentPeriodBookings).toFixed(2))
-          : 0.00
+        revenue: parseFloat(
+          (currentPeriodRevenue._sum.totalAmount || 0).toFixed(2),
+        ),
+        avgOrderValue:
+          currentPeriodBookings > 0
+            ? parseFloat(
+                (
+                  (currentPeriodRevenue._sum.totalAmount || 0) /
+                  currentPeriodBookings
+                ).toFixed(2),
+              )
+            : 0.0,
       },
 
       comparison: {
@@ -348,54 +386,58 @@ export async function GET(request: NextRequest) {
         bookings: {
           current: currentPeriodBookings,
           previous: comparePeriodBookings,
-          growth: bookingsGrowth + '%',
-          isPositive: parseFloat(bookingsGrowth) >= 0
+          growth: bookingsGrowth + "%",
+          isPositive: parseFloat(bookingsGrowth) >= 0,
         },
         revenue: {
-          current: parseFloat((currentPeriodRevenue._sum.totalAmount || 0).toFixed(2)),
-          previous: parseFloat((comparePeriodRevenue._sum.totalAmount || 0).toFixed(2)),
-          growth: revenueGrowth + '%',
-          isPositive: parseFloat(revenueGrowth) >= 0
-        }
+          current: parseFloat(
+            (currentPeriodRevenue._sum.totalAmount || 0).toFixed(2),
+          ),
+          previous: parseFloat(
+            (comparePeriodRevenue._sum.totalAmount || 0).toFixed(2),
+          ),
+          growth: revenueGrowth + "%",
+          isPositive: parseFloat(revenueGrowth) >= 0,
+        },
       },
 
       breakdown: {
-        byServiceType: bookingsByType.map(type => ({
+        byServiceType: bookingsByType.map((type) => ({
           serviceType: type.type,
           count: type._count.id,
           totalRevenue: parseFloat((type._sum.totalAmount || 0).toFixed(2)),
-          avgAmount: parseFloat((type._avg.totalAmount || 0).toFixed(2))
+          avgAmount: parseFloat((type._avg.totalAmount || 0).toFixed(2)),
         })),
-        templatesByType: templatesByType.map(type => ({
+        templatesByType: templatesByType.map((type) => ({
           type: type.type,
-          count: type._count.id
-        }))
+          count: type._count.id,
+        })),
       },
 
-      topTemplates: topTemplates.map(template => ({
+      topTemplates: topTemplates.map((template) => ({
         id: template.id,
         name: template.name,
         type: template.type,
         price: template.price,
         bookingsCount: template._count.items,
         isActive: template.is_active,
-        isPopular: template.popular
+        isPopular: template.popular,
       })),
 
-      recentActivity: recentActivity.map(booking => ({
+      recentActivity: recentActivity.map((booking) => ({
         id: booking.id,
         type: booking.type,
         totalAmount: booking.totalAmount,
         status: booking.status,
         createdAt: booking.createdAt,
-        customer: booking.Customer
+        customer: booking.Customer,
       })),
-      
+
       trends: {
-        daily: dailyTrends
-      }
-    }
-    
+        daily: dailyTrends,
+      },
+    };
+
     return Response.json({
       success: true,
       data: {
@@ -405,15 +447,17 @@ export async function GET(request: NextRequest) {
         conversionRate: conversionRateComplete,
         recoveryRate: recoveryRateComplete,
         pendingRequests: pendingRequestsComplete,
-        detailed: stats
-      }
-    })
-    
+        detailed: stats,
+      },
+    });
   } catch (error) {
-    console.error('Erreur API /api/admin/stats:', error)
+    console.error("Erreur API /api/admin/stats:", error);
     return Response.json(
-      { success: false, error: 'Erreur lors de la récupération des statistiques' },
-      { status: 500 }
-    )
+      {
+        success: false,
+        error: "Erreur lors de la récupération des statistiques",
+      },
+      { status: 500 },
+    );
   }
-} 
+}
