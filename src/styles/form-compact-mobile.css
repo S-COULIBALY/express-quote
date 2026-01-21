@@ -90,6 +90,24 @@
   padding-right: 40px !important;
 }
 
+/* FIX CRITIQUE POUR INPUT DATE : Forcer la largeur et éviter la compression */
+.form-compact-fields.form-compact-fields .form-generator input[type="date"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 0% !important;
+  box-sizing: border-box !important;
+  /* Empêcher le débordement du texte */
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  /* S'assurer que le padding est respecté */
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  /* Empêcher le redimensionnement automatique */
+  resize: none !important;
+}
+
 /* TABLETTE+ (640px) */
 @media (min-width: 640px) {
   .form-compact-fields.form-compact-fields .form-generator input:not([type="checkbox"]):not([type="radio"]),

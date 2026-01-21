@@ -188,12 +188,32 @@ export const FormField: React.FC<FormFieldProps> = ({
       case "text":
       case "email":
       case "password":
-      case "date":
         return (
           <input
             type={field.type}
             {...commonProps}
             {...registerProps}
+            onChange={(e) => {
+              registerProps.onChange(e); // Appeler le onChange de register
+              handleChange(e); // Appeler notre gestionnaire personnalisé
+            }}
+            value={value !== undefined && value !== null ? String(value) : ""} // Utiliser value contrôlée
+          />
+        );
+
+      case "date":
+        return (
+          <input
+            type="date"
+            {...commonProps}
+            {...registerProps}
+            className={`${cleanInputClasses} w-full`}
+            style={{
+              width: "100%",
+              maxWidth: "100%",
+              minWidth: 0,
+              boxSizing: "border-box",
+            }}
             onChange={(e) => {
               registerProps.onChange(e); // Appeler le onChange de register
               handleChange(e); // Appeler notre gestionnaire personnalisé
