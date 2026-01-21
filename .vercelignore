@@ -4,9 +4,8 @@
 # Cache webpack Next.js (très volumineux)
 .next/cache/
 
-# Données Redis locales
-data/
-data/redis/
+# Données Redis locales (uniquement à la racine)
+/data/redis/
 
 # Dossier git
 .git/

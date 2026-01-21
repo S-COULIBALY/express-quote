@@ -4,24 +4,6 @@ const nextConfig = {
   env: {
     SKIP_DB_CONNECT: process.env.NODE_ENV === 'production' && process.env.VERCEL ? 'true' : undefined,
   },
-  // Exclure les fichiers volumineux des fonctions serverless
-  outputFileTracingExcludes: {
-    '*': [
-      '.git/**',
-      '.next/cache/**',
-      'data/**',
-      'storage/**',
-      'docs/**',
-      'src/__tests__/**',
-      '**/*.test.ts',
-      '**/*.test.tsx',
-      '**/*.spec.ts',
-      '**/*.spec.tsx',
-      'coverage/**',
-      '.nyc_output/**',
-      'public/images/formulaire-devis-capture.png',
-    ],
-  },
   images: {
     remotePatterns: [
       {
@@ -45,6 +27,14 @@ const nextConfig = {
     optimizeCss: true,
     optimizePackageImports: ['@heroicons/react', '@headlessui/react'],
     serverComponentsExternalPackages: ['react-dom/server'],
+    // Exclure les fichiers volumineux des fonctions serverless
+    outputFileTracingExcludes: {
+      '*': [
+        './data/redis/**',
+        './storage/**',
+        './.git/**',
+      ],
+    },
   },
   eslint: {
     ignoreDuringBuilds: true,
