@@ -32,9 +32,6 @@ docs/
 *.backup
 *.bak
 
-# Images de développement volumineuses
-public/images/formulaire-devis-capture.png
-
 # Autres fichiers inutiles en production
 coverage/
 .nyc_output/
