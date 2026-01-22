@@ -495,6 +495,120 @@
 }
 
 /* =============================================================================
+   FIX CRITIQUE WEBKIT/SAFARI - INPUT DATE HAUTEUR RÉDUITE
+   Bug WebKit #198959: input[type=date] avec valeur vide a une hauteur réduite
+   https://bugs.webkit.org/show_bug.cgi?id=198959
+   ============================================================================= */
+
+/* Fix 1: Cibler les pseudo-éléments WebKit internes du champ date */
+.form-compact-fields input[type="date"]::-webkit-datetime-edit,
+.form-compact-fields .form-generator input[type="date"]::-webkit-datetime-edit {
+  line-height: 1.5 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.form-compact-fields input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.form-compact-fields .form-generator input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.form-compact-fields input[type="date"]::-webkit-datetime-edit-text,
+.form-compact-fields .form-generator input[type="date"]::-webkit-datetime-edit-text {
+  padding: 0 2px !important;
+}
+
+.form-compact-fields input[type="date"]::-webkit-datetime-edit-month-field,
+.form-compact-fields input[type="date"]::-webkit-datetime-edit-day-field,
+.form-compact-fields input[type="date"]::-webkit-datetime-edit-year-field,
+.form-compact-fields .form-generator input[type="date"]::-webkit-datetime-edit-month-field,
+.form-compact-fields .form-generator input[type="date"]::-webkit-datetime-edit-day-field,
+.form-compact-fields .form-generator input[type="date"]::-webkit-datetime-edit-year-field {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Fix 2: Forcer le comportement textfield pour Safari (évite inline-flex) */
+/* IMPORTANT: Utiliser height fixe au lieu de min-height pour garantir uniformité */
+.form-compact-fields input[type="date"],
+.form-compact-fields .form-generator input[type="date"],
+.form-compact-fields .grid input[type="date"] {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  display: block !important;
+  /* CRITIQUE: Hauteur FIXE pour garantir même taille que les autres inputs */
+  height: 52px !important;
+  min-height: 52px !important;
+  max-height: 52px !important;
+  line-height: 52px !important;
+  /* Alignement vertical du texte */
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  /* Empêcher Safari de redimensionner */
+  box-sizing: border-box !important;
+}
+
+/* Fix 3: Tablette+ - Ajuster la hauteur */
+@media (min-width: 640px) {
+  .form-compact-fields input[type="date"],
+  .form-compact-fields .form-generator input[type="date"],
+  .form-compact-fields .grid input[type="date"] {
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    line-height: 42px !important;
+  }
+}
+
+/* Fix 4: Masquer les contrôles de navigation Safari iOS (< >) qui affectent la hauteur */
+.form-compact-fields input[type="date"]::-webkit-date-and-time-value,
+.form-compact-fields .form-generator input[type="date"]::-webkit-date-and-time-value {
+  text-align: left !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Fix 5: Icône calendrier WebKit - S'assurer qu'elle est visible et cliquable */
+.form-compact-fields input[type="date"]::-webkit-calendar-picker-indicator,
+.form-compact-fields .form-generator input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer !important;
+  opacity: 1 !important;
+  padding: 4px !important;
+  margin: 0 !important;
+  /* Positionner l'icône pour ne pas affecter la hauteur */
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+/* Fix 6: Conteneur relatif pour le positionnement de l'icône */
+.form-compact-fields .grid .relative:has(input[type="date"]),
+.form-compact-fields .form-generator .relative:has(input[type="date"]) {
+  position: relative !important;
+}
+
+/* Fix 7: S'assurer que le SELECT a la même hauteur fixe */
+.form-compact-fields.form-compact-fields .form-generator select,
+.form-compact-fields.form-compact-fields .grid select {
+  height: 52px !important;
+  min-height: 52px !important;
+  max-height: 52px !important;
+  line-height: 1.5 !important;
+}
+
+@media (min-width: 640px) {
+  .form-compact-fields.form-compact-fields .form-generator select,
+  .form-compact-fields.form-compact-fields .grid select {
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+  }
+}
+
+/* =============================================================================
    CONTENEUR DE CHAMPS - OVERFLOW
    ============================================================================= */
 

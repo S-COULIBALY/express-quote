@@ -4,13 +4,11 @@
 
 ### Problème observé
 
-Le champ `input[type="date"]` ("Date souhaitée") s'affiche **correctement en local** mais **incorrectement en production Vercel**, spécifiquement sur les **petits écrans mobiles**.
+Le champ `input[type="date"]` ("Date souhaitée") s'affiche **correctement en local** mais **incorrectement en production Vercel**, spécifiquement sur les **petits écrans (mobiles)**.
 
 **Symptômes en production** :
 
 - Hauteur du champ réduite (environ la moitié des autres champs)
-- Texte tronqué ("22 janv. 2026" → seul "22" visible)
-- Padding insuffisant
 - Affichage compressé dans les grilles à 2 colonnes
 
 **Comportement en local** :
@@ -300,10 +298,75 @@ Le problème **persiste en production Vercel** sur les petits écrans mobiles.
 
 **Recommandation** : Explorer les solutions potentielles listées ci-dessus, en commençant par désactiver temporairement `optimizeCss` pour isoler la cause.
 
+## ✅ SOLUTIONS APPLIQUÉES (2026-01-22)
+
+### 1. Désactivation de `optimizeCss` ✅
+
+**Fichier modifié** : `next.config.js`
+
+```js
+experimental: {
+  // DÉSACTIVÉ: optimizeCss cause des problèmes avec input[type="date"] sur mobile en production
+  // Critters (utilisé par optimizeCss) ne supporte pas bien l'App Router et peut supprimer/réordonner des styles
+  // optimizeCss: true,
+}
+```
+
+**Raison** : Critters (utilisé par `optimizeCss`) ne supporte pas le streaming de l'App Router et peut incorrectement modifier/supprimer les styles CSS en production.
+
+### 2. Fixes WebKit/Safari pour pseudo-éléments ✅
+
+**Fichier modifié** : `src/styles/form-compact-mobile.css`
+
+Ajout de styles ciblant les pseudo-éléments WebKit internes du champ date :
+
+- `::-webkit-datetime-edit` - Conteneur de la valeur
+- `::-webkit-datetime-edit-fields-wrapper` - Wrapper des champs
+- `::-webkit-calendar-picker-indicator` - Icône calendrier
+
+```css
+/* Fix WebKit - Bug #198959 */
+.form-compact-fields input[type="date"]::-webkit-datetime-edit {
+  line-height: 1.5 !important;
+  padding: 0 !important;
+}
+
+/* Forcer display block au lieu de inline-flex (comportement Safari) */
+.form-compact-fields input[type="date"] {
+  -webkit-appearance: textfield !important;
+  display: block !important;
+}
+```
+
+### 3. Styles inline améliorés ✅
+
+**Fichier modifié** : `src/components/form-generator/components/FormField.tsx`
+
+Ajout des propriétés CSS pour contourner le bug Safari :
+
+- `display: "block"` - Évite le `inline-flex` de Safari
+- `WebkitAppearance: "textfield"` - Force le comportement standard
+- `lineHeight: 1.5` - Garantit une hauteur cohérente
+
+### 4. Valeur par défaut pour le champ date ✅
+
+**Fichier modifié** : `src/components/form-generator/presets/demenagement-sur-mesure-service/index.ts`
+
+Le champ `dateSouhaitee` a maintenant une valeur par défaut (date du jour + 7 jours) pour éviter le bug WebKit où un input date vide a une hauteur réduite.
+
+```ts
+const getDefaultDate = (): string => {
+  const date = new Date();
+  date.setDate(date.getDate() + 7);
+  return date.toISOString().split("T")[0];
+};
+```
+
 ## 📅 Historique
 
 - **2026-01-22** : Création du document après échec de toutes les tentatives de correction
 - **2026-01-22** : 5 tentatives de correction effectuées sans succès en production
+- **2026-01-22** : **SOLUTIONS APPLIQUÉES** - Désactivation optimizeCss + Fixes WebKit + Valeur par défaut
 
 ## 🔗 Références
 

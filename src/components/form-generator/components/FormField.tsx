@@ -215,13 +215,26 @@ export const FormField: React.FC<FormFieldProps> = ({
               boxSizing: "border-box",
               // CRITIQUE : Styles inline pour garantir l'application en production Vercel
               // Ces styles sont prioritaires et ne peuvent pas être écrasés par la minification CSS
-              padding: "12px 16px",
+              paddingLeft: "16px",
+              paddingRight: "16px",
+              paddingTop: "0",
+              paddingBottom: "0",
+              // FIX HAUTEUR: Utiliser hauteur FIXE pour garantir même taille que select
+              height: "52px",
               minHeight: "52px",
-              height: "auto",
+              maxHeight: "52px",
               fontSize: "16px",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
+              // FIX WEBKIT/SAFARI: Bug #198959 - input date avec valeur vide a hauteur réduite
+              // Forcer display block et appearance none (pas textfield) pour Safari
+              display: "block",
+              WebkitAppearance: "none",
+              MozAppearance: "none",
+              appearance: "none" as any,
+              // Centrer verticalement le texte avec line-height égal à height
+              lineHeight: "52px",
             }}
             onChange={(e) => {
               registerProps.onChange(e); // Appeler le onChange de register

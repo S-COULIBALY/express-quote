@@ -24,7 +24,10 @@ const nextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   experimental: {
-    optimizeCss: true,
+    // DÉSACTIVÉ: optimizeCss cause des problèmes avec input[type="date"] sur mobile en production
+    // Critters (utilisé par optimizeCss) ne supporte pas bien l'App Router et peut supprimer/réordonner des styles
+    // Voir: docs/PROBLEME_CHAMP_DATE_PRODUCTION_VERCEL.md
+    // optimizeCss: true,
     optimizePackageImports: ['@heroicons/react', '@headlessui/react'],
     serverComponentsExternalPackages: ['react-dom/server'],
     // Exclure les fichiers volumineux des fonctions serverless
