@@ -462,9 +462,13 @@
 
 @media (max-width: 640px) {
   .form-compact-fields .form-generator label.absolute {
-    font-size: 9px !important;
-    padding: 0 3px !important;
-    line-height: 1.2 !important;
+    font-size: 0.625rem !important; /* 10px - Cohérent avec le style général */
+    padding: 0 0.25rem !important; /* Cohérent avec le style général */
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    max-width: calc(100% - 1.5rem) !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   .form-compact-fields .form-generator ::placeholder {
@@ -540,18 +544,23 @@
   left: 0.75rem !important;
   background-color: white !important;
   padding: 0 0.25rem !important;
-  font-size: 0.75rem !important; /* 12px - Augmenté pour meilleure visibilité */
+  font-size: 0.625rem !important; /* 10px - Réduit pour éviter les retours à la ligne */
   z-index: 10 !important;
   line-height: 1 !important;
   /* S'assurer que le label est toujours visible */
   opacity: 1 !important;
   visibility: visible !important;
   color: #111827 !important; /* text-gray-900 pour meilleur contraste */
+  /* Empêcher le retour à la ligne */
+  white-space: nowrap !important;
+  max-width: calc(100% - 1.5rem) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 @media (min-width: 640px) {
   .form-compact-fields .form-generator label.absolute {
-    font-size: 0.6875rem !important; /* 11px - Augmenté pour meilleure visibilité */
+    font-size: 0.5625rem !important; /* 9px - Réduit pour éviter les retours à la ligne */
     top: -0.4rem !important;
   }
 }

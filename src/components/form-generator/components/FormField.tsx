@@ -531,7 +531,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         {shouldShowFloatingLabel && (
           <label
             htmlFor={field.name}
-            className="absolute -top-2 left-2 sm:left-3 px-1.5 sm:px-1.5 md:px-1 py-0.5 md:py-0 bg-white text-[10px] sm:text-[10px] md:text-[10px] font-medium text-gray-900 z-10"
+            className="absolute -top-2 left-2 sm:left-3 px-1.5 sm:px-1.5 md:px-1 py-0.5 md:py-0 bg-white text-[10px] sm:text-[9px] md:text-[9px] font-medium text-gray-900 z-10 whitespace-nowrap max-w-[calc(100%-1.5rem)] overflow-hidden text-ellipsis"
           >
             {labelText}
             {isRequired && <span className="text-emerald-600">*</span>}
