@@ -3,17 +3,6 @@ import { FormConfig } from "../../types";
 import { CatalogueMovingItem } from "@/types/booking";
 
 /**
- * Génère une date par défaut (aujourd'hui + 7 jours) au format YYYY-MM-DD
- * Cela évite le bug WebKit/Safari où input[type="date"] avec valeur vide a une hauteur réduite
- * Bug WebKit #198959: https://bugs.webkit.org/show_bug.cgi?id=198959
- */
-const getDefaultDate = (): string => {
-  const date = new Date();
-  date.setDate(date.getDate() + 7); // +7 jours pour une date réaliste
-  return date.toISOString().split("T")[0]; // Format YYYY-MM-DD
-};
-
-/**
  * Vérifie si le stockage temporaire est sélectionné dans les modals
  * @param formData Données du formulaire
  * @returns true si stockage temporaire (service-14) est sélectionné
@@ -98,8 +87,7 @@ export const getDemenagementSurMesureServiceConfig = (
 
     return {
       // Planification
-      // Note: Valeur par défaut pour éviter le bug WebKit/Safari (hauteur réduite avec valeur vide)
-      dateSouhaitee: getDefaultDate(),
+      dateSouhaitee: "",
       flexibilite: "",
       horaire: "",
 
@@ -988,8 +976,7 @@ import { FormSummaryConfig, PresetConfig } from "../../types";
 // 📝 Valeurs par défaut legacy pour le presetData
 export const demenagementSurMesureDefaultValues = {
   // Planification
-  // Note: Valeur par défaut pour éviter le bug WebKit/Safari (hauteur réduite avec valeur vide)
-  dateSouhaitee: getDefaultDate(),
+  dateSouhaitee: "",
   flexibilite: "",
   horaire: "",
 
