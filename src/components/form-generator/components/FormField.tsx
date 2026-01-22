@@ -213,6 +213,15 @@ export const FormField: React.FC<FormFieldProps> = ({
               maxWidth: "100%",
               minWidth: 0,
               boxSizing: "border-box",
+              // CRITIQUE : Styles inline pour garantir l'application en production Vercel
+              // Ces styles sont prioritaires et ne peuvent pas être écrasés par la minification CSS
+              padding: "12px 16px",
+              minHeight: "52px",
+              height: "auto",
+              fontSize: "16px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
             onChange={(e) => {
               registerProps.onChange(e); // Appeler le onChange de register
