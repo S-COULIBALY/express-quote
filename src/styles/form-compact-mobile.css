@@ -178,6 +178,53 @@
   width: 100% !important;
 }
 
+/* FIX CRITIQUE : Éléments dans les grilles - Forcer la largeur complète */
+.form-compact-fields .grid > * {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  /* Empêcher la compression dans les grilles */
+  overflow: hidden !important;
+}
+
+/* FIX CRITIQUE : Conteneurs .relative dans les grilles */
+.form-compact-fields .grid .relative {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  /* Empêcher la compression dans les grilles */
+  overflow: visible !important;
+}
+
+/* FIX CRITIQUE : INPUT DATE dans les grilles - Forcer la largeur et éviter la compression */
+.form-compact-fields .grid input[type="date"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 0% !important;
+  box-sizing: border-box !important;
+  /* Empêcher le débordement du texte */
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  /* S'assurer que le padding est respecté */
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  /* Empêcher le redimensionnement automatique */
+  resize: none !important;
+}
+
+/* FIX CRITIQUE : SELECT dans les grilles - Forcer la largeur et éviter la compression */
+.form-compact-fields .grid select {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 0% !important;
+  box-sizing: border-box !important;
+}
+
 /* =============================================================================
    COMPOSANT WHATSAPP - ÉVITER L'ÉTIREMENT
    ============================================================================= */
