@@ -51,7 +51,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
   const [showRecommendationDetails, setShowRecommendationDetails] =
     useState(false);
   const [expandedScenario, setExpandedScenario] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("fr-FR", {
@@ -133,11 +133,31 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
       case "included":
         return "✅";
       case "optional":
-        return "⭕";
+        return "⚙️";
       case "disabled":
         return "❌";
       case "conditional":
         return "⭕*";
+      default:
+        return "";
+    }
+  };
+
+  const getRecommendationMessage = (scenarioId: string): string => {
+    switch (scenarioId) {
+      case "ECO":
+        return "Vous gérez vous-même l'emballage";
+      case "STANDARD":
+        return "On s'occupe de l'essentiel pour vous";
+      case "CONFORT":
+        return "On prend tout en charge, vous vous détendez";
+      case "PREMIUM":
+        return "Tout est géré, vous n'avez rien à faire";
+      case "SECURITY_PLUS":
+      case "SECURITY":
+        return "Protection totale, zéro stress";
+      case "FLEX":
+        return "Adapté 100% à vos contraintes, sans effort";
       default:
         return "";
     }
@@ -186,131 +206,160 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
 
   return (
     <div className="space-y-3 p-3 sm:p-0 md:p-0">
-      {/* En-tête avec toggle vue - Sticky sur mobile */}
+      {/* En-tête - Sticky sur mobile */}
       <div className="sticky top-[108px] sm:static z-20 bg-white pb-2 sm:pb-0 border-b border-gray-200 sm:border-0 mb-2 sm:mb-0 -mx-3 sm:mx-0 px-3 sm:px-0 pt-2 sm:pt-0 -mt-3 sm:mt-0 shadow-sm sm:shadow-none relative">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 md:gap-0">
-          <div className="text-center sm:text-left flex-1 w-full sm:w-auto">
-            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-0.5">
-              🎯 Choisissez votre formule
-            </h3>
-            <p className="text-xs sm:text-sm text-gray-600">
-              {comparison.priceRange.min > 0 &&
-                comparison.priceRange.max > 0 && (
-                  <>
-                    Prix de {formatPrice(comparison.priceRange.min)} à{" "}
-                    {formatPrice(comparison.priceRange.max)}
-                  </>
-                )}
-            </p>
-          </div>
-          {/* Toggle vue */}
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end sm:ml-4">
-            <button
-              onClick={() => setViewMode("cards")}
-              className={`px-2.5 py-1.5 sm:px-2.5 md:px-2 sm:py-1 md:py-1 text-xs sm:text-xs md:text-sm rounded transition-colors min-h-[36px] sm:min-h-[32px] md:min-h-auto ${
-                viewMode === "cards"
-                  ? "bg-emerald-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-            >
-              📋 Cartes
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`px-2.5 py-1.5 sm:px-2.5 md:px-2 sm:py-1 md:py-1 text-xs sm:text-xs md:text-sm rounded transition-colors min-h-[36px] sm:min-h-[32px] md:min-h-auto ${
-                viewMode === "table"
-                  ? "bg-emerald-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-            >
-              📊 Tableau
-            </button>
-          </div>
+        <div className="text-center sm:text-left">
+          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-0.5">
+            🎯 Choisissez votre formule
+          </h3>
+          <p className="text-xs sm:text-sm text-gray-600">
+            {comparison.priceRange.min > 0 && comparison.priceRange.max > 0 && (
+              <>
+                Prix de {formatPrice(comparison.priceRange.min)} à{" "}
+                {formatPrice(comparison.priceRange.max)}
+              </>
+            )}
+          </p>
         </div>
       </div>
 
       {/* Bandeau de recommandation intelligente - Défile normalement */}
       {hasSmartRecommendation && comparison.recommended && (
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-3 sm:p-3 md:p-4 relative z-0">
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-2 sm:p-2.5 md:p-3 relative z-0">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-lg sm:text-xl flex-shrink-0">🎯</span>
-                <span className="font-semibold text-emerald-800 text-xs sm:text-sm md:text-base">
-                  Adaptée à votre situation : La Formule{" "}
-                  {quotes.find((q) => q.scenarioId === comparison.recommended)
-                    ?.label || comparison.recommended}
-                </span>
-                {confidenceBadge && (
-                  <span
-                    className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${confidenceBadge.className}`}
-                  >
-                    {confidenceBadge.text}
+              {/* Message simplifié sur petits écrans */}
+              <div className="sm:hidden">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base flex-shrink-0">🎯</span>
+                  <span className="font-semibold text-emerald-800 text-[11px] leading-tight">
+                    6 formules adaptées à votre situation. Choisissez celle qui
+                    vous convient le mieux.
                   </span>
-                )}
+                </div>
               </div>
 
-              {/* Raisons principales */}
-              <div className="text-xs sm:text-sm text-emerald-700 ml-0 sm:ml-7 mt-1 sm:mt-0">
-                <p className="leading-relaxed">
-                  {comparison.recommendedReasons &&
-                  comparison.recommendedReasons.length > 0
-                    ? `Voici les raisons: ${comparison.recommendedReasons.slice(0, showRecommendationDetails ? undefined : 2).join(". ")}${comparison.recommendedReasons.length > 2 && !showRecommendationDetails ? "..." : ""}`
-                    : "Recommandé pour votre situation"}
-                </p>
-              </div>
-
-              {/* Bouton voir plus/moins */}
-              {(comparison.recommendedReasons?.length || 0) > 2 && (
-                <button
-                  onClick={() =>
-                    setShowRecommendationDetails(!showRecommendationDetails)
-                  }
-                  className="text-[10px] sm:text-xs text-emerald-600 hover:text-emerald-800 mt-1 ml-0 sm:ml-7 underline"
-                >
-                  {showRecommendationDetails
-                    ? "Voir moins"
-                    : `+ ${(comparison.recommendedReasons?.length || 0) - 2} autres raisons`}
-                </button>
-              )}
-
-              {/* Alternative */}
-              {comparison.alternative &&
-                comparison.alternativeReasons &&
-                showRecommendationDetails && (
-                  <div className="mt-2 pt-2 border-t border-emerald-200">
-                    <div className="text-xs sm:text-sm text-emerald-600">
-                      <span className="font-medium">Alternative : </span>
+              {/* Message détaillé sur desktop */}
+              <div className="hidden sm:block">
+                <div className="flex items-start gap-1.5 mb-0.5">
+                  <span className="text-base sm:text-lg flex-shrink-0 mt-0.5">
+                    🎯
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-emerald-800 text-xs sm:text-xs md:text-sm leading-tight">
+                      Parmis les 6 propositions de prix adaptée à votre
+                      situation : La Formule{" "}
                       {quotes.find(
-                        (q) => q.scenarioId === comparison.alternative,
-                      )?.label || comparison.alternative}
-                      <ul className="mt-1 space-y-0.5 ml-4">
-                        {comparison.alternativeReasons.map((reason, index) => (
-                          <li
-                            key={index}
-                            className="flex items-start gap-1 text-emerald-500"
-                          >
-                            <span>•</span>
-                            <span>{reason}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                        (q) => q.scenarioId === comparison.recommended,
+                      )?.label || comparison.recommended}{" "}
+                      semble la meilleure option pour vous.
+                    </span>
+                    {confidenceBadge && (
+                      <span
+                        className={`ml-2 text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center ${confidenceBadge.className}`}
+                      >
+                        {confidenceBadge.text}
+                      </span>
+                    )}
                   </div>
+                </div>
+
+                {/* Raisons principales */}
+                <div className="text-[10px] sm:text-xs text-emerald-700 ml-0 sm:ml-6 mt-0.5">
+                  <p className="leading-snug">
+                    {comparison.recommendedReasons &&
+                    comparison.recommendedReasons.length > 0
+                      ? `Voici les raisons: ${comparison.recommendedReasons.slice(0, showRecommendationDetails ? undefined : 2).join(". ")}${comparison.recommendedReasons.length > 2 && !showRecommendationDetails ? "..." : ""}`
+                      : "Recommandé pour votre situation"}
+                  </p>
+                </div>
+
+                {/* Bouton voir plus/moins */}
+                {(comparison.recommendedReasons?.length || 0) > 2 && (
+                  <button
+                    onClick={() =>
+                      setShowRecommendationDetails(!showRecommendationDetails)
+                    }
+                    className="text-[9px] sm:text-[10px] text-emerald-600 hover:text-emerald-800 mt-0.5 ml-0 sm:ml-6 underline"
+                  >
+                    {showRecommendationDetails
+                      ? "Voir moins"
+                      : `+ ${(comparison.recommendedReasons?.length || 0) - 2} autres raisons`}
+                  </button>
                 )}
+
+                {/* Alternative */}
+                {comparison.alternative &&
+                  comparison.alternativeReasons &&
+                  showRecommendationDetails && (
+                    <div className="mt-1.5 pt-1.5 border-t border-emerald-200">
+                      <div className="text-[10px] sm:text-xs text-emerald-600">
+                        <span className="font-medium">Alternative : </span>
+                        {quotes.find(
+                          (q) => q.scenarioId === comparison.alternative,
+                        )?.label || comparison.alternative}
+                        <ul className="mt-0.5 space-y-0.5 ml-4">
+                          {comparison.alternativeReasons.map(
+                            (reason, index) => (
+                              <li
+                                key={index}
+                                className="flex items-start gap-1 text-emerald-500"
+                              >
+                                <span>•</span>
+                                <span>{reason}</span>
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Toggle vue - Juste après la recommandation */}
+      <div className="flex items-center justify-center gap-2 -mx-3 sm:mx-0 px-3 sm:px-0">
+        <button
+          onClick={() => setViewMode("table")}
+          className={`px-2.5 py-1.5 sm:px-2.5 md:px-2 sm:py-1 md:py-1 text-xs sm:text-xs md:text-sm rounded transition-colors min-h-[36px] sm:min-h-[32px] md:min-h-auto ${
+            viewMode === "table"
+              ? "bg-emerald-600 text-white"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+        >
+          📊 Tableau
+        </button>
+        <button
+          onClick={() => setViewMode("cards")}
+          className={`px-2.5 py-1.5 sm:px-2.5 md:px-2 sm:py-1 md:py-1 text-xs sm:text-xs md:text-sm rounded transition-colors min-h-[36px] sm:min-h-[32px] md:min-h-auto ${
+            viewMode === "cards"
+              ? "bg-emerald-600 text-white"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+        >
+          📋 Cartes
+        </button>
+      </div>
+
       {/* Mode Tableau Comparatif */}
       {viewMode === "table" && (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto -mx-3 sm:mx-0">
-            <table className="w-full text-xs sm:text-xs md:text-sm border-collapse min-w-[600px]">
+          {/* Indicateur de scroll horizontal sur mobile */}
+          <div className="sm:hidden bg-blue-50 border-b border-blue-200 px-3 py-2 text-center">
+            <p className="text-[10px] text-blue-700 flex items-center justify-center gap-1">
+              <span>👈</span>
+              <span>Faites glisser pour voir toutes les formules</span>
+              <span>👉</span>
+            </p>
+          </div>
+          <div className="overflow-x-auto -mx-3 sm:mx-0 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+            <table className="w-full text-[10px] sm:text-xs md:text-sm border-collapse min-w-[500px] sm:min-w-[600px]">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="text-left p-2 sm:p-2 md:p-3 border-b border-gray-500 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-10">
+                  <th className="text-left p-1.5 sm:p-2 md:p-3 border-b border-gray-500 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-30 min-w-[90px] sm:min-w-[100px] pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                     Service
                   </th>
                   {sortedQuotes.map((quote) => {
@@ -321,16 +370,16 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                         onClick={() =>
                           !isCalculating && onSelectOffer?.(quote.scenarioId)
                         }
-                        className={`text-center p-2 sm:p-2 md:p-3 border-b border-gray-500 font-semibold cursor-pointer transition-colors ${
+                        className={`text-center p-1 sm:p-2 md:p-3 border-b border-gray-500 font-semibold cursor-pointer transition-colors min-w-[70px] sm:min-w-[90px] ${
                           isSelected
                             ? "bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
                             : "text-gray-700 hover:bg-gray-100"
                         } ${isCalculating ? "opacity-50 pointer-events-none" : ""}`}
                       >
-                        <div className="flex flex-col items-center gap-1 sm:gap-1.5">
+                        <div className="flex flex-col items-center gap-0.5 sm:gap-1 md:gap-1.5">
                           {/* Checkbox visible par défaut */}
                           <div
-                            className={`flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded border-2 flex-shrink-0 ${
+                            className={`flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded border-2 flex-shrink-0 ${
                               isSelected
                                 ? "bg-emerald-500 border-emerald-500"
                                 : "bg-white border-gray-600"
@@ -338,7 +387,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                           >
                             {isSelected && (
                               <svg
-                                className="w-3 h-3 sm:w-4 sm:h-4 text-white"
+                                className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 text-white"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -352,18 +401,18 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                               </svg>
                             )}
                           </div>
-                          <span className="text-base sm:text-lg">
+                          <span className="text-sm sm:text-base md:text-lg leading-none">
                             {getScenarioIcon(quote.scenarioId)}
                           </span>
-                          <span className="text-xs sm:text-sm">
+                          <span className="text-[9px] sm:text-xs md:text-sm leading-tight line-clamp-2 text-center">
                             {quote.label}
                           </span>
-                          <span className="text-[10px] sm:text-xs font-normal text-gray-600">
+                          <span className="text-[9px] sm:text-[10px] md:text-xs font-normal text-gray-600 leading-tight">
                             {formatPrice(quote.pricing.finalPrice)}
                           </span>
                           {isSelected && (
-                            <span className="bg-emerald-600 text-white text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap">
-                              ✓ Sélectionné
+                            <span className="bg-emerald-600 text-white text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1 py-0.5 rounded-full whitespace-nowrap mt-0.5">
+                              ✓
                             </span>
                           )}
                         </div>
@@ -373,13 +422,49 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                 </tr>
               </thead>
               <tbody>
+                {/* Ligne Recommandations */}
+                <tr className="bg-emerald-50 border-b-2 border-emerald-200">
+                  <td className="p-1.5 sm:p-2 md:p-3 border-b border-gray-400 font-semibold text-emerald-900 sticky left-0 bg-emerald-50 z-30 text-[10px] sm:text-xs md:text-sm min-w-[90px] sm:min-w-[100px] pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+                    <span className="flex items-center gap-1">
+                      <span>🎯</span>
+                      <span className="hidden sm:inline">Recommandations</span>
+                      <span className="sm:hidden">Recommandé</span>
+                    </span>
+                  </td>
+                  {sortedQuotes.map((quote) => {
+                    const isSelected = quote.scenarioId === selectedScenario;
+                    const recommendationMessage = getRecommendationMessage(
+                      quote.scenarioId,
+                    );
+                    return (
+                      <td
+                        key={quote.scenarioId}
+                        className={`text-center p-1.5 sm:p-2 md:p-3 border-b border-gray-400 min-w-[70px] sm:min-w-[90px] ${
+                          isSelected
+                            ? "bg-emerald-100 font-semibold"
+                            : "bg-white"
+                        }`}
+                      >
+                        <span
+                          className={`text-[8px] sm:text-[9px] md:text-[10px] leading-tight px-1 italic ${
+                            isSelected
+                              ? "text-emerald-700 font-semibold"
+                              : "text-gray-600"
+                          }`}
+                        >
+                          {recommendationMessage}
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
                 {allServices.map((service) => (
                   <tr key={service.id} className="hover:bg-gray-50">
-                    <td className="p-2 sm:p-2 md:p-3 border-b border-gray-400 font-medium text-gray-900 sticky left-0 bg-white z-10 text-xs sm:text-sm">
+                    <td className="p-1.5 sm:p-2 md:p-3 border-b border-gray-400 font-medium text-gray-900 sticky left-0 bg-white z-30 text-[10px] sm:text-xs md:text-sm min-w-[90px] sm:min-w-[100px] pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                       {service.id === "furniture-lift" ? (
                         <div className="group relative">
-                          <span>{service.label}</span>
-                          <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-20">
+                          <span className="line-clamp-2">{service.label}</span>
+                          <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-40">
                             <div className="bg-gray-900 text-white text-[10px] sm:text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
                               Recommandé automatiquement si étage ≥3 ou ≥5
                               <div className="absolute top-full left-4 border-4 border-transparent border-t-gray-900" />
@@ -387,7 +472,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                           </div>
                         </div>
                       ) : (
-                        service.label
+                        <span className="line-clamp-2">{service.label}</span>
                       )}
                     </td>
                     {sortedQuotes.map((quote) => {
@@ -398,7 +483,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                       return (
                         <td
                           key={quote.scenarioId}
-                          className={`text-center p-2 sm:p-2 md:p-3 border-b border-gray-400 ${
+                          className={`text-center p-1.5 sm:p-2 md:p-3 border-b border-gray-400 min-w-[70px] sm:min-w-[90px] ${
                             quote.scenarioId === selectedScenario
                               ? "bg-emerald-50"
                               : ""
@@ -406,7 +491,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                         >
                           {status ? (
                             <span
-                              className="text-base sm:text-lg"
+                              className="text-sm sm:text-base md:text-lg inline-block"
                               title={
                                 status === "included"
                                   ? "Inclus d'office"
@@ -420,7 +505,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                               {getServiceStatusIcon(status)}
                             </span>
                           ) : (
-                            <span className="text-gray-300">-</span>
+                            <span className="text-gray-300 text-xs">-</span>
                           )}
                         </td>
                       );
@@ -428,18 +513,48 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-gray-50">
+                  <td className="p-2 sm:p-2 md:p-3 border-t border-gray-500 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-30 text-[10px] sm:text-xs md:text-sm pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+                    <span className="hidden sm:inline">Sélectionner</span>
+                    <span className="sm:hidden">Sélection</span>
+                  </td>
+                  {sortedQuotes.map((quote) => {
+                    const isSelected = quote.scenarioId === selectedScenario;
+                    return (
+                      <td
+                        key={quote.scenarioId}
+                        className="p-2 sm:p-2 md:p-3 border-t border-gray-500 text-center"
+                      >
+                        <button
+                          onClick={() =>
+                            !isCalculating && onSelectOffer?.(quote.scenarioId)
+                          }
+                          disabled={isCalculating}
+                          className={`w-full px-1 sm:px-3 md:px-4 py-1 sm:py-2 md:py-2.5 text-[8px] sm:text-[10px] md:text-xs font-semibold rounded transition-all duration-200 leading-tight ${
+                            isSelected
+                              ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          } ${isCalculating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                        >
+                          {isSelected ? `✓ ${quote.label}` : quote.label}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tfoot>
             </table>
           </div>
-          <div className="p-3 sm:p-3 md:p-4 bg-gray-50 border-t border-gray-500">
-            <div className="text-[10px] sm:text-xs text-gray-600 space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span>
-                  <strong>Légende :</strong>
-                </span>
-                <span>✅ Inclus d'office</span>
-                <span>⭕ Disponible en option</span>
-                <span>❌ Non disponible</span>
-                <span>⭕* Conditionnel technique</span>
+          <div className="p-2 sm:p-3 md:p-4 bg-gray-50 border-t border-gray-500">
+            <div className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 space-y-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className="font-semibold">Légende :</span>
+                <span>✅ Inclus</span>
+                <span>⚙️ Option</span>
+                <span>❌ Non dispo</span>
+                <span className="hidden sm:inline">⭕* Conditionnel</span>
+                <span className="sm:hidden">⭕* Cond.</span>
               </div>
             </div>
           </div>
@@ -671,7 +786,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                     {scenarioServices.optional.length > 0 && (
                       <div>
                         <div className="text-[9px] font-semibold text-gray-600 mb-1">
-                          ⭕ Disponible en option :
+                          ⚙️ Disponible en option :
                         </div>
                         <ul className="text-[9px] text-gray-500 space-y-0.5">
                           {scenarioServices.optional.map((service) => (
