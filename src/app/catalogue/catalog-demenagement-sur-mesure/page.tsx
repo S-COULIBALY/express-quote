@@ -656,7 +656,10 @@ export default function DemenagementSurMesurePage() {
                 <div className="lg:sticky lg:top-4">
                   {/* Sur mobile : padding horizontal pour le contenu, mais pas de padding sur le conteneur parent */}
                   {/* Styles externalisés dans @/styles/form-compact-mobile.css pour éviter les problèmes de minification Vercel */}
-                  <div className="bg-white border-t border-b sm:border sm:rounded-lg border-gray-200 shadow-sm p-3 sm:p-4 md:p-4 lg:p-4 form-compact-fields">
+                  <div
+                    id="form-compact-fields"
+                    className="bg-white border-t border-b sm:border sm:rounded-lg border-gray-200 shadow-sm p-3 sm:p-4 md:p-4 lg:p-4 form-compact-fields"
+                  >
                     <FormGenerator
                       ref={formRef}
                       config={{

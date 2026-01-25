@@ -183,9 +183,10 @@ export const FormStylesSimplified: React.FC<FormStylesSimplifiedProps> = ({
       }
 
       /* Titres de section plus compacts sur mobile */
-      .form-generator .form-section-title,
-      .form-generator .form-section h2,
-      .form-generator .form-section h3 {
+      /* EXCLURE form-compact-fields qui a ses propres styles optimisés */
+      .form-generator:not(.form-compact-fields) .form-section-title,
+      .form-generator:not(.form-compact-fields) .form-section h2,
+      .form-generator:not(.form-compact-fields) .form-section h3 {
         font-size: 14px !important;
         line-height: 1.25 !important;
       }

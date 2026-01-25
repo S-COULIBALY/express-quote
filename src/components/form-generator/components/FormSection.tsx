@@ -20,11 +20,9 @@ export const FormSection: React.FC<FormSectionProps> = ({
   errors,
   formData,
   onFieldChange,
-  layoutType
+  layoutType,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(
-    section.defaultExpanded ?? true
-  );
+  const [isExpanded, setIsExpanded] = useState(section.defaultExpanded ?? true);
 
   const toggleExpanded = () => {
     if (section.collapsible) {
@@ -32,35 +30,79 @@ export const FormSection: React.FC<FormSectionProps> = ({
     }
   };
 
-  // Déterminer le nombre de colonnes : 
+  // Déterminer le nombre de colonnes :
   // - Si section.columns est défini, l'utiliser
   // - Sinon, si on est en mode sidebar, utiliser 2 colonnes par défaut
   // - Sinon, utiliser 1 colonne
-  const effectiveColumns = section.columns ?? (layoutType === "sidebar" ? 2 : 1);
+  const effectiveColumns =
+    section.columns ?? (layoutType === "sidebar" ? 2 : 1);
 
   return (
-    <div className={`space-y-8 sm:space-y-6 md:space-y-4 ${section.className || ""}`}>
+    <div
+      className={`space-y-4 sm:space-y-5 md:space-y-6 ${section.className || ""}`}
+    >
       {/* En-tête de section */}
       {(section.title || section.description) && (
-        <div className="border-b border-gray-200 pb-1 sm:pb-3">
+        <div className="border-b border-gray-200 pb-1 sm:pb-2 md:pb-3">
           {section.title && (
-            <div 
-              className={`flex items-center justify-between ${
-                section.collapsible ? "cursor-pointer" : ""
-              }`}
+            <div
+              className={`flex items-center ${section.collapsible ? "cursor-pointer" : ""}`}
               onClick={toggleExpanded}
+              style={{
+                width: "100%",
+                minWidth: 0,
+                position: "relative",
+                justifyContent: section.collapsible
+                  ? "space-between"
+                  : "flex-start",
+                gap: 0,
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "nowrap", // Empêcher le wrap
+              }}
             >
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+              <h3
+                className="text-xs sm:text-sm md:text-base font-semibold leading-tight whitespace-nowrap overflow-hidden text-ellipsis"
+                style={
+                  {
+                    color: "#111827",
+                    fontWeight: 600,
+                    flex: "1 1 0%", // flex-grow: 1, flex-shrink: 1, flex-basis: 0% (prendre l'espace disponible)
+                    minWidth: 0, // Permettre au flex de se rétrécir si nécessaire
+                    width: "auto", // Largeur automatique basée sur flex
+                    maxWidth: "100%",
+                    paddingRight: 0,
+                    display: "block",
+                    visibility: "visible",
+                    opacity: 1,
+                    boxSizing: "border-box",
+                  } as React.CSSProperties
+                }
+              >
                 {section.title}
               </h3>
               {section.collapsible && (
                 <button
                   type="button"
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                  aria-label={isExpanded ? "Réduire la section" : "Développer la section"}
+                  className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+                  aria-label={
+                    isExpanded ? "Réduire la section" : "Développer la section"
+                  }
+                  style={{
+                    flexShrink: 0,
+                    flexGrow: 0,
+                    width: "auto",
+                    minWidth: "auto",
+                    maxWidth: "none",
+                    marginLeft: "8px",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleExpanded();
+                  }}
                 >
                   <svg
-                    className={`w-5 h-5 transform transition-transform ${
+                    className={`w-4 h-4 sm:w-5 sm:h-5 transform transition-transform ${
                       isExpanded ? "rotate-180" : ""
                     }`}
                     fill="none"
@@ -88,19 +130,24 @@ export const FormSection: React.FC<FormSectionProps> = ({
 
       {/* Champs de la section */}
       {isExpanded && (
-        <div className={`${
-          effectiveColumns === 3
-            ? "grid grid-cols-3 gap-x-2 gap-y-6 sm:gap-4"
-            : effectiveColumns === 2
-              ? "grid grid-cols-2 gap-x-2 gap-y-6 sm:gap-4"
-              : layoutType === "default"
-                ? "space-y-6 sm:space-y-4 w-full max-w-full"
-                : "space-y-6 sm:space-y-4 max-w-md"
-        }`}>
+        <div
+          className={`${
+            effectiveColumns === 3
+              ? "grid grid-cols-3 gap-x-2 gap-y-6 sm:gap-4"
+              : effectiveColumns === 2
+                ? "grid grid-cols-2 gap-x-2 gap-y-6 sm:gap-4"
+                : layoutType === "default"
+                  ? "space-y-6 sm:space-y-4 w-full max-w-full"
+                  : "space-y-6 sm:space-y-4 max-w-md"
+          }`}
+        >
           {section.fields.map((field, index) => {
             // Vérifier les conditions d'affichage
             const shouldShow = field.conditional
-              ? field.conditional.condition(formData?.[field.conditional.dependsOn], formData)
+              ? field.conditional.condition(
+                  formData?.[field.conditional.dependsOn],
+                  formData,
+                )
               : true;
 
             if (!shouldShow) {
@@ -121,11 +168,13 @@ export const FormSection: React.FC<FormSectionProps> = ({
                   return "col-span-1"; // Une colonne
                 } else {
                   // Par défaut, les textarea, adresses et whatsapp-consent prennent toute la largeur
-                  return field.type === "textarea" || 
-                         field.type === "address-pickup" || 
-                         field.type === "address-delivery" ||
-                         field.type === "whatsapp-consent"
-                    ? (effectiveColumns === 3 ? "col-span-3" : "col-span-2")
+                  return field.type === "textarea" ||
+                    field.type === "address-pickup" ||
+                    field.type === "address-delivery" ||
+                    field.type === "whatsapp-consent"
+                    ? effectiveColumns === 3
+                      ? "col-span-3"
+                      : "col-span-2"
                     : "col-span-1";
                 }
               }
@@ -136,7 +185,9 @@ export const FormSection: React.FC<FormSectionProps> = ({
               <div
                 key={field.name}
                 className={`${getFieldClasses()} ${
-                  field.type === "whatsapp-consent" ? "min-w-0 overflow-hidden" : ""
+                  field.type === "whatsapp-consent"
+                    ? "min-w-0 overflow-hidden"
+                    : ""
                 }`}
               >
                 <FormField
@@ -156,4 +207,4 @@ export const FormSection: React.FC<FormSectionProps> = ({
       )}
     </div>
   );
-}; 
+};

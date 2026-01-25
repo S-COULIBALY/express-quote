@@ -639,6 +639,21 @@
   min-width: 0 !important;
 }
 
+/* FIX : Conteneur des titres de sections collapsibles - Garantir la largeur */
+.form-compact-fields .form-section > div.border-b {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.form-compact-fields .form-section > div.border-b > div.flex {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
 /* Empêcher le débordement horizontal */
 .form-compact-fields {
   overflow-x: hidden !important;
@@ -724,18 +739,22 @@
    TITRES DE SECTIONS
    ============================================================================= */
 
-/* MOBILE */
+/* MOBILE - Taille réduite pour permettre l'affichage complet avec ellipsis */
 .form-compact-fields h3,
 .form-compact-fields .section-title {
-  font-size: 18px !important;
+  font-size: 14px !important; /* text-sm - Augmenté pour meilleure visibilité */
   margin-bottom: 16px !important;
+  line-height: 1.5 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #111827 !important;
 }
 
 /* TABLETTE+ */
 @media (min-width: 640px) {
   .form-compact-fields h3,
   .form-compact-fields .section-title {
-    font-size: 16px !important;
+    font-size: 14px !important; /* text-sm */
     margin-bottom: 12px !important;
   }
 }
@@ -744,7 +763,82 @@
 @media (min-width: 1024px) {
   .form-compact-fields h3,
   .form-compact-fields .section-title {
-    font-size: 14px !important;
+    font-size: 16px !important; /* text-base */
     margin-bottom: 10px !important;
+  }
+}
+
+/* FIX : Garantir que les titres de sections collapsibles affichent l'ellipsis correctement */
+/* CORRECTION : Le sélecteur ne correspondait pas - il n'y a pas de classe .form-section */
+/* Structure réelle : #form-compact-fields > ... > div.border-b > div.flex > h3 */
+/* Utiliser ID pour spécificité maximale (1, 0, 0) - S'applique à TOUS les écrans */
+#form-compact-fields div.border-b > div.flex {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important; /* Pousser les chevrons à droite */
+  width: 100% !important;
+  min-width: 0 !important;
+  /* S'assurer que le conteneur a une largeur suffisante */
+  box-sizing: border-box !important;
+  gap: 0 !important; /* Supprimer le gap pour maximiser l'espace */
+  flex-wrap: nowrap !important; /* Empêcher le wrap */
+}
+
+/* S'assurer que le button chevron est bien positionné à droite sur TOUS les écrans */
+#form-compact-fields div.border-b > div.flex > button {
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important; /* Ne pas grandir */
+  width: auto !important; /* Largeur basée sur le contenu */
+  min-width: auto !important;
+  max-width: none !important;
+  margin-left: 8px !important; /* Petit espacement entre le titre et le chevron */
+}
+
+/* FIX CRITIQUE : Garantir que le h3 a une largeur minimale sur TOUS les écrans */
+/* FORCER la largeur pour éviter width: 0px - Utiliser flex-basis au lieu de width */
+#form-compact-fields div.border-b > div.flex > h3 {
+  flex: 1 1 0% !important; /* flex-grow: 1, flex-shrink: 1, flex-basis: 0% (prendre l'espace disponible) */
+  min-width: 0 !important; /* Permettre au flex de se rétrécir si nécessaire */
+  width: auto !important; /* Largeur automatique basée sur flex */
+  max-width: 100% !important; /* Ne pas dépasser la largeur du conteneur */
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #111827 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+/* MOBILE UNIQUEMENT : S'assurer que le conteneur flex parent a bien toute la largeur */
+/* CORRECTION : Utiliser le bon sélecteur sans .form-section */
+@media (max-width: 1023px) {
+  #form-compact-fields div.border-b > div.flex {
+    display: flex !important; /* S'assurer que display: flex est bien appliqué */
+    align-items: center !important;
+    justify-content: space-between !important; /* Pousser les chevrons à droite sur mobile */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    gap: 0 !important; /* Supprimer le gap pour maximiser l'espace sur mobile */
+  }
+}
+
+/* =============================================================================
+   FIX CRITIQUE MOBILE : Titres de sections collapsibles invisibles sur mobile
+   ============================================================================= */
+
+/* MOBILE UNIQUEMENT (< 1024px) : Styles supplémentaires pour mobile */
+/* CORRECTION : Utiliser le bon sélecteur sans .form-section */
+@media (max-width: 1023px) {
+  /* Les styles de base sont déjà définis ci-dessus pour tous les écrans */
+  /* Ici on peut ajouter des ajustements spécifiques mobile si nécessaire */
+  
+  /* S'assurer que le button chevron est bien positionné à droite sur mobile */
+  #form-compact-fields div.border-b > div.flex > button {
+    flex-shrink: 0 !important;
+    margin-left: 8px !important; /* Petit espacement entre le titre et le chevron */
   }
 }

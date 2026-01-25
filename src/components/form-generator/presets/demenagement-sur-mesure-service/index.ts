@@ -845,6 +845,8 @@ export const getDemenagementSurMesureServiceConfig = (
 
       {
         title: "📝 Informations supplémentaires",
+        collapsible: true,
+        defaultExpanded: false,
         fields: [
           {
             name: "additionalInfo",
@@ -862,6 +864,8 @@ export const getDemenagementSurMesureServiceConfig = (
 
       {
         title: "📱 Notifications",
+        collapsible: true,
+        defaultExpanded: false,
         fields: [
           {
             name: "whatsappOptIn",
