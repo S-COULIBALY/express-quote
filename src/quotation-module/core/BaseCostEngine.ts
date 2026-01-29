@@ -39,33 +39,53 @@
  * - Arrêt nuit (OvernightStop)
  */
 
-import { QuoteContext } from './QuoteContext';
-import { QuoteModule } from './QuoteModule';
-import { createEmptyComputedContext } from './ComputedContext';
-import { devLog } from '@/lib/conditional-logger';
+import { QuoteContext } from "./QuoteContext";
+import { QuoteModule } from "./QuoteModule";
+import { createEmptyComputedContext } from "./ComputedContext";
+import { devLog } from "@/lib/conditional-logger";
 
 /**
  * Liste des modules de base (coûts opérationnels purs)
+ *
+ * ARCHITECTURE :
+ * - Ces modules calculent le VRAI coût opérationnel du déménagement
+ * - Toutes les contraintes d'accès sont incluses (étage, ascenseur, rue étroite, etc.)
+ * - Le monte-meubles ANNULE les pénalités d'étage (logique métier réelle)
+ * - MultiQuoteService ajoute ensuite les SERVICES du catalogue (emballage, nettoyage, etc.)
  */
 const BASE_COST_MODULES = [
   // PHASE 1 - Normalisation
-  'input-sanitization',
-  'date-validation',
-  'address-normalization',
+  "input-sanitization",
+  "date-validation",
+  "address-normalization",
 
   // PHASE 2 - Volume
-  'volume-estimation',
+  "volume-estimation",
 
   // PHASE 3 - Distance & Transport
-  'distance-calculation',
-  'long-distance-threshold',
-  'fuel-cost',
-  'toll-cost',
+  "distance-calculation",
+  "long-distance-threshold",
+  "fuel-cost",
+  "toll-cost",
+
+  // PHASE 4 - Contraintes d'accès (NOUVEAU)
+  // Ces contraintes sont des coûts RÉELS qui s'appliquent à TOUS les scénarios
+  "no-elevator-pickup", // Détection absence ascenseur départ
+  "no-elevator-delivery", // Détection absence ascenseur arrivée
+  "navette-required", // Navette si rue étroite/zone piétonne
+  "traffic-idf", // Surcoût trafic IDF (heures de pointe)
+
+  // PHASE 5 - Monte-meubles et pénalités d'étage (NOUVEAU)
+  // Logique métier : le monte-meubles ANNULE les pénalités d'étage
+  "monte-meubles-recommendation", // Recommande monte-meubles si nécessaire
+  "furniture-lift-cost", // Coût du monte-meubles (si accepté)
+  "floor-penalty-cost", // Pénalités d'étage (ANNULÉES si monte-meubles)
 
   // PHASE 6 - Main d'œuvre de base
-  'vehicle-selection',
-  'workers-calculation',
-  'labor-base',
+  "vehicle-selection",
+  "workers-calculation",
+  "labor-base",
+  "labor-access-penalty", // Pénalités accès (distance portage, etc.)
 ];
 
 /**
@@ -73,8 +93,8 @@ const BASE_COST_MODULES = [
  * car ils varient selon le scénario et seront recalculés
  */
 const VARIABLE_COST_MODULES = [
-  'workers-calculation', // Nombre de déménageurs varie selon ECO/STANDARD
-  'labor-base',          // Coût main d'œuvre dépend du nombre de déménageurs
+  "workers-calculation", // Nombre de déménageurs varie selon ECO/STANDARD
+  "labor-base", // Coût main d'œuvre dépend du nombre de déménageurs
 ];
 
 export interface BaseCostResult {
@@ -147,109 +167,147 @@ export class BaseCostEngine {
 
     // Vérifier les modules manquants
     const foundModuleIds = baseModules.map((m) => m.id);
-    const missingModules = BASE_COST_MODULES.filter((id) => !foundModuleIds.includes(id));
+    const missingModules = BASE_COST_MODULES.filter(
+      (id) => !foundModuleIds.includes(id),
+    );
 
-    console.log('\n🔧 CALCUL DU COÛT DE BASE (OPÉRATIONNEL)');
-    console.log('═══════════════════════════════════════════════');
-    console.log(`Modules à exécuter: ${baseModules.length}/${BASE_COST_MODULES.length}`);
-    console.log(`   ${baseModules.map((m) => m.id).join(', ')}`);
+    console.log("\n🔧 CALCUL DU COÛT DE BASE (OPÉRATIONNEL)");
+    console.log("═══════════════════════════════════════════════");
+    console.log(
+      `Modules à exécuter: ${baseModules.length}/${BASE_COST_MODULES.length}`,
+    );
+    console.log(`   ${baseModules.map((m) => m.id).join(", ")}`);
     if (missingModules.length > 0) {
-      console.log(`   ⚠️ Modules manquants dans le registre: ${missingModules.join(', ')}`);
+      console.log(
+        `   ⚠️ Modules manquants dans le registre: ${missingModules.join(", ")}`,
+      );
     }
-    console.log('');
+    console.log("");
 
     // 3. Exécuter séquentiellement les modules de base
     const executedModules: { id: string; duration: number }[] = [];
     const skippedModules: { id: string; reason: string }[] = [];
 
-    for (const module of baseModules) {
+    for (const quoteModule of baseModules) {
       const startTime = Date.now();
 
       try {
         // Vérifier les prérequis avec raison détaillée
-        const prereqResult = this.checkPrerequisites(module, enrichedCtx);
+        const prereqResult = this.checkPrerequisites(quoteModule, enrichedCtx);
         if (!prereqResult.satisfied) {
-          console.log(`⏭️  [${module.id}] Ignoré: ${prereqResult.reason}`);
-          skippedModules.push({ id: module.id, reason: prereqResult.reason });
+          console.log(`⏭️  [${quoteModule.id}] Ignoré: ${prereqResult.reason}`);
+          skippedModules.push({
+            id: quoteModule.id,
+            reason: prereqResult.reason,
+          });
           continue;
         }
 
         // Vérifier les dépendances avec raison détaillée
-        const depResult = this.checkDependencies(module, enrichedCtx);
+        const depResult = this.checkDependencies(quoteModule, enrichedCtx);
         if (!depResult.satisfied) {
-          console.log(`⏭️  [${module.id}] Ignoré: ${depResult.reason}`);
-          skippedModules.push({ id: module.id, reason: depResult.reason });
+          console.log(`⏭️  [${quoteModule.id}] Ignoré: ${depResult.reason}`);
+          skippedModules.push({ id: quoteModule.id, reason: depResult.reason });
           continue;
         }
 
-        console.log(`\n▶️  [${module.id}] Exécution (priorité ${module.priority})`);
+        console.log(
+          `\n▶️  [${quoteModule.id}] Exécution (priorité ${quoteModule.priority})`,
+        );
 
         // Exécuter le module
-        enrichedCtx = module.apply(enrichedCtx);
+        enrichedCtx = quoteModule.apply(enrichedCtx);
 
         // Ajouter à la traçabilité
         if (
           enrichedCtx.computed &&
-          !enrichedCtx.computed.activatedModules.includes(module.id)
+          !enrichedCtx.computed.activatedModules.includes(quoteModule.id)
         ) {
-          enrichedCtx.computed.activatedModules.push(module.id);
+          enrichedCtx.computed.activatedModules.push(quoteModule.id);
         }
 
         const duration = Date.now() - startTime;
-        executedModules.push({ id: module.id, duration });
-        console.log(`   ✅ [${module.id}] Terminé (${duration}ms)`);
+        executedModules.push({ id: quoteModule.id, duration });
+        console.log(`   ✅ [${quoteModule.id}] Terminé (${duration}ms)`);
       } catch (error) {
         // PHASE 1 : Erreur critique → arrêt
-        if (module.priority >= 10 && module.priority < 20) {
+        if (quoteModule.priority >= 10 && quoteModule.priority < 20) {
           throw new Error(
-            `[BaseCostEngine] Erreur critique PHASE 1 (module ${module.id}): ${
-              error instanceof Error ? error.message : 'Erreur inconnue'
-            }`
+            `[BaseCostEngine] Erreur critique PHASE 1 (module ${quoteModule.id}): ${
+              error instanceof Error ? error.message : "Erreur inconnue"
+            }`,
           );
         }
 
         // Autres phases : Continuer (résilience)
-        devLog.warn('BaseCostEngine', `⚠️ Erreur dans module ${module.id}`, {
-          error: error instanceof Error ? error.message : 'Erreur inconnue',
+        devLog.warn(
+          "BaseCostEngine",
+          `⚠️ Erreur dans module ${quoteModule.id}`,
+          {
+            error: error instanceof Error ? error.message : "Erreur inconnue",
+          },
+        );
+        skippedModules.push({
+          id: quoteModule.id,
+          reason: `erreur: ${error instanceof Error ? error.message : "inconnue"}`,
         });
-        skippedModules.push({ id: module.id, reason: `erreur: ${error instanceof Error ? error.message : 'inconnue'}` });
       }
     }
 
     // Récapitulatif de l'exécution
-    console.log('\n📋 RÉCAPITULATIF EXÉCUTION MODULES DE BASE:');
-    console.log(`   ✅ Exécutés: ${executedModules.length} (${executedModules.map(m => m.id).join(', ')})`);
+    console.log("\n📋 RÉCAPITULATIF EXÉCUTION MODULES DE BASE:");
+    console.log(
+      `   ✅ Exécutés: ${executedModules.length} (${executedModules.map((m) => m.id).join(", ")})`,
+    );
     if (skippedModules.length > 0) {
       console.log(`   ⏭️  Ignorés: ${skippedModules.length}`);
-      skippedModules.forEach(m => {
+      skippedModules.forEach((m) => {
         console.log(`      → [${m.id}] ${m.reason}`);
       });
     }
-    const totalDuration = executedModules.reduce((sum, m) => sum + m.duration, 0);
+    const totalDuration = executedModules.reduce(
+      (sum, m) => sum + m.duration,
+      0,
+    );
     console.log(`   ⏱️  Durée totale: ${totalDuration}ms`);
 
     // 4. Calculer le coût de base total
     // IMPORTANT: Exclure les coûts des modules variables (recalculés par scénario)
     const costs = enrichedCtx.computed?.costs || [];
-    const fixedCosts = costs.filter((c) => !VARIABLE_COST_MODULES.includes(c.moduleId));
-    const variableCosts = costs.filter((c) => VARIABLE_COST_MODULES.includes(c.moduleId));
+    const fixedCosts = costs.filter(
+      (c) => !VARIABLE_COST_MODULES.includes(c.moduleId),
+    );
+    const variableCosts = costs.filter((c) =>
+      VARIABLE_COST_MODULES.includes(c.moduleId),
+    );
     const baseCost = fixedCosts.reduce((sum, c) => sum + c.amount, 0);
-    const variableCostTotal = variableCosts.reduce((sum, c) => sum + c.amount, 0);
+    const variableCostTotal = variableCosts.reduce(
+      (sum, c) => sum + c.amount,
+      0,
+    );
 
     // 5. Construire le breakdown
     const breakdown = this.buildBreakdown(enrichedCtx);
 
     // 6. Log récapitulatif
-    console.log('\n📊 RÉCAPITULATIF COÛT DE BASE:');
+    console.log("\n📊 RÉCAPITULATIF COÛT DE BASE:");
     console.log(`   Volume estimé: ${breakdown.volume.adjustedVolume} m³`);
     console.log(`   Distance: ${breakdown.distance.km} km`);
     console.log(`   Carburant: ${breakdown.transport.fuel.toFixed(2)}€`);
     console.log(`   Péages: ${breakdown.transport.tolls.toFixed(2)}€`);
     console.log(`   Véhicule: ${breakdown.transport.vehicle.toFixed(2)}€`);
-    console.log(`   Main d'œuvre (référence): ${breakdown.labor.cost.toFixed(2)}€ (${breakdown.labor.workers} pers. × ${breakdown.labor.hours.toFixed(1)}h)`);
-    console.log(`      ⚠️ Coût variable: recalculé par scénario (ECO: max 2, STANDARD: 50%)`);
-    console.log(`\n💰 COÛT OPÉRATIONNEL FIXE (baseCost): ${baseCost.toFixed(2)}€`);
-    console.log(`   (exclu du baseCost: ${variableCostTotal.toFixed(2)}€ de main d'œuvre variable)\n`);
+    console.log(
+      `   Main d'œuvre (référence): ${breakdown.labor.cost.toFixed(2)}€ (${breakdown.labor.workers} pers. × ${breakdown.labor.hours.toFixed(1)}h)`,
+    );
+    console.log(
+      `      ⚠️ Coût variable: recalculé par scénario (ECO: max 2, STANDARD: 50%)`,
+    );
+    console.log(
+      `\n💰 COÛT OPÉRATIONNEL FIXE (baseCost): ${baseCost.toFixed(2)}€`,
+    );
+    console.log(
+      `   (exclu du baseCost: ${variableCostTotal.toFixed(2)}€ de main d'œuvre variable)\n`,
+    );
 
     return {
       baseCost,
@@ -262,17 +320,20 @@ export class BaseCostEngine {
   /**
    * Construit le breakdown des coûts par catégorie
    */
-  private buildBreakdown(ctx: QuoteContext): BaseCostResult['breakdown'] {
+  private buildBreakdown(ctx: QuoteContext): BaseCostResult["breakdown"] {
     const costs = ctx.computed?.costs || [];
 
     // Extraire les coûts par module
-    const fuelCost = costs.find((c) => c.moduleId === 'fuel-cost')?.amount || 0;
-    const tollCost = costs.find((c) => c.moduleId === 'toll-cost')?.amount || 0;
-    const vehicleCost = costs.find((c) => c.moduleId === 'vehicle-selection')?.amount || 0;
-    const laborCost = costs.find((c) => c.moduleId === 'labor-base')?.amount || 0;
+    const fuelCost = costs.find((c) => c.moduleId === "fuel-cost")?.amount || 0;
+    const tollCost = costs.find((c) => c.moduleId === "toll-cost")?.amount || 0;
+    const vehicleCost =
+      costs.find((c) => c.moduleId === "vehicle-selection")?.amount || 0;
+    const laborCost =
+      costs.find((c) => c.moduleId === "labor-base")?.amount || 0;
 
     // Extraire les métadonnées
-    const laborMeta = costs.find((c) => c.moduleId === 'labor-base')?.metadata || {};
+    const laborMeta =
+      costs.find((c) => c.moduleId === "labor-base")?.metadata || {};
 
     return {
       volume: {
@@ -290,7 +351,7 @@ export class BaseCostEngine {
       },
       labor: {
         workers: ctx.computed?.workersCount || 2,
-        hours: (laborMeta as any).estimatedHours || 3,
+        hours: (laborMeta as { estimatedHours?: number }).estimatedHours || 3,
         cost: laborCost,
       },
     };
@@ -301,28 +362,28 @@ export class BaseCostEngine {
    */
   private checkDependencies(
     module: QuoteModule,
-    ctx: QuoteContext
+    ctx: QuoteContext,
   ): { satisfied: boolean; reason: string } {
     if (!module.dependencies || module.dependencies.length === 0) {
-      return { satisfied: true, reason: '' };
+      return { satisfied: true, reason: "" };
     }
 
     if (!ctx.computed) {
-      return { satisfied: false, reason: 'ctx.computed non initialisé' };
+      return { satisfied: false, reason: "ctx.computed non initialisé" };
     }
 
     const missingDeps = module.dependencies.filter(
-      (depId) => !ctx.computed!.activatedModules.includes(depId)
+      (depId) => !ctx.computed!.activatedModules.includes(depId),
     );
 
     if (missingDeps.length > 0) {
       return {
         satisfied: false,
-        reason: `dépendances manquantes: [${missingDeps.join(', ')}]`,
+        reason: `dépendances manquantes: [${missingDeps.join(", ")}]`,
       };
     }
 
-    return { satisfied: true, reason: '' };
+    return { satisfied: true, reason: "" };
   }
 
   /**
@@ -330,35 +391,41 @@ export class BaseCostEngine {
    */
   private checkPrerequisites(
     module: QuoteModule,
-    ctx: QuoteContext
+    ctx: QuoteContext,
   ): { satisfied: boolean; reason: string } {
     if (!ctx.computed) {
-      return { satisfied: false, reason: 'ctx.computed non initialisé' };
+      return { satisfied: false, reason: "ctx.computed non initialisé" };
     }
 
     // Les modules de distance (sauf distance-calculation) nécessitent distanceKm
     if (
-      module.id.includes('distance') &&
-      module.id !== 'distance-calculation' &&
+      module.id.includes("distance") &&
+      module.id !== "distance-calculation" &&
       !ctx.computed.distanceKm
     ) {
-      return { satisfied: false, reason: 'distanceKm requis mais non calculé' };
+      return { satisfied: false, reason: "distanceKm requis mais non calculé" };
     }
 
     // Les modules de fuel nécessitent distanceKm
-    if (module.id.includes('fuel') && !ctx.computed.distanceKm) {
-      return { satisfied: false, reason: 'distanceKm requis pour calcul carburant' };
+    if (module.id.includes("fuel") && !ctx.computed.distanceKm) {
+      return {
+        satisfied: false,
+        reason: "distanceKm requis pour calcul carburant",
+      };
     }
 
     // Les modules de vehicle (après priorité 25) nécessitent adjustedVolume
     if (
-      module.id.includes('vehicle') &&
+      module.id.includes("vehicle") &&
       module.priority > 25 &&
       !ctx.computed.adjustedVolume
     ) {
-      return { satisfied: false, reason: 'adjustedVolume requis pour sélection véhicule' };
+      return {
+        satisfied: false,
+        reason: "adjustedVolume requis pour sélection véhicule",
+      };
     }
 
-    return { satisfied: true, reason: '' };
+    return { satisfied: true, reason: "" };
   }
 }

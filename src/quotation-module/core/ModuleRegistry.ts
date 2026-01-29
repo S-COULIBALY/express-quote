@@ -5,66 +5,67 @@
  * Organisation : Par PHASE (1-9), pas par Type (A/B/C)
  */
 
-import { QuoteModule } from './QuoteModule';
+import { QuoteModule } from "./QuoteModule";
 
 // PHASE 1 - Normalisation & Préparation (10-19)
-import { InputSanitizationModule } from '../modules/normalization/InputSanitizationModule';
-import { DateValidationModule } from '../modules/normalization/DateValidationModule';
-import { AddressNormalizationModule } from '../modules/normalization/AddressNormalizationModule';
+import { InputSanitizationModule } from "../modules/normalization/InputSanitizationModule";
+import { DateValidationModule } from "../modules/normalization/DateValidationModule";
+import { AddressNormalizationModule } from "../modules/normalization/AddressNormalizationModule";
 
 // PHASE 2 - Volume & Charge (20-29)
-import { VolumeEstimationModule } from '../modules/base/VolumeEstimationModule';
-import { VolumeUncertaintyRiskModule } from '../modules/base/VolumeUncertaintyRiskModule';
+import { VolumeEstimationModule } from "../modules/base/VolumeEstimationModule";
+import { VolumeUncertaintyRiskModule } from "../modules/base/VolumeUncertaintyRiskModule";
 
 // PHASE 3 - Distance & Transport (30-39)
-import { DistanceModule } from '../modules/costs/transport/DistanceModule';
-import { LongDistanceThresholdModule } from '../modules/costs/transport/LongDistanceThresholdModule';
-import { FuelCostModule } from '../modules/costs/transport/FuelCostModule';
-import { LongDistanceSurchargeModule } from '../modules/costs/transport/LongDistanceSurchargeModule';
-import { TollCostModule } from '../modules/costs/transport/TollCostModule';
-import { OvernightStopCostModule } from '../modules/costs/transport/OvernightStopCostModule';
+import { DistanceModule } from "../modules/costs/transport/DistanceModule";
+import { LongDistanceThresholdModule } from "../modules/costs/transport/LongDistanceThresholdModule";
+import { FuelCostModule } from "../modules/costs/transport/FuelCostModule";
+import { LongDistanceSurchargeModule } from "../modules/costs/transport/LongDistanceSurchargeModule";
+import { TollCostModule } from "../modules/costs/transport/TollCostModule";
+import { OvernightStopCostModule } from "../modules/costs/transport/OvernightStopCostModule";
 
 // PHASE 4 - Accès & Contraintes Bâtiment (40-49)
-import { NoElevatorPickupModule } from '../modules/constraints/NoElevatorPickupModule';
-import { NoElevatorDeliveryModule } from '../modules/constraints/NoElevatorDeliveryModule';
-import { NavetteRequiredModule } from '../modules/logistics/NavetteRequiredModule';
-import { TrafficIdfModule } from '../modules/logistics/TrafficIdfModule';
-import { TimeSlotSyndicModule } from '../modules/logistics/TimeSlotSyndicModule';
-import { LoadingTimeEstimationModule } from '../modules/logistics/LoadingTimeEstimationModule';
+import { NoElevatorPickupModule } from "../modules/constraints/NoElevatorPickupModule";
+import { NoElevatorDeliveryModule } from "../modules/constraints/NoElevatorDeliveryModule";
+import { NavetteRequiredModule } from "../modules/logistics/NavetteRequiredModule";
+import { TrafficIdfModule } from "../modules/logistics/TrafficIdfModule";
+import { TimeSlotSyndicModule } from "../modules/logistics/TimeSlotSyndicModule";
+import { LoadingTimeEstimationModule } from "../modules/logistics/LoadingTimeEstimationModule";
 
 // PHASE 5 - Monte-meubles CRITIQUE (50-59)
-import { MonteMeublesRecommendationModule } from '../modules/constraints/MonteMeublesRecommendationModule';
-import { MonteMeublesRefusalImpactModule } from '../modules/constraints/MonteMeublesRefusalImpactModule';
-import { FurnitureLiftCostModule } from '../modules/constraints/FurnitureLiftCostModule';
-import { ManualHandlingRiskCostModule } from '../modules/costs/risk/ManualHandlingRiskCostModule';
+import { MonteMeublesRecommendationModule } from "../modules/constraints/MonteMeublesRecommendationModule";
+import { MonteMeublesRefusalImpactModule } from "../modules/constraints/MonteMeublesRefusalImpactModule";
+import { FurnitureLiftCostModule } from "../modules/constraints/FurnitureLiftCostModule";
+import { FloorPenaltyCostModule } from "../modules/constraints/FloorPenaltyCostModule";
+import { ManualHandlingRiskCostModule } from "../modules/costs/risk/ManualHandlingRiskCostModule";
 
 // PHASE 6 - Main d'œuvre (60-69)
-import { VehicleSelectionModule } from '../modules/costs/vehicle/VehicleSelectionModule';
-import { WorkersCalculationModule } from '../modules/costs/labor/WorkersCalculationModule';
-import { LaborBaseModule } from '../modules/costs/labor/LaborBaseModule';
-import { LaborAccessPenaltyModule } from '../modules/costs/labor/LaborAccessPenaltyModule';
-import { CrewFlexibilityModule } from '../modules/costs/labor/CrewFlexibilityModule';
+import { VehicleSelectionModule } from "../modules/costs/vehicle/VehicleSelectionModule";
+import { WorkersCalculationModule } from "../modules/costs/labor/WorkersCalculationModule";
+import { LaborBaseModule } from "../modules/costs/labor/LaborBaseModule";
+import { LaborAccessPenaltyModule } from "../modules/costs/labor/LaborAccessPenaltyModule";
+import { CrewFlexibilityModule } from "../modules/costs/labor/CrewFlexibilityModule";
 
 // PHASE 7 - Assurance & Risque (70-79)
-import { DeclaredValueValidationModule } from '../modules/risk/DeclaredValueValidationModule';
-import { InsurancePremiumModule } from '../modules/risk/InsurancePremiumModule';
-import { HighValueItemHandlingModule } from '../modules/risk/HighValueItemHandlingModule';
-import { CoOwnershipRulesModule } from '../modules/legal/CoOwnershipRulesModule';
-import { NeighborhoodDamageRiskModule } from '../modules/legal/NeighborhoodDamageRiskModule';
-import { PublicDomainOccupationModule } from '../modules/legal/PublicDomainOccupationModule';
+import { DeclaredValueValidationModule } from "../modules/risk/DeclaredValueValidationModule";
+import { InsurancePremiumModule } from "../modules/risk/InsurancePremiumModule";
+import { HighValueItemHandlingModule } from "../modules/risk/HighValueItemHandlingModule";
+import { CoOwnershipRulesModule } from "../modules/legal/CoOwnershipRulesModule";
+import { NeighborhoodDamageRiskModule } from "../modules/legal/NeighborhoodDamageRiskModule";
+import { PublicDomainOccupationModule } from "../modules/legal/PublicDomainOccupationModule";
 
 // PHASE 8 - Options & Cross-Selling (80-89)
-import { EndOfMonthModule } from '../modules/temporal/EndOfMonthModule';
-import { WeekendModule } from '../modules/temporal/WeekendModule';
-import { PackingRequirementModule } from '../modules/cross-selling/PackingRequirementModule';
-import { CleaningEndRequirementModule } from '../modules/cross-selling/CleaningEndRequirementModule';
-import { StorageRequirementModule } from '../modules/cross-selling/StorageRequirementModule';
-import { PackingCostModule } from '../modules/cross-selling/PackingCostModule';
-import { CleaningEndCostModule } from '../modules/cross-selling/CleaningEndCostModule';
-import { StorageCostModule } from '../modules/cross-selling/StorageCostModule';
-import { DismantlingCostModule } from '../modules/cross-selling/DismantlingCostModule';
-import { ReassemblyCostModule } from '../modules/cross-selling/ReassemblyCostModule';
-import { SuppliesCostModule } from '../modules/cross-selling/SuppliesCostModule';
+import { EndOfMonthModule } from "../modules/temporal/EndOfMonthModule";
+import { WeekendModule } from "../modules/temporal/WeekendModule";
+import { PackingRequirementModule } from "../modules/cross-selling/PackingRequirementModule";
+import { CleaningEndRequirementModule } from "../modules/cross-selling/CleaningEndRequirementModule";
+import { StorageRequirementModule } from "../modules/cross-selling/StorageRequirementModule";
+import { PackingCostModule } from "../modules/cross-selling/PackingCostModule";
+import { CleaningEndCostModule } from "../modules/cross-selling/CleaningEndCostModule";
+import { StorageCostModule } from "../modules/cross-selling/StorageCostModule";
+import { DismantlingCostModule } from "../modules/cross-selling/DismantlingCostModule";
+import { ReassemblyCostModule } from "../modules/cross-selling/ReassemblyCostModule";
+import { SuppliesCostModule } from "../modules/cross-selling/SuppliesCostModule";
 
 /**
  * Retourne tous les modules disponibles triés par priorité
@@ -110,10 +111,12 @@ export function getAllModules(): QuoteModule[] {
 
     // ============================================================================
     // PHASE 5 - Monte-meubles CRITIQUE (50-59)
+    // Logique métier : le monte-meubles ANNULE les pénalités d'étage
     // ============================================================================
     new MonteMeublesRecommendationModule(), // 50
     new MonteMeublesRefusalImpactModule(), // 52
     new FurnitureLiftCostModule(), // 53
+    new FloorPenaltyCostModule(), // 54 - Pénalités étage (ANNULÉES si monte-meubles)
     new ManualHandlingRiskCostModule(), // 55
 
     // ============================================================================
@@ -172,7 +175,7 @@ export function getModulesByPhase(phase: number): QuoteModule[] {
   const phaseEnd = phaseStart + 10;
 
   return allModules.filter(
-    (module) => module.priority >= phaseStart && module.priority < phaseEnd
+    (module) => module.priority >= phaseStart && module.priority < phaseEnd,
   );
 }
 

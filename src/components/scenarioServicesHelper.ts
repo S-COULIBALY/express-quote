@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Helper pour déterminer les services inclus/optionnels/non disponibles par scénario
  * Basé sur le tableau restructuré (lecture orientée client)
@@ -7,7 +6,7 @@
 export interface ServiceStatus {
   id: string;
   label: string;
-  status: 'included' | 'optional' | 'disabled' | 'conditional';
+  status: "included" | "optional" | "disabled" | "conditional";
   description?: string;
 }
 
@@ -19,16 +18,48 @@ export interface ScenarioServices {
 }
 
 const SERVICES = [
-  { id: 'packing', label: 'Emballage', description: 'Emballage professionnel' },
-  { id: 'supplies', label: 'Fournitures', description: 'Cartons, protections' },
-  { id: 'dismantling', label: 'Démontage', description: 'Démontage des meubles' },
-  { id: 'reassembly', label: 'Remontage', description: 'Remontage des meubles' },
-  { id: 'high-value', label: 'Objets de valeur', description: 'Objets fragiles / de valeur' },
-  { id: 'insurance', label: 'Assurance renforcée', description: 'Assurance valeur déclarée' },
-  { id: 'cleaning', label: 'Nettoyage', description: 'Nettoyage fin de prestation' },
-  { id: 'furniture-lift', label: 'Monte-meubles', description: 'Monte-meubles (si requis)' },
-  { id: 'overnight', label: 'Étape / nuit', description: 'Arrêt nuit intermédiaire' },
-  { id: 'flexibility', label: 'Flexibilité équipe', description: 'Flexibilité planning' },
+  { id: "packing", label: "Emballage", description: "Emballage professionnel" },
+  { id: "supplies", label: "Fournitures", description: "Cartons, protections" },
+  {
+    id: "dismantling",
+    label: "Démontage",
+    description: "Démontage des meubles",
+  },
+  {
+    id: "reassembly",
+    label: "Remontage",
+    description: "Remontage des meubles",
+  },
+  {
+    id: "high-value",
+    label: "Objets de valeur",
+    description: "Objets fragiles / de valeur",
+  },
+  {
+    id: "insurance",
+    label: "Assurance renforcée",
+    description: "Assurance valeur déclarée",
+  },
+  {
+    id: "cleaning",
+    label: "Nettoyage",
+    description: "Nettoyage fin de prestation",
+  },
+  {
+    id: "furniture-lift",
+    label: "Monte-meubles",
+    description: "Monte-meubles (si requis)",
+  },
+  {
+    id: "overnight",
+    label: "Étape / nuit",
+    description: "Arrêt nuit intermédiaire",
+  },
+  {
+    id: "flexibility",
+    label: "Flexibilité équipe",
+    description: "Flexibilité planning",
+  },
 ] as const;
 
 /**
@@ -43,124 +74,125 @@ export function getScenarioServices(scenarioId: string): ScenarioServices {
   };
 
   switch (scenarioId) {
-    case 'ECO':
-      // ECO : Transport uniquement
+    case "ECO":
+      // ECO : Transport uniquement (prix le plus bas)
+      // Aligné sur QuoteScenario.ts : tous les services désactivés sauf monte-meubles (conditionnel)
       result.disabled = [
-        SERVICES.find(s => s.id === 'packing')!,
-        SERVICES.find(s => s.id === 'supplies')!,
-        SERVICES.find(s => s.id === 'dismantling')!,
-        SERVICES.find(s => s.id === 'reassembly')!,
-        SERVICES.find(s => s.id === 'high-value')!,
-        SERVICES.find(s => s.id === 'cleaning')!,
-        SERVICES.find(s => s.id === 'overnight')!,
-        SERVICES.find(s => s.id === 'flexibility')!,
-      ].filter(Boolean);
-      result.optional = [
-        SERVICES.find(s => s.id === 'insurance')!,
+        SERVICES.find((s) => s.id === "packing")!,
+        SERVICES.find((s) => s.id === "supplies")!,
+        SERVICES.find((s) => s.id === "dismantling")!,
+        SERVICES.find((s) => s.id === "reassembly")!,
+        SERVICES.find((s) => s.id === "high-value")!,
+        SERVICES.find((s) => s.id === "insurance")!, // Aligné: assurance désactivée pour ECO
+        SERVICES.find((s) => s.id === "cleaning")!,
+        SERVICES.find((s) => s.id === "overnight")!,
+        SERVICES.find((s) => s.id === "flexibility")!,
       ].filter(Boolean);
       result.conditional = [
-        SERVICES.find(s => s.id === 'furniture-lift')!,
+        SERVICES.find((s) => s.id === "furniture-lift")!,
       ].filter(Boolean);
       break;
 
-    case 'STANDARD':
-      // STANDARD : Participation client
+    case "STANDARD":
+      // STANDARD : Participation client - Meilleur rapport qualité-prix
+      // Aligné sur QuoteScenario.ts : pas de disabledModules, tout est disponible en option
       result.optional = [
-        SERVICES.find(s => s.id === 'packing')!,
-        SERVICES.find(s => s.id === 'supplies')!,
-        SERVICES.find(s => s.id === 'dismantling')!,
-        SERVICES.find(s => s.id === 'reassembly')!,
-        SERVICES.find(s => s.id === 'high-value')!,
-        SERVICES.find(s => s.id === 'insurance')!,
-        SERVICES.find(s => s.id === 'overnight')!,
-        SERVICES.find(s => s.id === 'flexibility')!,
-      ].filter(Boolean);
-      result.disabled = [
-        SERVICES.find(s => s.id === 'cleaning')!,
+        SERVICES.find((s) => s.id === "packing")!,
+        SERVICES.find((s) => s.id === "supplies")!,
+        SERVICES.find((s) => s.id === "dismantling")!,
+        SERVICES.find((s) => s.id === "reassembly")!,
+        SERVICES.find((s) => s.id === "high-value")!,
+        SERVICES.find((s) => s.id === "insurance")!,
+        SERVICES.find((s) => s.id === "cleaning")!, // Aligné: nettoyage disponible en option
+        SERVICES.find((s) => s.id === "overnight")!,
+        SERVICES.find((s) => s.id === "flexibility")!,
       ].filter(Boolean);
       result.conditional = [
-        SERVICES.find(s => s.id === 'furniture-lift')!,
+        SERVICES.find((s) => s.id === "furniture-lift")!,
       ].filter(Boolean);
       break;
 
-    case 'CONFORT':
-      // CONFORT : Déménageur fait l'essentiel
+    case "CONFORT":
+      // CONFORT : Déménageur fait l'essentiel (emballage + démontage/remontage)
+      // Aligné sur QuoteScenario.ts : enabledModules = packing, dismantling, reassembly, supplies
       result.included = [
-        SERVICES.find(s => s.id === 'packing')!,
-        SERVICES.find(s => s.id === 'supplies')!,
-        SERVICES.find(s => s.id === 'dismantling')!,
-        SERVICES.find(s => s.id === 'reassembly')!,
+        SERVICES.find((s) => s.id === "packing")!,
+        SERVICES.find((s) => s.id === "supplies")!,
+        SERVICES.find((s) => s.id === "dismantling")!,
+        SERVICES.find((s) => s.id === "reassembly")!,
       ].filter(Boolean);
       result.optional = [
-        SERVICES.find(s => s.id === 'high-value')!,
-        SERVICES.find(s => s.id === 'insurance')!,
-        SERVICES.find(s => s.id === 'cleaning')!,
-        SERVICES.find(s => s.id === 'overnight')!,
-        SERVICES.find(s => s.id === 'flexibility')!,
+        SERVICES.find((s) => s.id === "high-value")!,
+        SERVICES.find((s) => s.id === "insurance")!,
+        SERVICES.find((s) => s.id === "cleaning")!,
+      ].filter(Boolean);
+      result.disabled = [
+        SERVICES.find((s) => s.id === "overnight")!, // Aligné: pas dans enabledModules CONFORT
+        SERVICES.find((s) => s.id === "flexibility")!, // Aligné: pas dans enabledModules CONFORT
       ].filter(Boolean);
       result.conditional = [
-        SERVICES.find(s => s.id === 'furniture-lift')!,
+        SERVICES.find((s) => s.id === "furniture-lift")!,
       ].filter(Boolean);
       break;
 
-    case 'PREMIUM':
+    case "PREMIUM":
       // PREMIUM : Prise en charge complète
       result.included = [
-        SERVICES.find(s => s.id === 'packing')!,
-        SERVICES.find(s => s.id === 'supplies')!,
-        SERVICES.find(s => s.id === 'dismantling')!,
-        SERVICES.find(s => s.id === 'reassembly')!,
-        SERVICES.find(s => s.id === 'high-value')!,
-        SERVICES.find(s => s.id === 'insurance')!,
-        SERVICES.find(s => s.id === 'cleaning')!,
+        SERVICES.find((s) => s.id === "packing")!,
+        SERVICES.find((s) => s.id === "supplies")!,
+        SERVICES.find((s) => s.id === "dismantling")!,
+        SERVICES.find((s) => s.id === "reassembly")!,
+        SERVICES.find((s) => s.id === "high-value")!,
+        SERVICES.find((s) => s.id === "insurance")!,
+        SERVICES.find((s) => s.id === "cleaning")!,
       ].filter(Boolean);
       result.optional = [
-        SERVICES.find(s => s.id === 'overnight')!,
-        SERVICES.find(s => s.id === 'flexibility')!,
+        SERVICES.find((s) => s.id === "overnight")!,
+        SERVICES.find((s) => s.id === "flexibility")!,
       ].filter(Boolean);
       result.conditional = [
-        SERVICES.find(s => s.id === 'furniture-lift')!,
+        SERVICES.find((s) => s.id === "furniture-lift")!,
       ].filter(Boolean);
       break;
 
-    case 'SECURITY_PLUS':
-    case 'SECURITY': // Support de l'ancien nom pour compatibilité
+    case "SECURITY_PLUS":
+    case "SECURITY": // Support de l'ancien nom pour compatibilité
       // SÉCURITÉ+ : Premium + Protection maximale
       result.included = [
-        SERVICES.find(s => s.id === 'packing')!,
-        SERVICES.find(s => s.id === 'supplies')!,
-        SERVICES.find(s => s.id === 'dismantling')!,
-        SERVICES.find(s => s.id === 'reassembly')!,
-        SERVICES.find(s => s.id === 'high-value')!,
-        SERVICES.find(s => s.id === 'insurance')!,
-        SERVICES.find(s => s.id === 'cleaning')!,
+        SERVICES.find((s) => s.id === "packing")!,
+        SERVICES.find((s) => s.id === "supplies")!,
+        SERVICES.find((s) => s.id === "dismantling")!,
+        SERVICES.find((s) => s.id === "reassembly")!,
+        SERVICES.find((s) => s.id === "high-value")!,
+        SERVICES.find((s) => s.id === "insurance")!,
+        SERVICES.find((s) => s.id === "cleaning")!,
       ].filter(Boolean);
       result.optional = [
-        SERVICES.find(s => s.id === 'overnight')!,
-        SERVICES.find(s => s.id === 'flexibility')!,
+        SERVICES.find((s) => s.id === "overnight")!,
+        SERVICES.find((s) => s.id === "flexibility")!,
       ].filter(Boolean);
       result.conditional = [
-        SERVICES.find(s => s.id === 'furniture-lift')!,
+        SERVICES.find((s) => s.id === "furniture-lift")!,
       ].filter(Boolean);
       break;
 
-    case 'FLEX':
+    case "FLEX":
       // FLEX : Devis sur mesure
       result.included = [
-        SERVICES.find(s => s.id === 'dismantling')!,
-        SERVICES.find(s => s.id === 'reassembly')!,
-        SERVICES.find(s => s.id === 'overnight')!,
-        SERVICES.find(s => s.id === 'flexibility')!,
+        SERVICES.find((s) => s.id === "dismantling")!,
+        SERVICES.find((s) => s.id === "reassembly")!,
+        SERVICES.find((s) => s.id === "overnight")!,
+        SERVICES.find((s) => s.id === "flexibility")!,
       ].filter(Boolean);
       result.optional = [
-        SERVICES.find(s => s.id === 'packing')!,
-        SERVICES.find(s => s.id === 'supplies')!,
-        SERVICES.find(s => s.id === 'high-value')!,
-        SERVICES.find(s => s.id === 'insurance')!,
-        SERVICES.find(s => s.id === 'cleaning')!,
+        SERVICES.find((s) => s.id === "packing")!,
+        SERVICES.find((s) => s.id === "supplies")!,
+        SERVICES.find((s) => s.id === "high-value")!,
+        SERVICES.find((s) => s.id === "insurance")!,
+        SERVICES.find((s) => s.id === "cleaning")!,
       ].filter(Boolean);
       result.conditional = [
-        SERVICES.find(s => s.id === 'furniture-lift')!,
+        SERVICES.find((s) => s.id === "furniture-lift")!,
       ].filter(Boolean);
       break;
 
@@ -177,7 +209,7 @@ export function getScenarioServices(scenarioId: string): ScenarioServices {
  */
 export function getIncludedServicesLabels(scenarioId: string): string[] {
   const services = getScenarioServices(scenarioId);
-  return services.included.map(s => s.label);
+  return services.included.map((s) => s.label);
 }
 
 /**
@@ -185,15 +217,15 @@ export function getIncludedServicesLabels(scenarioId: string): string[] {
  */
 export function getServiceStatus(
   serviceId: string,
-  scenarioId: string
-): 'included' | 'optional' | 'disabled' | 'conditional' | null {
+  scenarioId: string,
+): "included" | "optional" | "disabled" | "conditional" | null {
   const services = getScenarioServices(scenarioId);
-  
-  if (services.included.find(s => s.id === serviceId)) return 'included';
-  if (services.optional.find(s => s.id === serviceId)) return 'optional';
-  if (services.disabled.find(s => s.id === serviceId)) return 'disabled';
-  if (services.conditional.find(s => s.id === serviceId)) return 'conditional';
-  
+
+  if (services.included.find((s) => s.id === serviceId)) return "included";
+  if (services.optional.find((s) => s.id === serviceId)) return "optional";
+  if (services.disabled.find((s) => s.id === serviceId)) return "disabled";
+  if (services.conditional.find((s) => s.id === serviceId))
+    return "conditional";
+
   return null;
 }
-
