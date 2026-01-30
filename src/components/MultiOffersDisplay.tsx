@@ -15,7 +15,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { MultiOffersResult } from "@/hooks/shared/useModularQuotation";
 import {
   getScenarioServices,
@@ -51,7 +51,38 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
   const [showRecommendationDetails, setShowRecommendationDetails] =
     useState(false);
   const [expandedScenario, setExpandedScenario] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (viewMode !== "table") {
+      setShowScrollIndicator(false);
+      return;
+    }
+    const checkScrollable = () => {
+      const container = scrollContainerRef.current;
+      if (container) {
+        const { scrollWidth, clientWidth, scrollLeft } = container;
+        const hasMoreContent = scrollWidth > clientWidth;
+        const isNotAtEnd = scrollLeft < scrollWidth - clientWidth - 10;
+        setShowScrollIndicator(hasMoreContent && isNotAtEnd);
+      }
+    };
+    const timeoutId = setTimeout(checkScrollable, 100);
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", checkScrollable);
+      window.addEventListener("resize", checkScrollable);
+    }
+    return () => {
+      clearTimeout(timeoutId);
+      if (container) {
+        container.removeEventListener("scroll", checkScrollable);
+      }
+      window.removeEventListener("resize", checkScrollable);
+    };
+  }, [viewMode, multiOffers?.quotes]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("fr-FR", {
@@ -223,6 +254,30 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
         </div>
       </div>
 
+      {/* Toggle vue - En haut, juste après l'en-tête */}
+      <div className="flex items-center justify-center gap-2 -mx-3 sm:mx-0 px-3 sm:px-0 mb-3">
+        <button
+          onClick={() => setViewMode("cards")}
+          className={`px-2.5 py-1.5 sm:px-2.5 md:px-2 sm:py-1 md:py-1 text-xs sm:text-xs md:text-sm rounded transition-colors min-h-[36px] sm:min-h-[32px] md:min-h-auto ${
+            viewMode === "cards"
+              ? "bg-emerald-600 text-white"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+        >
+          📋 Cartes
+        </button>
+        <button
+          onClick={() => setViewMode("table")}
+          className={`px-2.5 py-1.5 sm:px-2.5 md:px-2 sm:py-1 md:py-1 text-xs sm:text-xs md:text-sm rounded transition-colors min-h-[36px] sm:min-h-[32px] md:min-h-auto ${
+            viewMode === "table"
+              ? "bg-emerald-600 text-white"
+              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+        >
+          📊 Tableau
+        </button>
+      </div>
+
       {/* Bandeau de recommandation intelligente - Défile normalement */}
       {hasSmartRecommendation && comparison.recommended && (
         <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-2 sm:p-2.5 md:p-3 relative z-0">
@@ -320,30 +375,6 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
         </div>
       )}
 
-      {/* Toggle vue - Juste après la recommandation */}
-      <div className="flex items-center justify-center gap-2 -mx-3 sm:mx-0 px-3 sm:px-0">
-        <button
-          onClick={() => setViewMode("table")}
-          className={`px-2.5 py-1.5 sm:px-2.5 md:px-2 sm:py-1 md:py-1 text-xs sm:text-xs md:text-sm rounded transition-colors min-h-[36px] sm:min-h-[32px] md:min-h-auto ${
-            viewMode === "table"
-              ? "bg-emerald-600 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          📊 Tableau
-        </button>
-        <button
-          onClick={() => setViewMode("cards")}
-          className={`px-2.5 py-1.5 sm:px-2.5 md:px-2 sm:py-1 md:py-1 text-xs sm:text-xs md:text-sm rounded transition-colors min-h-[36px] sm:min-h-[32px] md:min-h-auto ${
-            viewMode === "cards"
-              ? "bg-emerald-600 text-white"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          📋 Cartes
-        </button>
-      </div>
-
       {/* Mode Tableau Comparatif */}
       {viewMode === "table" && (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -355,196 +386,228 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
               <span>👉</span>
             </p>
           </div>
-          <div className="overflow-x-auto -mx-3 sm:mx-0 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
-            <table className="w-full text-[10px] sm:text-xs md:text-sm border-collapse min-w-[500px] sm:min-w-[600px]">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="text-left p-1.5 sm:p-2 md:p-3 border-b border-gray-500 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-30 min-w-[90px] sm:min-w-[100px] pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
-                    Service
-                  </th>
-                  {sortedQuotes.map((quote) => {
-                    const isSelected = quote.scenarioId === selectedScenario;
-                    return (
-                      <th
-                        key={quote.scenarioId}
-                        onClick={() =>
-                          !isCalculating && onSelectOffer?.(quote.scenarioId)
-                        }
-                        className={`text-center p-1 sm:p-2 md:p-3 border-b border-gray-500 font-semibold cursor-pointer transition-colors min-w-[70px] sm:min-w-[90px] ${
-                          isSelected
-                            ? "bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-                            : "text-gray-700 hover:bg-gray-100"
-                        } ${isCalculating ? "opacity-50 pointer-events-none" : ""}`}
-                      >
-                        <div className="flex flex-col items-center gap-0.5 sm:gap-1 md:gap-1.5">
-                          {/* Checkbox visible par défaut */}
-                          <div
-                            className={`flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded border-2 flex-shrink-0 ${
-                              isSelected
-                                ? "bg-emerald-500 border-emerald-500"
-                                : "bg-white border-gray-600"
-                            }`}
-                          >
+          <div className="relative">
+            <div
+              ref={scrollContainerRef}
+              className="overflow-x-auto -mx-3 sm:mx-0 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100"
+            >
+              <table className="w-full text-[10px] sm:text-xs md:text-sm border-collapse min-w-[500px] sm:min-w-[600px]">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="text-left p-1.5 sm:p-2 md:p-3 border-b border-gray-500 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-10 min-w-[90px] sm:min-w-[100px] pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+                      Propositions
+                    </th>
+                    {sortedQuotes.map((quote) => {
+                      const isSelected = quote.scenarioId === selectedScenario;
+                      return (
+                        <th
+                          key={quote.scenarioId}
+                          onClick={() =>
+                            !isCalculating && onSelectOffer?.(quote.scenarioId)
+                          }
+                          className={`text-center p-1 sm:p-2 md:p-3 border-b border-gray-500 font-semibold cursor-pointer transition-colors min-w-[70px] sm:min-w-[90px] ${
+                            isSelected
+                              ? "bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+                              : "text-gray-700 hover:bg-gray-100"
+                          } ${isCalculating ? "opacity-50 pointer-events-none" : ""}`}
+                        >
+                          <div className="flex flex-col items-center gap-0.5 sm:gap-1 md:gap-1.5">
+                            {/* Checkbox visible par défaut */}
+                            <div
+                              className={`flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded border-2 flex-shrink-0 ${
+                                isSelected
+                                  ? "bg-emerald-500 border-emerald-500"
+                                  : "bg-white border-gray-600"
+                              }`}
+                            >
+                              {isSelected && (
+                                <svg
+                                  className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 text-white"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={3}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+                            <span className="text-sm sm:text-base md:text-lg leading-none">
+                              {getScenarioIcon(quote.scenarioId)}
+                            </span>
+                            <span className="text-[9px] sm:text-xs md:text-sm leading-tight line-clamp-2 text-center">
+                              {quote.label}
+                            </span>
+                            <span className="text-[9px] sm:text-[10px] md:text-xs font-normal text-gray-600 leading-tight">
+                              {formatPrice(quote.pricing.finalPrice)}
+                            </span>
                             {isSelected && (
-                              <svg
-                                className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 text-white"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={3}
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
+                              <span className="bg-emerald-600 text-white text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1 py-0.5 rounded-full whitespace-nowrap mt-0.5">
+                                ✓
+                              </span>
                             )}
                           </div>
-                          <span className="text-sm sm:text-base md:text-lg leading-none">
-                            {getScenarioIcon(quote.scenarioId)}
-                          </span>
-                          <span className="text-[9px] sm:text-xs md:text-sm leading-tight line-clamp-2 text-center">
-                            {quote.label}
-                          </span>
-                          <span className="text-[9px] sm:text-[10px] md:text-xs font-normal text-gray-600 leading-tight">
-                            {formatPrice(quote.pricing.finalPrice)}
-                          </span>
-                          {isSelected && (
-                            <span className="bg-emerald-600 text-white text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1 py-0.5 rounded-full whitespace-nowrap mt-0.5">
-                              ✓
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {/* Ligne Recommandations */}
-                <tr className="bg-emerald-50 border-b-2 border-emerald-200">
-                  <td className="p-1.5 sm:p-2 md:p-3 border-b border-gray-400 font-semibold text-emerald-900 sticky left-0 bg-emerald-50 z-30 text-[10px] sm:text-xs md:text-sm min-w-[90px] sm:min-w-[100px] pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
-                    <span className="flex items-center gap-1">
-                      <span>🎯</span>
-                      <span className="hidden sm:inline">Recommandations</span>
-                      <span className="sm:hidden">Recommandé</span>
-                    </span>
-                  </td>
-                  {sortedQuotes.map((quote) => {
-                    const isSelected = quote.scenarioId === selectedScenario;
-                    const recommendationMessage = getRecommendationMessage(
-                      quote.scenarioId,
-                    );
-                    return (
-                      <td
-                        key={quote.scenarioId}
-                        className={`text-center p-1.5 sm:p-2 md:p-3 border-b border-gray-400 min-w-[70px] sm:min-w-[90px] ${
-                          isSelected
-                            ? "bg-emerald-100 font-semibold"
-                            : "bg-white"
-                        }`}
-                      >
-                        <span
-                          className={`text-[8px] sm:text-[9px] md:text-[10px] leading-tight px-1 italic ${
-                            isSelected
-                              ? "text-emerald-700 font-semibold"
-                              : "text-gray-600"
-                          }`}
-                        >
-                          {recommendationMessage}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Ligne Recommandations */}
+                  <tr className="bg-emerald-50 border-b-2 border-emerald-200">
+                    <td className="p-1.5 sm:p-2 md:p-3 border-b border-gray-400 font-semibold text-emerald-900 sticky left-0 bg-emerald-50 z-10 text-[10px] sm:text-xs md:text-sm min-w-[90px] sm:min-w-[100px] pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+                      <span className="flex items-center gap-1">
+                        <span>🎯</span>
+                        <span className="hidden sm:inline">
+                          Recommandations
                         </span>
-                      </td>
-                    );
-                  })}
-                </tr>
-                {allServices.map((service) => (
-                  <tr key={service.id} className="hover:bg-gray-50">
-                    <td className="p-1.5 sm:p-2 md:p-3 border-b border-gray-400 font-medium text-gray-900 sticky left-0 bg-white z-30 text-[10px] sm:text-xs md:text-sm min-w-[90px] sm:min-w-[100px] pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
-                      {service.id === "furniture-lift" ? (
-                        <div className="group relative">
-                          <span className="line-clamp-2">{service.label}</span>
-                          <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-40">
-                            <div className="bg-gray-900 text-white text-[10px] sm:text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                              Recommandé automatiquement si étage ≥3 ou ≥5
-                              <div className="absolute top-full left-4 border-4 border-transparent border-t-gray-900" />
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="line-clamp-2">{service.label}</span>
-                      )}
+                        <span className="sm:hidden">Recommandé</span>
+                      </span>
                     </td>
                     {sortedQuotes.map((quote) => {
-                      const status = getServiceStatus(
-                        service.id,
+                      const isSelected = quote.scenarioId === selectedScenario;
+                      const recommendationMessage = getRecommendationMessage(
                         quote.scenarioId,
                       );
                       return (
                         <td
                           key={quote.scenarioId}
                           className={`text-center p-1.5 sm:p-2 md:p-3 border-b border-gray-400 min-w-[70px] sm:min-w-[90px] ${
-                            quote.scenarioId === selectedScenario
-                              ? "bg-emerald-50"
-                              : ""
+                            isSelected
+                              ? "bg-emerald-100 font-semibold"
+                              : "bg-white"
                           }`}
                         >
-                          {status ? (
-                            <span
-                              className="text-sm sm:text-base md:text-lg inline-block"
-                              title={
-                                status === "included"
-                                  ? "Inclus d'office"
-                                  : status === "optional"
-                                    ? "Disponible en option"
-                                    : status === "disabled"
-                                      ? "Non disponible"
-                                      : "Conditionnel technique"
-                              }
-                            >
-                              {getServiceStatusIcon(status)}
-                            </span>
-                          ) : (
-                            <span className="text-gray-300 text-xs">-</span>
-                          )}
+                          <span
+                            className={`text-[8px] sm:text-[9px] md:text-[10px] leading-tight px-1 italic ${
+                              isSelected
+                                ? "text-emerald-700 font-semibold"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            {recommendationMessage}
+                          </span>
                         </td>
                       );
                     })}
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-50">
-                  <td className="p-2 sm:p-2 md:p-3 border-t border-gray-500 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-30 text-[10px] sm:text-xs md:text-sm pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
-                    <span className="hidden sm:inline">Sélectionner</span>
-                    <span className="sm:hidden">Sélection</span>
-                  </td>
-                  {sortedQuotes.map((quote) => {
-                    const isSelected = quote.scenarioId === selectedScenario;
-                    return (
-                      <td
-                        key={quote.scenarioId}
-                        className="p-2 sm:p-2 md:p-3 border-t border-gray-500 text-center"
-                      >
-                        <button
-                          onClick={() =>
-                            !isCalculating && onSelectOffer?.(quote.scenarioId)
-                          }
-                          disabled={isCalculating}
-                          className={`w-full px-1 sm:px-3 md:px-4 py-1 sm:py-2 md:py-2.5 text-[8px] sm:text-[10px] md:text-xs font-semibold rounded transition-all duration-200 leading-tight ${
-                            isSelected
-                              ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                          } ${isCalculating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                        >
-                          {isSelected ? `✓ ${quote.label}` : quote.label}
-                        </button>
+                  {allServices.map((service) => (
+                    <tr key={service.id} className="hover:bg-gray-50">
+                      <td className="p-1.5 sm:p-2 md:p-3 border-b border-gray-400 font-medium text-gray-900 sticky left-0 bg-white z-10 text-[10px] sm:text-xs md:text-sm min-w-[90px] sm:min-w-[100px] pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+                        {service.id === "furniture-lift" ? (
+                          <div className="group relative">
+                            <span className="line-clamp-2">
+                              {service.label}
+                            </span>
+                            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-40">
+                              <div className="bg-gray-900 text-white text-[10px] sm:text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                                Recommandé automatiquement si étage ≥3 ou ≥5
+                                <div className="absolute top-full left-4 border-4 border-transparent border-t-gray-900" />
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="line-clamp-2">{service.label}</span>
+                        )}
                       </td>
-                    );
-                  })}
-                </tr>
-              </tfoot>
-            </table>
+                      {sortedQuotes.map((quote) => {
+                        const status = getServiceStatus(
+                          service.id,
+                          quote.scenarioId,
+                        );
+                        return (
+                          <td
+                            key={quote.scenarioId}
+                            className={`text-center p-1.5 sm:p-2 md:p-3 border-b border-gray-400 min-w-[70px] sm:min-w-[90px] ${
+                              quote.scenarioId === selectedScenario
+                                ? "bg-emerald-50"
+                                : ""
+                            }`}
+                          >
+                            {status ? (
+                              <span
+                                className="text-sm sm:text-base md:text-lg inline-block"
+                                title={
+                                  status === "included"
+                                    ? "Inclus d'office"
+                                    : status === "optional"
+                                      ? "Disponible en option"
+                                      : status === "disabled"
+                                        ? "Non disponible"
+                                        : "Conditionnel technique"
+                                }
+                              >
+                                {getServiceStatusIcon(status)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-300 text-xs">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50">
+                    <td className="p-2 sm:p-2 md:p-3 border-t border-gray-500 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-10 text-[10px] sm:text-xs md:text-sm pl-3 sm:pl-2 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+                      <span className="hidden sm:inline">Sélectionner</span>
+                      <span className="sm:hidden">Sélection</span>
+                    </td>
+                    {sortedQuotes.map((quote) => {
+                      const isSelected = quote.scenarioId === selectedScenario;
+                      return (
+                        <td
+                          key={quote.scenarioId}
+                          className="p-2 sm:p-2 md:p-3 border-t border-gray-500 text-center"
+                        >
+                          <button
+                            onClick={() =>
+                              !isCalculating &&
+                              onSelectOffer?.(quote.scenarioId)
+                            }
+                            disabled={isCalculating}
+                            className={`w-full px-1 sm:px-3 md:px-4 py-1 sm:py-2 md:py-2.5 text-[8px] sm:text-[10px] md:text-xs font-semibold rounded transition-all duration-200 leading-tight ${
+                              isSelected
+                                ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
+                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            } ${isCalculating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                          >
+                            {isSelected ? `✓ ${quote.label}` : quote.label}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {showScrollIndicator && (
+              <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-24 flex items-center justify-end pr-2 sm:pr-4 pl-4 sm:pl-6 bg-gradient-to-l from-white via-white/95 to-transparent z-20 pointer-events-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = scrollContainerRef.current;
+                    if (el)
+                      el.scrollBy({
+                        left: el.clientWidth * 0.8,
+                        behavior: "smooth",
+                      });
+                  }}
+                  className="pointer-events-auto flex items-center justify-center gap-0.5 sm:gap-1 text-blue-600 hover:text-blue-700 font-semibold text-sm cursor-pointer transition-colors min-w-[2rem] sm:min-w-0 h-8 sm:h-auto rounded-l-md sm:rounded-none bg-white/90 sm:bg-transparent border-l border-gray-200/80 sm:border-0"
+                  aria-label="Défiler vers la droite pour voir plus de formules"
+                >
+                  <span className="animate-bounce text-base sm:text-sm">→</span>
+                  <span className="hidden sm:inline whitespace-nowrap">
+                    Plus
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
           <div className="p-2 sm:p-3 md:p-4 bg-gray-50 border-t border-gray-500">
             <div className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 space-y-1">

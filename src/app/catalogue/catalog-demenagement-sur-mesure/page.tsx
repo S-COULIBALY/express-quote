@@ -98,6 +98,7 @@ const PaymentPriceSection: React.FC<{
   }) => void;
   isSubmitting: boolean;
   isCalculating?: boolean;
+  quotation: ReturnType<typeof useModularQuotation>;
 }> = ({
   fragileProtectionSelected,
   onFragileProtectionChange,
@@ -108,6 +109,7 @@ const PaymentPriceSection: React.FC<{
   onSubmit,
   isSubmitting,
   isCalculating = false,
+  quotation,
 }) => {
   const { calculatedPrice } = usePrice();
 
@@ -129,6 +131,39 @@ const PaymentPriceSection: React.FC<{
     insurancePremium;
   const depositAmount = Math.round(totalPrice * 0.3);
   const hasValidPrice = totalPrice > 0 && !isCalculating;
+
+  const getPriceRange = () => {
+    if (
+      !quotation.multiOffers?.quotes ||
+      quotation.multiOffers.quotes.length === 0
+    ) {
+      return null;
+    }
+    const prices = quotation.multiOffers.quotes
+      .map((q) => q.pricing?.finalPrice || 0)
+      .filter((p) => p > 0);
+    if (prices.length === 0) return null;
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    return {
+      min: minPrice,
+      max: maxPrice,
+      count: quotation.multiOffers.quotes.length,
+    };
+  };
+
+  const priceRange = getPriceRange();
+  const hasMultipleOffers = priceRange && priceRange.count > 1;
+  const isCurrentPriceNotMin = hasMultipleOffers && totalPrice > priceRange.min;
+
+  const scrollToMultiOffers = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const multiOffersElement = document.querySelector("[data-multi-offers]");
+    if (multiOffersElement) {
+      multiOffersElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   return (
     <>
@@ -291,9 +326,28 @@ const PaymentPriceSection: React.FC<{
               </span>
             ) : hasValidPrice ? (
               <div className="flex flex-col items-center gap-0.5">
-                <span className="font-semibold">
-                  Réserver • {formatPrice(totalPrice)} TTC
-                </span>
+                <div className="inline-flex items-center justify-center gap-1 sm:gap-1.5">
+                  <span className="font-semibold">
+                    Réserver • {formatPrice(totalPrice)} TTC
+                  </span>
+                  {hasMultipleOffers && priceRange && (
+                    <span
+                      onClick={scrollToMultiOffers}
+                      className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-[9px] px-1 sm:px-1.5 py-0.5 rounded-full font-medium sm:font-semibold whitespace-nowrap cursor-pointer transition-colors duration-150 opacity-80 sm:opacity-100 flex-shrink-0 leading-none inline-block"
+                      aria-label={`Voir les ${priceRange.count - 1} autres formules`}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          scrollToMultiOffers(e as unknown as React.MouseEvent);
+                        }
+                      }}
+                    >
+                      +{priceRange.count - 1} autres
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs font-normal opacity-90">
                   Acompte {formatPrice(depositAmount)}
                 </span>
@@ -308,38 +362,114 @@ const PaymentPriceSection: React.FC<{
       </div>
 
       {/* Bouton sticky en bas sur mobile */}
-      <div className="fixed bottom-0 left-0 right-0 sm:hidden z-50 bg-white border-t border-gray-200 shadow-lg px-3 py-3">
-        <button
-          onClick={() =>
-            onSubmit({
-              fragileProtection: fragileProtectionSelected,
-              declaredValueInsurance: declaredValueInsuranceSelected,
-              declaredValue,
-            })
-          }
-          disabled={isSubmitting || !hasValidPrice}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3.5 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 min-h-[48px]"
-        >
-          {isSubmitting ? (
-            <span className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              <span>En cours...</span>
-            </span>
-          ) : hasValidPrice ? (
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="font-semibold">
-                Réserver • {formatPrice(totalPrice)} TTC
-              </span>
-              <span className="text-xs font-normal opacity-90">
-                Acompte {formatPrice(depositAmount)}
-              </span>
+      <div className="fixed bottom-0 left-0 right-0 sm:hidden z-50 bg-white border-t border-gray-200 shadow-lg">
+        {hasValidPrice && hasMultipleOffers && (
+          <div
+            onClick={scrollToMultiOffers}
+            className="px-3 pt-2.5 pb-1.5 cursor-pointer hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center justify-between gap-2 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5 animate-pulse">
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <svg
+                  className="w-4 h-4 text-blue-600 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="text-[10px] text-blue-700 font-medium flex-1 min-w-0">
+                  {isCurrentPriceNotMin ? (
+                    <>
+                      💡 Prix à partir de{" "}
+                      <span className="font-semibold">
+                        {formatPrice(priceRange.min)}
+                      </span>{" "}
+                      • Voir {priceRange.count} autres propositions{" "}
+                      <span className="opacity-60">...</span>
+                    </>
+                  ) : (
+                    <>
+                      💡 {priceRange.count} autres propositions disponibles •
+                      Voir les autres propositions{" "}
+                      <span className="opacity-60">...</span>
+                    </>
+                  )}
+                </span>
+              </div>
+              <svg
+                className="w-4 h-4 text-blue-600 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
             </div>
-          ) : (
-            <span className="text-xs">
-              Remplissez le formulaire pour réserver
-            </span>
-          )}
-        </button>
+          </div>
+        )}
+        <div className="px-3 pb-3">
+          <button
+            onClick={() =>
+              onSubmit({
+                fragileProtection: fragileProtectionSelected,
+                declaredValueInsurance: declaredValueInsuranceSelected,
+                declaredValue,
+              })
+            }
+            disabled={isSubmitting || !hasValidPrice}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3.5 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 min-h-[48px]"
+          >
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>En cours...</span>
+              </span>
+            ) : hasValidPrice ? (
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="inline-flex items-center justify-center gap-1 sm:gap-1.5">
+                  <span className="font-semibold">
+                    Réserver • {formatPrice(totalPrice)} TTC
+                  </span>
+                  {hasMultipleOffers && priceRange && (
+                    <span
+                      onClick={scrollToMultiOffers}
+                      className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-[9px] px-1 sm:px-1.5 py-0.5 rounded-full font-medium sm:font-semibold whitespace-nowrap cursor-pointer transition-colors duration-150 opacity-80 sm:opacity-100 flex-shrink-0 leading-none inline-block"
+                      aria-label={`Voir les ${priceRange.count - 1} autres formules`}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          scrollToMultiOffers(e as unknown as React.MouseEvent);
+                        }
+                      }}
+                    >
+                      +{priceRange.count - 1} autres
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs font-normal opacity-90">
+                  Acompte {formatPrice(depositAmount)}
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs">
+                Remplissez le formulaire pour réserver
+              </span>
+            )}
+          </button>
+        </div>
       </div>
     </>
   );
@@ -689,7 +819,10 @@ export default function DemenagementSurMesurePage() {
                 <div className="lg:sticky lg:top-4 space-y-3 sm:space-y-4 md:space-y-4">
                   {/* Multi-offres (6 variantes) */}
                   {quotation.multiOffers ? (
-                    <div className="bg-white border-t border-b sm:border sm:rounded-lg border-gray-200 shadow-sm p-0 sm:p-3 md:p-3 lg:p-4">
+                    <div
+                      data-multi-offers
+                      className="bg-white border-t border-b sm:border sm:rounded-lg border-gray-200 shadow-sm p-0 sm:p-3 md:p-3 lg:p-4"
+                    >
                       <MultiOffersDisplay
                         multiOffers={quotation.multiOffers}
                         isCalculating={
@@ -730,6 +863,7 @@ export default function DemenagementSurMesurePage() {
                     onSubmit={handleSubmitFromPaymentCard}
                     isSubmitting={isSubmitting}
                     isCalculating={quotation.isPriceLoading}
+                    quotation={quotation}
                   />
                 </div>
               </div>
