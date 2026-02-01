@@ -3,15 +3,14 @@
  * Instances de cache réutilisables pour toute l'application
  */
 
-import { ClientCache } from '@/utils/catalogueCache';
+import { ClientCache } from "@/utils/catalogueCache";
 
 /**
- * Cache pour les règles unifiées (CRITICAL pour performance)
+ * Cache pour les règles unifiées
  * TTL: 10 minutes (les règles changent rarement)
  *
- * Utilisé par:
- * - src/hooks/useUnifiedRules.ts
- * - src/components/form-generator/components/AccessConstraintsModal.tsx
+ * NOTE: Ce cache est conservé pour compatibilité mais n'est plus utilisé
+ * par LogisticsModal qui utilise maintenant les données statiques de modal-data.ts
  */
 export const rulesCache = new ClientCache<any[]>(10 * 60 * 1000);
 
@@ -29,12 +28,14 @@ export const rulesNameMapCache = new Map<string, string>();
  */
 export function initializeRulesNameMap(rules: any[]) {
   rulesNameMapCache.clear();
-  rules.forEach(rule => {
+  rules.forEach((rule) => {
     if (rule.id && rule.name) {
       rulesNameMapCache.set(rule.id, rule.name);
     }
   });
-  console.log(`✅ [RulesNameMapCache] ${rulesNameMapCache.size} règles mappées`);
+  console.log(
+    `✅ [RulesNameMapCache] ${rulesNameMapCache.size} règles mappées`,
+  );
 }
 
 /**
@@ -93,7 +94,7 @@ export function clearAllCaches() {
   userCache.clear();
   settingsCache.clear();
 
-  console.log('🧹 All caches cleared');
+  console.log("🧹 All caches cleared");
 }
 
 /**
@@ -101,7 +102,7 @@ export function clearAllCaches() {
  */
 export function clearRulesCaches() {
   rulesCache.clear();
-  console.log('🧹 Rules cache cleared');
+  console.log("🧹 Rules cache cleared");
 }
 
 /**
@@ -111,7 +112,7 @@ export function clearCatalogueCaches() {
   catalogueItemsCache.clear();
   catalogueDetailCache.clear();
   itemsCache.clear();
-  console.log('🧹 Catalogue caches cleared');
+  console.log("🧹 Catalogue caches cleared");
 }
 
 /**
@@ -141,16 +142,19 @@ export function getCacheStats() {
 }
 
 // Nettoyage automatique toutes les 5 minutes
-if (typeof window !== 'undefined') {
-  setInterval(() => {
-    rulesCache.cleanup();
-    catalogueItemsCache.cleanup();
-    catalogueDetailCache.cleanup();
-    itemsCache.cleanup();
-    userCache.cleanup();
-    settingsCache.cleanup();
+if (typeof window !== "undefined") {
+  setInterval(
+    () => {
+      rulesCache.cleanup();
+      catalogueItemsCache.cleanup();
+      catalogueDetailCache.cleanup();
+      itemsCache.cleanup();
+      userCache.cleanup();
+      settingsCache.cleanup();
 
-    const stats = getCacheStats();
-    console.log('🧹 Auto cleanup completed. Cache stats:', stats);
-  }, 5 * 60 * 1000);
+      const stats = getCacheStats();
+      console.log("🧹 Auto cleanup completed. Cache stats:", stats);
+    },
+    5 * 60 * 1000,
+  );
 }

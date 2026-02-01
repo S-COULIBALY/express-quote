@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { IndustryPreset } from './presets';
+import { ReactNode } from "react";
+import { IndustryPreset } from "./presets";
 
 export interface FormFieldOption {
   value: string; //   value: "express",
@@ -8,7 +8,7 @@ export interface FormFieldOption {
 }
 
 export interface FormFieldValidation {
-  min?: number; //   min: 0,  
+  min?: number; //   min: 0,
   max?: number; //   max: 100,
   pattern?: string; //   pattern: "^[0-9]+$",
   required?: boolean; //   required: true,
@@ -39,7 +39,7 @@ export interface FormField {
     | "custom" // Pour les composants personnalisés
     | "address-pickup" // Pour PickupAddressAutocomplete
     | "address-delivery" // Pour DeliveryAddressAutocomplete
-    | "access-constraints" // Pour AccessConstraintsModal (système unifié)
+    | "access-constraints" // Pour LogisticsModal (contraintes depuis modal-data.ts)
     | "whatsapp-consent" // Pour WhatsAppOptInConsent
     | "furniture-lift-checkbox" // Pour le composant Monte-meubles
     | "cross-selling"; // Pour le composant de sélection cross-selling
@@ -51,8 +51,8 @@ export interface FormField {
   //     { value: "express", label: "Express (24h)" }
   //   ],
   validation?: FormFieldValidation; //   validation: {
-  //     custom: (value, formData) => 
-  //       !(value === "express" && formData.distance > 100) || 
+  //     custom: (value, formData) =>
+  //       !(value === "express" && formData.distance > 100) ||
   //       "La livraison express n'est pas disponible pour cette distance"
   //   },
   conditional?: FormFieldConditional; //   conditional: {
@@ -61,7 +61,7 @@ export interface FormField {
   //     validation: {
   //       required: true
   //     }
-  //   }, 
+  //   },
   className?: string; //   className: "custom-field",
   icon?: string; //   icon: "fa-solid fa-truck",
   defaultValue?: any; //   defaultValue: "standard",
@@ -76,7 +76,7 @@ export interface FormField {
   //       { value: "standard", label: "Standard (2-3 jours)" },
   //       { value: "express", label: "Express (24h)" }
   //     ]
-  //   },     
+  //   },
 }
 
 export interface FormSection {
@@ -107,20 +107,28 @@ export interface FormConfig {
   //     ] }
   //   ],
   fields?: FormField[]; // Pour compatibilité avec structure simple
-  
+
   // Configuration du preset et layout
   preset?: IndustryPreset; // Preset automatique à utiliser
   customDefaults?: Record<string, any>; // Valeurs par défaut personnalisées
   customStyles?: string; // Styles CSS personnalisés
-  
+
   // 🌍 Configuration globale avancée (nouveau)
   globalConfig?: GlobalFormConfig;
   layout?: {
-    type?: "default" | "sidebar" | "custom" | "auth" | "package" | "package-edit" | "package-card" | "service-summary";
+    type?:
+      | "default"
+      | "sidebar"
+      | "custom"
+      | "auth"
+      | "package"
+      | "package-edit"
+      | "package-card"
+      | "service-summary";
     autoSummary?: "moving" | "contact" | React.ComponentType<any>;
     summaryConfig?: any;
     component?: React.ComponentType<any>; // Pour layout custom
-    
+
     // Options spécifiques au layout sidebar (nouvelles fonctionnalités)
     showPriceCalculation?: boolean;
     showConstraintsByAddress?: boolean;
@@ -143,7 +151,7 @@ export interface FormConfig {
       features?: string[];
       originalPrice?: number;
     };
-    
+
     // Options spécifiques au layout package
     packageOptions?: {
       packages: PackageOption[];
@@ -152,7 +160,7 @@ export interface FormConfig {
       onCustomizePackage?: (packageId: string, formData: any) => void;
       customizationTitle?: string;
     };
-    
+
     // Options spécifiques au layout package-card
     packageCardOptions?: {
       packages: PackageOption[];
@@ -161,7 +169,7 @@ export interface FormConfig {
       showPricing?: boolean;
       columns?: 1 | 2 | 3 | 4;
     };
-    
+
     // Options spécifiques au layout package-edit
     packageEditOptions?: {
       selectedPackage: PackageOption;
@@ -172,7 +180,7 @@ export interface FormConfig {
       showPackageDetails?: boolean;
       allowPackageModification?: boolean;
     };
-    
+
     // Options spécifiques au layout service-summary
     serviceSummaryOptions?: {
       // Données du service
@@ -183,9 +191,9 @@ export interface FormConfig {
         price: number;
         duration: number;
         workers: number;
-        type?: 'cleaning' | 'moving' | 'package' | 'maintenance' | 'other';
+        type?: "cleaning" | "moving" | "package" | "maintenance" | "other";
       };
-      
+
       // Données du devis
       quoteDetails: {
         id: string;
@@ -196,7 +204,7 @@ export interface FormConfig {
         additionalInfo?: string;
         calculatedPrice: number;
       };
-      
+
       // Configuration adaptable par type de service
       serviceConfig?: {
         prestations?: Array<{
@@ -211,19 +219,19 @@ export interface FormConfig {
         }>;
         pricingRules?: {
           extraHours?: {
-            type: 'hourly' | 'per_worker' | 'flat_fee' | 'custom';
+            type: "hourly" | "per_worker" | "flat_fee" | "custom";
             rate: number;
             label: string;
             unit?: string;
           };
           extraWorkers?: {
-            type: 'hourly' | 'per_worker' | 'flat_fee' | 'custom';
+            type: "hourly" | "per_worker" | "flat_fee" | "custom";
             rate: number;
             label: string;
             unit?: string;
           };
           customRules?: Array<{
-            type: 'hourly' | 'per_worker' | 'flat_fee' | 'custom';
+            type: "hourly" | "per_worker" | "flat_fee" | "custom";
             rate: number;
             label: string;
             unit?: string;
@@ -236,23 +244,26 @@ export interface FormConfig {
           description: string;
         };
       };
-      
+
       // Configuration d'affichage (legacy, maintenant dans serviceConfig)
       showInsurance?: boolean;
       insurancePrice?: number;
       vatRate?: number;
-      
+
       // Callbacks
       onEditQuote?: () => void;
-      onConfirmQuote?: (customerData: {
-        firstName: string;
-        lastName: string;
-        email: string;
-        phone: string;
-      }, hasInsurance: boolean) => void;
+      onConfirmQuote?: (
+        customerData: {
+          firstName: string;
+          lastName: string;
+          email: string;
+          phone: string;
+        },
+        hasInsurance: boolean,
+      ) => void;
       onInsuranceChange?: (hasInsurance: boolean, newTotal: number) => void;
       onBack?: () => void;
-      
+
       // Customisation
       title?: string;
       description?: string;
@@ -261,12 +272,12 @@ export interface FormConfig {
         showGaranties?: boolean;
         showCustomerForm?: boolean;
       };
-      
+
       // État de chargement
       isLoading?: boolean;
-      saveStatus?: 'saving' | 'saved' | 'error' | null;
+      saveStatus?: "saving" | "saved" | "error" | null;
     };
-    
+
     // Options spécifiques au layout auth
     authOptions?: {
       logo?: React.ReactNode | string;
@@ -294,7 +305,7 @@ export interface FormConfig {
       };
     };
   };
-  
+
   submitLabel?: string; //   submitLabel: "Valider",
   cancelLabel?: string; //   cancelLabel: "Annuler",
   hideDefaultSubmit?: boolean; // Masquer le bouton submit par défaut (pour soumission externe)
@@ -316,7 +327,7 @@ export interface FormConfig {
 }
 
 export interface FormGeneratorProps {
-  config: FormConfig; //   config: FormConfig,    
+  config: FormConfig; //   config: FormConfig,
 }
 
 export interface PackageOption {
@@ -331,16 +342,16 @@ export interface PackageOption {
   popular?: boolean;
   customizable?: boolean;
   customizationFields?: FormField[];
-} 
+}
 
 // 🌍 Configuration globale pour layout avancé
 export interface GlobalLayoutConfig {
-  type?: 'single-column' | 'two-column' | 'three-column';
+  type?: "single-column" | "two-column" | "three-column";
   sidebar?: boolean;
   showSteps?: boolean;
-  labelPosition?: 'top' | 'left' | 'right' | 'inside';
-  inputSpacing?: 'sm' | 'md' | 'lg' | 'xl';
-  sectionSpacing?: 'sm' | 'md' | 'lg' | 'xl';
+  labelPosition?: "top" | "left" | "right" | "inside";
+  inputSpacing?: "sm" | "md" | "lg" | "xl";
+  sectionSpacing?: "sm" | "md" | "lg" | "xl";
   maxWidth?: string;
   mobileBreakpoint?: string;
 
@@ -349,7 +360,7 @@ export interface GlobalLayoutConfig {
   modalRecap?: boolean;
   mobile?: {
     singleColumn?: boolean;
-    optionDisplay?: 'list' | 'grid' | 'cards';
+    optionDisplay?: "list" | "grid" | "cards";
   };
 
   // 🖥️ Comportement Desktop
@@ -359,17 +370,17 @@ export interface GlobalLayoutConfig {
 
 // 🎨 Configuration globale pour l'apparence
 export interface GlobalAppearanceConfig {
-  theme?: 'light' | 'dark' | 'system';
+  theme?: "light" | "dark" | "system";
   primaryColor?: string;
   secondaryColor?: string;
   fontFamily?: string;
   fontSize?: string;
   borderRadius?: number;
-  elevation?: 'none' | 'low' | 'medium' | 'high';
-  fieldStyle?: 'outlined' | 'filled' | 'underlined';
+  elevation?: "none" | "low" | "medium" | "high";
+  fieldStyle?: "outlined" | "filled" | "underlined";
   selectionIndicator?: {
-    type?: 'ios-checkmark' | 'material-radio' | 'custom';
-    position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    type?: "ios-checkmark" | "material-radio" | "custom";
+    position?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   };
   transitions?: {
     hover?: boolean;
@@ -393,17 +404,17 @@ export interface GlobalUIElementsConfig {
   showServiceIcon?: boolean;
   stickyHeader?: boolean;
   stickySubmit?: boolean;
-  submitButtonPosition?: 'top' | 'bottom' | 'floating';
-  submitButtonStyle?: 'filled' | 'outlined' | 'text' | 'flat';
+  submitButtonPosition?: "top" | "bottom" | "floating";
+  submitButtonStyle?: "filled" | "outlined" | "text" | "flat";
   includeHelpText?: boolean;
   showBackButton?: boolean;
   confirmationOnSubmit?: boolean;
-  headerAppearance?: 'normal' | 'blur' | 'transparent';
+  headerAppearance?: "normal" | "blur" | "transparent";
 }
 
 // ✅ Configuration globale pour la validation
 export interface GlobalValidationConfig {
-  mode?: 'onChange' | 'onBlur' | 'onSubmit';
+  mode?: "onChange" | "onBlur" | "onSubmit";
   showInlineErrors?: boolean;
   highlightInvalidFields?: boolean;
   errorSummaryAtTop?: boolean;
@@ -433,4 +444,4 @@ export interface GlobalFormConfig {
     compatibleWith?: string;
   };
   // ✅ sharedFields supprimé - géré séparément dans sharedFields.ts
-} 
+}

@@ -5,34 +5,34 @@
  * Ce contexte est immuable - les modules créent de nouveaux contextes.
  */
 
-import { ComputedContext } from './ComputedContext';
+import { ComputedContext } from "./ComputedContext";
 
 export interface QuoteContext {
   // ============================================================================
   // IDENTIFICATION
   // ============================================================================
-  serviceType: 'MOVING'; // Fixe pour ce système
-  region: 'IDF'; // Point de départ obligatoire Île-de-France
+  serviceType: "MOVING"; // Fixe pour ce système
+  region: "IDF"; // Point de départ obligatoire Île-de-France
 
   // ============================================================================
   // DATE ET PLANNING
   // ============================================================================
   movingDate?: string; // ISO 8601
-  flexibility?: 'NONE' | 'PLUS_MINUS_3' | 'PLUS_MINUS_7';
+  flexibility?: "NONE" | "PLUS_MINUS_3" | "PLUS_MINUS_7";
 
   // ============================================================================
   // LOGEMENT
   // ============================================================================
-  housingType?: 'STUDIO' | 'F2' | 'F3' | 'F4' | 'HOUSE';
+  housingType?: "STUDIO" | "F2" | "F3" | "F4" | "HOUSE";
   surface?: number; // m²
   rooms?: number;
 
   // ============================================================================
   // VOLUME
   // ============================================================================
-  volumeMethod?: 'FORM' | 'LIST' | 'VIDEO';
+  volumeMethod?: "FORM" | "LIST" | "VIDEO";
   estimatedVolume?: number; // m³
-  volumeConfidence?: 'LOW' | 'MEDIUM' | 'HIGH';
+  volumeConfidence?: "LOW" | "MEDIUM" | "HIGH";
 
   // ============================================================================
   // ADRESSES - DÉPART (PICKUP)
@@ -42,11 +42,13 @@ export interface QuoteContext {
   departureCity?: string;
   pickupFloor?: number;
   pickupHasElevator?: boolean;
-  pickupElevatorSize?: 'SMALL' | 'STANDARD' | 'LARGE';
+  pickupElevatorSize?: "SMALL" | "STANDARD" | "LARGE";
   pickupCarryDistance?: number; // mètres
   pickupStreetNarrow?: boolean;
   pickupParkingAuthorizationRequired?: boolean;
   pickupSyndicTimeSlot?: boolean;
+  // Contraintes d'accès supplémentaires (IDs depuis modal-data.ts)
+  pickupAccessConstraints?: string[];
 
   // ============================================================================
   // ADRESSES - ARRIVÉE (DELIVERY)
@@ -56,11 +58,13 @@ export interface QuoteContext {
   arrivalCity?: string;
   deliveryFloor?: number;
   deliveryHasElevator?: boolean;
-  deliveryElevatorSize?: 'SMALL' | 'STANDARD' | 'LARGE';
+  deliveryElevatorSize?: "SMALL" | "STANDARD" | "LARGE";
   deliveryCarryDistance?: number; // mètres
   deliveryStreetNarrow?: boolean;
   deliveryParkingAuthorizationRequired?: boolean;
   deliverySyndicTimeSlot?: boolean;
+  // Contraintes d'accès supplémentaires (IDs depuis modal-data.ts)
+  deliveryAccessConstraints?: string[];
 
   // ============================================================================
   // DISTANCE (CALCULÉE EN TEMPS RÉEL PAR LE FORMULAIRE)
@@ -98,8 +102,8 @@ export interface QuoteContext {
   // Gestion automatique par seuils :
   // - HIGH (≥3) : Coché par défaut, décochable avec avertissement
   // - CRITICAL (≥5) : Coché et non décochable
-  pickupFurnitureLift?: boolean;    // Monte-meubles adresse départ
-  deliveryFurnitureLift?: boolean;  // Monte-meubles adresse arrivée
+  pickupFurnitureLift?: boolean; // Monte-meubles adresse départ
+  deliveryFurnitureLift?: boolean; // Monte-meubles adresse arrivée
 
   // ============================================================================
   // JURIDIQUE & ASSURANCE

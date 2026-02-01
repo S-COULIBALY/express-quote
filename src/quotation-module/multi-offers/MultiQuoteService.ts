@@ -13,31 +13,59 @@
  * - Les modules de base sont ignorés via skipModules
  */
 
-import { QuoteContext } from '../core/QuoteContext';
-import { QuoteEngine } from '../core/QuoteEngine';
-import { QuoteModule } from '../core/QuoteModule';
-import { QuoteScenario } from './QuoteScenario';
+import { QuoteContext } from "../core/QuoteContext";
+import { QuoteEngine } from "../core/QuoteEngine";
+import { QuoteModule } from "../core/QuoteModule";
+import { QuoteScenario } from "./QuoteScenario";
 import {
   ScenarioRecommendationEngine,
   RecommendationResult,
   ScenarioScore,
-} from '../services/ScenarioRecommendationEngine';
+} from "../services/ScenarioRecommendationEngine";
 
 /**
  * Modules de base calculés par BaseCostEngine (à ignorer en mode incrémental)
+ *
+ * ARCHITECTURE :
+ * - Ces modules calculent le VRAI coût opérationnel du déménagement
+ * - Toutes les contraintes d'accès sont incluses (étage, ascenseur, rue étroite, etc.)
+ * - Le monte-meubles ANNULE les pénalités d'étage (logique métier réelle)
+ * - MultiQuoteService ajoute ensuite les SERVICES du catalogue (emballage, nettoyage, etc.)
  */
 const BASE_COST_MODULES = [
-  'input-sanitization',
-  'date-validation',
-  'address-normalization',
-  'volume-estimation',
-  'distance-calculation',
-  'long-distance-threshold',
-  'fuel-cost',
-  'toll-cost',
-  'vehicle-selection',
+  // PHASE 1 - Normalisation
+  "input-sanitization",
+  "date-validation",
+  "address-normalization",
+
+  // PHASE 2 - Volume
+  "volume-estimation",
+
+  // PHASE 3 - Distance & Transport
+  "distance-calculation",
+  "long-distance-threshold",
+  "fuel-cost",
+  "toll-cost",
+
+  // PHASE 4 - Contraintes d'accès (coûts RÉELS qui s'appliquent à TOUS les scénarios)
+  "no-elevator-pickup",
+  "no-elevator-delivery",
+  "navette-required",
+  "time-slot-syndic",
+  "traffic-idf",
+  "access-constraints-penalty",
+
+  // PHASE 5 - Monte-meubles et pénalités d'étage
+  // Logique métier : le monte-meubles ANNULE les pénalités d'étage
+  "monte-meubles-recommendation",
+  "furniture-lift-cost",
+  "floor-penalty-cost",
+
+  // PHASE 6 - Main d'œuvre de base
+  "vehicle-selection",
   // 'workers-calculation' retiré pour permettre l'ajustement selon le scénario
   // 'labor-base' retiré car dépend de workersCount qui varie selon le scénario
+  "labor-access-penalty",
 ];
 
 /**
@@ -45,23 +73,23 @@ const BASE_COST_MODULES = [
  * dans le catalogue et qui doivent être traités différemment selon les scénarios
  */
 const CROSS_SELLING_SERVICE_FLAGS = [
-  'packing',
-  'dismantling',
-  'reassembly',
-  'cleaningEnd',
-  'temporaryStorage',
+  "packing",
+  "dismantling",
+  "reassembly",
+  "cleaningEnd",
+  "temporaryStorage",
 ] as const;
 
 /**
  * Scénarios haut de gamme où les services cross-selling sont INCLUS dans la formule
  * (les sélections du catalogue client sont ignorées, les services sont forcés via overrides)
  */
-const HIGH_END_SCENARIOS = ['CONFORT', 'PREMIUM', 'SECURITY_PLUS'];
+const HIGH_END_SCENARIOS = ["CONFORT", "PREMIUM", "SECURITY_PLUS"];
 
 /**
  * Scénarios où la sélection cross-selling du client doit être appliquée
  */
-const CLIENT_SELECTION_SCENARIOS = ['STANDARD', 'FLEX'];
+const CLIENT_SELECTION_SCENARIOS = ["STANDARD", "FLEX"];
 
 /**
  * Variante de devis générée
@@ -96,7 +124,9 @@ export class MultiQuoteService {
    * @param ctx Contexte de base avec les sélections cross-selling
    * @returns Contexte préparé avec métadonnées et flags nettoyés
    */
-  private prepareContextWithCrossSellingMetadata(ctx: QuoteContext): QuoteContext {
+  private prepareContextWithCrossSellingMetadata(
+    ctx: QuoteContext,
+  ): QuoteContext {
     // Sauvegarder les sélections cross-selling du client dans les métadonnées
     const clientCrossSellingSelection = {
       packing: ctx.packing === true,
@@ -121,14 +151,21 @@ export class MultiQuoteService {
       .some(([, value]) => value === true);
 
     if (hasClientSelection) {
-      console.log('\n📦 CROSS-SELLING CLIENT SAUVEGARDÉ:');
-      if (clientCrossSellingSelection.packing) console.log('   ✓ Emballage professionnel');
-      if (clientCrossSellingSelection.dismantling) console.log('   ✓ Démontage meubles');
-      if (clientCrossSellingSelection.reassembly) console.log('   ✓ Remontage meubles');
-      if (clientCrossSellingSelection.cleaningEnd) console.log('   ✓ Nettoyage fin de bail');
-      if (clientCrossSellingSelection.temporaryStorage) console.log('   ✓ Stockage temporaire');
+      console.log("\n📦 CROSS-SELLING CLIENT SAUVEGARDÉ:");
+      if (clientCrossSellingSelection.packing)
+        console.log("   ✓ Emballage professionnel");
+      if (clientCrossSellingSelection.dismantling)
+        console.log("   ✓ Démontage meubles");
+      if (clientCrossSellingSelection.reassembly)
+        console.log("   ✓ Remontage meubles");
+      if (clientCrossSellingSelection.cleaningEnd)
+        console.log("   ✓ Nettoyage fin de bail");
+      if (clientCrossSellingSelection.temporaryStorage)
+        console.log("   ✓ Stockage temporaire");
       if (clientCrossSellingSelection.suppliesTotal > 0) {
-        console.log(`   ✓ Fournitures: ${clientCrossSellingSelection.suppliesTotal}€`);
+        console.log(
+          `   ✓ Fournitures: ${clientCrossSellingSelection.suppliesTotal}€`,
+        );
       }
     }
 
@@ -160,7 +197,7 @@ export class MultiQuoteService {
    */
   private applyClientCrossSellingForScenario(
     ctx: QuoteContext,
-    scenarioId: string
+    scenarioId: string,
   ): QuoteContext {
     const clientSelection = ctx.metadata?.clientCrossSellingSelection;
 
@@ -172,13 +209,15 @@ export class MultiQuoteService {
     // Pour les scénarios haut de gamme : les services sont forcés via overrides
     // donc on n'applique PAS les sélections du client (elles sont ignorées)
     if (HIGH_END_SCENARIOS.includes(scenarioId)) {
-      console.log(`   📦 ${scenarioId}: Services INCLUS dans la formule (sélection client ignorée)`);
+      console.log(
+        `   📦 ${scenarioId}: Services INCLUS dans la formule (sélection client ignorée)`,
+      );
       return ctx;
     }
 
     // Pour ECO : les services sont désactivés via disabledModules
     // donc on n'applique PAS les sélections du client
-    if (scenarioId === 'ECO') {
+    if (scenarioId === "ECO") {
       console.log(`   📦 ECO: Services DÉSACTIVÉS (sélection client ignorée)`);
       return ctx;
     }
@@ -192,27 +231,29 @@ export class MultiQuoteService {
 
       if (clientSelection.packing) {
         updatedCtx.packing = true;
-        appliedServices.push('emballage');
+        appliedServices.push("emballage");
       }
       if (clientSelection.dismantling) {
         updatedCtx.dismantling = true;
-        appliedServices.push('démontage');
+        appliedServices.push("démontage");
       }
       if (clientSelection.reassembly) {
         updatedCtx.reassembly = true;
-        appliedServices.push('remontage');
+        appliedServices.push("remontage");
       }
       if (clientSelection.cleaningEnd) {
         updatedCtx.cleaningEnd = true;
-        appliedServices.push('nettoyage');
+        appliedServices.push("nettoyage");
       }
       if (clientSelection.temporaryStorage) {
         updatedCtx.temporaryStorage = true;
-        appliedServices.push('stockage');
+        appliedServices.push("stockage");
       }
 
       if (appliedServices.length > 0) {
-        console.log(`   📦 ${scenarioId}: Sélection client APPLIQUÉE (${appliedServices.join(', ')})`);
+        console.log(
+          `   📦 ${scenarioId}: Sélection client APPLIQUÉE (${appliedServices.join(", ")})`,
+        );
       } else {
         console.log(`   📦 ${scenarioId}: Aucune sélection client à appliquer`);
       }
@@ -246,21 +287,27 @@ export class MultiQuoteService {
   generateMultipleQuotesFromBaseCost(
     baseCtx: QuoteContext,
     scenarios: QuoteScenario[],
-    baseCost: number
+    baseCost: number,
   ): QuoteVariant[] {
     // 1. Sauvegarder les sélections cross-selling du client dans les métadonnées
     const preparedCtx = this.prepareContextWithCrossSellingMetadata(baseCtx);
 
     const variants = scenarios.map((scenario) =>
-      this.generateSingleVariantFromBaseCost(preparedCtx, scenario, baseCost)
+      this.generateSingleVariantFromBaseCost(preparedCtx, scenario, baseCost),
     );
 
     // Log récapitulatif des prix par scénario avec formule explicite
-    console.log('\n📊 COMPARAISON DES 6 VARIANTES:');
-    console.log(`   BaseCost opérationnel (coûts de base): ${baseCost.toFixed(2)}€`);
-    console.log(`   ─────────────────────────────────────────────────────────────────────`);
+    console.log("\n📊 COMPARAISON DES 6 VARIANTES:");
+    console.log(
+      `   BaseCost opérationnel (coûts de base): ${baseCost.toFixed(2)}€`,
+    );
+    console.log(
+      `   ─────────────────────────────────────────────────────────────────────`,
+    );
     console.log(`   Formule: PRIX FINAL = (baseCost + options) × (1 + marge%)`);
-    console.log(`   ─────────────────────────────────────────────────────────────────────`);
+    console.log(
+      `   ─────────────────────────────────────────────────────────────────────`,
+    );
     variants.forEach((v) => {
       const optionsCost = v.additionalCosts || 0;
       const preTaxTotal = baseCost + optionsCost;
@@ -268,13 +315,13 @@ export class MultiQuoteService {
       // Calcul détaillé: (baseCost + options) × (1 + marge) = prix final
       // Marge = (baseCost + options) × marge% = montant marge
       console.log(
-        `   ${v.scenarioId.padEnd(10)}: ${v.finalPrice.toFixed(2).padStart(8)}€ = (${baseCost.toFixed(2)} + ${optionsCost.toFixed(2)}) × ${(1 + v.marginRate).toFixed(2)}`
+        `   ${v.scenarioId.padEnd(10)}: ${v.finalPrice.toFixed(2).padStart(8)}€ = (${baseCost.toFixed(2)} + ${optionsCost.toFixed(2)}) × ${(1 + v.marginRate).toFixed(2)}`,
       );
       console.log(
-        `                    └─ sous-total: ${preTaxTotal.toFixed(2)}€ + marge ${(v.marginRate * 100).toFixed(0)}% (${preTaxTotal.toFixed(2)} × ${v.marginRate.toFixed(2)} = ${marginAmount.toFixed(2)}€)`
+        `                    └─ sous-total: ${preTaxTotal.toFixed(2)}€ + marge ${(v.marginRate * 100).toFixed(0)}% (${preTaxTotal.toFixed(2)} × ${v.marginRate.toFixed(2)} = ${marginAmount.toFixed(2)}€)`,
       );
     });
-    console.log('');
+    console.log("");
 
     return variants;
   }
@@ -303,7 +350,7 @@ export class MultiQuoteService {
   private generateSingleVariantFromBaseCost(
     baseCtx: QuoteContext,
     scenario: QuoteScenario,
-    baseCost: number
+    baseCost: number,
   ): QuoteVariant {
     // 1. Cloner le contexte (sans computed, on le passera via startFromContext)
     const { computed: baseComputed, ...ctxWithoutComputed } = baseCtx;
@@ -336,20 +383,23 @@ export class MultiQuoteService {
       enabledModules: scenario.enabledModules,
       disabledModules: scenario.disabledModules,
       marginRate: scenario.marginRate,
-      executionPhase: 'QUOTE',
+      executionPhase: "QUOTE",
       debug: false,
     });
 
     // 6. Exécuter le moteur (exécute UNIQUEMENT les modules additionnels)
-    console.log(`\n🔧 Scénario ${scenario.id} (marge: ${(scenario.marginRate * 100).toFixed(1)}%) [MODE INCRÉMENTAL]`);
+    console.log(
+      `\n🔧 Scénario ${scenario.id} (marge: ${(scenario.marginRate * 100).toFixed(1)}%) [MODE INCRÉMENTAL]`,
+    );
     const enrichedCtx = engine.execute(ctxClone);
 
     // 7. Calculer les coûts additionnels
     // En mode incrémental, seuls les nouveaux coûts sont ajoutés
     // On filtre les modules de base pour obtenir uniquement les coûts additionnels
-    const additionalCosts = enrichedCtx.computed?.costs
-      ?.filter((c) => !BASE_COST_MODULES.includes(c.moduleId))
-      .reduce((sum, c) => sum + c.amount, 0) || 0;
+    const additionalCosts =
+      enrichedCtx.computed?.costs
+        ?.filter((c) => !BASE_COST_MODULES.includes(c.moduleId))
+        .reduce((sum, c) => sum + c.amount, 0) || 0;
 
     // 8. Calculer le prix final
     // basePrice = baseCost (opérationnel) + additionalCosts (options)
@@ -360,10 +410,18 @@ export class MultiQuoteService {
 
     // Log du prix final du scénario avec détail du calcul
     console.log(`   ────────────────────────────────`);
-    console.log(`   PRIX FINAL ${scenario.id.toUpperCase()}: ${finalPrice.toFixed(2)}€`);
-    console.log(`      = (${baseCost.toFixed(2)}€ baseCost + ${additionalCosts.toFixed(2)}€ options) × (1 + ${(scenario.marginRate * 100).toFixed(0)}%)`);
-    console.log(`      = ${basePrice.toFixed(2)}€ × ${(1 + scenario.marginRate).toFixed(2)} = ${finalPrice.toFixed(2)}€`);
-    console.log(`      └─ marge: ${basePrice.toFixed(2)}€ × ${(scenario.marginRate * 100).toFixed(0)}% = +${marginAmount.toFixed(2)}€`);
+    console.log(
+      `   PRIX FINAL ${scenario.id.toUpperCase()}: ${finalPrice.toFixed(2)}€`,
+    );
+    console.log(
+      `      = (${baseCost.toFixed(2)}€ baseCost + ${additionalCosts.toFixed(2)}€ options) × (1 + ${(scenario.marginRate * 100).toFixed(0)}%)`,
+    );
+    console.log(
+      `      = ${basePrice.toFixed(2)}€ × ${(1 + scenario.marginRate).toFixed(2)} = ${finalPrice.toFixed(2)}€`,
+    );
+    console.log(
+      `      └─ marge: ${basePrice.toFixed(2)}€ × ${(scenario.marginRate * 100).toFixed(0)}% = +${marginAmount.toFixed(2)}€`,
+    );
 
     // 9. Mettre à jour le contexte enrichi avec les bons prix
     if (enrichedCtx.computed) {
@@ -418,7 +476,7 @@ export class MultiQuoteService {
    */
   getSmartRecommendedVariant(
     variants: QuoteVariant[],
-    ctx: QuoteContext
+    ctx: QuoteContext,
   ): {
     recommended: QuoteVariant | undefined;
     alternative: QuoteVariant | undefined;
@@ -429,9 +487,13 @@ export class MultiQuoteService {
     const recommendation = ScenarioRecommendationEngine.analyze(ctx);
 
     // Trouver les variantes correspondantes
-    const recommendedVariant = variants.find(v => v.scenarioId === recommendation.recommended);
+    const recommendedVariant = variants.find(
+      (v) => v.scenarioId === recommendation.recommended,
+    );
     const alternativeVariant = recommendation.alternativeRecommendation
-      ? variants.find(v => v.scenarioId === recommendation.alternativeRecommendation)
+      ? variants.find(
+          (v) => v.scenarioId === recommendation.alternativeRecommendation,
+        )
       : undefined;
 
     return {

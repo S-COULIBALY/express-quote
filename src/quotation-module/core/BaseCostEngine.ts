@@ -73,7 +73,9 @@ const BASE_COST_MODULES = [
   "no-elevator-pickup", // Détection absence ascenseur départ
   "no-elevator-delivery", // Détection absence ascenseur arrivée
   "navette-required", // Navette si rue étroite/zone piétonne
+  "time-slot-syndic", // Créneau syndic si restrictions horaires
   "traffic-idf", // Surcoût trafic IDF (heures de pointe)
+  "access-constraints-penalty", // Pénalités % des contraintes d'accès (modal-data.ts)
 
   // PHASE 5 - Monte-meubles et pénalités d'étage (NOUVEAU)
   // Logique métier : le monte-meubles ANNULE les pénalités d'étage

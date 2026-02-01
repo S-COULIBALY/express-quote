@@ -30,6 +30,7 @@ import { NoElevatorDeliveryModule } from "../modules/constraints/NoElevatorDeliv
 import { NavetteRequiredModule } from "../modules/logistics/NavetteRequiredModule";
 import { TrafficIdfModule } from "../modules/logistics/TrafficIdfModule";
 import { TimeSlotSyndicModule } from "../modules/logistics/TimeSlotSyndicModule";
+import { AccessConstraintsPenaltyModule } from "../modules/constraints/AccessConstraintsPenaltyModule";
 import { LoadingTimeEstimationModule } from "../modules/logistics/LoadingTimeEstimationModule";
 
 // PHASE 5 - Monte-meubles CRITIQUE (50-59)
@@ -108,6 +109,7 @@ export function getAllModules(): QuoteModule[] {
     new NavetteRequiredModule(), // 45
     new TrafficIdfModule(), // 46
     new TimeSlotSyndicModule(), // 47
+    new AccessConstraintsPenaltyModule(), // 48 - Pénalités % contraintes (modal-data.ts)
 
     // ============================================================================
     // PHASE 5 - Monte-meubles CRITIQUE (50-59)

@@ -12,7 +12,8 @@ import {
   DeliveryAddressAutocomplete,
 } from "@/components/AddressAutocomplete";
 import { WhatsAppOptInConsent } from "@/components/WhatsAppOptInConsent";
-import { AccessConstraintsModal } from "./AccessConstraintsModal";
+// ✅ LogisticsModal remplace AccessConstraintsModal (source: modal-data.ts)
+import { LogisticsModal } from "./LogisticsModal";
 import { CrossSellingButton } from "./CrossSellingButton";
 import { FurnitureLiftCheckbox } from "./FurnitureLiftCheckbox";
 
@@ -396,7 +397,7 @@ export const FormField: React.FC<FormFieldProps> = ({
         const type = field.componentProps?.type || "pickup";
         const prefix = type === "pickup" ? "pickup" : "delivery";
 
-        // Récupérer les valeurs du formulaire
+        // Récupérer les valeurs du formulaire pour l'auto-détection
         const floor = formData?.[`${prefix}Floor`] as number | undefined;
         const elevator = formData?.[`${prefix}Elevator`] as
           | "no"
@@ -409,23 +410,16 @@ export const FormField: React.FC<FormFieldProps> = ({
           | "10-30"
           | "30+"
           | undefined;
-        const volume = formData?.["volume"] as number | undefined;
-
-        // 🔧 CORRECTION: Récupérer le serviceType depuis componentProps
-        const serviceTypeFromProps = field.componentProps?.serviceType;
 
         devLog.debug(
           "FormField",
-          `🏗️ [FormField] AccessConstraintsModal - Données extraites:`,
+          `🏗️ [FormField] LogisticsModal - Données extraites:`,
           {
             type,
             floor,
             elevator,
             carryDistance,
-            volume,
-            serviceTypeFromProps,
             componentProps: field.componentProps,
-            formData,
           },
         );
 
@@ -455,7 +449,7 @@ export const FormField: React.FC<FormFieldProps> = ({
 
         return (
           <div className="w-full">
-            <AccessConstraintsModal
+            <LogisticsModal
               type={type}
               buttonLabel={field.componentProps?.buttonLabel || field.label}
               modalTitle={field.componentProps?.modalTitle || field.label}
@@ -465,9 +459,6 @@ export const FormField: React.FC<FormFieldProps> = ({
               floor={floor}
               elevator={elevator}
               carryDistance={carryDistance}
-              volume={volume}
-              formData={formData}
-              serviceType={serviceTypeFromProps} // 🔧 Passer le serviceType
             />
           </div>
         );
