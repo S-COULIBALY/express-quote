@@ -1,7 +1,6 @@
 import { Configuration } from '../../domain/configuration/Configuration';
 import { ConfigurationCategory, BusinessTypePricingConfigKey } from '../../domain/configuration/ConfigurationKey';
 import { IConfigurationRepository } from '../../domain/repositories/IConfigurationRepository';
-import { DefaultValues } from '../../domain/configuration/DefaultValues';
 
 export class ConfigurationService {
   private cache: Map<string, Configuration> = new Map();

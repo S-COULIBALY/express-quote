@@ -1,37 +1,9 @@
 import { CatalogData } from '@/hooks/useCatalogPreFill';
 import { CatalogueMovingItem, CatalogueCleaningItem, CatalogueDeliveryItem } from '@/types/booking';
 
-// Fonction pour déterminer le preset à utiliser selon la catégorie et sous-catégorie
+/** Seul le service déménagement sur mesure est actif. Toutes les catégories redirigent vers ce preset. */
 export const getPresetForCategory = (category: string, subcategory?: string): 'catalogueMovingItem-service' | 'catalogueCleaningItem-service' | 'catalogueDeliveryItem-service' | 'demenagement-sur-mesure' | 'menage-sur-mesure' => {
-  // Si c'est un service sur mesure, retourner le preset approprié
-  if (subcategory === 'sur-mesure') {
-    switch (category.toUpperCase()) {
-      case 'DEMENAGEMENT':
-        return 'demenagement-sur-mesure';
-      case 'MENAGE':
-        return 'menage-sur-mesure';
-      default:
-        return 'menage-sur-mesure';
-    }
-  }
-  
-  // Sinon, utiliser la logique existante pour les services du catalogue
-  switch (category.toUpperCase()) {
-    case 'DEMENAGEMENT':
-    case 'TRANSPORT':
-      return 'catalogueMovingItem-service';      // Adresses pickup/delivery + contraintes logistiques
-    
-    case 'MENAGE':
-    case 'NETTOYAGE':
-      return 'catalogueCleaningItem-service';   // Une adresse + contraintes service
-    
-    case 'LIVRAISON':
-    case 'DELIVERY':
-      return 'catalogueDeliveryItem-service';   // Pickup/delivery avec horaires + caractéristiques colis
-    
-    default:
-      return 'catalogueCleaningItem-service';
-  }
+  return 'demenagement-sur-mesure';
 };
 
 // Transformation catalogue → CatalogueMovingItem (pour déménagement/transport)

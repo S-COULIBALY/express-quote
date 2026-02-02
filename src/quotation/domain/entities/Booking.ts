@@ -5,10 +5,13 @@ import { Professional } from './Professional';
 import { Money } from '../valueObjects/Money';
 import { QuoteRequest } from './QuoteRequest';
 
+/**
+ * Types de réservation
+ * ✅ ACTIF: MOVING_QUOTE (déménagement)
+ * ❌ ABANDONNÉS: PACKING, SERVICE (supprimés 2026-02)
+ */
 export enum BookingType {
-    MOVING_QUOTE = 'MOVING_QUOTE',
-    PACKING = 'PACKING',
-    SERVICE = 'SERVICE'
+    MOVING_QUOTE = 'MOVING_QUOTE'
 }
 
 export enum BookingStatus {

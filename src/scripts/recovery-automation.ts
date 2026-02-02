@@ -198,9 +198,6 @@ class RecoveryAutomationProcessor {
         updatedAt: {
           lt: cutoffTime
         }
-      },
-      include: {
-        CatalogSelection: true
       }
     });
 

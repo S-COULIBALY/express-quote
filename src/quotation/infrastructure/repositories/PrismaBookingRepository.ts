@@ -597,7 +597,6 @@ export class PrismaBookingRepository implements IBookingRepository {
             Customer: true,
             Professional: true,
             Moving: true,
-            items: true,
             QuoteRequest: {
               select: {
                 id: true,
@@ -642,8 +641,7 @@ export class PrismaBookingRepository implements IBookingRepository {
         include: {
           Customer: true,
           Professional: true,
-          Moving: true,
-          items: true
+          Moving: true
         }
       });
 
@@ -671,8 +669,7 @@ export class PrismaBookingRepository implements IBookingRepository {
         include: {
           Customer: true,
           Professional: true,
-          Moving: true,
-          items: true
+          Moving: true
         }
       });
 
@@ -700,8 +697,7 @@ export class PrismaBookingRepository implements IBookingRepository {
         include: {
           Customer: true,
           Professional: true,
-          Moving: true,
-          items: true
+          Moving: true
         }
       });
 
@@ -729,8 +725,7 @@ export class PrismaBookingRepository implements IBookingRepository {
         include: {
           Customer: true,
           Professional: true,
-          Moving: true,
-          items: true
+          Moving: true
         }
       });
 

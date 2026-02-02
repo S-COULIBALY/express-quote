@@ -35,7 +35,6 @@ model Booking {
   Moving               Moving?
   Transaction          Transaction[]
   booking_attributions booking_attributions[]
-  items                items[]
   payments             payments[]
   scheduled_reminders  scheduled_reminders[]
 
@@ -45,52 +44,6 @@ model Booking {
   @@index([scheduledDate])
   @@index([status])
   @@index([type])
-}
-
-model CatalogSelection {
-  id                   String          @id
-  category             CatalogCategory
-  subcategory          String?
-  displayOrder         Int
-  isActive             Boolean         @default(true)
-  isFeatured           Boolean         @default(false)
-  isNewOffer           Boolean         @default(false)
-  marketingTitle       String?
-  marketingSubtitle    String?
-  marketingDescription String?
-  marketingPrice       Float?
-  originalPrice        Float?
-  badgeText            String?
-  badgeColor           String?
-  promotionText        String?
-  isVisible            Boolean         @default(true)
-  startDate            DateTime?
-  endDate              DateTime?
-  targetAudience       String?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime
-  itemId               String?
-  isPromotionActive    Boolean         @default(false)
-  promotionCode        String?
-  promotionType        String?
-  promotionValue       Float?
-  items                items?          @relation(fields: [itemId], references: [id])
-  QuoteRequest         QuoteRequest[]
-
-  @@index([category])
-  @@index([displayOrder])
-  @@index([isActive])
-  @@index([isFeatured])
-  @@index([isVisible, startDate, endDate])
-}
-
-model Category {
-  id          String   @id
-  name        String
-  description String?
-  icon        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -137,7 +90,6 @@ model Customer {
   updatedAt DateTime
   Booking   Booking[]
   EmailLog  EmailLog[]
-  items     items[]
 }
 
 model Document {
@@ -280,19 +232,16 @@ model Professional {
 }
 
 model QuoteRequest {
-  id                 String            @id
-  type               String
-  status             String
-  quoteData          Json
-  temporaryId        String            @unique
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime
-  expiresAt          DateTime
-  catalogSelectionId String?
-  Booking            Booking[]
-  CatalogSelection   CatalogSelection? @relation(fields: [catalogSelectionId], references: [id])
+  id          String             @id
+  type        String
+  status      QuoteRequestStatus
+  quoteData   Json
+  temporaryId String             @unique
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime
+  expiresAt   DateTime
+  Booking     Booking[]
 
-  @@index([catalogSelectionId])
   @@index([status])
   @@index([temporaryId])
   @@index([type])
@@ -442,44 +391,6 @@ model internal_staff {
   @@index([is_active])
   @@index([role])
   @@index([role, is_active])
-}
-
-model items {
-  id                String             @id
-  type              ItemType
-  template_id       String?
-  customer_id       String?
-  booking_id        String?
-  parent_item_id    String?
-  name              String
-  description       String?
-  price             Float
-  workers           Int
-  duration          Int
-  features          String[]           @default([])
-  included_distance Int?
-  distance_unit     String?            @default("km")
-  includes          String[]           @default([])
-  category_id       String?
-  popular           Boolean            @default(false)
-  image_path        String?
-  is_active         Boolean            @default(true)
-  status            String             @default("ACTIVE")
-  created_at        DateTime           @default(now())
-  updated_at        DateTime
-  CatalogSelection  CatalogSelection[]
-  Booking           Booking?           @relation(fields: [booking_id], references: [id])
-  Customer          Customer?          @relation(fields: [customer_id], references: [id])
-  items             items?             @relation("itemsToitems", fields: [parent_item_id], references: [id])
-  other_items       items[]            @relation("itemsToitems")
-  templates         templates?         @relation(fields: [template_id], references: [id])
-
-  @@index([customer_id])
-  @@index([is_active])
-  @@index([parent_item_id])
-  @@index([template_id])
-  @@index([type])
-  @@index([type, is_active])
 }
 
 model notification_audits {
@@ -726,41 +637,6 @@ model professional_sessions {
   @@index([professional_id])
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model rules {
-  id           String       @id
-  name         String
-  description  String?
-  value        Float
-  isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime
-  category     RuleCategory
-  condition    Json?
-  percentBased Boolean      @default(true)
-  serviceType  ServiceType  @default(SERVICE)
-  ruleType     RuleType?    @default(CONSTRAINT)
-  priority     Int?         @default(100)
-  validFrom    DateTime?    @default(now())
-  validTo      DateTime?
-  tags         String[]     @default([])
-  configKey    String?
-  metadata     Json?
-
-  // ✅ Nouveau champ explicite pour la portée
-  scope        RuleScope    @default(BOTH)
-
-  @@unique([ruleType, category, name])
-  @@unique([ruleType, category, name, scope])
-  @@index([isActive, validFrom, validTo])
-  @@index([priority])
-  @@index([ruleType])
-  @@index([ruleType, serviceType])
-  @@index([scope])
-  @@index([serviceType, scope])
-  @@index([tags], type: Gin)
-}
-
 model scheduled_reminders {
   id                   String                @id
   booking_id           String
@@ -797,32 +673,6 @@ model scheduled_reminders {
   @@index([status, scheduled_date])
 }
 
-model templates {
-  id                String   @id
-  type              ItemType
-  name              String
-  description       String?
-  price             Float
-  workers           Int
-  duration          Int
-  features          String[] @default([])
-  included_distance Int?
-  distance_unit     String?  @default("km")
-  includes          String[] @default([])
-  category_id       String?
-  popular           Boolean  @default(false)
-  image_path        String?
-  is_active         Boolean  @default(true)
-  created_at        DateTime @default(now())
-  updated_at        DateTime
-  items             items[]
-
-  @@index([is_active])
-  @@index([popular])
-  @@index([type])
-  @@index([type, is_active])
-}
-
 enum AttributionStatus {
   BROADCASTING
   ACCEPTED
@@ -845,15 +695,6 @@ enum BookingStatus {
 
 enum BookingType {
   MOVING_QUOTE
-  PACKING
-  SERVICE
-}
-
-enum CatalogCategory {
-  DEMENAGEMENT
-  MENAGE
-  TRANSPORT
-  LIVRAISON
 }
 
 enum DocumentType {
@@ -861,6 +702,10 @@ enum DocumentType {
   INVOICE
   CONTRACT
   OTHER
+  QUOTE
+  PAYMENT_RECEIPT
+  DELIVERY_NOTE
+  TRANSPORT_MANIFEST
 }
 
 enum EmailStatus {
@@ -877,13 +722,6 @@ enum InternalRole {
   CUSTOMER_SERVICE
   ACCOUNTING
   ADMIN
-}
-
-enum ItemType {
-  DEMENAGEMENT
-  MENAGE
-  TRANSPORT
-  LIVRAISON
 }
 
 enum NotificationChannel {
@@ -920,6 +758,13 @@ enum ProfessionalType {
   OTHER
 }
 
+enum QuoteRequestStatus {
+  TEMPORARY
+  CONFIRMED
+  CONVERTED
+  EXPIRED
+}
+
 enum ReminderStatus {
   SCHEDULED
   PROCESSING
@@ -943,31 +788,9 @@ enum ResponseType {
   TIMEOUT
 }
 
-enum RuleCategory {
-  REDUCTION
-  SURCHARGE
-  MINIMUM
-  MAXIMUM
-  FIXED
-  PERCENTAGE
-}
-
-enum RuleType {
-  CONSTRAINT
-  BUSINESS
-  PRICING
-  TEMPORAL
-  GEOGRAPHIC
-  VOLUME
-  CUSTOM
-}
-
 enum ServiceType {
   MOVING
-  PACKING
-  CLEANING
-  DELIVERY
-  SERVICE
+  MOVING_PREMIUM
 }
 
 enum TemplateType {
@@ -982,13 +805,6 @@ enum TemplateType {
   CLIENT_REMINDER_24H
   CLIENT_REMINDER_1H
   PROFESSIONAL_DAY_J
-}
-
-enum RuleScope {
-  GLOBAL      // Règle applicable à l'ensemble du service (temps, volume, urgence)
-  PICKUP      // Règle liée à l'adresse de départ
-  DELIVERY    // Règle liée à l'adresse d'arrivée
-  BOTH        // Règle applicable aux deux adresses
 }
 
 enum TransactionStatus {

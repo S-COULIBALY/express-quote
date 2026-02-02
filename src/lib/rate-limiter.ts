@@ -5,7 +5,8 @@
  * Peut être étendu avec Redis pour un partage entre instances
  *
  * Endpoints protégés:
- * - POST /api/price/calculate (scraping tarifs)
+ * - POST /api/quotation/calculate (scraping tarifs)
+ * - POST /api/quotation/multi-offers (scraping tarifs)
  * - POST /api/payment/create-session (abus Stripe)
  * - POST /api/quotesRequest (spam DB)
  * - POST /api/attribution/start (abus Google Maps API)

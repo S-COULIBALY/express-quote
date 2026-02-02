@@ -7,6 +7,56 @@ import { priceSignatureService } from '@/quotation/application/services/PriceSig
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const BASE_URL = () => process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+/**
+ * Recalcule le prix total via quotation-module (calculate + multi-offers).
+ * Utilisé quand la signature est absente ou invalide (défense en profondeur).
+ */
+async function recalculateTotalWithQuotationModule(quoteData: Record<string, unknown>): Promise<{ totalPrice: number } | { error: string }> {
+  try {
+    const calcRes = await fetch(`${BASE_URL()}/api/quotation/calculate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(quoteData),
+      cache: 'no-store'
+    });
+    if (!calcRes.ok) {
+      const errText = await calcRes.text();
+      return { error: `calculate: ${calcRes.status} ${errText}` };
+    }
+    const calcJson = await calcRes.json();
+    if (!calcJson.success || calcJson.baseCost == null) {
+      return { error: 'calculate: réponse invalide ou baseCost manquant' };
+    }
+    const baseCost = calcJson.baseCost as number;
+    const context = calcJson.context ?? { original: quoteData, computed: calcJson.breakdown };
+
+    const multiRes = await fetch(`${BASE_URL()}/api/quotation/multi-offers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseCost, context }),
+      cache: 'no-store'
+    });
+    if (!multiRes.ok) {
+      const errText = await multiRes.text();
+      return { error: `multi-offers: ${multiRes.status} ${errText}` };
+    }
+    const multiJson = await multiRes.json();
+    const variants = multiJson.variants ?? multiJson.offers ?? [];
+    const standard = variants.find((v: { scenarioId?: string }) => v.scenarioId === 'STANDARD');
+    const first = variants[0];
+    const chosen = standard ?? first;
+    if (!chosen || typeof chosen.finalPrice !== 'number') {
+      return { error: 'multi-offers: aucun scénario avec finalPrice' };
+    }
+    return { totalPrice: chosen.finalPrice };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { error: message };
+  }
+}
+
 // Initialiser Stripe uniquement si la clé est disponible
 function getStripeInstance(): Stripe | null {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -125,28 +175,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         verificationMethod = 'recalcul (signature invalide)';
 
-        // Recalcul complet
-        const priceResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/price/calculate`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...quoteData, serviceType: quoteRequest.type }),
-            cache: 'no-store'
-          }
-        );
-
-        if (!priceResponse.ok) {
-          logger.error('❌ Erreur recalcul prix sécurisé');
+        const recalc = await recalculateTotalWithQuotationModule(quoteData);
+        if ('error' in recalc) {
+          logger.error('❌ Erreur recalcul prix sécurisé', { error: recalc.error });
           return NextResponse.json(
             { success: false, error: 'Erreur lors du calcul du prix' },
             { status: 500 }
           );
         }
-
-        const priceData = await priceResponse.json();
-        const responseData = priceData.data || priceData;
-        serverCalculatedPrice = responseData.summary?.total ?? responseData.totalPrice ?? 0;
+        serverCalculatedPrice = recalc.totalPrice;
         depositAmount = serverCalculatedPrice * 0.3;
       }
     } else {
@@ -154,27 +191,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       logger.warn('⚠️ Pas de signature - Recalcul de sécurité', { temporaryId });
       verificationMethod = 'recalcul (pas de signature)';
 
-      const priceResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/price/calculate`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...quoteData, serviceType: quoteRequest.type }),
-          cache: 'no-store'
-        }
-      );
-
-      if (!priceResponse.ok) {
-        logger.error('❌ Erreur recalcul prix sécurisé');
+      const recalc = await recalculateTotalWithQuotationModule(quoteData);
+      if ('error' in recalc) {
+        logger.error('❌ Erreur recalcul prix sécurisé', { error: recalc.error });
         return NextResponse.json(
           { success: false, error: 'Erreur lors du calcul du prix' },
           { status: 500 }
         );
       }
-
-      const priceData = await priceResponse.json();
-      const responseData = priceData.data || priceData;
-      serverCalculatedPrice = responseData.summary?.total ?? responseData.totalPrice ?? 0;
+      serverCalculatedPrice = recalc.totalPrice;
       depositAmount = serverCalculatedPrice * 0.3;
     }
 

@@ -57,7 +57,6 @@ export async function GET(request: NextRequest) {
     // Mode rapide : récupération des données essentielles seulement
     if (quickMode) {
       const [
-        totalTemplates,
         totalBookings,
         totalCustomers,
         currentPeriodRevenue,
@@ -67,7 +66,6 @@ export async function GET(request: NextRequest) {
         // Demandes en attente
         pendingRequests,
       ] = await Promise.all([
-        prisma.templates.count(),
         prisma.booking.count(),
         prisma.customer.count(),
         prisma.booking.aggregate({
@@ -133,7 +131,6 @@ export async function GET(request: NextRequest) {
     // Mode complet : récupération de toutes les données
     const [
       // Statistiques générales
-      totalTemplates,
       totalBookings,
       totalCustomers,
 
@@ -147,10 +144,6 @@ export async function GET(request: NextRequest) {
 
       // Répartition par type
       bookingsByType,
-      templatesByType,
-
-      // Top templates
-      topTemplates,
 
       // Activité récente
       recentActivity,
@@ -162,7 +155,6 @@ export async function GET(request: NextRequest) {
       pendingRequestsComplete,
     ] = await Promise.all([
       // Totaux généraux
-      prisma.templates.count(),
       prisma.booking.count(),
       prisma.customer.count(),
 
@@ -210,36 +202,6 @@ export async function GET(request: NextRequest) {
         _count: { id: true },
         _sum: { totalAmount: true },
         _avg: { totalAmount: true },
-      }),
-      prisma.templates.groupBy({
-        by: ["type"],
-        _count: { id: true },
-      }),
-
-      // Top templates les plus utilisés (basé sur items dans bookings)
-      prisma.templates.findMany({
-        include: {
-          _count: {
-            select: {
-              items: {
-                where: {
-                  Booking: {
-                    createdAt: {
-                      gte: startDate,
-                      lte: endDate,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        orderBy: {
-          items: {
-            _count: "desc",
-          },
-        },
-        take: 10,
       }),
 
       // Activité récente (dernières réservations)
@@ -355,7 +317,6 @@ export async function GET(request: NextRequest) {
     // Compilation des résultats
     const stats = {
       overview: {
-        totalTemplates,
         totalBookings,
         totalCustomers,
         period: {
@@ -408,21 +369,7 @@ export async function GET(request: NextRequest) {
           totalRevenue: parseFloat((type._sum.totalAmount || 0).toFixed(2)),
           avgAmount: parseFloat((type._avg.totalAmount || 0).toFixed(2)),
         })),
-        templatesByType: templatesByType.map((type) => ({
-          type: type.type,
-          count: type._count.id,
-        })),
       },
-
-      topTemplates: topTemplates.map((template) => ({
-        id: template.id,
-        name: template.name,
-        type: template.type,
-        price: template.price,
-        bookingsCount: template._count.items,
-        isActive: template.is_active,
-        isPopular: template.popular,
-      })),
 
       recentActivity: recentActivity.map((booking) => ({
         id: booking.id,

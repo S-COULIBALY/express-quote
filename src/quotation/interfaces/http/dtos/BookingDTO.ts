@@ -63,9 +63,12 @@ export interface PackDTO extends BaseBookingDTO {
   updatedAt?: Date;
 }
 
-// DTO pour la création d'un service
+/**
+ * @deprecated DTO obsolète - Services abandonnés (2026-02)
+ * Conservé pour compatibilité avec anciennes données
+ */
 export interface ServiceDTO extends BaseBookingDTO {
-  type: BookingType.SERVICE | 'SERVICE' | 'service';
+  type: BookingType.MOVING_QUOTE | 'MOVING_QUOTE';
   name: string;
   description: string;
   price: number;
@@ -75,19 +78,22 @@ export interface ServiceDTO extends BaseBookingDTO {
   location: string;
 }
 
-// DTO pour la réservation simplifiée d'un service existant (depuis la page web)
+/**
+ * @deprecated DTO obsolète - Services abandonnés (2026-02)
+ * Conservé pour compatibilité avec anciennes données
+ */
 export interface ServiceReservationDTO extends BaseBookingDTO {
-  type: BookingType.SERVICE | 'SERVICE' | 'service';
-  serviceId: string;              // ID du service existant à réserver
-  scheduledDate: string;          // Date de réservation
-  location: string;               // Adresse du service
-  duration: number;               // Durée en heures
-  workers: number;                // Nombre de professionnels
-  defaultDuration?: number;       // Durée par défaut du service
-  defaultWorkers?: number;        // Nombre de professionnels par défaut
-  basePrice?: number;             // Prix de base du service
-  calculatedPrice?: number;       // Prix calculé par le frontend
-  additionalInfo?: string;        // Informations supplémentaires
+  type: BookingType.MOVING_QUOTE | 'MOVING_QUOTE';
+  serviceId: string;
+  scheduledDate: string;
+  location: string;
+  duration: number;
+  workers: number;
+  defaultDuration?: number;
+  defaultWorkers?: number;
+  basePrice?: number;
+  calculatedPrice?: number;
+  additionalInfo?: string;
 }
 
 // DTO pour la création d'une réservation (union type)

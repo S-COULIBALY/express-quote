@@ -354,22 +354,21 @@ export default function Home() {
               </div>
             </article>
 
-            {/* Nettoyage Sur Mesure */}
+            {/* Déménagement Sur Mesure (second CTA) */}
             <article className="card-ios relative hover:shadow-2xl transition-all duration-300">
               <div className="absolute top-0 right-0 bg-blue-600 text-white px-2.5 sm:px-3 md:px-3 py-0.5 sm:py-1 text-xs sm:text-sm md:text-sm font-semibold rounded-bl-lg">
                 SUR MESURE
               </div>
               <div className="p-3 sm:p-6 md:p-8">
                 <h3 className="text-base sm:text-xl md:text-2xl font-bold text-gray-900 mb-1.5 sm:mb-3 md:mb-4 font-ios-semibold">
-                  Nettoyage Sur Mesure
+                  Déménagement Sur Mesure
                 </h3>
                 <p className="text-xs sm:text-base md:text-base text-gray-600 mb-3 sm:mb-5 md:mb-6 font-ios">
-                  Service personnalisé pour tous vos besoins de nettoyage.
-                  Produits écologiques et techniques professionnelles.
+                  Devis personnalisé selon votre volume, vos contraintes et vos options.
                 </p>
                 <ul
                   className="space-y-1.5 sm:space-y-3 md:space-y-4 mb-3 sm:mb-6 md:mb-8 font-ios text-xs sm:text-base"
-                  aria-label="Avantages du nettoyage sur mesure"
+                  aria-label="Avantages du déménagement sur mesure"
                 >
                   <li className="flex items-center">
                     <svg
@@ -386,7 +385,7 @@ export default function Home() {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    Produits écologiques certifiés
+                    Devis instantané en ligne
                   </li>
                   <li className="flex items-center">
                     <svg
@@ -403,7 +402,7 @@ export default function Home() {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    Techniques professionnelles
+                    Options emballage, monte-meubles, assurance
                   </li>
                   <li className="flex items-center">
                     <svg
@@ -424,9 +423,9 @@ export default function Home() {
                   </li>
                 </ul>
                 <Link
-                  href="/catalogue/catalog-menage-sur-mesure"
+                  href="/catalogue/catalog-demenagement-sur-mesure"
                   className="block w-full text-center px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl font-ios text-sm sm:text-base min-h-[44px] sm:min-h-auto"
-                  aria-label="Commencer un devis nettoyage sur mesure"
+                  aria-label="Commencer un devis déménagement sur mesure"
                 >
                   Devis gratuit
                 </Link>
@@ -1079,10 +1078,10 @@ export default function Home() {
               Déménagement sur mesure
             </Link>
             <Link
-              href="/catalogue/catalog-menage-sur-mesure"
+              href="/catalogue/catalog-demenagement-sur-mesure"
               className="inline-flex items-center justify-center px-6 sm:px-7 md:px-8 py-2.5 sm:py-3 border border-white text-sm sm:text-base md:text-base font-medium rounded-xl text-white hover:bg-white hover:text-emerald-700 transition-all duration-200 font-ios min-h-[44px] sm:min-h-auto"
             >
-              Ménage sur mesure
+              Devis gratuit
             </Link>
           </div>
 

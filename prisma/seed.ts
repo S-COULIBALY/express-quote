@@ -326,10 +326,10 @@ async function main() {
   const now = Date.now();
   const threeDaysLater = now + 3 * 24 * 60 * 60 * 1000;
   
-  // Création de la réservation Pack
+  // Création de la réservation (anciennement Pack - maintenant MOVING_QUOTE)
   const bookingPack = await prisma.booking.create({
     data: {
-      type: BookingType.PACK,
+      type: BookingType.MOVING_QUOTE,
       status: BookingStatus.CONFIRMED,
       customerId: customers[0].id,
       professionalId: professionals[0].id,
@@ -348,10 +348,10 @@ async function main() {
     }
   });
   
-  // Création de la réservation Service
+  // Création de la réservation (anciennement Service - maintenant MOVING_QUOTE)
   const bookingService = await prisma.booking.create({
     data: {
-      type: BookingType.SERVICE,
+      type: BookingType.MOVING_QUOTE,
       status: BookingStatus.PAYMENT_COMPLETED,
       customerId: customers[1].id,
       professionalId: professionals[1].id,

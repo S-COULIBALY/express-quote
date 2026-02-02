@@ -9,8 +9,6 @@
 // Configuration
 export * from './configuration'
 export * from './configuration/ConfigurationKey'
-export * from './configuration/DefaultValues'
-export * from './configuration/DefaultConfigurations'
 
 // Entities
 export * from './entities/QuoteRequest'

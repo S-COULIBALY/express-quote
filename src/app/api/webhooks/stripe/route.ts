@@ -12,7 +12,6 @@ import { CustomerService } from '@/quotation/application/services/CustomerServic
 import { PrismaBookingRepository } from '@/quotation/infrastructure/repositories/PrismaBookingRepository';
 import { PrismaCustomerRepository } from '@/quotation/infrastructure/repositories/PrismaCustomerRepository';
 import { PrismaMovingRepository } from '@/quotation/infrastructure/repositories/PrismaMovingRepository';
-import { PrismaItemRepository } from '@/quotation/infrastructure/repositories/PrismaItemRepository';
 import { PrismaQuoteRequestRepository } from '@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository';
 
 // Rendre cette route dynamique pour éviter l'initialisation pendant le build

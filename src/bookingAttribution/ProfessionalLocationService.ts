@@ -6,7 +6,7 @@
 import { PrismaClient } from '@prisma/client';
 import { ServiceType } from '@/quotation/domain/enums/ServiceType';
 import { getDistanceFromGoogleMaps } from '@/actions/callApi';
-import { DefaultValues } from '@/quotation/domain/configuration/DefaultValues';
+import { PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM } from '@/config/attribution';
 
 export interface LocationFilter {
   serviceType: ServiceType;
@@ -43,7 +43,7 @@ export class ProfessionalLocationService {
       serviceType,
       serviceLatitude,
       serviceLongitude,
-      maxDistanceKm = DefaultValues.PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM,
+      maxDistanceKm = PROFESSIONAL_DEFAULT_SEARCH_RADIUS_KM,
       excludedProfessionalIds = []
     } = filter;
 

@@ -81,14 +81,7 @@ class QuoteExpirationProcessor {
             lt: new Date()
           },
           status: {
-            notIn: ['EXPIRED', 'CONFIRMED', 'CONVERTED_TO_BOOKING']
-          }
-        },
-        include: {
-          CatalogSelection: {
-            include: {
-              items: true
-            }
+            notIn: ['EXPIRED', 'CONFIRMED', 'CONVERTED']
           }
         },
         orderBy: {

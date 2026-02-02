@@ -3,7 +3,6 @@ import { Configuration } from '../../domain/configuration/Configuration';
 import { ConfigurationCategory } from '../../domain/configuration/ConfigurationKey';
 import { IConfigurationRepository } from '../../domain/repositories/IConfigurationRepository';
 import { logger } from '../../../lib/logger';
-import { createDefaultConfigurations } from '../../domain/configuration/DefaultConfigurations';
 
 /**
  * Repository pour accéder aux configurations dans la base de données
@@ -232,11 +231,7 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
       return data.map((item) => this.mapToDomain(item));
     } catch (error) {
       logger.error(`Erreur lors de la recherche des configurations de la catégorie ${category}:`, error);
-      logger.info('Retour des configurations par défaut pour cette catégorie');
-      
-      // Retourner les configurations par défaut de cette catégorie
-      const defaultConfigs = createDefaultConfigurations();
-      return defaultConfigs.filter(config => config.category === category);
+      return [];
     }
   }
 
@@ -251,10 +246,8 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
       // Vérifier d'abord si la table existe
       const tableExists = await this.checkConfigurationTableExists();
       if (!tableExists) {
-        logger.warn(`Table configuration inaccessible, utilisation des configurations par défaut pour ${category}`);
-        const defaultConfigs = createDefaultConfigurations();
-        const filteredConfigs = defaultConfigs.filter(config => config.category === category);
-        return filteredConfigs;
+        logger.warn(`Table configuration inaccessible pour ${category}`);
+        return [];
       }
 
       const data = await this.prisma.configuration.findMany({
@@ -282,15 +275,8 @@ export class PrismaConfigurationRepository implements IConfigurationRepository {
 
       return data.map((item) => this.mapToDomain(item));
     } catch (error) {
-      console.error(`==== ERREUR LORS DE LA RECHERCHE DES CONFIGURATIONS POUR ${category}: ${error instanceof Error ? error.message : 'Erreur inconnue'} ====`);
       logger.error(`Erreur lors de la recherche des configurations actives de la catégorie ${category}:`, error as Error);
-      logger.info('Retour des configurations par défaut pour cette catégorie');
-      
-      // Retourner les configurations par défaut de cette catégorie
-      const defaultConfigs = createDefaultConfigurations();
-      const filteredConfigs = defaultConfigs.filter(config => config.category === category);
-      console.log(`==== UTILISATION DE ${filteredConfigs.length} CONFIGURATIONS PAR DÉFAUT POUR ${category} ====`);
-      return filteredConfigs;
+      return [];
     }
   }
 

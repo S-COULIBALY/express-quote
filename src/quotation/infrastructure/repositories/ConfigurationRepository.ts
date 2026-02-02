@@ -1,19 +1,18 @@
 import { Configuration } from '../../domain/configuration/Configuration';
 import { ConfigurationCategory } from '../../domain/configuration/ConfigurationKey';
 import { ConfigurationService } from '../../domain/services/ConfigurationService';
-import { createDefaultConfigurations } from '../../domain/configuration/DefaultConfigurations';
 
 /**
- * Repository pour l'accès et la persistence des configurations
+ * Repository en mémoire pour les configurations (fallback / tests).
+ * En production, utiliser PrismaConfigurationRepository.
  */
 export class ConfigurationRepository {
   private static instance: ConfigurationRepository;
   private configurations: Configuration[] = [];
   private configService: ConfigurationService;
-  
+
   private constructor() {
-    // Initialiser avec les configurations par défaut
-    this.configurations = createDefaultConfigurations();
+    this.configurations = [];
     this.configService = new ConfigurationService(this.configurations);
   }
   

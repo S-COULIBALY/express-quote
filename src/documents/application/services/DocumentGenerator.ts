@@ -210,17 +210,9 @@ export class DocumentGenerator {
       const customer = new Customer(crypto.randomUUID(), contactInfo);
 
       const { QuoteType } = await import('@/quotation/domain/enums/QuoteType');
-      const serviceTypeValue = quoteRequest.getType();
-      let quoteType: any = QuoteType.SERVICE;
-      let bookingType = BookingType.SERVICE;
-      
-      if (serviceTypeValue === 'MOVING') {
-        quoteType = QuoteType.MOVING_QUOTE;
-        bookingType = BookingType.MOVING_QUOTE;
-      } else if (serviceTypeValue === 'PACKING') {
-        quoteType = QuoteType.PACK;
-        bookingType = BookingType.PACKING;
-      }
+      // Seul MOVING_QUOTE est actif (services PACKING, SERVICE abandonnés)
+      const quoteType = QuoteType.MOVING_QUOTE;
+      const bookingType = BookingType.MOVING_QUOTE;
       
       const tempQuote = new Quote({
         id: quoteId,

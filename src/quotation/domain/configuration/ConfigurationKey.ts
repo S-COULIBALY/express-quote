@@ -3,26 +3,11 @@
  * TYPES DE SERVICES MÉTIER - Classification des activités
  * ============================================================================
  *
- * 🎯 OBJECTIF :
- * Définir les différents types de services métier pour permettre une
- * tarification et une gestion différenciée par activité.
- *
- * 📋 TYPES DE SERVICES :
- *
- * ✅ DÉMÉNAGEMENT : Services de déménagement complet
- * ✅ NETTOYAGE : Services de nettoyage (avant/après déménagement)
- * ✅ LIVRAISON : Services de livraison et transport de colis
- * ✅ TRANSPORT : Services de transport de marchandises
- * ✅ EMBALLAGE : Services d'emballage et conditionnement
- * ✅ STOCKAGE : Services de stockage temporaire
+ * Seul le service DÉMÉNAGEMENT SUR MESURE est actif.
+ * Les autres types (nettoyage, livraison, transport, emballage, stockage) ont été abandonnés.
  */
 export enum BusinessType {
-  DÉMÉNAGEMENT = "DÉMÉNAGEMENT", // Services de déménagement complet
-  NETTOYAGE = "NETTOYAGE", // Services de nettoyage
-  LIVRAISON = "LIVRAISON", // Services de livraison
-  TRANSPORT = "TRANSPORT", // Services de transport
-  EMBALLAGE = "EMBALLAGE", // Services d'emballage
-  STOCKAGE = "STOCKAGE", // Services de stockage
+  DÉMÉNAGEMENT = "DÉMÉNAGEMENT", // Service actif : déménagement sur mesure
 }
 
 /**
@@ -74,7 +59,7 @@ export enum ConfigurationCategory {
  *
  * ⚠️ MIGRATION EFFECTUÉE :
  * - Variables génériques dupliquées SUPPRIMÉES (UNIT_PRICE_PER_M3, WORKER_PRICE, etc.)
- * - Variables spécifiques par service CONSERVÉES (MOVING_*, CLEANING_*, etc.)
+ * - Variables spécifiques au déménagement (MOVING_*) uniquement.
  * - Variables vraiment partagées CONSERVÉES (VAT_RATE, FUEL_PRICE_PER_LITER, etc.)
  *
  * ✅ CONSTANTES PARTAGÉES (tous services) :
@@ -113,7 +98,7 @@ export enum PricingConfigKey {
   EXTRA_WORKER_DISCOUNT_RATE = "EXTRA_WORKER_DISCOUNT_RATE", // → DefaultValues.EXTRA_WORKER_DISCOUNT_RATE
   VOLUME_DISCOUNT_THRESHOLD_M3 = "VOLUME_DISCOUNT_THRESHOLD_M3", // → DefaultValues.VOLUME_DISCOUNT_THRESHOLD_M3
   VOLUME_DISCOUNT_RATE = "VOLUME_DISCOUNT_RATE", // → DefaultValues.VOLUME_DISCOUNT_RATE
-  FREE_DELIVERY_DISTANCE_KM = "FREE_DELIVERY_DISTANCE_KM", // → DefaultValues.FREE_DELIVERY_DISTANCE_KM
+  FREE_DELIVERY_DISTANCE_KM = "FREE_DELIVERY_DISTANCE_KM", // Distance gratuite incluse (déménagement)
 
   // Équipement & Matériel
   EQUIPMENT_RENTAL_DAILY = "EQUIPMENT_RENTAL_DAILY", // → DefaultValues.EQUIPMENT_RENTAL_DAILY
@@ -207,13 +192,6 @@ export enum ServiceParamsConfigKey {
   DEFAULT_TRAVEL_SPEED = "DEFAULT_TRAVEL_SPEED", // Vitesse de déplacement par défaut
   WORKER_SETUP_TIME = "WORKER_SETUP_TIME", // Temps de préparation ouvrier
 
-  // VALEURS PAR DÉFAUT PAR SERVICE - Nouvellement ajoutées
-  PACKING_DEFAULT_DURATION = "PACKING_DEFAULT_DURATION", // Durée par défaut emballage
-  PACKING_DEFAULT_WORKERS = "PACKING_DEFAULT_WORKERS", // Ouvriers par défaut emballage
-  CLEANING_DEFAULT_DURATION = "CLEANING_DEFAULT_DURATION", // Durée par défaut nettoyage
-  CLEANING_DEFAULT_WORKERS = "CLEANING_DEFAULT_WORKERS", // Ouvriers par défaut nettoyage
-  DELIVERY_DEFAULT_DURATION = "DELIVERY_DEFAULT_DURATION", // Durée par défaut livraison
-  DELIVERY_DEFAULT_WORKERS = "DELIVERY_DEFAULT_WORKERS", // Ouvriers par défaut livraison
 }
 
 /**
@@ -227,89 +205,27 @@ export enum LimitsConfigKey {
 }
 
 /**
- * CLÉS DE CONFIGURATION PAR TYPE DE SERVICE MÉTIER
+ * CLÉS DE CONFIGURATION TARIFS DÉMÉNAGEMENT
  *
- * 🎯 OBJECTIF :
- * Permettre une tarification différenciée selon le type de service métier.
- * Chaque type de service peut avoir ses propres tarifs et paramètres.
- *
- * 📋 TYPES DE SERVICES SUPPORTÉS :
- * - DÉMÉNAGEMENT : Services de déménagement complet
- * - NETTOYAGE : Services de nettoyage
- * - LIVRAISON : Services de livraison
- * - TRANSPORT : Services de transport
- * - EMBALLAGE : Services d'emballage
- * - STOCKAGE : Services de stockage
+ * Seul le service déménagement sur mesure est actif.
+ * Tarifs utilisés par l'admin / fallback (calcul principal dans quotation-module).
  */
 export enum BusinessTypePricingConfigKey {
-  // TARIFS DÉMÉNAGEMENT
   MOVING_BASE_PRICE_PER_M3 = "MOVING_BASE_PRICE_PER_M3",
   MOVING_WORKER_PRICE = "MOVING_WORKER_PRICE",
   MOVING_WORKER_HOUR_RATE = "MOVING_WORKER_HOUR_RATE",
   MOVING_EXTRA_HOUR_RATE = "MOVING_EXTRA_HOUR_RATE",
   MOVING_LIFT_PRICE = "MOVING_LIFT_PRICE",
   MOVING_VEHICLE_FLAT_FEE = "MOVING_VEHICLE_FLAT_FEE",
-  // ✅ AJOUT: Clés manquantes pour le calcul MOVING
-  MOVING_TRUCK_PRICE = "MOVING_TRUCK_PRICE", // Alias de MOVING_VEHICLE_FLAT_FEE
-  MOVING_DISTANCE_PRICE_PER_KM = "MOVING_DISTANCE_PRICE_PER_KM", // Alias de UNIT_PRICE_PER_KM
+  MOVING_TRUCK_PRICE = "MOVING_TRUCK_PRICE",
+  MOVING_DISTANCE_PRICE_PER_KM = "MOVING_DISTANCE_PRICE_PER_KM",
   MOVING_FREE_DISTANCE_KM = "MOVING_FREE_DISTANCE_KM",
-
-  // TARIFS DÉMÉNAGEMENT SPÉCIALISÉS - Nouvellement ajoutés
   MOVING_WORKERS_PER_M3_THRESHOLD = "MOVING_WORKERS_PER_M3_THRESHOLD",
   MOVING_BOXES_PER_M3 = "MOVING_BOXES_PER_M3",
   MOVING_BOX_PRICE = "MOVING_BOX_PRICE",
   MOVING_PREMIUM_WORKER_PRICE_PER_HOUR = "MOVING_PREMIUM_WORKER_PRICE_PER_HOUR",
   MOVING_PREMIUM_SUPPLIES_MULTIPLIER = "MOVING_PREMIUM_SUPPLIES_MULTIPLIER",
   HOURS_PER_DAY = "HOURS_PER_DAY",
-
-  // TARIFS NETTOYAGE
-  CLEANING_PRICE_PER_M2 = "CLEANING_PRICE_PER_M2",
-  CLEANING_WORKER_PRICE = "CLEANING_WORKER_PRICE",
-  CLEANING_WORKER_HOUR_RATE = "CLEANING_WORKER_HOUR_RATE",
-  CLEANING_EXTRA_HOUR_RATE = "CLEANING_EXTRA_HOUR_RATE",
-  CLEANING_MINIMUM_PRICE = "CLEANING_MINIMUM_PRICE",
-
-  // TARIFS NETTOYAGE SPÉCIALISÉS - Nouvellement ajoutés
-  CLEANING_EXTRA_ROOM_MULTIPLIER = "CLEANING_EXTRA_ROOM_MULTIPLIER",
-  CLEANING_M2_PER_HOUR = "CLEANING_M2_PER_HOUR",
-  CLEANING_SURFACE_THRESHOLD_1 = "CLEANING_SURFACE_THRESHOLD_1",
-  CLEANING_SURFACE_THRESHOLD_2 = "CLEANING_SURFACE_THRESHOLD_2",
-
-  // TARIFS LIVRAISON
-  DELIVERY_BASE_PRICE = "DELIVERY_BASE_PRICE",
-  DELIVERY_PRICE_PER_KM = "DELIVERY_PRICE_PER_KM",
-  DELIVERY_WORKER_HOUR_RATE = "DELIVERY_WORKER_HOUR_RATE",
-  DELIVERY_EXTRA_HOUR_RATE = "DELIVERY_EXTRA_HOUR_RATE",
-  DELIVERY_WEIGHT_SURCHARGE = "DELIVERY_WEIGHT_SURCHARGE",
-
-  // TARIFS LIVRAISON SPÉCIALISÉS - Nouvellement ajoutés
-  DELIVERY_VOLUME_PRICE_PER_M3 = "DELIVERY_VOLUME_PRICE_PER_M3",
-  DELIVERY_EXPRESS_MULTIPLIER = "DELIVERY_EXPRESS_MULTIPLIER",
-  DELIVERY_URGENT_MULTIPLIER = "DELIVERY_URGENT_MULTIPLIER",
-  DELIVERY_TRAVEL_SPEED_KMH = "DELIVERY_TRAVEL_SPEED_KMH",
-  DELIVERY_FUEL_COST_PER_KM = "DELIVERY_FUEL_COST_PER_KM",
-  DELIVERY_TOLL_COST_PER_KM = "DELIVERY_TOLL_COST_PER_KM",
-
-  // TARIFS TRANSPORT
-  TRANSPORT_BASE_PRICE = "TRANSPORT_BASE_PRICE",
-  TRANSPORT_PRICE_PER_KM = "TRANSPORT_PRICE_PER_KM",
-  TRANSPORT_WORKER_HOUR_RATE = "TRANSPORT_WORKER_HOUR_RATE",
-  TRANSPORT_EXTRA_HOUR_RATE = "TRANSPORT_EXTRA_HOUR_RATE",
-  TRANSPORT_VOLUME_SURCHARGE = "TRANSPORT_VOLUME_SURCHARGE",
-
-  // TARIFS EMBALLAGE
-  PACKING_PRICE_PER_M3 = "PACKING_PRICE_PER_M3",
-  PACKING_WORKER_PRICE = "PACKING_WORKER_PRICE",
-  PACKING_WORKER_HOUR_RATE = "PACKING_WORKER_HOUR_RATE",
-  PACKING_EXTRA_HOUR_RATE = "PACKING_EXTRA_HOUR_RATE",
-  PACKING_MATERIAL_COST = "PACKING_MATERIAL_COST",
-
-  // TARIFS STOCKAGE
-  STORAGE_PRICE_PER_M3_PER_MONTH = "STORAGE_PRICE_PER_M3_PER_MONTH",
-  STORAGE_WORKER_HOUR_RATE = "STORAGE_WORKER_HOUR_RATE",
-  STORAGE_EXTRA_HOUR_RATE = "STORAGE_EXTRA_HOUR_RATE",
-  STORAGE_MINIMUM_DURATION_MONTHS = "STORAGE_MINIMUM_DURATION_MONTHS",
-  STORAGE_ACCESS_FEE = "STORAGE_ACCESS_FEE",
 }
 
 /**
