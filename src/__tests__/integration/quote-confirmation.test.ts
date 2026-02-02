@@ -178,8 +178,8 @@ describe('📝 Confirmation de Devis', () => {
     it('devrait supporter tous les types de services', async () => {
       const serviceTypes = [
         { type: 'MOVING', name: 'Déménagement' },
-        { type: 'CLEANING', name: 'Nettoyage' },
-        { type: 'DELIVERY', name: 'Livraison' },
+        { type: 'MOVING', name: 'Déménagement' },
+        { type: 'MOVING_PREMIUM', name: 'Déménagement premium' },
         { type: 'CUSTOM', name: 'Service personnalisé' }
       ];
 
@@ -264,7 +264,7 @@ describe('📝 Confirmation de Devis', () => {
         phone: '+33645678901',
 
         // Informations du service
-        serviceType: 'CLEANING',
+        serviceType: 'MOVING',
         serviceDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
         serviceAddress: '78 Rue de Rivoli, 75001 Paris',
 

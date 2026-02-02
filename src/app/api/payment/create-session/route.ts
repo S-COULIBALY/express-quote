@@ -300,15 +300,14 @@ function getServiceDescription(quoteRequest: any): string {
   const type = quoteRequest.type;
   const quoteData = quoteRequest.quoteData || {};
 
+  // Seul le déménagement est actif ; anciens types affichés comme déménagement pour compatibilité
   switch (type) {
     case 'MOVING':
-      return `Déménagement - ${quoteData.pickupAddress || 'Adresse de départ'} → ${quoteData.deliveryAddress || 'Adresse d\'arrivée'}`;
+    case 'MOVING_PREMIUM':
     case 'CLEANING':
-      return `Ménage - ${quoteData.cleaningType || 'Service de ménage'}`;
     case 'DELIVERY':
-      return `Livraison - ${quoteData.pickupAddress || 'Départ'} → ${quoteData.deliveryAddress || 'Arrivée'}`;
     case 'PACKING':
-      return `Emballage - Service d'emballage professionnel`;
+      return `Déménagement - ${quoteData.pickupAddress || quoteData.departureAddress || 'Adresse de départ'} → ${quoteData.deliveryAddress || quoteData.arrivalAddress || "Adresse d'arrivée"}`;
     default:
       return `Service ${type}`;
   }

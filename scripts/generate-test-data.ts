@@ -130,7 +130,7 @@ async function main() {
 
   const customers = await prisma.customer.findMany({ take: 500 });
   const professionals = await prisma.professional.findMany();
-  const bookingTypes = ['MOVING_QUOTE', 'SERVICE', 'PACKING'];
+  const bookingTypes = ['MOVING_QUOTE'];
   const statuses = ['DRAFT', 'CONFIRMED', 'PAYMENT_COMPLETED', 'COMPLETED'];
 
   for (let i = 0; i < CONFIG.bookings; i++) {
@@ -172,7 +172,7 @@ async function main() {
             bookingId: booking.id,
             status: faker.helpers.arrayElement(['BROADCASTING', 'ACCEPTED', 'COMPLETED']),
             acceptedProfessionalId: professional.id,
-            serviceType: faker.helpers.arrayElement(['MOVING', 'CLEANING', 'DELIVERY']),
+            serviceType: faker.helpers.arrayElement(['MOVING', 'MOVING_PREMIUM']),
             maxDistanceKm: faker.number.int({ min: 50, max: 150 }),
             serviceLatitude: faker.location.latitude(),
             serviceLongitude: faker.location.longitude(),
@@ -266,7 +266,7 @@ async function main() {
             specialInstructions: faker.lorem.sentence()
           },
           metadata: {
-            serviceType: faker.helpers.arrayElement(['MOVING', 'CLEANING', 'DELIVERY']),
+            serviceType: faker.helpers.arrayElement(['MOVING', 'MOVING_PREMIUM']),
             priority: faker.helpers.arrayElement(['NORMAL', 'HIGH']),
             attempts: faker.number.int({ min: 0, max: 2 })
           }

@@ -56,7 +56,7 @@ export interface Reminder24hData {
   // Informations de réservation
   bookingId: string;
   bookingReference: string;
-  serviceType: 'MOVING' | 'CLEANING' | 'DELIVERY' | 'CUSTOM';
+  serviceType: 'MOVING' | 'MOVING_PREMIUM' | 'CUSTOM';
   serviceName: string;
   
   // Planning

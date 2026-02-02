@@ -83,8 +83,8 @@ describe('📅 Système de Rappels Programmés', () => {
             customerName: 'Client Test',
             customerEmail: customerEmail,
             bookingId: bookingId,
-            serviceType: 'CLEANING',
-            serviceName: 'Nettoyage Complet',
+            serviceType: 'MOVING',
+            serviceName: 'Déménagement',
             serviceDate: serviceDate.toISOString(),
             serviceAddress: '123 Rue de la Paix, 75001 Paris',
             totalAmount: 150,
@@ -457,8 +457,8 @@ describe('📅 Système de Rappels Programmés', () => {
             customerName: 'Client Test',
             customerEmail: customerEmail,
             bookingId: bookingId,
-            serviceType: 'CLEANING',
-            serviceName: 'Nettoyage Express',
+            serviceType: 'MOVING',
+            serviceName: 'Déménagement',
             serviceDate: serviceDate.toISOString(),
             serviceTime: serviceDate.toTimeString().substring(0, 5),
             serviceAddress: '789 Boulevard Saint-Germain, 75006 Paris',
@@ -674,10 +674,10 @@ describe('📅 Système de Rappels Programmés', () => {
     });
 
     it('devrait supporter différents types de services pour service-reminder', () => {
-      const serviceTypes = ['MOVING', 'CLEANING', 'DELIVERY', 'CUSTOM'];
+      const serviceTypes = ['MOVING', 'MOVING_PREMIUM', 'CUSTOM'];
 
       serviceTypes.forEach(type => {
-        const isValid = ['MOVING', 'CLEANING', 'DELIVERY', 'CUSTOM'].includes(type);
+        const isValid = ['MOVING', 'MOVING_PREMIUM', 'CUSTOM'].includes(type);
         expect(isValid).toBe(true);
       });
 

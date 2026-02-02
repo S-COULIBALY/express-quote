@@ -231,12 +231,7 @@ export async function getServiceParamsConfig(): Promise<ServiceParamsConfig> {
   const enabledServiceTypes = await unifiedService.getConfigurationValue(
     UnifiedConfigCategory.SERVICE_PARAMS,
     ServiceParamsConfigKey.AVAILABLE_SERVICE_TYPES,
-    [
-      ServiceType.MOVING,
-      ServiceType.CLEANING,
-      ServiceType.PACKING,
-      ServiceType.DELIVERY
-    ]
+    [ServiceType.MOVING, ServiceType.MOVING_PREMIUM]
   );
 
   const enabledPackTypes = await unifiedService.getConfigurationValue(

@@ -59,7 +59,7 @@ export interface ServiceReminderData {
 
   // Informations de réservation
   bookingReference?: string;
-  serviceType?: 'MOVING' | 'CLEANING' | 'DELIVERY' | 'CUSTOM';
+  serviceType?: 'MOVING' | 'MOVING_PREMIUM' | 'CUSTOM';
   serviceName?: string;
 
   // Planning (dans moins de 48h)
@@ -233,7 +233,7 @@ export const ServiceReminder: React.FC<ServiceReminderData> = ({
   const urgencyColor = getUrgencyColor(countdown.urgency);
   const canModify = allowsModification && hoursUntilService > cancellationDeadlineHours;
   const canCancel = allowsCancellation && hoursUntilService > cancellationDeadlineHours;
-  const isOutdoorService = serviceType === 'MOVING' || serviceType === 'DELIVERY';
+  const isOutdoorService = serviceType === 'MOVING' || serviceType === 'MOVING_PREMIUM';
 
   // 🎯 Mode prestataire : utiliser les données révélées le jour J
   const displayName = isProfessionalReminder && fullClientData

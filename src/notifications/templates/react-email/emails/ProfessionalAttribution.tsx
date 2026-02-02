@@ -52,7 +52,7 @@ export interface ProfessionalAttributionData {
   
   // Informations mission
   attributionId: string;
-  serviceType: 'MOVING' | 'CLEANING' | 'DELIVERY' | 'CUSTOM';
+  serviceType: 'MOVING' | 'MOVING_PREMIUM' | 'CUSTOM';
   serviceName?: string;
   totalAmount: number;
   currency?: string;
@@ -138,10 +138,10 @@ const formatTime = (timeString: string): string => {
  */
 const getServiceEmoji = (serviceType: string): string => {
   switch (serviceType) {
-    case 'MOVING': return '📦';
-    case 'CLEANING': return '🧹';
-    case 'DELIVERY': return '🚚';
-    default: return '⚡';
+    case 'MOVING':
+    case 'MOVING_PREMIUM': return '📦';
+    case 'CUSTOM': return '⚡';
+    default: return '📦';
   }
 };
 
@@ -151,10 +151,9 @@ const getServiceEmoji = (serviceType: string): string => {
 const getServiceDisplayName = (serviceType: string): string => {
   switch (serviceType) {
     case 'MOVING': return 'Déménagement';
-    case 'CLEANING': return 'Nettoyage';
-    case 'DELIVERY': return 'Livraison';
+    case 'MOVING_PREMIUM': return 'Déménagement premium';
     case 'CUSTOM': return 'Service personnalisé';
-    default: return serviceType;
+    default: return serviceType || 'Service';
   }
 };
 

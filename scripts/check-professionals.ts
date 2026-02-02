@@ -42,13 +42,13 @@ async function checkProfessionals() {
     `\n📋 Détails des ${eligibleProfessionals.length} prestataires éligibles:`,
   );
 
-  let withCleaning = 0;
+  let withMoving = 0;
   eligibleProfessionals.forEach((prof, index) => {
     const serviceTypes = Array.isArray(prof.service_types)
       ? prof.service_types
       : [];
-    const hasCleaning = serviceTypes.includes("CLEANING");
-    if (hasCleaning) withCleaning++;
+    const hasMoving = serviceTypes.includes("MOVING");
+    if (hasMoving) withMoving++;
 
     console.log(`\n${index + 1}. ${prof.companyName || prof.id}`);
     console.log(`   Email: ${prof.email}`);
@@ -57,7 +57,7 @@ async function checkProfessionals() {
     console.log(
       `   Services: ${serviceTypes.length > 0 ? serviceTypes.join(", ") : "❌ Aucun"}`,
     );
-    console.log(`   CLEANING: ${hasCleaning ? "✅" : "❌"}`);
+    console.log(`   MOVING: ${hasMoving ? "✅" : "❌"}`);
     console.log(
       `   Coordonnées: ${prof.latitude && prof.longitude ? `(${prof.latitude}, ${prof.longitude})` : "❌ Non renseignées"}`,
     );
@@ -65,7 +65,7 @@ async function checkProfessionals() {
   });
 
   console.log(
-    `\n🧹 Prestataires avec service CLEANING: ${withCleaning}/${eligibleProfessionals.length}`,
+    `\n📦 Prestataires avec service MOVING: ${withMoving}/${eligibleProfessionals.length}`,
   );
 
   await prisma.$disconnect();

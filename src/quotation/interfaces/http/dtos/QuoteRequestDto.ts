@@ -77,30 +77,10 @@ export function validateQuoteRequest(data: Record<string, any>): QuoteRequestDto
     validateNumericRange(data.totalPrice, 'totalPrice', 0, 50000); // 0 à 50k€
   }
 
-  // Validate cleaning specific fields
-  if (data.serviceType === ServiceType.CLEANING) {
-    if (!data.squareMeters || typeof data.squareMeters !== 'number' || data.squareMeters <= 0) {
-      throw new Error('Square meters is required and must be a positive number for cleaning service');
-    }
-    if (!data.numberOfRooms || typeof data.numberOfRooms !== 'number' || data.numberOfRooms <= 0) {
-      throw new Error('Number of rooms is required and must be a positive number for cleaning service');
-    }
-    if (data.frequency && !['ONCE', 'WEEKLY', 'BIWEEKLY', 'MONTHLY'].includes(data.frequency)) {
-      throw new Error('Invalid frequency value');
-    }
-  }
-
-  // Validate moving specific fields (MOVING et PACKING)
-  if (data.serviceType === ServiceType.MOVING || data.serviceType === ServiceType.PACKING) {
-    // Pour PACKING, les validations sont plus souples car les données viennent du catalogue
-    if (data.serviceType === ServiceType.MOVING) {
-      if (!data.volume || typeof data.volume !== 'number' || data.volume <= 0) {
-        throw new Error('Volume is required and must be a positive number for moving service');
-      }
-    }
-    // Pour les deux types, vérifier les adresses si présentes
-    if (data.pickupAddress && data.deliveryAddress) {
-      // Adresses valides
+  // Validate moving specific fields (seul type actif)
+  if (data.serviceType === ServiceType.MOVING || data.serviceType === ServiceType.MOVING_PREMIUM) {
+    if (!data.volume || typeof data.volume !== 'number' || data.volume <= 0) {
+      throw new Error('Volume is required and must be a positive number for moving service');
     }
     if (data.floorNumber !== undefined && (typeof data.floorNumber !== 'number' || data.floorNumber < 0)) {
       throw new Error('Floor number must be a non-negative number');

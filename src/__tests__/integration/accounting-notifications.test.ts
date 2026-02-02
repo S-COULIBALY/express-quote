@@ -132,7 +132,7 @@ describe('💰 Test notifications comptabilité avec template accounting-documen
         accountingName: `${TEST_CONFIG.accountingStaff.firstName} ${TEST_CONFIG.accountingStaff.lastName}`,
         bookingId: booking.id,
         bookingReference: booking.id,
-        serviceType: 'DELIVERY' as const,
+        serviceType: 'MOVING' as const,
         serviceName: 'Livraison express',
         totalAmount: booking.totalAmount,
         currency: 'EUR',

@@ -88,12 +88,12 @@ Le test nécessite certaines données dans la base de données :
 
 #### 1. Règles actives
 
-Assurez-vous qu'il y a des règles actives pour le service `CLEANING` :
+Assurez-vous qu'il y a des règles actives pour le service `MOVING` :
 
 ```sql
 SELECT * FROM rules 
 WHERE "isActive" = true 
-AND "serviceType" = 'CLEANING'
+AND "serviceType" = 'MOVING'
 AND ("validFrom" IS NULL OR "validFrom" <= NOW())
 AND ("validTo" IS NULL OR "validTo" >= NOW())
 ORDER BY priority ASC;
@@ -113,7 +113,7 @@ INSERT INTO internal_staff (
   'Test',
   'Staff',
   'OPERATIONS_MANAGER',
-  '["CLEANING"]'::json,
+  '["MOVING"]'::json,
   true,
   true
 );
@@ -131,13 +131,13 @@ INSERT INTO professional (
 ) VALUES (
   gen_random_uuid(),
   'Test Professional',
-  'CLEANING_SERVICE',
+  'MOVING_COMPANY',
   'test-pro@express-quote.com',
   '+33612345679',
   'France',
   true,
   true,
-  '["CLEANING"]'::json,
+  '["MOVING"]'::json,
   48.8566,
   2.3522,
   150

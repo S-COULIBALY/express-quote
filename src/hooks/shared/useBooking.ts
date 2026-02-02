@@ -66,11 +66,11 @@ export function useBooking() {
         // Déterminer le type de service à partir des données
         let serviceType = 'SERVICE'; // Valeur par défaut
         
-        // Mapper la catégorie vers le type de service attendu par l'API
+        // Seul le déménagement est actif ; toutes les catégories mappées vers MOVING
         const categoryMapping: { [key: string]: string } = {
           'DEMENAGEMENT': 'MOVING',
-          'MENAGE': 'CLEANING',
-          'CLEANING': 'CLEANING',
+          'MENAGE': 'MOVING',
+          'CLEANING': 'MOVING',
           'MOVING': 'MOVING'
         };
         

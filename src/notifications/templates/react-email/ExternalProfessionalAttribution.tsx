@@ -48,13 +48,13 @@ import {
 export interface ExternalProfessionalAttributionData {
   // Données professionnel
   companyName: string;
-  businessType: 'MOVING_COMPANY' | 'CLEANING_COMPANY' | 'DELIVERY_COMPANY' | 'CUSTOM';
+  businessType: 'MOVING_COMPANY' | 'CUSTOM';
   professionalId: string;
 
   // Données mission attractive
   bookingId: string;
   bookingReference: string;
-  serviceType: 'MOVING' | 'CLEANING' | 'DELIVERY' | 'CUSTOM';
+  serviceType: 'MOVING' | 'MOVING_PREMIUM' | 'CUSTOM';
   serviceName?: string;
   totalAmount: number;
   estimatedRevenue: number;
@@ -158,10 +158,10 @@ const formatTimeout = (dateString: string): string => {
  */
 const getServiceEmoji = (serviceType: string): string => {
   switch (serviceType) {
-    case 'MOVING': return '📦';
-    case 'CLEANING': return '🧹';
-    case 'DELIVERY': return '🚚';
-    default: return '⚡';
+    case 'MOVING':
+    case 'MOVING_PREMIUM': return '📦';
+    case 'CUSTOM': return '⚡';
+    default: return '📦';
   }
 };
 
@@ -171,9 +171,9 @@ const getServiceEmoji = (serviceType: string): string => {
 const getServiceDisplayName = (serviceType: string): string => {
   switch (serviceType) {
     case 'MOVING': return 'Déménagement';
-    case 'CLEANING': return 'Nettoyage';
-    case 'DELIVERY': return 'Livraison';
-    default: return 'Service personnalisé';
+    case 'MOVING_PREMIUM': return 'Déménagement premium';
+    case 'CUSTOM': return 'Service personnalisé';
+    default: return serviceType || 'Service';
   }
 };
 
@@ -197,8 +197,7 @@ const getPriorityConfig = (priority: string) => {
 const getBusinessEmoji = (businessType: string): string => {
   switch (businessType) {
     case 'MOVING_COMPANY': return '🚛';
-    case 'CLEANING_COMPANY': return '🧽';
-    case 'DELIVERY_COMPANY': return '📦';
+    case 'CUSTOM': return '🏢';
     default: return '🏢';
   }
 };

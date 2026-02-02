@@ -138,22 +138,21 @@ export class ServiceTypeExtractor {
     quoteRequestType: string
   ): ServiceType | null {
     const normalizedType = quoteRequestType.toUpperCase();
-
-    if (normalizedType === 'CLEANING' || normalizedType === 'CLEANING_PREMIUM') {
-      return ServiceType.CLEANING;
-    } else if (
+    // Seul le déménagement est actif ; anciens types mappés vers MOVING pour compatibilité
+    if (
       normalizedType === 'MOVING' ||
-      normalizedType === 'MOVING_PREMIUM'
+      normalizedType === 'MOVING_PREMIUM' ||
+      normalizedType === 'CLEANING' ||
+      normalizedType === 'CLEANING_PREMIUM' ||
+      normalizedType === 'DELIVERY' ||
+      normalizedType === 'PACKING' ||
+      normalizedType === 'PACK'
     ) {
       return ServiceType.MOVING;
-    } else if (normalizedType === 'DELIVERY') {
-      return ServiceType.DELIVERY;
-    } else if (normalizedType === 'PACKING' || normalizedType === 'PACK') {
-      return ServiceType.PACKING;
-    } else if (normalizedType === 'SERVICE') {
-      return ServiceType.SERVICE;
     }
-
+    if (normalizedType === 'SERVICE') {
+      return ServiceType.MOVING;
+    }
     return null;
   }
 
@@ -165,23 +164,19 @@ export class ServiceTypeExtractor {
    */
   private mapStringToServiceType(normalizedType: string): ServiceType | null {
     if (
-      normalizedType === 'CLEANING' ||
-      normalizedType === 'CLEANING_PREMIUM'
-    ) {
-      return ServiceType.CLEANING;
-    } else if (
       normalizedType === 'MOVING' ||
-      normalizedType === 'MOVING_PREMIUM'
+      normalizedType === 'MOVING_PREMIUM' ||
+      normalizedType === 'CLEANING' ||
+      normalizedType === 'CLEANING_PREMIUM' ||
+      normalizedType === 'DELIVERY' ||
+      normalizedType === 'PACKING' ||
+      normalizedType === 'PACK'
     ) {
       return ServiceType.MOVING;
-    } else if (normalizedType === 'DELIVERY') {
-      return ServiceType.DELIVERY;
-    } else if (normalizedType === 'PACKING' || normalizedType === 'PACK') {
-      return ServiceType.PACKING;
-    } else if (normalizedType === 'SERVICE') {
-      return ServiceType.SERVICE;
     }
-
+    if (normalizedType === 'SERVICE') {
+      return ServiceType.MOVING;
+    }
     return null;
   }
 }

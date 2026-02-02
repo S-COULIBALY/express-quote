@@ -1,12 +1,19 @@
+/**
+ * @deprecated OBSOLÈTE - Les modèles Template, Item, CatalogSelection, ItemType, CatalogCategory
+ * ont été retirés du schéma Prisma. Le catalogue est géré par quotation-module (déménagement sur mesure).
+ * Ce script ne peut plus s'exécuter (imports et modèles supprimés). Conserver pour référence ou supprimer.
+ *
+ * Pour exécuter malgré tout, décommenter le code et recréer les types Prisma (non recommandé).
+ */
+throw new Error(
+  'scripts/populate-catalogue.ts est obsolète : Template, Item, CatalogSelection ont été retirés du schéma. Ne pas exécuter.'
+);
+
+/* CODE OBSOLÈTE - désactivé
 import { PrismaClient, ItemType, CatalogCategory } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-/**
- * Script pour populer le catalogue avec des Templates et Items
- * selon la nouvelle structure de base de données
- * Approche centrée sur la flexibilité et les coûts avec noms explicites et uniques
- */
 async function populateCatalogue() {
   try {
     console.log('🚀 Population du catalogue...');
@@ -986,4 +993,5 @@ if (require.main === module) {
     });
 }
 
-export { populateCatalogue }; 
+export { populateCatalogue };
+*/ 

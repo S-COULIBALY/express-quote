@@ -137,7 +137,7 @@ describe('⏰ Test templates reminder et professional-attribution', () => {
         // ✅ Informations de réservation (obligatoires)
         bookingId: booking.id,
         bookingReference: booking.id,
-        serviceType: 'DELIVERY' as const,
+        serviceType: 'MOVING' as const,
         serviceName: 'Livraison express',
 
         // ✅ Planning (obligatoires)
@@ -247,7 +247,7 @@ describe('⏰ Test templates reminder et professional-attribution', () => {
         customerEmail: TEST_CONFIG.customer.email,
         customerPhone: TEST_CONFIG.customer.phone,
         bookingId: booking.id,
-        serviceType: 'DELIVERY' as const,
+        serviceType: 'MOVING' as const,
         serviceName: 'Livraison express',
         serviceDate: booking.scheduledDate.toISOString(),
         serviceTime: '09:00',
@@ -324,7 +324,7 @@ describe('⏰ Test templates reminder et professional-attribution', () => {
         customerName: `${TEST_CONFIG.customer.firstName} ${TEST_CONFIG.customer.lastName}`,
         customerPhone: TEST_CONFIG.customer.phone,
         bookingReference: booking.id,
-        serviceType: 'DELIVERY' as const,
+        serviceType: 'MOVING' as const,
         serviceName: 'Livraison express',
         serviceDate: booking.scheduledDate.toISOString(),
         serviceTime: '09:00',
@@ -396,7 +396,7 @@ describe('⏰ Test templates reminder et professional-attribution', () => {
 
         // ✅ Informations mission (obligatoires)
         attributionId: attributionId,
-        serviceType: 'DELIVERY' as const,
+        serviceType: 'MOVING' as const,
         serviceName: 'Livraison express',
         totalAmount: 25000, // 250.00€
         currency: 'EUR',

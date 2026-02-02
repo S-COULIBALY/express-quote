@@ -963,9 +963,7 @@ export default function AdminTemplatesPage() {
                     <p className="text-sm text-gray-600 mb-2">{template.description}</p>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       template.serviceType === 'MOVING' ? 'bg-blue-100 text-blue-800' :
-                      template.serviceType === 'CLEANING' ? 'bg-green-100 text-green-800' :
-                      template.serviceType === 'TRANSPORT' ? 'bg-purple-100 text-purple-800' :
-                      template.serviceType === 'DELIVERY' ? 'bg-orange-100 text-orange-800' :
+                      template.serviceType === 'MOVING_PREMIUM' ? 'bg-indigo-100 text-indigo-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {serviceTypes.find(st => st.value === template.serviceType)?.label || template.serviceType}

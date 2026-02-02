@@ -153,7 +153,7 @@ export function useBooking() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: 'DELIVERY',
+            type: 'MOVING',
             status: 'DRAFT'
           })
         });

@@ -139,7 +139,7 @@ describe('📄 Test template professional-document', () => {
         // ✅ Données intervention (obligatoires)
         bookingId: booking.id,
         bookingReference: booking.id,
-        serviceType: 'DELIVERY' as const,
+        serviceType: 'MOVING' as const,
         serviceName: 'Livraison express',
         totalAmount: booking.totalAmount,
         currency: 'EUR',

@@ -149,21 +149,8 @@ async function submitQuoteRequest(
   devLog.info('📁 [useUnifiedSubmission.tsx] ▶️ Début soumission QuoteRequest');
   devLog.info(`📁 [useUnifiedSubmission.tsx] Type: ${config.submissionType}, Prix: ${calculatedPrice}€`);
   
-  // Mapper le submissionType vers serviceType attendu par l'API
-  let serviceType: string = config.submissionType;
-
-  if (config.submissionType === 'PACK') {
-    serviceType = 'PACKING';
-  } else if (config.submissionType === 'MOVING') {
-    serviceType = 'MOVING';
-  } else if (config.submissionType === 'SERVICE') {
-    // Distinguer CLEANING vs DELIVERY selon les données
-    if (requestData.pickupAddress && requestData.deliveryAddress) {
-      serviceType = 'DELIVERY';
-    } else {
-      serviceType = 'CLEANING';
-    }
-  }
+  // Seul le déménagement est actif ; tous les types mappés vers MOVING
+  const serviceType: string = 'MOVING';
 
   devLog.info(`📁 [useUnifiedSubmission.tsx] ServiceType mappé: ${serviceType}`);
 

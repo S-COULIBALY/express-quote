@@ -63,7 +63,7 @@ export interface PaymentConfirmationData {
   // Informations de réservation
   bookingId: string;
   bookingReference: string;
-  serviceType: 'MOVING' | 'CLEANING' | 'DELIVERY' | 'CUSTOM';
+  serviceType: 'MOVING' | 'MOVING_PREMIUM' | 'CUSTOM';
   serviceName: string;
   serviceDate: string;
   serviceTime?: string;
@@ -154,10 +154,10 @@ const formatTime = (timeString: string): string => {
  */
 const getServiceEmoji = (serviceType: string): string => {
   switch (serviceType) {
-    case 'MOVING': return '📦';
-    case 'CLEANING': return '🧹';
-    case 'DELIVERY': return '🚚';
-    default: return '⚡';
+    case 'MOVING':
+    case 'MOVING_PREMIUM': return '📦';
+    case 'CUSTOM': return '⚡';
+    default: return '📦';
   }
 };
 

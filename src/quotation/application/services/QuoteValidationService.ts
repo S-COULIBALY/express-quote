@@ -73,43 +73,23 @@ export class QuoteValidationService {
      * Valide les données spécifiques au type de service
      */
     private validateServiceSpecificData(serviceType: string, data: Record<string, any>): void {
+        // Seul le déménagement est actif ; anciens types validés comme MOVING pour compatibilité
         switch (serviceType) {
-            case 'PACKING':
-                this.validatePackingData(data);
-                break;
             case 'MOVING':
             case 'MOVING_PREMIUM':
+            case 'PACKING':
+            case 'CLEANING':
+            case 'DELIVERY':
                 this.validateMovingData(data);
                 break;
-            case 'CLEANING':
-                this.validateCleaningData(data);
-                break;
-            case 'DELIVERY':
-                this.validateDeliveryData(data);
-                break;
             default:
-                logger.warn(`⚠️ Type de service non reconnu pour validation: ${serviceType}`);
+                logger.warn(`⚠️ Type de service non reconnu pour validation: ${serviceType}, utilisation validation déménagement`);
+                this.validateMovingData(data);
         }
     }
 
     /**
-     * Valide les données pour les services de packing
-     */
-    private validatePackingData(data: Record<string, any>): void {
-        // ✅ Utiliser directement les données normalisées
-        const quoteData = data;
-        
-        if (quoteData.duration !== undefined && (quoteData.duration < 1 || quoteData.duration > 24)) {
-            throw new ValidationError('La durée pour un service de packing doit être entre 1 et 24 heures');
-        }
-
-        if (quoteData.workers !== undefined && (quoteData.workers < 1 || quoteData.workers > 10)) {
-            throw new ValidationError('Le nombre de travailleurs pour un service de packing doit être entre 1 et 10');
-        }
-    }
-
-    /**
-     * Valide les données pour les services de déménagement
+     * Valide les données pour les services de déménagement (seul type actif ; anciens types validés comme MOVING)
      */
     private validateMovingData(data: Record<string, any>): void {
         // ✅ Utiliser directement les données normalisées
@@ -125,38 +105,6 @@ export class QuoteValidationService {
 
         if (quoteData.workers !== undefined && (quoteData.workers < 1 || quoteData.workers > 10)) {
             throw new ValidationError('Le nombre de travailleurs pour un déménagement doit être entre 1 et 10');
-        }
-    }
-
-    /**
-     * Valide les données pour les services de nettoyage
-     */
-    private validateCleaningData(data: Record<string, any>): void {
-        // ✅ Utiliser directement les données normalisées
-        const quoteData = data;
-        
-        if (quoteData.squareMeters !== undefined && quoteData.squareMeters < 0) {
-            throw new ValidationError('La surface ne peut pas être négative');
-        }
-
-        if (quoteData.numberOfRooms !== undefined && quoteData.numberOfRooms < 1) {
-            throw new ValidationError('Le nombre de pièces doit être au moins 1');
-        }
-    }
-
-    /**
-     * Valide les données pour les services de livraison
-     */
-    private validateDeliveryData(data: Record<string, any>): void {
-        // ✅ Utiliser directement les données normalisées
-        const quoteData = data;
-        
-        if (quoteData.distance !== undefined && quoteData.distance < 0) {
-            throw new ValidationError('La distance ne peut pas être négative');
-        }
-
-        if (quoteData.duration !== undefined && (quoteData.duration < 1 || quoteData.duration > 12)) {
-            throw new ValidationError('La durée pour un service de livraison doit être entre 1 et 12 heures');
         }
     }
 }

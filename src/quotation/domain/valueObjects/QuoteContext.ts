@@ -144,12 +144,7 @@ export class QuoteContext {
     validate(): void {
         const requiredFields: Record<ServiceType, string[]> = {
             [ServiceType.MOVING]: ['volume', 'distance'],
-            [ServiceType.MOVING_PREMIUM]: ['volume', 'distance'], // Même validation que MOVING
-            [ServiceType.PACKING]: ['defaultPrice', 'duration', 'workers'],
-            [ServiceType.CLEANING]: ['defaultPrice', 'duration', 'workers'],
-            [ServiceType.CLEANING_PREMIUM]: ['defaultPrice', 'duration', 'workers'], // Même validation que CLEANING
-            [ServiceType.DELIVERY]: ['defaultPrice', 'duration', 'workers'],
-            [ServiceType.SERVICE]: ['defaultPrice', 'duration', 'workers'] // Service générique
+            [ServiceType.MOVING_PREMIUM]: ['volume', 'distance'],
         };
         
         const fields = requiredFields[this.serviceType];
@@ -208,13 +203,12 @@ export class QuoteContext {
 
 
 // const quoteContext = new QuoteContext({
-//     serviceType: ServiceType.CLEANING,
-//     squareMeters: 100,
-//     numberOfRooms: 4,
-//     frequency: 'WEEKLY'
+//     serviceType: ServiceType.MOVING,
+//     volume: 50,
+//     distance: 25
 // });
 
-// const serviceType = quoteContext.getServiceType(); // Returns ServiceType.CLEANING
+// const serviceType = quoteContext.getServiceType(); // Returns ServiceType.MOVING
 // const squareMeters = quoteContext.getValue<number>('squareMeters'); // Returns 100
 // const hasFrequency = quoteContext.hasValue('frequency'); // Returns true
 // const allData = quoteContext.getAllData(); // Returns all data as QuoteContextData

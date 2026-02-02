@@ -26,11 +26,13 @@ export class AttributionUtils {
   }
 
   /**
-   * Détermine la catégorie de service
+   * Détermine la catégorie de service.
+   * CLEANING, PACKING, DELIVERY conservés pour compatibilité affichage des données existantes.
    */
   static getServiceCategory(serviceType: string): string {
     const categories: Record<string, string> = {
       'MOVING': 'Déménagement',
+      'MOVING_PREMIUM': 'Déménagement premium',
       'CLEANING': 'Nettoyage',
       'DELIVERY': 'Livraison',
       'TRANSPORT': 'Transport',
@@ -54,6 +56,7 @@ export class AttributionUtils {
   static estimateDuration(bookingData: any): string {
     const baseHours: Record<string, number> = {
       'MOVING': 4,
+      'MOVING_PREMIUM': 5,
       'CLEANING': 3,
       'DELIVERY': 2,
       'TRANSPORT': 2,

@@ -73,7 +73,7 @@ describe('✅ Confirmation d\'Acceptation de Mission', () => {
         // Informations mission
         attributionId: attributionId,
         bookingReference: bookingReference,
-        serviceType: 'CLEANING',
+        serviceType: 'MOVING',
         serviceName: 'Nettoyage Complet Appartement',
         totalAmount: 180.00,
         currency: 'EUR',
@@ -412,11 +412,11 @@ describe('✅ Confirmation d\'Acceptation de Mission', () => {
         verified: true,
         documentsComplete: true,
         insuranceValid: true,
-        servicesOffered: ['CLEANING', 'MOVING']
+        servicesOffered: ['MOVING', 'MOVING_PREMIUM']
       };
 
       const mission = {
-        serviceType: 'CLEANING'
+        serviceType: 'MOVING'
       };
 
       const isEligible =

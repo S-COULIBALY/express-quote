@@ -104,7 +104,7 @@ describe('📦 Test templates booking-confirmation et payment-confirmation', () 
         // ✅ Informations de réservation (obligatoires)
         bookingId: booking.id,
         bookingReference: booking.id,
-        serviceType: 'DELIVERY' as const,
+        serviceType: 'MOVING' as const,
         serviceName: 'Livraison express',
 
         // ✅ Planning (obligatoires)
@@ -273,7 +273,7 @@ describe('📦 Test templates booking-confirmation et payment-confirmation', () 
         // ✅ Informations de réservation (obligatoires)
         bookingId: booking.id,
         bookingReference: booking.id,
-        serviceType: 'DELIVERY' as const,
+        serviceType: 'MOVING' as const,
         serviceName: 'Livraison express',
         serviceDate: booking.scheduledDate.toISOString(),
         serviceTime: '09:00',

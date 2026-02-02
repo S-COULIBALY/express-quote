@@ -51,7 +51,7 @@ describe('✅ VALIDATION - Transaction Atomicity (BookingService)', () => {
         data: {
           id: crypto.randomUUID(),
           temporaryId: testTemporaryId,
-          type: 'CLEANING',
+          type: 'MOVING_QUOTE',
           status: 'TEMPORARY',
           updatedAt: new Date(),
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -235,11 +235,11 @@ describe('✅ VALIDATION - Transaction Atomicity (BookingService)', () => {
         data: {
           id: crypto.randomUUID(),
           temporaryId: testTemporaryId,
-          type: 'CLEANING',
+          type: 'MOVING_QUOTE',
           status: 'TEMPORARY',
           updatedAt: new Date(),
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          quoteData: { serviceType: 'CLEANING', totalPrice: 100.00 }
+          quoteData: { serviceType: 'MOVING', totalPrice: 100.00 }
         }
       });
 
@@ -292,11 +292,11 @@ describe('✅ VALIDATION - Transaction Atomicity (BookingService)', () => {
         data: {
           id: crypto.randomUUID(),
           temporaryId: testTemporaryId,
-          type: 'CLEANING',
+          type: 'MOVING_QUOTE',
           status: 'TEMPORARY',
           updatedAt: new Date(),
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          quoteData: { serviceType: 'CLEANING', totalPrice: 150.00 }
+          quoteData: { serviceType: 'MOVING', totalPrice: 150.00 }
         }
       });
 

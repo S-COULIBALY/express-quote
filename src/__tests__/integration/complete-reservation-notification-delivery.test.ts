@@ -264,7 +264,7 @@ describe('🎯 Test complet - Flux réservation et livraison notifications', () 
             phone: TEST_CONFIG.internalStaff.phone,
             role: 'OPERATIONS_MANAGER',
             department: TEST_CONFIG.internalStaff.department,
-            service_types: ['CLEANING', 'MOVING'],
+            service_types: ['MOVING'],
             receive_email: true,
             receive_whatsapp: true,
             is_active: true,
@@ -278,7 +278,7 @@ describe('🎯 Test complet - Flux réservation et livraison notifications', () 
             phone: TEST_CONFIG.internalStaff.phone,
             role: 'OPERATIONS_MANAGER',
             department: TEST_CONFIG.internalStaff.department,
-            service_types: ['CLEANING', 'MOVING'],
+            service_types: ['MOVING'],
             receive_email: true,
             receive_whatsapp: true,
             is_active: true,
@@ -320,12 +320,12 @@ describe('🎯 Test complet - Flux réservation et livraison notifications', () 
         const quoteRequest = await prisma.quoteRequest.create({
           data: {
             id: `quote_test_${Date.now()}`,
-            type: 'CLEANING',
+            type: 'MOVING_QUOTE',
             status: 'TEMPORARY',
             temporaryId: `temp_${crypto.randomUUID()}`,
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             quoteData: {
-              serviceType: 'CLEANING',
+              serviceType: 'MOVING',
               basePrice: 150,
               totalPrice: 150,
               surface: 100,
@@ -455,7 +455,7 @@ describe('🎯 Test complet - Flux réservation et livraison notifications', () 
             id: `attr_test_${Date.now()}`,
             booking_id: createdEntities.bookingId,
             status: 'BROADCASTING',
-            service_type: 'CLEANING',
+            service_type: 'MOVING',
             max_distance_km: 50,
             service_latitude: 48.8566,
             service_longitude: 2.3522,
@@ -527,11 +527,11 @@ describe('🎯 Test complet - Flux réservation et livraison notifications', () 
             customerName: booking.Customer ? `${booking.Customer.firstName?.charAt(0)}. ${booking.Customer.lastName}` : 'T. Client',
             pickupAddress: 'Paris 75001',
             deliveryAddress: undefined,
-            serviceType: booking.type || 'CLEANING',
+            serviceType: booking.type || 'MOVING',
             quoteDetails: {
               estimatedAmount: Math.round((booking.totalAmount || 150) * 0.85),
               currency: 'EUR',
-              serviceCategory: 'CLEANING'
+              serviceCategory: 'MOVING'
             }
           }
         };

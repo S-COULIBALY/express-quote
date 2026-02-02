@@ -146,12 +146,12 @@ describe('🗄️ Prisma Schema - Enum Validation (Problème #7)', () => {
           data: {
             id: crypto.randomUUID(),
             temporaryId: `test-invalid-${Date.now()}`,
-            type: 'CLEANING',
+            type: 'MOVING_QUOTE',
             status: invalidStatus as any, // Force cast
             updatedAt: now,
             expiresAt: expiresAt,
             quoteData: {
-              serviceType: 'CLEANING',
+              serviceType: 'MOVING',
               totalPrice: 100.00
             }
           }
@@ -198,12 +198,12 @@ describe('🗄️ Prisma Schema - Enum Validation (Problème #7)', () => {
           data: {
             id: crypto.randomUUID(),
             temporaryId: `test-valid-${Date.now()}-${status}`,
-            type: 'CLEANING',
+            type: 'MOVING_QUOTE',
             status: status as any,
             updatedAt: now,
             expiresAt: expiresAt,
             quoteData: {
-              serviceType: 'CLEANING',
+              serviceType: 'MOVING',
               totalPrice: 100.00
             }
           }

@@ -176,18 +176,8 @@ export const useCreatePersonalizedItem = () => {
 
 // Helper pour déterminer le type de service selon la catégorie
 export const getServiceTypeFromCategory = (category: string): string => {
-  switch (category) {
-    case "DEMENAGEMENT":
-      return "MOVING";
-    case "MENAGE":
-      return "CLEANING";
-    case "TRANSPORT":
-      return "TRANSPORT";
-    case "LIVRAISON":
-      return "DELIVERY";
-    default:
-      return "MOVING";
-  }
+  // Seul le déménagement est actif ; toutes les catégories mappées vers MOVING
+  return "MOVING";
 };
 
 // Helper pour déterminer le chemin de redirection

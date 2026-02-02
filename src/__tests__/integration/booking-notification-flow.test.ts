@@ -77,7 +77,7 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
   };
 
   const testQuoteData = {
-    serviceType: 'CLEANING',
+    serviceType: 'MOVING',
     surface: 50,
     scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     address: '123 Rue de la Test, 75001 Paris',
@@ -181,7 +181,7 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
         body: JSON.stringify({
           quoteData: {
             ...testQuoteData,
-            serviceType: 'CLEANING',
+            serviceType: 'MOVING',
             calculatedPrice: 120.00,
             totalPrice: 120.00
           }
@@ -275,7 +275,7 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
               customerLastName: testCustomerData.lastName,
               customerEmail: testCustomerData.email,
               customerPhone: testCustomerData.phone,
-              quoteType: 'CLEANING',
+              quoteType: 'MOVING',
               amount: '120.00'
             }
           }
@@ -402,7 +402,7 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
             first_name: 'Test',
             last_name: 'Staff',
             role: 'OPERATIONS_MANAGER',
-            service_types: ['CLEANING'],
+            service_types: ['MOVING'],
             is_active: true,
             receive_email: true,
             receive_sms: false,
@@ -533,7 +533,7 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
           is_available: true,
           verified: true,
           service_types: {
-            array_contains: ['CLEANING']
+            array_contains: ['MOVING']
           },
           latitude: { not: null },
           longitude: { not: null }
@@ -574,7 +574,7 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
         },
         body: JSON.stringify({
           bookingId: testBookingId,
-          serviceType: 'CLEANING',
+          serviceType: 'MOVING',
           coordinates: {
             latitude: coordinates.latitude,
             longitude: coordinates.longitude
@@ -597,7 +597,7 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
               customerName: `${booking!.Customer.firstName.charAt(0)}. ${booking!.Customer.lastName}`,
               pickupAddress: 'Paris',
               deliveryAddress: undefined,
-              serviceType: 'CLEANING',
+              serviceType: 'MOVING',
               quoteDetails: {
                 estimatedAmount: Math.round(booking!.totalAmount * 0.85),
                 currency: 'EUR',

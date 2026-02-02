@@ -88,7 +88,7 @@ async function main() {
       firstName: 'Admin',
       lastName: 'Express Quote',
       role: 'ADMIN',
-      serviceTypes: ['MOVING', 'CLEANING', 'DELIVERY']
+      serviceTypes: ['MOVING', 'MOVING_PREMIUM']
     }
   });
 
@@ -169,11 +169,11 @@ async function main() {
       serviceType: 'MOVING' as const
     },
     {
-      name: 'Tarif minimum ménage',
-      description: 'Tarif minimum pour un service de ménage',
+      name: 'Tarif minimum déménagement (secondaire)',
+      description: 'Tarif minimum secondaire pour déménagement',
       value: 50.0,
       category: 'MINIMUM' as const,
-      serviceType: 'CLEANING' as const
+      serviceType: 'MOVING' as const
     }
   ];
 
