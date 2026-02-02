@@ -383,10 +383,11 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
         where: {
           is_active: true,
           receive_email: true,
+          // ✅ Rôles actifs uniquement (2026-02) - CLEANING_MANAGER supprimé
           OR: [
             { role: 'OPERATIONS_MANAGER' },
             { role: 'ADMIN' },
-            { role: 'CLEANING_MANAGER' }
+            { role: 'MOVING_MANAGER' }
           ]
         }
       });
@@ -543,11 +544,12 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
       if (professionals.length === 0) {
         logger.warn('⚠️ Aucun prestataire trouvé, création d\'un prestataire de test');
         // Créer un prestataire de test dans la région parisienne
+        // ✅ Services actifs uniquement (2026-02): MOVING_COMPANY
         await prisma.professional.create({
           data: {
             id: crypto.randomUUID(),
             companyName: 'Test Professional',
-            businessType: 'CLEANING_SERVICE',
+            businessType: 'MOVING_COMPANY',
             email: `test-pro-${Date.now()}@express-quote-test.com`,
             phone: '+33612345679',
             country: 'France',
@@ -555,7 +557,7 @@ describe('Test d\'intégration - Flux complet réservation et notifications', ()
             address: '1 Rue de Test, 75001 Paris',
             verified: true,
             is_available: true,
-            service_types: ['CLEANING'],
+            service_types: ['MOVING', 'MOVING_PREMIUM'],
             latitude: 48.8606, // Paris 1er (proche des coordonnées de test)
             longitude: 2.3372,
             max_distance_km: 100,

@@ -227,21 +227,19 @@ function estimateDuration(serviceType: string, volume?: number): string {
 }
 
 function generateDescription(serviceType: string, volume?: number): string {
+  // ✅ Services actifs uniquement (2026-02): MOVING, MOVING_PREMIUM
   const descriptions = {
     'DEMENAGEMENT': volume ? `Déménagement ${volume}m³` : 'Mission de déménagement',
-    'MENAGE': 'Mission de nettoyage professionnel',
-    'LIVRAISON': 'Mission de livraison/transport',
-    'TRANSPORT': 'Mission de transport'
+    'MOVING': volume ? `Déménagement ${volume}m³` : 'Mission de déménagement',
+    'MOVING_PREMIUM': volume ? `Déménagement premium ${volume}m³` : 'Mission de déménagement sur mesure'
   };
-  return descriptions[serviceType as keyof typeof descriptions] || 'Mission de service';
+  return descriptions[serviceType as keyof typeof descriptions] || 'Mission de déménagement';
 }
 
 function generateRequirements(businessType: string): string {
+  // ✅ Types de professionnels actifs uniquement (2026-02): MOVING_COMPANY
   const requirements = {
-    'MOVING_COMPANY': 'Véhicule utilitaire, matériel de manutention, sangles',
-    'CLEANING_SERVICE': 'Équipement de nettoyage professionnel, produits',
-    'HANDYMAN': 'Outillage complet, échelle si nécessaire',
-    'STORAGE_COMPANY': 'Capacité de stockage, accès sécurisé'
+    'MOVING_COMPANY': 'Véhicule utilitaire, matériel de manutention, sangles'
   };
-  return requirements[businessType as keyof typeof requirements] || 'Équipement professionnel requis';
+  return requirements[businessType as keyof typeof requirements] || 'Véhicule utilitaire, matériel de manutention, sangles';
 }

@@ -714,10 +714,10 @@ enum EmailStatus {
   FAILED
 }
 
+// ✅ Rôles internes actifs (2026-02)
+// ❌ Supprimés: CLEANING_MANAGER, DELIVERY_MANAGER
 enum InternalRole {
   MOVING_MANAGER
-  CLEANING_MANAGER
-  DELIVERY_MANAGER
   OPERATIONS_MANAGER
   CUSTOMER_SERVICE
   ACCOUNTING
@@ -750,11 +750,10 @@ enum NotificationStatus {
   RETRYING
 }
 
+// ✅ Types professionnels actifs (2026-02)
+// ❌ Supprimés: CLEANING_SERVICE, HANDYMAN, STORAGE_COMPANY
 enum ProfessionalType {
   MOVING_COMPANY
-  CLEANING_SERVICE
-  HANDYMAN
-  STORAGE_COMPANY
   OTHER
 }
 

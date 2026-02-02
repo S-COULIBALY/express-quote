@@ -77,13 +77,12 @@ async function main() {
     { name: 'Lille', lat: 50.6292, lng: 3.0573, postal: '59000' }
   ];
 
-  const businessTypes = ['MOVING_COMPANY', 'CLEANING_SERVICE', 'HANDYMAN', 'STORAGE_COMPANY'];
+  // ✅ Types actifs uniquement (2026-02)
+  const businessTypes = ['MOVING_COMPANY'];
   const serviceTypes = [
-    ['MOVING', 'PACKING'],
-    ['CLEANING'],
-    ['MOVING', 'CLEANING', 'DELIVERY'],
-    ['DELIVERY'],
-    ['MOVING', 'PACKING', 'DELIVERY']
+    ['MOVING'],
+    ['MOVING_PREMIUM'],
+    ['MOVING', 'MOVING_PREMIUM']
   ];
 
   const professionalData = [];

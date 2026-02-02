@@ -1,26 +1,30 @@
 /**
  * Script pour initialiser les responsables internes
+ * ✅ Services actifs uniquement (2026-02): MOVING, MOVING_PREMIUM
+ * ❌ Rôles supprimés: CLEANING_MANAGER, DELIVERY_MANAGER
  */
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, InternalRole } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function seedInternalStaff() {
   console.log('🏢 Initialisation des responsables internes...');
-  
+
   const staff = [
     {
+      id: randomUUID(),
       email: 'moving.manager@expressquote.fr',
-      firstName: 'Marc',
-      lastName: 'Déménageur',
-      role: 'MOVING_MANAGER',
+      first_name: 'Marc',
+      last_name: 'Déménageur',
+      role: 'MOVING_MANAGER' as InternalRole,
       department: 'Exploitation',
-      serviceTypes: ['MOVING', 'PACKING'],
-      receiveEmail: true,
-      receiveSMS: true,
-      receiveWhatsApp: false,
+      service_types: ['MOVING', 'MOVING_PREMIUM'],
+      receive_email: true,
+      receive_sms: true,
+      receive_whatsapp: false,
       phone: '+33123456789',
-      workingHours: {
+      working_hours: {
         monday: { start: '08:00', end: '18:00' },
         tuesday: { start: '08:00', end: '18:00' },
         wednesday: { start: '08:00', end: '18:00' },
@@ -28,82 +32,54 @@ async function seedInternalStaff() {
         friday: { start: '08:00', end: '18:00' },
         saturday: { start: '09:00', end: '17:00' },
         sunday: null
-      }
+      },
+      updated_at: new Date()
     },
     {
-      email: 'cleaning.manager@expressquote.fr',
-      firstName: 'Marie',
-      lastName: 'Ménage',
-      role: 'CLEANING_MANAGER',
-      department: 'Exploitation',
-      serviceTypes: ['CLEANING'],
-      receiveEmail: true,
-      receiveSMS: true,
-      receiveWhatsApp: true,
-      phone: '+33123456788',
-      workingHours: {
-        monday: { start: '07:00', end: '19:00' },
-        tuesday: { start: '07:00', end: '19:00' },
-        wednesday: { start: '07:00', end: '19:00' },
-        thursday: { start: '07:00', end: '19:00' },
-        friday: { start: '07:00', end: '19:00' },
-        saturday: { start: '08:00', end: '16:00' },
-        sunday: { start: '09:00', end: '15:00' }
-      }
-    },
-    {
+      id: randomUUID(),
       email: 'operations@expressquote.fr',
-      firstName: 'Paul',
-      lastName: 'Operations',
-      role: 'OPERATIONS_MANAGER',
+      first_name: 'Paul',
+      last_name: 'Operations',
+      role: 'OPERATIONS_MANAGER' as InternalRole,
       department: 'Direction',
-      serviceTypes: ['MOVING', 'CLEANING', 'PACKING', 'TRANSPORT'],
-      receiveEmail: true,
-      receiveSMS: false,
-      receiveWhatsApp: false,
-      phone: '+33123456787'
+      service_types: ['MOVING', 'MOVING_PREMIUM'],
+      receive_email: true,
+      receive_sms: false,
+      receive_whatsapp: false,
+      phone: '+33123456787',
+      updated_at: new Date()
     },
     {
+      id: randomUUID(),
       email: 'accounting@expressquote.fr',
-      firstName: 'Sophie',
-      lastName: 'Comptable',
-      role: 'ACCOUNTING',
+      first_name: 'Sophie',
+      last_name: 'Comptable',
+      role: 'ACCOUNTING' as InternalRole,
       department: 'Finance',
-      serviceTypes: [], // Reçoit tous les types pour facturation
-      receiveEmail: true,
-      receiveSMS: false,
-      receiveWhatsApp: false,
-      workingHours: {
+      service_types: [], // Reçoit tous les types pour facturation
+      receive_email: true,
+      receive_sms: false,
+      receive_whatsapp: false,
+      working_hours: {
         monday: { start: '09:00', end: '17:00' },
         tuesday: { start: '09:00', end: '17:00' },
         wednesday: { start: '09:00', end: '17:00' },
         thursday: { start: '09:00', end: '17:00' },
         friday: { start: '09:00', end: '17:00' }
-      }
-    },
-    {
-      email: 'delivery.manager@expressquote.fr',
-      firstName: 'Jean',
-      lastName: 'Transport',
-      role: 'DELIVERY_MANAGER',
-      department: 'Logistique',
-      serviceTypes: ['TRANSPORT'],
-      receiveEmail: true,
-      receiveSMS: true,
-      receiveWhatsApp: false,
-      phone: '+33123456786'
+      },
+      updated_at: new Date()
     }
   ];
 
   for (const staffMember of staff) {
     try {
-      const created = await prisma.internalStaff.create({
+      const created = await prisma.internal_staff.create({
         data: staffMember
       });
-      
-      console.log(`✅ ${created.firstName} ${created.lastName} (${created.role}) créé`);
+
+      console.log(`✅ ${created.first_name} ${created.last_name} (${created.role}) créé`);
     } catch (error) {
-      console.log(`⚠️ ${staffMember.firstName} ${staffMember.lastName} existe déjà`);
+      console.log(`⚠️ ${staffMember.first_name} ${staffMember.last_name} existe déjà`);
     }
   }
 

@@ -499,7 +499,8 @@ describe('🎯 Test complet - Flux réservation et livraison notifications', () 
           phone: professional.phone || TEST_CONFIG.professional.phone,
           companyName: professional.companyName,
           distanceKm: 5.0,
-          businessType: professional.businessType || 'CLEANING_SERVICE',
+          // ✅ MOVING_COMPANY seul type actif (2026-02)
+          businessType: professional.businessType || 'MOVING_COMPANY',
           latitude: professional.latitude || TEST_CONFIG.professional.latitude,
           longitude: professional.longitude || TEST_CONFIG.professional.longitude,
           city: professional.city || 'Paris',
@@ -509,7 +510,8 @@ describe('🎯 Test complet - Flux réservation et livraison notifications', () 
         const bookingData = {
           bookingId: createdEntities.bookingId,
           bookingReference: `EQ-${createdEntities.bookingId.slice(-8).toUpperCase()}`,
-          serviceType: booking.type || 'CLEANING',
+          // ✅ MOVING seul service actif (2026-02)
+          serviceType: booking.type || 'MOVING',
           serviceDate: booking.scheduledDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
           serviceTime: '09:00',
           totalAmount: booking.totalAmount || 150,

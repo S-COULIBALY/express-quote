@@ -112,17 +112,18 @@ async function main() {
     }
   });
 
+  // ✅ Seul MOVING_COMPANY actif (2026-02)
   await prisma.professional.upsert({
     where: { email: 'pro2@example.com' },
     update: {},
     create: {
-      companyName: 'Ménage Plus',
-      businessType: 'CLEANING_SERVICE',
+      companyName: 'Déménagement Premium',
+      businessType: 'MOVING_COMPANY',
       email: 'pro2@example.com',
       phone: '+33987654321',
       city: 'Lyon',
       verified: true,
-      serviceTypes: ['CLEANING'],
+      serviceTypes: ['MOVING', 'MOVING_PREMIUM'],
       maxDistanceKm: 50
     }
   });

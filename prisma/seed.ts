@@ -53,11 +53,12 @@ async function main() {
         servicedAreas: ['Paris', 'Ile-de-France']
       }
     }),
+    // ✅ Second professionnel déménagement (2026-02: seul MOVING_COMPANY actif)
     prisma.professional.create({
       data: {
-        companyName: 'Nettoyage Pro',
-        businessType: ProfessionalType.CLEANING_SERVICE,
-        email: 'contact@nettoyage-pro.fr',
+        companyName: 'Déménagement Premium',
+        businessType: ProfessionalType.MOVING_COMPANY,
+        email: 'contact@demenagement-premium.fr',
         phone: '0602030405',
         address: '25 avenue des Champs-Élysées',
         city: 'Paris',
