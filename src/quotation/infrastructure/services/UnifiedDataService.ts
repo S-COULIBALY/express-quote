@@ -7,18 +7,9 @@
 
 import { PrismaClient } from "@prisma/client";
 import { logger } from "../../../lib/logger";
+import { ServiceType } from "../../domain/enums/ServiceType";
 
-/** Seul le service MOVING (déménagement sur mesure) est actif. Autres valeurs conservées pour compatibilité anciennes données. */
-export enum ServiceType {
-  MOVING = "MOVING",
-  /** @deprecated Service abandonné */
-  CLEANING = "CLEANING",
-  /** @deprecated Service abandonné */
-  PACKING = "PACKING",
-  /** @deprecated Service abandonné */
-  DELIVERY = "DELIVERY",
-  SERVICE = "SERVICE",
-}
+export { ServiceType };
 
 export enum RuleType {
   CONSTRAINT = "CONSTRAINT",

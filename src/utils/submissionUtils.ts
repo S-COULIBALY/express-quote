@@ -1,8 +1,7 @@
 // Note: Notifications envoyées via API business pour cohérence avec BookingService
 
 export interface SubmissionConfig {
-  // MOVING et MOVING_PREMIUM sont les seuls services actifs
-  // PACK et SERVICE sont conservés pour compatibilité historique
+  // MOVING et MOVING_PREMIUM sont les seuls services actifs (PACK/SERVICE legacy conservés pour compat)
   submissionType: 'MOVING' | 'MOVING_PREMIUM' | 'PACK' | 'SERVICE';
   validateFormData: (formData: Record<string, unknown>, extraData?: unknown) => boolean | string;
   prepareRequestData: (formData: Record<string, unknown>, extraData?: unknown) => Record<string, unknown>;

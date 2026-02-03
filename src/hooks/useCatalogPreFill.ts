@@ -74,38 +74,16 @@ export const useCatalogPreFill = (
   const [error, setError] = useState<string | null>(null);
 
   const fetchCatalogData = async () => {
+    // API catalogue supprimée (2026-02) - seul déménagement sur mesure actif
     if (!catalogId) {
       setCatalogData(null);
       setIsLoading(false);
       setError(null);
       return;
     }
-
-    setIsLoading(true);
+    setCatalogData(null);
+    setIsLoading(false);
     setError(null);
-
-    try {
-      console.log(`🔍 Récupération des données catalogue pour ${catalogId}`);
-
-      const response = await fetch(`/api/catalogue/${catalogId}`);
-
-      if (!response.ok) {
-        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      console.log("✅ Données catalogue récupérées:", data);
-      setCatalogData(data);
-    } catch (err) {
-      console.error(
-        "❌ Erreur lors de la récupération des données catalogue:",
-        err,
-      );
-      setError(err instanceof Error ? err.message : "Erreur inconnue");
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const retry = () => {
@@ -129,39 +107,13 @@ export const useCreatePersonalizedItem = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const createPersonalizedItem = async (catalogId: string, formData: any) => {
+  const createPersonalizedItem = async (_catalogId: string, _formData: any) => {
     setIsCreating(true);
     setError(null);
-
     try {
-      console.log("🎯 Création d'un item personnalisé...");
-
-      const response = await fetch("/api/items/personalized", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          catalogId,
-          formData,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      console.log("✅ Item personnalisé créé:", result);
-      return result;
-    } catch (err) {
-      console.error(
-        "❌ Erreur lors de la création de l'item personnalisé:",
-        err,
+      throw new Error(
+        "Catalogue / items personnalisés abandonnés. Utiliser le formulaire Déménagement sur mesure."
       );
-      setError(err instanceof Error ? err.message : "Erreur inconnue");
-      throw err;
     } finally {
       setIsCreating(false);
     }
@@ -181,19 +133,8 @@ export const getServiceTypeFromCategory = (category: string): string => {
 };
 
 // Helper pour déterminer le chemin de redirection
-export const getRedirectPath = (category: string): string => {
-  switch (category) {
-    case "MENAGE":
-      return "/catalogue?category=MENAGE";
-    case "DEMENAGEMENT":
-      return "/catalogue?category=DEMENAGEMENT";
-    case "TRANSPORT":
-      return "/catalogue?category=TRANSPORT";
-    case "LIVRAISON":
-      return "/catalogue?category=LIVRAISON";
-    default:
-      return "/catalogue";
-  }
+export const getRedirectPath = (_category: string): string => {
+  return "/catalogue/catalog-demenagement-sur-mesure";
 };
 
 // Helper pour formater les données de traçabilité

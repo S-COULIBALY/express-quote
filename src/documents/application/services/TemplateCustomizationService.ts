@@ -550,7 +550,7 @@ export class TemplateCustomizationService {
       const personalizedTemplate = await this.applyPersonalization(templateId, personalization);
 
       // Simuler la génération d'aperçu
-      const previewUrl = `/api/templates/${templateId}/preview?t=${Date.now()}`;
+      const previewUrl = ''; // API templates supprimée (2026-02)
       const fieldsCount = personalizedTemplate.getAllFields().length;
       const sectionsCount = personalizedTemplate.sections.length;
       const estimatedSize = `${Math.ceil(fieldsCount * 0.5)}KB`; // Estimation simplifiée

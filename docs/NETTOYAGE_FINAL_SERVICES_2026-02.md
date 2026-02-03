@@ -42,6 +42,7 @@ Les chaînes legacy (CLEANING, PACKING, DELIVERY) pouvant encore exister en BDD 
 ## 4. Vérification
 
 - `npm run build` : **OK**
+- **Suite 2026-02-03 :** Fallbacks `SERVICE` → `MOVING` (bookingManager, hooks, stripe, Attribution*, dashboard, bookings/current, ProfessionalAuthService). ServiceTypeExtractor / InternalStaffService / QuoteValidationService simplifiés. Admin templates : MOVING + MOVING_PREMIUM uniquement. formatBookingType / getServiceDisplayName / getServiceTypeLabel : MOVING, MOVING_PREMIUM, défaut Déménagement. catalogTransformers : commentaires PACKING/CLEANING retirés.
 - Aucune référence à `ServiceType.CLEANING`, `ServiceType.PACKING`, `ServiceType.DELIVERY` dans le code de production.
 - Types des props email : `'MOVING' | 'MOVING_PREMIUM' | 'CUSTOM'`.
 

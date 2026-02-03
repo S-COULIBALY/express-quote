@@ -64,13 +64,12 @@ export function useBooking() {
         console.log('➕ [useBooking] Création d\'une nouvelle réservation...');
         
         // Déterminer le type de service à partir des données
-        let serviceType = 'SERVICE'; // Valeur par défaut
+        let serviceType = 'MOVING'; // Seul service actif
         
-        // Seul le déménagement est actif ; toutes les catégories mappées vers MOVING
+        // Legacy: catégories anciennes mappées vers MOVING
         const categoryMapping: { [key: string]: string } = {
           'DEMENAGEMENT': 'MOVING',
           'MENAGE': 'MOVING',
-          'CLEANING': 'MOVING',
           'MOVING': 'MOVING'
         };
         

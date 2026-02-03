@@ -187,10 +187,12 @@ export class ProfessionalAuthService {
   private static mapBookingTypeToServiceType(bookingType: string): string {
     const mapping: Record<string, string> = {
       'MOVING_QUOTE': 'MOVING',
-      'PACKING': 'PACKING',
-      'SERVICE': 'SERVICE'
+      'MOVING': 'MOVING',
+      'MOVING_PREMIUM': 'MOVING',
+      'PACKING': 'MOVING',
+      'SERVICE': 'MOVING'
     };
-    return mapping[bookingType] || 'SERVICE';
+    return mapping[bookingType] || 'MOVING';
   }
 
   /**

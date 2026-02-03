@@ -12,7 +12,6 @@ import {
   ClipboardDocumentCheckIcon,
   ArrowRightIcon,
   Cog8ToothIcon,
-  RectangleStackIcon,
   BellIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
@@ -99,13 +98,6 @@ export default function AdminHomePage() {
       href: "/admin/rules-management",
       icon: <Cog8ToothIcon className="h-6 w-6" />,
       color: "bg-purple-600 hover:bg-purple-700"
-    },
-    {
-      title: "Gestion Catalogue",
-      description: "Templates et items",
-      href: "/admin/catalogue",
-      icon: <RectangleStackIcon className="h-6 w-6" />,
-      color: "bg-orange-600 hover:bg-orange-700"
     },
     {
       title: "Notifications",
@@ -263,10 +255,8 @@ export default function AdminHomePage() {
               { name: "Documents", href: "/admin/documents", icon: "📄" },
               { name: "Incentives", href: "/admin/incentives", icon: "🎁" },
               { name: "Intégrations", href: "/admin/integrations", icon: "🔗" },
-              { name: "Items", href: "/admin/items", icon: "📦" },
               { name: "Quote Requests", href: "/admin/quote-requests", icon: "📋" },
-              { name: "Recovery", href: "/admin/recovery", icon: "🔄" },
-              { name: "Templates", href: "/admin/templates", icon: "📝" }
+              { name: "Recovery", href: "/admin/recovery", icon: "🔄" }
             ].map((section, index) => (
               <Link key={index} href={section.href}>
                 <Card className="hover:shadow-md transition-all duration-200 cursor-pointer border-gray-200">

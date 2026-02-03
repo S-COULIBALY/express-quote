@@ -264,36 +264,8 @@ export class QuoteRequestController {
                 };
             }
 
-            // Récupérer les informations du catalogue si disponibles
-            let catalogSelection = null;
-            if (quoteData.catalogId || quoteData.catalogSelectionId) {
-                try {
-                    // Utiliser l'ID du catalogue depuis les données du devis
-                    const catalogId = quoteData.catalogId || quoteData.catalogSelectionId;
-                    
-                    // Appel à l'API catalogue interne
-                    const catalogUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/catalogue/${catalogId}`;
-                    const catalogResponse = await fetch(catalogUrl);
-                    
-                    if (catalogResponse.ok) {
-                        const catalogData = await catalogResponse.json();
-                        catalogSelection = {
-                            id: catalogData.catalogSelection.id,
-                            marketingTitle: catalogData.catalogSelection.marketingTitle,
-                            marketingDescription: catalogData.catalogSelection.marketingDescription,
-                            marketingPrice: catalogData.catalogSelection.marketingPrice,
-                            item: {
-                                id: catalogData.item.id,
-                                name: catalogData.item.name,
-                                description: catalogData.item.description,
-                                basePrice: catalogData.item.price
-                            }
-                        };
-                    }
-                } catch (error) {
-                    logger.warn('⚠️ Impossible de récupérer les infos catalogue', { temporaryId, error: error instanceof Error ? error.message : String(error) });
-                }
-            }
+            // API catalogue supprimée (2026-02) - catalogSelection non renseigné
+            const catalogSelection = null;
 
             // Réponse complète avec toutes les données formatées pour l'UI
             const response = {

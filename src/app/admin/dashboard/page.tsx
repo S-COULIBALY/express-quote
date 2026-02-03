@@ -280,40 +280,15 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Configuration Système */}
+          {/* Tarification */}
           <Card className="shadow-lg border-0 hover:shadow-xl transition-all duration-300">
             <CardHeader className="pb-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-t-lg">
               <CardTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <RectangleStackIcon className="h-5 w-5 text-purple-600" />
-                Gestion Catalogue
+                Tarification
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 p-4">
-              <Link href="/admin/catalogue" className="block">
-                <div className="flex items-center justify-between p-3 hover:bg-orange-50 rounded-lg transition-all duration-200 group">
-                  <div className="flex items-center gap-3">
-                    <RectangleStackIcon className="h-5 w-5 text-orange-600 group-hover:text-orange-700" />
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">Catalogue Principal</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">{stats?.totalItems || 16} items</span>
-                    <span className="text-sm text-gray-400 group-hover:text-gray-600">→</span>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/admin/templates" className="block">
-                <div className="flex items-center justify-between p-3 hover:bg-blue-50 rounded-lg transition-all duration-200 group">
-                  <div className="flex items-center gap-3">
-                    <svg className="h-5 w-5 text-blue-600 group-hover:text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">Templates</span>
-                  </div>
-                  <span className="text-sm text-gray-400 group-hover:text-gray-600">→</span>
-                </div>
-              </Link>
-
               <Link href="/admin/pricing" className="block">
                 <div className="flex items-center justify-between p-3 hover:bg-purple-50 rounded-lg transition-all duration-200 group">
                   <div className="flex items-center gap-3">

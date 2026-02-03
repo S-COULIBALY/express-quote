@@ -72,20 +72,8 @@ export class QuoteValidationService {
     /**
      * Valide les données spécifiques au type de service
      */
-    private validateServiceSpecificData(serviceType: string, data: Record<string, any>): void {
-        // Seul le déménagement est actif ; anciens types validés comme MOVING pour compatibilité
-        switch (serviceType) {
-            case 'MOVING':
-            case 'MOVING_PREMIUM':
-            case 'PACKING':
-            case 'CLEANING':
-            case 'DELIVERY':
-                this.validateMovingData(data);
-                break;
-            default:
-                logger.warn(`⚠️ Type de service non reconnu pour validation: ${serviceType}, utilisation validation déménagement`);
-                this.validateMovingData(data);
-        }
+    private validateServiceSpecificData(_serviceType: string, data: Record<string, any>): void {
+        this.validateMovingData(data);
     }
 
     /**

@@ -282,40 +282,31 @@ export default function AdminDocumentsPage() {
   }
 
   const loadTemplates = async () => {
-    try {
-      const response = await fetch('/api/admin/templates')
-      if (response.ok) {
-        const data = await response.json()
-        setTemplates(data.success ? data.data.templates : [])
-      } else {
-        setTemplates([
-          {
-            id: 'tpl_quote_default',
-            name: 'Template Devis Standard',
-            documentType: 'QUOTE',
-            isDefault: true,
-            isActive: true,
-            version: '1.0.0',
-            sectionsCount: 4,
-            fieldsCount: 12,
-            createdAt: '2024-01-10T09:00:00Z'
-          },
-          {
-            id: 'tpl_invoice_premium',
-            name: 'Template Facture Premium',
-            documentType: 'INVOICE',
-            isDefault: false,
-            isActive: true,
-            version: '2.1.0',
-            sectionsCount: 6,
-            fieldsCount: 18,
-            createdAt: '2024-01-12T14:30:00Z'
-          }
-        ])
+    // API admin/templates supprimée (2026-02) - données de démo pour affichage
+    setTemplates([
+      {
+        id: 'tpl_quote_default',
+        name: 'Template Devis Standard',
+        documentType: 'QUOTE',
+        isDefault: true,
+        isActive: true,
+        version: '1.0.0',
+        sectionsCount: 4,
+        fieldsCount: 12,
+        createdAt: '2024-01-10T09:00:00Z'
+      },
+      {
+        id: 'tpl_invoice_premium',
+        name: 'Template Facture Premium',
+        documentType: 'INVOICE',
+        isDefault: false,
+        isActive: true,
+        version: '2.1.0',
+        sectionsCount: 6,
+        fieldsCount: 18,
+        createdAt: '2024-01-12T14:30:00Z'
       }
-    } catch (error) {
-      console.error('Erreur templates:', error)
-    }
+    ])
   }
 
   const loadWorkflows = async () => {
@@ -424,12 +415,10 @@ export default function AdminDocumentsPage() {
 
   const handleCreateTemplate = () => {
     toast({
-      title: "Création de template",
-      description: "Redirection vers l'éditeur de templates...",
+      title: "Templates admin obsolète",
+      description: "L'éditeur de templates a été supprimé. Utilisez la configuration des modules pour le devis.",
       variant: "default"
     })
-    // Redirection vers l'éditeur de templates
-    window.open('/admin/templates/create', '_blank')
   }
 
   const handleCreateWorkflow = () => {

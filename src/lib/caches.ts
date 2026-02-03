@@ -62,11 +62,8 @@ export const catalogueItemsCache = new ClientCache<any[]>(5 * 60 * 1000);
 export const catalogueDetailCache = new ClientCache<any>(5 * 60 * 1000);
 
 /**
- * Cache pour les items
+ * Cache pour les items (legacy - page admin/items supprimée 2026-02)
  * TTL: 5 minutes
- *
- * Utilisé par:
- * - src/app/admin/items/page.tsx
  */
 export const itemsCache = new ClientCache<any[]>(5 * 60 * 1000);
 

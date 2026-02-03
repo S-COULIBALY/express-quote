@@ -1,11 +1,9 @@
 import { Entity } from '../../../shared/domain/Entity';
 import { Money } from '../valueObjects/Money';
 
+/** Seul DEMENAGEMENT actif (catalogue abandonné 2026-02). */
 export enum ItemType {
     DEMENAGEMENT = 'DEMENAGEMENT',
-    MENAGE = 'MENAGE',
-    TRANSPORT = 'TRANSPORT',
-    LIVRAISON = 'LIVRAISON'
 }
 
 export class Item extends Entity {

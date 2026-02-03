@@ -274,14 +274,16 @@ export default function BookingsPage() {
   // Fonction pour formater le type de réservation
   const formatBookingType = (type: string) => {
     switch (type) {
-      case 'PACK': 
-        return 'Pack'
-      case 'SERVICE': 
-        return 'Service'
-      case 'MOVING_QUOTE': 
+      case 'MOVING_QUOTE':
+      case 'MOVING':
+      case 'MOVING_PREMIUM':
         return 'Déménagement'
-      default: 
-        return type
+      case 'PACK':
+        return 'Pack'
+      case 'SERVICE':
+        return 'Service'
+      default:
+        return 'Déménagement'
     }
   }
 

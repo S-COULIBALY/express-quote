@@ -926,7 +926,7 @@ export class AttributionNotificationService {
         bookingReference: attribution.bookingReference,
         serviceDate: attribution.serviceDate,
         serviceTime: attribution.serviceTime,
-        serviceType: attribution.serviceType || 'SERVICE',
+        serviceType: attribution.serviceType || 'MOVING',
         estimatedDuration: attribution.estimatedDuration || '2h',
         priority: attribution.priority || 'normal',
         distanceKm: 0,

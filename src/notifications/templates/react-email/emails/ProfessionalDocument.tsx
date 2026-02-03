@@ -182,13 +182,7 @@ const getInstructionsByRole = (role: string): Array<{ icon: string; text: string
         { icon: '🚛', text: 'Planifier les véhicules et optimiser les tournées' },
         { icon: '📅', text: 'Intégrer l\'intervention au planning général' }
       ];
-    case 'CLEANING_MANAGER':
-      return [
-        { icon: '🧹', text: 'Affecter une équipe de ménage qualifiée' },
-        { icon: '🧴', text: 'Vérifier la disponibilité des produits et équipements' },
-        { icon: '🕐', text: 'Estimer la durée et planifier les créneaux' },
-        { icon: '📋', text: 'Préparer la checklist des tâches de ménage' }
-      ];
+    case 'CLEANING_MANAGER': // Rôle supprimé - affichage rétrocompat
     case 'OPERATIONS_MANAGER':
       return [
         { icon: '👁️', text: 'Superviser la planification globale de l\'intervention' },

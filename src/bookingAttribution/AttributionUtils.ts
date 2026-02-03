@@ -137,7 +137,7 @@ export class AttributionUtils {
    * Génère la description d'une mission
    */
   static generateMissionDescription(bookingData: any): string {
-    const serviceType = this.getServiceCategory(bookingData.serviceType || 'SERVICE');
+    const serviceType = this.getServiceCategory(bookingData.serviceType || 'MOVING');
     const address = this.extractCityFromAddress(bookingData.locationAddress || '');
 
     return `Mission de ${serviceType.toLowerCase()} à ${address}. Détails complets disponibles après acceptation.`;

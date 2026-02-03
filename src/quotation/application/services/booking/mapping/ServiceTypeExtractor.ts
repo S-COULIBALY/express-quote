@@ -129,55 +129,24 @@ export class ServiceTypeExtractor {
   }
 
   /**
-   * Mappe un type QuoteRequest (string) vers ServiceType
-   * 
-   * @param quoteRequestType - Le type du QuoteRequest (ex: 'CLEANING', 'MOVING', etc.)
-   * @returns Le ServiceType correspondant, ou null si non reconnu
+   * Mappe un type QuoteRequest (string) vers ServiceType.
+   * Seuls MOVING et MOVING_PREMIUM sont actifs ; tout le reste est mappé vers MOVING (legacy).
    */
   private mapQuoteRequestTypeToServiceType(
     quoteRequestType: string
   ): ServiceType | null {
     const normalizedType = quoteRequestType.toUpperCase();
-    // Seul le déménagement est actif ; anciens types mappés vers MOVING pour compatibilité
-    if (
-      normalizedType === 'MOVING' ||
-      normalizedType === 'MOVING_PREMIUM' ||
-      normalizedType === 'CLEANING' ||
-      normalizedType === 'CLEANING_PREMIUM' ||
-      normalizedType === 'DELIVERY' ||
-      normalizedType === 'PACKING' ||
-      normalizedType === 'PACK'
-    ) {
-      return ServiceType.MOVING;
-    }
-    if (normalizedType === 'SERVICE') {
-      return ServiceType.MOVING;
-    }
-    return null;
+    if (normalizedType === 'MOVING_PREMIUM') return ServiceType.MOVING_PREMIUM;
+    return ServiceType.MOVING;
   }
 
   /**
-   * Mappe une string normalisée vers ServiceType
-   * 
-   * @param normalizedType - Le type normalisé en majuscules
-   * @returns Le ServiceType correspondant, ou null si non reconnu
+   * Mappe une string normalisée vers ServiceType.
+   * Seuls MOVING et MOVING_PREMIUM sont actifs ; tout le reste est mappé vers MOVING (legacy).
    */
   private mapStringToServiceType(normalizedType: string): ServiceType | null {
-    if (
-      normalizedType === 'MOVING' ||
-      normalizedType === 'MOVING_PREMIUM' ||
-      normalizedType === 'CLEANING' ||
-      normalizedType === 'CLEANING_PREMIUM' ||
-      normalizedType === 'DELIVERY' ||
-      normalizedType === 'PACKING' ||
-      normalizedType === 'PACK'
-    ) {
-      return ServiceType.MOVING;
-    }
-    if (normalizedType === 'SERVICE') {
-      return ServiceType.MOVING;
-    }
-    return null;
+    if (normalizedType === 'MOVING_PREMIUM') return ServiceType.MOVING_PREMIUM;
+    return ServiceType.MOVING;
   }
 }
 

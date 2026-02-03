@@ -154,26 +154,10 @@ async function submitQuoteRequest(
 
   devLog.info(`📁 [useUnifiedSubmission.tsx] ServiceType mappé: ${serviceType}`);
 
-  // Récupérer catalogId
+  // API catalogue supprimée (2026-02) - catalogId conservé dans payload pour compatibilité
   const catalogId = requestData.catalogId || formData.catalogId ||
                     requestData.catalogSelectionId || formData.catalogSelectionId;
-
-  // Récupérer __presetSnapshot
-  let presetSnapshot = requestData.__presetSnapshot || formData.__presetSnapshot;
-
-  if (!presetSnapshot && catalogId) {
-    try {
-      devLog.info(`📁 [useUnifiedSubmission.tsx] 🔍 Récupération du __presetSnapshot depuis le catalogue: ${catalogId}`);
-      const catalogResponse = await fetch(`/api/catalogue/${catalogId}`);
-      if (catalogResponse.ok) {
-        const catalogData = await catalogResponse.json();
-        presetSnapshot = catalogData.catalogSelection?.__presetSnapshot;
-        devLog.info('📁 [useUnifiedSubmission.tsx] ✅ __presetSnapshot récupéré depuis le catalogue');
-      }
-    } catch (error) {
-      devLog.warn('📁 [useUnifiedSubmission.tsx] ⚠️ Impossible de récupérer le __presetSnapshot:', error);
-    }
-  }
+  const presetSnapshot = requestData.__presetSnapshot || formData.__presetSnapshot;
 
   // Extraire les données sans créer de structure imbriquée
   const { quoteData: nestedQuoteData, ...requestDataWithoutQuoteData } = requestData;

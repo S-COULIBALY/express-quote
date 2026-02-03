@@ -265,21 +265,20 @@ async function calculateStats(
 function mapServiceTypeToBookingType(serviceType: string): string {
   const mapping: Record<string, string> = {
     MOVING: "MOVING_QUOTE",
-    PACKING: "PACKING",
-    CLEANING: "SERVICE",
-    DELIVERY: "SERVICE",
-    SERVICE: "SERVICE",
+    MOVING_PREMIUM: "MOVING_QUOTE",
+    PACKING: "MOVING_QUOTE",
+    CLEANING: "MOVING_QUOTE",
+    DELIVERY: "MOVING_QUOTE",
+    SERVICE: "MOVING_QUOTE",
   };
-  return mapping[serviceType] || "SERVICE";
+  return mapping[serviceType] || "MOVING_QUOTE";
 }
 
 function getServiceTypeLabel(bookingType: string): string {
   const labels: Record<string, string> = {
     MOVING_QUOTE: "Déménagement",
-    PACKING: "Emballage",
-    SERVICE: "Service",
   };
-  return labels[bookingType] || bookingType;
+  return labels[bookingType] || "Déménagement";
 }
 
 function getDocumentTypeLabel(documentType: string): string {

@@ -128,7 +128,7 @@ export async function addCatalogueCleaningItemToBooking(service: CatalogueCleani
   const serviceWithBookingId: CatalogueCleaningItem = {
     ...service,
     bookingId,
-    serviceType: service.serviceType || 'SERVICE'
+    serviceType: service.serviceType || 'MOVING'
   };
   
   // Créer un nouvel élément de réservation
@@ -265,43 +265,11 @@ export async function confirmBooking(customerData: any): Promise<{ bookingId: st
   };
 }
 
-// Fonction pour ajouter un item personnalisé à la réservation
-export async function addPersonalizedItemToBooking(itemId: string): Promise<Booking> {
-  const bookingId = await getBookingIdForCurrentSession();
-  const booking = bookingsDB.get(bookingId);
-  
-  if (!booking) {
-    throw new Error('Booking not found');
-  }
-  
-  // Récupérer l'item personnalisé depuis l'API
-  const itemResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/items/${itemId}`);
-  
-  if (!itemResponse.ok) {
-    throw new Error('Item personnalisé non trouvé');
-  }
-  
-  const personalizedItem = await itemResponse.json();
-  
-  // Créer un nouvel élément de réservation
-  const bookingItem: BookingItem = {
-    id: uuidv4(),
-    type: 'personalizedItem',
-    itemId: personalizedItem.id,
-    data: personalizedItem,
-    price: personalizedItem.price,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-  
-  // Ajouter l'élément à la réservation
-  booking.items.push(bookingItem);
-  booking.updatedAt = new Date();
-  
-  // Recalculer les totaux
-  await updateBookingTotals(booking);
-  
-  return booking;
+/** @deprecated API items supprimée (2026-02) - Catalogue abandonné, utiliser déménagement sur mesure */
+export async function addPersonalizedItemToBooking(_itemId: string): Promise<Booking> {
+  throw new Error(
+    'API items / catalogue abandonnée. Utiliser le formulaire Déménagement sur mesure.'
+  );
 }
 
 // Fonction pour finaliser une réservation avant paiement

@@ -124,15 +124,9 @@ function getServiceDisplayName(serviceType: string): string {
     case "MOVING":
     case "MOVING_QUOTE":
       return "Déménagement";
-    case "PACK":
-      return "Pack de déménagement";
-    case "SERVICE":
-      return "Service à domicile";
-    case "CLEANING":
-      return "Ménage";
-    case "DELIVERY":
-      return "Livraison";
+    case "MOVING_PREMIUM":
+      return "Déménagement sur mesure";
     default:
-      return "Service Express Quote";
+      return "Déménagement";
   }
 }

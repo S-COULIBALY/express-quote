@@ -284,13 +284,9 @@ async function calculateProfessionalStats(
 function getServiceTypeLabel(service_type: string): string {
   const labels: Record<string, string> = {
     MOVING: "Déménagement",
-    CLEANING: "Ménage",
-    DELIVERY: "Livraison",
-    TRANSPORT: "Transport",
-    PACKING: "Emballage",
-    SERVICE: "Service",
+    MOVING_PREMIUM: "Déménagement sur mesure",
   };
-  return labels[service_type] || service_type;
+  return labels[service_type] || "Déménagement";
 }
 
 function extractLocationSummary(address: string): string {

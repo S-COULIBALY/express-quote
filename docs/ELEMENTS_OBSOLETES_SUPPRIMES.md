@@ -1,6 +1,6 @@
 # Éléments Obsolètes Supprimés
 
-> **Date de nettoyage:** 2026-02-02
+> **Date de nettoyage:** 2026-02-02 / 2026-02-03
 > **Auteur:** Équipe Express-Quote
 > **Statut:** Nettoyage complet effectué
 
@@ -178,6 +178,15 @@ Ce document recense tous les éléments legacy supprimés du projet Express-Quot
 | `src/data/fallbacks/movingFallback.ts` | Fallback déménagement |
 | `src/data/fallbacks/cleaningFallback.ts` | Fallback nettoyage |
 
+### Pages admin (2026-02-03)
+| Fichier / Route | Description |
+|-----------------|-------------|
+| `src/app/admin/templates/page.tsx` | Page gestion templates (API templates supprimée) |
+| `src/app/admin/items/page.tsx` | Page gestion items (API items supprimée) |
+| `src/app/admin/catalogue/page.tsx` | Placeholder « Catalogue abandonné » (catalogue supprimé) |
+
+Liens retirés : menu admin (page.tsx), dashboard admin (catalogue / templates). Documents et Items utilisent désormais des données de démo ou listes vides.
+
 ### Tests obsolètes
 | Fichier | Description |
 |---------|-------------|
@@ -192,7 +201,26 @@ Ce document recense tous les éléments legacy supprimés du projet Express-Quot
 
 ---
 
-## 6. DTOs Dépréciés (conservés pour compatibilité)
+## 6. Code supprimé dans fichiers conservés (2026-02-03)
+
+### `src/utils/catalogTransformers.ts`
+
+Exports supprimés (aucune référence ailleurs) :
+
+| Export | Raison |
+|--------|--------|
+| `getPresetForCategory` | Retournait toujours `'demenagement-sur-mesure'`, jamais utilisé |
+| `transformCatalogDataToCatalogueMovingItem` | Catalogue Moving/Cleaning/Delivery abandonné |
+| `transformCatalogDataToCatalogueCleaningItem` | Idem |
+| `transformCatalogDataToCatalogueDeliveryItem` | Idem |
+| `transformCatalogDataToMenageSurMesure` | Service ménage abandonné |
+| `getSuccessRedirectPath` | Jamais importé |
+
+**Conservés :** `transformCatalogDataToDemenagementSurMesure` (formulaire déménagement, useServiceConfig), `getCategoryIcon`, `getCategoryColors` (CatalogHero). Imports des types `CatalogueMovingItem`, `CatalogueCleaningItem`, `CatalogueDeliveryItem` retirés.
+
+---
+
+## 7. DTOs Dépréciés (conservés pour compatibilité)
 
 Les DTOs suivants sont marqués `@deprecated` mais conservés pour la compatibilité avec les anciennes données:
 
@@ -204,7 +232,7 @@ Les DTOs suivants sont marqués `@deprecated` mais conservés pour la compatibil
 
 ---
 
-## 7. APIs Remplacées
+## 8. APIs Remplacées
 
 | Ancienne API | Nouvelle API | Description |
 |--------------|--------------|-------------|
@@ -216,7 +244,7 @@ Les DTOs suivants sont marqués `@deprecated` mais conservés pour la compatibil
 
 ---
 
-## 8. Système Actuel (Post-Nettoyage)
+## 9. Système Actuel (Post-Nettoyage)
 
 ### Architecture quotation-module
 
@@ -256,7 +284,7 @@ src/quotation/
 
 ---
 
-## 9. Migrations Appliquées
+## 10. Migrations Appliquées
 
 | Migration | Date | Description |
 |-----------|------|-------------|
@@ -265,7 +293,7 @@ src/quotation/
 
 ---
 
-## 10. Récapitulatif Chiffré
+## 11. Récapitulatif Chiffré
 
 | Catégorie | Nombre supprimé |
 |-----------|-----------------|
@@ -274,8 +302,10 @@ src/quotation/
 | Valeurs d'enum | 7 |
 | Fichiers source | ~50+ |
 | Routes API | ~20 |
-| Lignes de code | ~24 000 |
+| Pages admin | 3 (templates, items, catalogue) |
+| Exports catalogTransformers | 6 |
+| Lignes de code | ~24 000+ |
 
 ---
 
-*Document généré automatiquement lors du nettoyage du 2026-02-02*
+*Document mis à jour lors des nettoyages 2026-02-02 et 2026-02-03*

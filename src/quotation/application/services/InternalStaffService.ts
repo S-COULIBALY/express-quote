@@ -116,20 +116,8 @@ export class InternalStaffService {
   /**
    * Mappe le type de service vers le type ServiceType pour la recherche
    */
-  private mapBookingTypeToServiceType(bookingType: string): string {
-    // Seul le déménagement est actif ; anciens types mappés vers MOVING
-    switch (bookingType) {
-      case 'MOVING_QUOTE':
-      case 'MOVING':
-      case 'PACKING':
-      case 'SERVICE':
-      case 'TRANSPORT':
-      case 'CLEANING':
-      case 'DELIVERY':
-        return 'MOVING';
-      default:
-        return 'MOVING';
-    }
+  private mapBookingTypeToServiceType(_bookingType: string): string {
+    return 'MOVING';
   }
 
   /**

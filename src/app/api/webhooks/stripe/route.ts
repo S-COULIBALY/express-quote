@@ -1113,8 +1113,8 @@ async function sendPaymentConfirmationNotifications(booking: any, paymentIntent:
       paymentDate: new Date().toISOString(),
       bookingId: booking.id,
       bookingReference: `EQ-${booking.id.slice(-8).toUpperCase()}`,
-      serviceType: booking.quoteRequest?.type || 'SERVICE',
-      serviceName: getServiceDisplayName(booking.quoteRequest?.type || 'SERVICE'),
+      serviceType: booking.quoteRequest?.type || 'MOVING',
+      serviceName: getServiceDisplayName(booking.quoteRequest?.type || 'MOVING'),
       serviceDate: booking.scheduledDate ? booking.scheduledDate.toISOString().split('T')[0] : null,
       serviceTime: booking.scheduledDate ? booking.scheduledDate.toTimeString().slice(0, 5) : null,
       invoiceNumber: `INV-${booking.id.slice(-8).toUpperCase()}-${new Date().getFullYear()}`
@@ -1224,9 +1224,7 @@ function getPaymentMethodDisplayName(paymentMethod: string): string {
 function getServiceDisplayName(serviceType: string): string {
   switch (serviceType) {
     case 'MOVING': return 'Déménagement';
-    case 'PACK': return 'Emballage';
-    case 'SERVICE': return 'Service à domicile';
-    case 'DELIVERY': return 'Livraison';
-    default: return 'Service Express Quote';
+    case 'MOVING_PREMIUM': return 'Déménagement sur mesure';
+    default: return 'Déménagement';
   }
 } 
