@@ -24,14 +24,15 @@ interface ServiceBase {
   description: string;
 }
 
+// Ordre cohérent avec l’upsell : Emballage → Démontage → Fournitures → Remontage → valeur / assurance / nettoyage → contraintes
 const SERVICES: ServiceBase[] = [
   { id: "packing", label: "Emballage", description: "Emballage professionnel" },
-  { id: "supplies", label: "Fournitures", description: "Cartons, protections" },
   {
     id: "dismantling",
     label: "Démontage",
     description: "Démontage des meubles",
   },
+  { id: "supplies", label: "Fournitures", description: "Cartons, protections" },
   {
     id: "reassembly",
     label: "Remontage",
@@ -107,8 +108,8 @@ export function getScenarioServices(scenarioId: string): ScenarioServices {
       result.disabled = toServiceStatusList(
         [
           "packing",
-          "supplies",
           "dismantling",
+          "supplies",
           "reassembly",
           "high-value",
           "insurance",
@@ -125,21 +126,22 @@ export function getScenarioServices(scenarioId: string): ScenarioServices {
       break;
 
     case "STANDARD":
-      // STANDARD : Participation client - Meilleur rapport qualité-prix
-      // Aligné sur QuoteScenario.ts : pas de disabledModules, tout est disponible en option
-      result.optional = toServiceStatusList(
+      // STANDARD : Formule fixe. Inclus = emballage + démontage. Reste = non disponible (pas d’option client).
+      result.included = toServiceStatusList(
+        ["packing", "dismantling"],
+        "included",
+      );
+      result.disabled = toServiceStatusList(
         [
-          "packing",
-          "supplies",
-          "dismantling",
           "reassembly",
+          "supplies",
           "high-value",
           "insurance",
           "cleaning",
           "overnight",
           "flexibility",
         ],
-        "optional",
+        "disabled",
       );
       result.conditional = toServiceStatusList(
         ["furniture-lift"],
@@ -148,15 +150,34 @@ export function getScenarioServices(scenarioId: string): ScenarioServices {
       break;
 
     case "CONFORT":
-      // CONFORT : Déménageur fait l'essentiel (emballage + démontage/remontage)
-      // Aligné sur QuoteScenario.ts : enabledModules = packing, dismantling, reassembly, supplies
+      // CONFORT : Formule fixe. Inclus = emballage, démontage, fournitures, remontage (ordre upsell).
       result.included = toServiceStatusList(
-        ["packing", "supplies", "dismantling", "reassembly"],
+        ["packing", "dismantling", "supplies", "reassembly"],
         "included",
       );
-      result.optional = toServiceStatusList(
-        ["high-value", "insurance", "cleaning"],
-        "optional",
+      result.disabled = toServiceStatusList(
+        ["high-value", "insurance", "cleaning", "overnight", "flexibility"],
+        "disabled",
+      );
+      result.conditional = toServiceStatusList(
+        ["furniture-lift"],
+        "conditional",
+      );
+      break;
+
+    case "PREMIUM":
+      // PREMIUM : Formule fixe tout inclus (ordre upsell)
+      result.included = toServiceStatusList(
+        [
+          "packing",
+          "dismantling",
+          "supplies",
+          "reassembly",
+          "high-value",
+          "insurance",
+          "cleaning",
+        ],
+        "included",
       );
       result.disabled = toServiceStatusList(
         ["overnight", "flexibility"],
@@ -168,38 +189,14 @@ export function getScenarioServices(scenarioId: string): ScenarioServices {
       );
       break;
 
-    case "PREMIUM":
-      // PREMIUM : Prise en charge complète
-      result.included = toServiceStatusList(
-        [
-          "packing",
-          "supplies",
-          "dismantling",
-          "reassembly",
-          "high-value",
-          "insurance",
-          "cleaning",
-        ],
-        "included",
-      );
-      result.optional = toServiceStatusList(
-        ["overnight", "flexibility"],
-        "optional",
-      );
-      result.conditional = toServiceStatusList(
-        ["furniture-lift"],
-        "conditional",
-      );
-      break;
-
     case "SECURITY_PLUS":
     case "SECURITY": // Support de l'ancien nom pour compatibilité
-      // SÉCURITÉ+ : Premium + Protection maximale
+      // SÉCURITÉ+ : Formule fixe tout inclus (ordre upsell)
       result.included = toServiceStatusList(
         [
           "packing",
-          "supplies",
           "dismantling",
+          "supplies",
           "reassembly",
           "high-value",
           "insurance",
@@ -207,9 +204,9 @@ export function getScenarioServices(scenarioId: string): ScenarioServices {
         ],
         "included",
       );
-      result.optional = toServiceStatusList(
+      result.disabled = toServiceStatusList(
         ["overnight", "flexibility"],
-        "optional",
+        "disabled",
       );
       result.conditional = toServiceStatusList(
         ["furniture-lift"],
@@ -218,13 +215,19 @@ export function getScenarioServices(scenarioId: string): ScenarioServices {
       break;
 
     case "FLEX":
-      // FLEX : Devis sur mesure
-      result.included = toServiceStatusList(
-        ["dismantling", "reassembly", "overnight", "flexibility"],
-        "included",
-      );
+      // FLEX : 100 % personnalisable (ordre upsell pour lisibilité)
       result.optional = toServiceStatusList(
-        ["packing", "supplies", "high-value", "insurance", "cleaning"],
+        [
+          "packing",
+          "dismantling",
+          "supplies",
+          "reassembly",
+          "high-value",
+          "insurance",
+          "cleaning",
+          "overnight",
+          "flexibility",
+        ],
         "optional",
       );
       result.conditional = toServiceStatusList(

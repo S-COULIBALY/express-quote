@@ -31,15 +31,40 @@ interface MultiOffersDisplayProps {
   onSelectOffer?: (scenarioId: string) => void;
 }
 
-// Ordre d'affichage des scénarios (progression ECO → PREMIUM)
+// Ordre d'affichage des scénarios (progression ECO → SÉCURITÉ+ → FLEX)
 const SCENARIO_ORDER = [
   "ECO",
   "STANDARD",
   "CONFORT",
   "PREMIUM",
   "SECURITY_PLUS",
-  "SECURITY",
   "FLEX",
+];
+
+// Micro-textes marketing (vue CARTES uniquement, pas dans le tableau)
+const SCENARIO_MICRO_COPY: Record<string, string> = {
+  ECO: "La solution la plus économique si vous gérez l'essentiel vous-même.",
+  STANDARD: "L'essentiel du savoir-faire pro, sans payer pour le superflu.",
+  CONFORT: "La formule la plus choisie pour déménager l'esprit tranquille.",
+  PREMIUM: "Zéro stress, zéro effort : on s'occupe de tout.",
+  SECURITY_PLUS:
+    "Le plus haut niveau de protection pour vos biens les plus précieux.",
+  SECURITY:
+    "Le plus haut niveau de protection pour vos biens les plus précieux.",
+  FLEX: "Une solution personnalisée, adaptée à votre situation.",
+};
+
+// Options configurables pour la formule FLEX (affichées sous la carte)
+const FLEX_OPTIONS_LABELS = [
+  "Fournitures",
+  "Emballage (partiel / complet)",
+  "Démontage / Remontage",
+  "Débranchement appareils",
+  "Nettoyage fin de bail",
+  "Services spécialisés",
+  "Assurance (standard / renforcée / tous risques)",
+  "Nuit sur place",
+  "Flexibilité planning",
 ];
 
 export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
@@ -100,10 +125,10 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
       case "STANDARD":
         return "⭐";
       case "CONFORT":
-        return "🏆";
+        return "⭐";
       case "SECURITY_PLUS":
-      case "SECURITY": // Support de l'ancien nom pour compatibilité
-        return "🛡️";
+      case "SECURITY":
+        return "🔒";
       case "PREMIUM":
         return "👑";
       case "FLEX":
@@ -111,6 +136,15 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
       default:
         return "📦";
     }
+  };
+
+  const getMicroCopy = (scenarioId: string): string =>
+    SCENARIO_MICRO_COPY[scenarioId] ?? "";
+
+  const getDisplayLabel = (scenarioId: string, label: string): string => {
+    if (scenarioId === "SECURITY") return "Sécurité+";
+    if (scenarioId === "CONFORT") return "Confort ⭐";
+    return label;
   };
 
   const getScenarioColor = (scenarioId: string) => {
@@ -188,7 +222,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
       case "SECURITY":
         return "Protection totale, zéro stress";
       case "FLEX":
-        return "Adapté 100% à vos contraintes, sans effort";
+        return "Choisissez uniquement ce dont vous avez besoin";
       default:
         return "";
     }
@@ -221,11 +255,11 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
     return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
   });
 
-  // Tous les services pour le tableau comparatif
+  // Tous les services pour le tableau comparatif (ordre : Emballage → Démontage → Fournitures → Remontage → …)
   const allServices = [
     { id: "packing", label: "Emballage" },
-    { id: "supplies", label: "Fournitures" },
     { id: "dismantling", label: "Démontage" },
+    { id: "supplies", label: "Fournitures" },
     { id: "reassembly", label: "Remontage" },
     { id: "high-value", label: "Objets de valeur" },
     { id: "insurance", label: "Assurance renforcée" },
@@ -302,7 +336,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                   </span>
                   <div className="flex-1 min-w-0">
                     <span className="font-semibold text-emerald-800 text-xs sm:text-xs md:text-sm leading-tight">
-                      Parmis les 6 propositions de prix adaptée à votre
+                      Parmi les 6 propositions de prix adaptées à votre
                       situation : La Formule{" "}
                       {quotes.find(
                         (q) => q.scenarioId === comparison.recommended,
@@ -440,7 +474,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                               {getScenarioIcon(quote.scenarioId)}
                             </span>
                             <span className="text-[9px] sm:text-xs md:text-sm leading-tight line-clamp-2 text-center">
-                              {quote.label}
+                              {getDisplayLabel(quote.scenarioId, quote.label)}
                             </span>
                             <span className="text-[9px] sm:text-[10px] md:text-xs font-normal text-gray-600 leading-tight">
                               {formatPrice(quote.pricing.finalPrice)}
@@ -577,7 +611,9 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                             } ${isCalculating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                           >
-                            {isSelected ? `✓ ${quote.label}` : quote.label}
+                            {isSelected
+                              ? `✓ ${getDisplayLabel(quote.scenarioId, quote.label)}`
+                              : getDisplayLabel(quote.scenarioId, quote.label)}
                           </button>
                         </td>
                       );
@@ -666,6 +702,15 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                   </div>
                 )}
 
+                {/* Badge "Le plus choisi" pour CONFORT */}
+                {quote.scenarioId === "CONFORT" &&
+                  !isRecommended &&
+                  !isSelected && (
+                    <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-purple-500 text-white text-[9px] sm:text-[10px] font-medium px-2 sm:px-2.5 py-0.5 rounded-full shadow-sm whitespace-nowrap z-10">
+                      ⭐ Le plus choisi
+                    </div>
+                  )}
+
                 {/* Badge alternative */}
                 {isAlternative && !isSelected && !isRecommended && (
                   <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-teal-400 text-white text-[9px] sm:text-[10px] font-medium px-2 sm:px-2.5 py-0.5 rounded-full shadow-sm whitespace-nowrap z-10">
@@ -705,9 +750,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm sm:text-base text-gray-900 leading-tight">
-                        {quote.scenarioId === "SECURITY"
-                          ? "Sécurité+"
-                          : quote.label}
+                        {getDisplayLabel(quote.scenarioId, quote.label)}
                       </div>
                       <div className="text-[10px] sm:text-xs text-gray-600 leading-tight line-clamp-1">
                         {quote.description}
@@ -741,6 +784,35 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* Micro-texte marketing */}
+                {getMicroCopy(quote.scenarioId) && (
+                  <p className="text-[10px] sm:text-xs text-gray-600 italic text-center leading-snug mt-1 px-0.5">
+                    {getMicroCopy(quote.scenarioId)}
+                  </p>
+                )}
+
+                {/* Options configurables (formule FLEX uniquement) */}
+                {quote.scenarioId === "FLEX" && (
+                  <div className="mt-2 pt-2 border-t border-gray-300">
+                    <div className="text-[9px] sm:text-[10px] font-semibold text-indigo-700 mb-1">
+                      Options configurables :
+                    </div>
+                    <div className="flex flex-wrap gap-1 justify-center">
+                      {FLEX_OPTIONS_LABELS.slice(0, 5).map((label, idx) => (
+                        <span
+                          key={idx}
+                          className="bg-indigo-100 text-indigo-700 text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                      <span className="bg-indigo-100 text-indigo-700 text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded">
+                        +{FLEX_OPTIONS_LABELS.length - 5}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Services inclus - NOUVEAU */}
                 {includedLabels.length > 0 && (
@@ -940,9 +1012,15 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
       )}
 
       {/* Note informative */}
-      <div className="text-xs sm:text-sm text-gray-500 text-center mt-4 sm:mt-5 p-3 sm:p-4 bg-gray-50 rounded-lg">
-        💡 Toutes les offres incluent le transport, la main-d'œuvre et
-        l'assurance de base.
+      <div className="text-xs sm:text-sm text-gray-500 text-center mt-4 sm:mt-5 p-3 sm:p-4 bg-gray-50 rounded-lg space-y-2">
+        <p>
+          💡 Toutes les offres incluent le transport, la main-d'œuvre et
+          l'assurance de base.
+        </p>
+        <p className="text-[11px] sm:text-xs">
+          ⚠️ Monte-meubles recommandé selon accès (étage, ascenseur).
+          Garde-meubles disponible si stockage nécessaire.
+        </p>
         {hasSmartRecommendation && (
           <span className="block mt-1 sm:mt-2 text-emerald-600 text-xs sm:text-sm">
             🎯 La recommandation est basée sur votre situation : étage,

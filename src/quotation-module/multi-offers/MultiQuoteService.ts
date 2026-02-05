@@ -81,17 +81,6 @@ const CROSS_SELLING_SERVICE_FLAGS = [
 ] as const;
 
 /**
- * Scénarios haut de gamme où les services cross-selling sont INCLUS dans la formule
- * (les sélections du catalogue client sont ignorées, les services sont forcés via overrides)
- */
-const HIGH_END_SCENARIOS = ["CONFORT", "PREMIUM", "SECURITY_PLUS"];
-
-/**
- * Scénarios où la sélection cross-selling du client doit être appliquée
- */
-const CLIENT_SELECTION_SCENARIOS = ["STANDARD", "FLEX"];
-
-/**
  * Variante de devis générée
  */
 export interface QuoteVariant {
@@ -189,15 +178,16 @@ export class MultiQuoteService {
   }
 
   /**
-   * Applique les sélections cross-selling du client au contexte selon le scénario
+   * Applique les sélections cross-selling du client au contexte selon le scénario.
+   * Seul le scénario FLEX (useClientSelection: true) prend en compte la sélection client.
    *
    * @param ctx Contexte cloné pour le scénario
-   * @param scenarioId ID du scénario
+   * @param scenario Scénario (useClientSelection définit si la sélection client est appliquée)
    * @returns Contexte avec les flags cross-selling appropriés
    */
   private applyClientCrossSellingForScenario(
     ctx: QuoteContext,
-    scenarioId: string,
+    scenario: QuoteScenario,
   ): QuoteContext {
     const clientSelection = ctx.metadata?.clientCrossSellingSelection;
 
@@ -206,24 +196,16 @@ export class MultiQuoteService {
       return ctx;
     }
 
-    // Pour les scénarios haut de gamme : les services sont forcés via overrides
-    // donc on n'applique PAS les sélections du client (elles sont ignorées)
-    if (HIGH_END_SCENARIOS.includes(scenarioId)) {
+    // Seul le scénario avec useClientSelection: true (FLEX) applique la sélection client
+    if (scenario.useClientSelection !== true) {
       console.log(
-        `   📦 ${scenarioId}: Services INCLUS dans la formule (sélection client ignorée)`,
+        `   📦 ${scenario.id}: Sélection client non prise en compte (formule fixe)`,
       );
       return ctx;
     }
 
-    // Pour ECO : les services sont désactivés via disabledModules
-    // donc on n'applique PAS les sélections du client
-    if (scenarioId === "ECO") {
-      console.log(`   📦 ECO: Services DÉSACTIVÉS (sélection client ignorée)`);
-      return ctx;
-    }
-
-    // Pour STANDARD et FLEX : on applique les sélections du client
-    if (CLIENT_SELECTION_SCENARIOS.includes(scenarioId)) {
+    // FLEX : on applique les sélections du client
+    {
       const appliedServices: string[] = [];
 
       // Restaurer les flags selon la sélection client
@@ -252,16 +234,16 @@ export class MultiQuoteService {
 
       if (appliedServices.length > 0) {
         console.log(
-          `   📦 ${scenarioId}: Sélection client APPLIQUÉE (${appliedServices.join(", ")})`,
+          `   📦 ${scenario.id}: Sélection client APPLIQUÉE (${appliedServices.join(", ")})`,
         );
       } else {
-        console.log(`   📦 ${scenarioId}: Aucune sélection client à appliquer`);
+        console.log(
+          `   📦 ${scenario.id}: Aucune sélection client à appliquer`,
+        );
       }
 
       return updatedCtx;
     }
-
-    return ctx;
   }
 
   /**
@@ -272,12 +254,10 @@ export class MultiQuoteService {
    * 2. /multi-offers utilise ce baseCost pour générer les 6 scénarios
    *
    * GESTION DU CROSS-SELLING :
-   * - Les sélections cross-selling du client (packing, dismantling, etc.) sont sauvegardées
-   *   dans les métadonnées sous `clientCrossSellingSelection`
-   * - Pour ECO : les services sont désactivés via disabledModules (pas de cross-selling)
-   * - Pour STANDARD/FLEX : les sélections du client sont appliquées
-   * - Pour CONFORT/PREMIUM/SECURITY_PLUS : les services sont forcés via overrides
-   *   (les sélections du client sont ignorées car incluses dans la formule)
+   * - Les sélections cross-selling du client sont sauvegardées dans metadata.clientCrossSellingSelection
+   * - Seul le scénario FLEX (useClientSelection: true) applique la sélection client
+   * - Tous les autres scénarios (ECO, STANDARD, CONFORT, PREMIUM, SÉCURITÉ+) ignorent la sélection
+   *   et utilisent uniquement les overrides / enabledModules / disabledModules du scénario
    *
    * @param baseCtx Contexte de base (données utilisateur + computed)
    * @param scenarios Scénarios à appliquer
@@ -335,10 +315,8 @@ export class MultiQuoteService {
    * - Exécute uniquement les modules additionnels du scénario
    *
    * GESTION DU CROSS-SELLING :
-   * - Les sélections cross-selling du client sont stockées dans metadata.clientCrossSellingSelection
-   * - Pour ECO : les services sont désactivés (disabledModules)
-   * - Pour STANDARD/FLEX : les sélections du client sont restaurées AVANT les overrides
-   * - Pour CONFORT/PREMIUM/SECURITY_PLUS : seuls les overrides sont appliqués (services inclus)
+   * - Seul FLEX (useClientSelection: true) restaure les sélections client avant les overrides
+   * - Tous les autres scénarios : sélection client ignorée, seuls overrides/modules du scénario
    *
    * Formule : finalPrice = (baseCost + additionalCosts) * (1 + marginRate)
    *
@@ -363,11 +341,11 @@ export class MultiQuoteService {
     ctxClone.metadata.scenarioId = scenario.id;
 
     // 3. Appliquer les sélections cross-selling du client selon le scénario
-    // Cette étape restaure les flags (packing, dismantling, etc.) uniquement pour STANDARD/FLEX
-    ctxClone = this.applyClientCrossSellingForScenario(ctxClone, scenario.id);
+    // Uniquement si scenario.useClientSelection === true (FLEX uniquement)
+    ctxClone = this.applyClientCrossSellingForScenario(ctxClone, scenario);
 
-    // 4. Appliquer les overrides du scénario (APRÈS les sélections client)
-    // Les overrides écrasent les sélections client pour les scénarios haut de gamme
+    // 4. Appliquer les overrides du scénario (APRÈS les sélections client pour FLEX)
+    // Pour les formules fixe (ECO, STANDARD, CONFORT, etc.), les overrides imposent le contexte
     if (scenario.overrides) {
       Object.assign(ctxClone, scenario.overrides);
     }

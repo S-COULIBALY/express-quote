@@ -5,7 +5,7 @@
  * (marge, modules activés, overrides)
  */
 
-import { QuoteContext } from '../core/QuoteContext';
+import { QuoteContext } from "../core/QuoteContext";
 
 export interface QuoteScenario {
   /**
@@ -45,6 +45,13 @@ export interface QuoteScenario {
    * Taux de marge à appliquer (0.20 = 20%)
    */
   marginRate: number;
+
+  /**
+   * Si true, les sélections cross-selling du client (catalogue) sont appliquées au contexte.
+   * Si false ou non défini, seuls les overrides du scénario et les enabled/disabled modules comptent.
+   * Un seul scénario utilise la sélection client : FLEX (sur-mesure).
+   */
+  useClientSelection?: boolean;
 
   /**
    * Tags marketing pour classification
@@ -88,30 +95,34 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
    * IDÉAL POUR : Petits budgets, étudiants, personnes qui ont le temps
    */
   {
-    id: 'ECO',
-    label: 'Économique',
+    id: "ECO",
+    label: "Économique",
     description: "L'essentiel à petit prix",
+    useClientSelection: false,
     // Désactive tous les modules optionnels pour le prix le plus bas
     disabledModules: [
-      'packing-requirement',
-      'packing-cost',
-      'cleaning-end-requirement',
-      'cleaning-end-cost',
-      'dismantling-cost',
-      'reassembly-cost',
-      'high-value-item-handling',
-      'supplies-cost',
-      'overnight-stop-cost',
-      'crew-flexibility',
+      "packing-requirement",
+      "packing-cost",
+      "cleaning-end-requirement",
+      "cleaning-end-cost",
+      "dismantling-cost",
+      "reassembly-cost",
+      "high-value-item-handling",
+      "supplies-cost",
+      "overnight-stop-cost",
+      "crew-flexibility",
     ],
     marginRate: 0.2,
-    tags: ['LOW_PRICE', 'ENTRY'],
+    tags: ["LOW_PRICE", "ENTRY"],
   },
 
   /**
    * ════════════════════════════════════════════════════════════════════════════
    * SCÉNARIO STANDARD - MEILLEUR RAPPORT QUALITÉ-PRIX
    * ════════════════════════════════════════════════════════════════════════════
+   *
+   * Inclus de base : Transport pro, Emballage des objets fragiles, Démontage, Assurance standard.
+   * Non disponible : Remontage, Nettoyage, Assurance renforcée.
    *
    * ┌─────────────────────────────────────────────────────────────────────────┐
    * │ CE QUE LE CLIENT FAIT                                                   │
@@ -125,26 +136,41 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
    * │ CE QU'APPORTE LE DÉMÉNAGEUR                                             │
    * ├─────────────────────────────────────────────────────────────────────────┤
    * │ ✅ Protection renforcée des meubles                                      │
-   * │ ✅ Démontage/remontage simple si nécessaire                              │
+   * │ ✅ Démontage (remontage non inclus)                                      │
+   * │ ✅ Emballage des objets fragiles                                         │
    * │ ✅ Organisation fluide du jour J                                         │
-   * │ ✅ Équipe expérimentée                                                   │
    * └─────────────────────────────────────────────────────────────────────────┘
    *
    * DURÉE TYPIQUE : 5-7 heures (dépend du volume)
    * IDÉAL POUR : La majorité des déménagements, bon équilibre prix/service
    */
   {
-    id: 'STANDARD',
-    label: 'Standard',
-    description: 'Le meilleur rapport qualité-prix',
+    id: "STANDARD",
+    label: "Standard",
+    description: "Le minimum professionnel",
+    useClientSelection: false,
+    enabledModules: ["packing-requirement", "packing-cost", "dismantling-cost"],
+    disabledModules: [
+      "reassembly-cost",
+      "cleaning-end-requirement",
+      "cleaning-end-cost",
+      "insurance-premium",
+    ],
+    overrides: {
+      packing: true,
+      dismantling: true,
+    },
     marginRate: 0.3,
-    tags: ['RECOMMENDED', 'BALANCED'],
+    tags: ["RECOMMENDED", "BALANCED"],
   },
 
   /**
    * ════════════════════════════════════════════════════════════════════════════
    * SCÉNARIO CONFORT - EMBALLAGE ET DÉMONTAGE PROFESSIONNELS
    * ════════════════════════════════════════════════════════════════════════════
+   *
+   * Inclus : Emballage complet, Démontage & remontage, Fournitures, Assurance standard.
+   * Non disponible : Nuit sur place, flexibilité planning.
    *
    * ┌─────────────────────────────────────────────────────────────────────────┐
    * │ CE QUE LE CLIENT FAIT                                                   │
@@ -166,16 +192,18 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
    * IDÉAL POUR : Familles, personnes pressées, déménagements complexes
    */
   {
-    id: 'CONFORT',
-    label: 'Confort',
-    description: 'Emballage et démontage/remontage professionnels',
+    id: "CONFORT",
+    label: "Confort",
+    description: "La tranquillité",
+    useClientSelection: false,
     enabledModules: [
-      'packing-requirement',
-      'packing-cost',
-      'dismantling-cost',
-      'reassembly-cost',
-      'supplies-cost',
+      "packing-requirement",
+      "packing-cost",
+      "dismantling-cost",
+      "reassembly-cost",
+      "supplies-cost",
     ],
+    disabledModules: ["overnight-stop-cost", "crew-flexibility"],
     overrides: {
       packing: true,
       dismantling: true,
@@ -186,7 +214,7 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
       // Note: high-value-item-handling reste conditionnel (⭕) selon présence piano/safe/artwork
     },
     marginRate: 0.35,
-    tags: ['COMFORT', 'UPSELL'],
+    tags: ["COMFORT", "UPSELL", "MOST_CHOSEN"],
   },
 
   /**
@@ -226,19 +254,20 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
    * IDÉAL POUR : Objets de valeur, biens fragiles, protection maximale souhaitée
    */
   {
-    id: 'SECURITY_PLUS',
-    label: 'Sécurité+',
-    description: 'Protection maximale avec assurance incluse',
+    id: "SECURITY_PLUS",
+    label: "Sécurité+",
+    description: "Protection maximale",
+    useClientSelection: false,
     enabledModules: [
-      'packing-requirement',
-      'packing-cost',
-      'cleaning-end-requirement',
-      'cleaning-end-cost',
-      'dismantling-cost',
-      'reassembly-cost',
-      'high-value-item-handling',
-      'supplies-cost',
-      'insurance-premium',
+      "packing-requirement",
+      "packing-cost",
+      "cleaning-end-requirement",
+      "cleaning-end-cost",
+      "dismantling-cost",
+      "reassembly-cost",
+      "high-value-item-handling",
+      "supplies-cost",
+      "insurance-premium",
     ],
     overrides: {
       packing: true,
@@ -255,7 +284,7 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
       forceSupplies: true,
     },
     marginRate: 0.32,
-    tags: ['SECURITY_PLUS', 'PRO', 'INSURANCE_INCLUDED'],
+    tags: ["SECURITY_PLUS", "PRO", "INSURANCE_INCLUDED"],
   },
 
   /**
@@ -293,19 +322,20 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
    * IDÉAL POUR : Cadres pressés, familles nombreuses, expatriés
    */
   {
-    id: 'PREMIUM',
-    label: 'Premium',
-    description: 'Service clé en main tout inclus',
+    id: "PREMIUM",
+    label: "Premium",
+    description: "Clé en main",
+    useClientSelection: false,
     enabledModules: [
-      'packing-requirement',
-      'packing-cost',
-      'cleaning-end-requirement',
-      'cleaning-end-cost',
-      'dismantling-cost',
-      'reassembly-cost',
-      'high-value-item-handling',
-      'supplies-cost',
-      'insurance-premium',
+      "packing-requirement",
+      "packing-cost",
+      "cleaning-end-requirement",
+      "cleaning-end-cost",
+      "dismantling-cost",
+      "reassembly-cost",
+      "high-value-item-handling",
+      "supplies-cost",
+      "insurance-premium",
     ],
     overrides: {
       packing: true,
@@ -322,59 +352,40 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
       forceSupplies: true,
     },
     marginRate: 0.4,
-    tags: ['PREMIUM', 'ALL_INCLUSIVE', 'INSURANCE_INCLUDED'],
+    tags: ["PREMIUM", "ALL_INCLUSIVE", "INSURANCE_INCLUDED"],
   },
 
   /**
    * ════════════════════════════════════════════════════════════════════════════
-   * SCÉNARIO FLEX - ADAPTABILITÉ MAXIMALE (LONGUE DISTANCE)
+   * SCÉNARIO FLEX - FORMULE 100 % PERSONNALISABLE
    * ════════════════════════════════════════════════════════════════════════════
+   *
+   * Aucun module inclus d'office, aucun override.
+   * Tout est piloté par la sélection client : services (emballage, démontage, remontage,
+   * nettoyage, stockage, assurance, etc.) et fournitures. Formulaire 100 % personnalisable.
    *
    * ┌─────────────────────────────────────────────────────────────────────────┐
    * │ CE QUE LE CLIENT FAIT                                                   │
    * ├─────────────────────────────────────────────────────────────────────────┤
-   * │ • Accepte une flexibilité horaire                                       │
+   * │ • Choisit exactement les services et fournitures dont il a besoin       │
    * │ • Donne une estimation de volume                                        │
    * └─────────────────────────────────────────────────────────────────────────┘
    *
    * ┌─────────────────────────────────────────────────────────────────────────┐
    * │ CE QU'APPORTE LE DÉMÉNAGEUR                                             │
    * ├─────────────────────────────────────────────────────────────────────────┤
-   * │ ✅ Ajustement équipe en temps réel                                       │
-   * │ ✅ Gestion des imprévus sans surcoût immédiat                            │
-   * │ ✅ Logistique longue distance maîtrisée                                  │
-   * │ ✅ Suppression des litiges volume                                        │
+   * │ ✅ Transport professionnel (socle)                                       │
+   * │ ✅ Uniquement les services et fournitures sélectionnés par le client    │
    * └─────────────────────────────────────────────────────────────────────────┘
    *
-   * AVANTAGES FLEX :
-   * • Aucun risque de mauvaise surprise volume
-   * • Équipe adaptée même si estimation incorrecte
-   * • Arrêt nuit sécurisé si >500km
-   * • Flexibilité totale planning et logistique
-   *
-   * DURÉE TYPIQUE : 1-2 jours selon distance
-   * - <300km : 1 jour (8-12h)
-   * - >300km : 2 jours (arrêt nuit)
-   *
-   * IDÉAL POUR : Déménagements IDF→Province, volume incertain, imprévus possibles
+   * IDÉAL POUR : Cas atypiques, besoins spécifiques, contraintes complexes
    */
   {
-    id: 'FLEX',
-    label: 'Flexible',
-    description: 'Adaptabilité maximale',
-    enabledModules: [
-      'overnight-stop-cost', // Arrêt nuit si distance > 1000km (très longue distance)
-      'crew-flexibility', // Garantie flexibilité équipe (500€)
-      'dismantling-cost', // Démontage professionnel inclus
-      'reassembly-cost', // Remontage professionnel inclus
-    ],
-    overrides: {
-      crewFlexibility: true, // Force la garantie flexibilité
-      forceOvernightStop: true, // Force l'arrêt nuit si distance > 1000km
-      dismantling: true, // Force le démontage professionnel
-      reassembly: true, // Force le remontage professionnel
-    },
+    id: "FLEX",
+    label: "Sur-mesure",
+    description: "Solution personnalisée selon vos besoins",
+    useClientSelection: true,
     marginRate: 0.38,
-    tags: ['FLEXIBILITY', 'RISK_COVERED'],
+    tags: ["FLEXIBILITY", "CUSTOM"],
   },
 ];
