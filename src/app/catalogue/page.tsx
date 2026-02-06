@@ -548,14 +548,14 @@ function CatalogueContent() {
       return crossSelling.selection.grandTotal;
     }
 
-    // Calcul local
+    // Calcul local (pas de crossSelling : pas de formContext)
     let total = 0;
 
     // Services (prix estimé simple)
     const priceContext = {
       volume: formVolume,
       surface: formSurface,
-      storageDurationDays: crossSelling?.formContext?.storageDurationDays,
+      storageDurationDays: undefined as number | undefined,
     };
     localSelectedServices.forEach((serviceId) => {
       const service =
@@ -581,7 +581,6 @@ function CatalogueContent() {
     localSelectedSupplies,
     formVolume,
     formSurface,
-    crossSelling?.formContext?.storageDurationDays,
   ]);
 
   const servicesCount = crossSelling
