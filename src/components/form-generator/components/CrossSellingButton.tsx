@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { useCrossSellingOptional } from '@/contexts';
+import React, { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useCrossSellingOptional } from "@/contexts";
 
 interface CrossSellingButtonProps {
   formData?: Record<string, unknown>;
   onChange?: (value: unknown) => void;
   value?: unknown;
+  /** Variante compacte pour carte FLEX ou colonne tableau */
+  compact?: boolean;
 }
 
 /**
@@ -16,24 +18,25 @@ interface CrossSellingButtonProps {
  */
 export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
   formData,
+  compact = false,
 }) => {
   const router = useRouter();
   const crossSelling = useCrossSellingOptional();
 
   // Extraire les données du formulaire pour le contexte
-  const volume = formData?.volumeEstime as string || '';
-  const surface = formData?.surface as number || 0;
+  const volume = (formData?.volumeEstime as string) || "";
+  const surface = (formData?.surface as number) || 0;
 
   // Calculer le volume numérique approximatif
   const getVolumeNumber = (volumeStr: string): number => {
     const volumeMap: Record<string, number> = {
-      'tres-petit': 10,
-      'moyen-1': 20,
-      'moyen-2': 30,
-      'moyen-intermediaire': 42,
-      'moyen-grand': 60,
-      'grand': 85,
-      'tres-grand': 120,
+      "tres-petit": 10,
+      "moyen-1": 20,
+      "moyen-2": 30,
+      "moyen-intermediaire": 42,
+      "moyen-grand": 60,
+      grand: 85,
+      "tres-grand": 120,
     };
     return volumeMap[volumeStr] || 30;
   };
@@ -44,14 +47,17 @@ export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
     if (!crossSelling) return 0;
     // Utiliser directement l'objet selection pour forcer le re-render quand il change
     const servicesCount = crossSelling.selection.services.length;
-    const suppliesCount = crossSelling.selection.supplies.reduce((acc, s) => acc + s.quantity, 0);
+    const suppliesCount = crossSelling.selection.supplies.reduce(
+      (acc, s) => acc + s.quantity,
+      0,
+    );
     return servicesCount + suppliesCount;
   }, [crossSelling?.selection]);
 
   const handleClick = () => {
     // Construire l'URL avec les paramètres du formulaire
     const params = new URLSearchParams({
-      fromForm: 'true',
+      fromForm: "true",
       volume: String(getVolumeNumber(volume)),
       surface: String(surface),
     });
@@ -68,6 +74,57 @@ export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
     router.push(`/catalogue?${params.toString()}`);
   };
 
+  if (compact) {
+    return (
+      <div className="w-full">
+        <button
+          type="button"
+          onClick={handleClick}
+          className="w-full flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 sm:py-2
+                     bg-orange-300 hover:bg-orange-400 border-0 rounded-lg transition-all duration-200
+                     shadow-sm hover:shadow text-center group min-h-[36px] sm:min-h-[40px]"
+        >
+          <div className="flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-orange-400/50 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <svg
+              className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-900"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
+            </svg>
+          </div>
+          <span className="font-semibold text-orange-900 text-[10px] sm:text-xs truncate flex-1 text-center">
+            À la carte
+          </span>
+          {selectedCount > 0 && (
+            <span className="flex-shrink-0 px-1.5 py-0.5 bg-orange-500/40 text-orange-900 text-[9px] sm:text-[10px] font-medium rounded-full">
+              {selectedCount}
+            </span>
+          )}
+          <svg
+            className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-800 group-hover:text-orange-900 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
       <button
@@ -83,9 +140,11 @@ export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
       >
         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           {/* Icône - optimisé mobile */}
-          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600
+          <div
+            className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600
                           flex items-center justify-center shadow-md
-                          group-hover:scale-105 transition-transform duration-200">
+                          group-hover:scale-105 transition-transform duration-200"
+          >
             <svg
               className="w-4 h-4 sm:w-5 sm:h-5 text-white"
               fill="none"
@@ -108,9 +167,8 @@ export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
             </div>
             <div className="text-[10px] sm:text-xs text-gray-500 truncate">
               {selectedCount > 0
-                ? `${selectedCount} élément${selectedCount > 1 ? 's' : ''} sélectionné${selectedCount > 1 ? 's' : ''}`
-                : 'Cartons, emballage, monte-meuble...'
-              }
+                ? `${selectedCount} élément${selectedCount > 1 ? "s" : ""} sélectionné${selectedCount > 1 ? "s" : ""}`
+                : "Cartons, emballage, monte-meuble..."}
             </div>
           </div>
         </div>
@@ -141,7 +199,8 @@ export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
 
       {/* Texte d'aide - optimisé mobile */}
       <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-gray-500 text-center">
-        💡 Parcourez notre catalogue pour ajouter des options à votre déménagement
+        💡 Parcourez notre catalogue pour ajouter des options à votre
+        déménagement
       </p>
     </div>
   );

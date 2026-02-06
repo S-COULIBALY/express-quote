@@ -159,9 +159,9 @@ const PaymentPriceSection: React.FC<{
   const scrollToMultiOffers = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const multiOffersElement = document.querySelector("[data-multi-offers]");
-    if (multiOffersElement) {
-      multiOffersElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    const target = document.getElementById("choisissez-votre-formule");
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -368,10 +368,10 @@ const PaymentPriceSection: React.FC<{
             onClick={scrollToMultiOffers}
             className="px-3 pt-2.5 pb-1.5 cursor-pointer hover:bg-gray-50 transition-colors"
           >
-            <div className="flex items-center justify-between gap-2 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5 animate-pulse">
+            <div className="flex items-center justify-between gap-2 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
               <div className="flex items-center gap-1.5 flex-1 min-w-0">
                 <svg
-                  className="w-4 h-4 text-blue-600 flex-shrink-0"
+                  className="w-4 h-4 text-orange-600 flex-shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -383,27 +383,13 @@ const PaymentPriceSection: React.FC<{
                     d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <span className="text-[10px] text-blue-700 font-medium flex-1 min-w-0">
-                  {isCurrentPriceNotMin ? (
-                    <>
-                      💡 Prix à partir de{" "}
-                      <span className="font-semibold">
-                        {formatPrice(priceRange.min)}
-                      </span>{" "}
-                      • Voir {priceRange.count} autres propositions{" "}
-                      <span className="opacity-60">...</span>
-                    </>
-                  ) : (
-                    <>
-                      💡 {priceRange.count} autres propositions disponibles •
-                      Voir les autres propositions{" "}
-                      <span className="opacity-60">...</span>
-                    </>
-                  )}
+                <span className="text-base text-orange-600 font-medium flex-1 min-w-0">
+                  💡 Voir les autres propositions{" "}
+                  <span className="opacity-60">...</span>
                 </span>
               </div>
               <svg
-                className="w-4 h-4 text-blue-600 flex-shrink-0"
+                className="w-4 h-4 text-orange-600 flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -831,6 +817,7 @@ export default function DemenagementSurMesurePage() {
                         }
                         selectedScenario={selectedScenario}
                         onSelectOffer={handleSelectOffer}
+                        getFormData={() => formRef.current?.getFormData() ?? {}}
                       />
                     </div>
                   ) : quotation.isCalculatingMultiOffers ||

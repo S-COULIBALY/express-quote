@@ -15,7 +15,7 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { MultiOffersResult } from "@/hooks/shared/useModularQuotation";
 import {
   getScenarioServices,
@@ -23,12 +23,16 @@ import {
   getServiceStatus,
   type ScenarioServices,
 } from "./scenarioServicesHelper";
+import { CrossSellingButton } from "@/components/form-generator/components/CrossSellingButton";
+import { useCrossSellingOptional } from "@/contexts";
 
 interface MultiOffersDisplayProps {
   multiOffers: MultiOffersResult | null;
   isCalculating: boolean;
   selectedScenario?: string | null;
   onSelectOffer?: (scenarioId: string) => void;
+  /** Pour la formule FLEX : fournit les données formulaire (volume, surface) au bouton cross-selling */
+  getFormData?: () => Record<string, unknown>;
 }
 
 // Ordre d'affichage des scénarios (progression ECO → SÉCURITÉ+ → FLEX)
@@ -36,8 +40,8 @@ const SCENARIO_ORDER = [
   "ECO",
   "STANDARD",
   "CONFORT",
-  "PREMIUM",
   "SECURITY_PLUS",
+  "PREMIUM",
   "FLEX",
 ];
 
@@ -72,7 +76,16 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
   isCalculating,
   selectedScenario,
   onSelectOffer,
+  getFormData,
 }) => {
+  const formData = getFormData?.() ?? {};
+  const crossSelling = useCrossSellingOptional();
+  const hasCrossSellingSelection = useMemo(() => {
+    if (!crossSelling) return false;
+    if (crossSelling.selection.services.length > 0) return true;
+    return crossSelling.selection.supplies.some((s) => (s.quantity ?? 0) > 0);
+  }, [crossSelling?.selection]);
+
   const [showRecommendationDetails, setShowRecommendationDetails] =
     useState(false);
   const [expandedScenario, setExpandedScenario] = useState<string | null>(null);
@@ -271,8 +284,11 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
 
   return (
     <div className="space-y-3 p-3 sm:p-0 md:p-0">
-      {/* En-tête - Sticky sur mobile */}
-      <div className="sticky top-[108px] sm:static z-20 bg-white pb-2 sm:pb-0 border-b border-gray-200 sm:border-0 mb-2 sm:mb-0 -mx-3 sm:mx-0 px-3 sm:px-0 pt-2 sm:pt-0 -mt-3 sm:mt-0 shadow-sm sm:shadow-none relative">
+      {/* En-tête - Sticky sur mobile (cible de scroll pour "Voir les autres propositions") */}
+      <div
+        id="choisissez-votre-formule"
+        className="sticky top-[108px] sm:static z-20 bg-white pb-2 sm:pb-0 border-b border-gray-200 sm:border-0 mb-2 sm:mb-0 -mx-3 sm:mx-0 px-3 sm:px-0 pt-2 sm:pt-0 -mt-3 sm:mt-0 shadow-sm sm:shadow-none relative scroll-mt-24"
+      >
         <div className="text-center sm:text-left">
           <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-0.5">
             🎯 Choisissez votre formule
@@ -433,6 +449,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                     </th>
                     {sortedQuotes.map((quote) => {
                       const isSelected = quote.scenarioId === selectedScenario;
+                      const isFLEX = quote.scenarioId === "FLEX";
                       return (
                         <th
                           key={quote.scenarioId}
@@ -440,9 +457,19 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                             !isCalculating && onSelectOffer?.(quote.scenarioId)
                           }
                           className={`text-center p-1 sm:p-2 md:p-3 border-b border-gray-500 font-semibold cursor-pointer transition-colors min-w-[70px] sm:min-w-[90px] ${
-                            isSelected
-                              ? "bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-                              : "text-gray-700 hover:bg-gray-100"
+                            isFLEX
+                              ? `text-orange-900 ${
+                                  isSelected
+                                    ? "bg-orange-100 hover:bg-orange-200"
+                                    : "bg-orange-50 hover:bg-orange-100"
+                                }`
+                              : "border-transparent"
+                          } ${
+                            !isFLEX
+                              ? isSelected
+                                ? "bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+                                : "text-gray-700 hover:bg-gray-100"
+                              : ""
                           } ${isCalculating ? "opacity-50 pointer-events-none" : ""}`}
                         >
                           <div className="flex flex-col items-center gap-0.5 sm:gap-1 md:gap-1.5">
@@ -476,8 +503,11 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                             <span className="text-[9px] sm:text-xs md:text-sm leading-tight line-clamp-2 text-center">
                               {getDisplayLabel(quote.scenarioId, quote.label)}
                             </span>
-                            <span className="text-[9px] sm:text-[10px] md:text-xs font-normal text-gray-600 leading-tight">
-                              {formatPrice(quote.pricing.finalPrice)}
+                            <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-gray-600 leading-tight">
+                              {quote.scenarioId === "FLEX" &&
+                              !hasCrossSellingSelection
+                                ? "—"
+                                : formatPrice(quote.pricing.finalPrice)}
                             </span>
                             {isSelected && (
                               <span className="bg-emerald-600 text-white text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1 py-0.5 rounded-full whitespace-nowrap mt-0.5">
@@ -504,6 +534,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                     </td>
                     {sortedQuotes.map((quote) => {
                       const isSelected = quote.scenarioId === selectedScenario;
+                      const isFLEX = quote.scenarioId === "FLEX";
                       const recommendationMessage = getRecommendationMessage(
                         quote.scenarioId,
                       );
@@ -511,9 +542,13 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                         <td
                           key={quote.scenarioId}
                           className={`text-center p-1.5 sm:p-2 md:p-3 border-b border-gray-400 min-w-[70px] sm:min-w-[90px] ${
-                            isSelected
+                            isFLEX ? "bg-orange-50" : ""
+                          } ${
+                            isSelected && !isFLEX
                               ? "bg-emerald-100 font-semibold"
-                              : "bg-white"
+                              : !isFLEX
+                                ? "bg-white"
+                                : ""
                           }`}
                         >
                           <span
@@ -553,14 +588,15 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                           service.id,
                           quote.scenarioId,
                         );
+                        const isFLEX = quote.scenarioId === "FLEX";
+                        const isSelected =
+                          quote.scenarioId === selectedScenario;
                         return (
                           <td
                             key={quote.scenarioId}
                             className={`text-center p-1.5 sm:p-2 md:p-3 border-b border-gray-400 min-w-[70px] sm:min-w-[90px] ${
-                              quote.scenarioId === selectedScenario
-                                ? "bg-emerald-50"
-                                : ""
-                            }`}
+                              isFLEX ? "bg-orange-50" : ""
+                            } ${isSelected && !isFLEX ? "bg-emerald-50" : ""}`}
                           >
                             {status ? (
                               <span
@@ -594,27 +630,37 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                     </td>
                     {sortedQuotes.map((quote) => {
                       const isSelected = quote.scenarioId === selectedScenario;
+                      const isFLEX = quote.scenarioId === "FLEX";
                       return (
                         <td
                           key={quote.scenarioId}
-                          className="p-2 sm:p-2 md:p-3 border-t border-gray-500 text-center"
+                          className={`p-2 sm:p-2 md:p-3 border-t border-gray-500 text-center ${
+                            isFLEX ? "bg-orange-50" : ""
+                          }`}
                         >
-                          <button
-                            onClick={() =>
-                              !isCalculating &&
-                              onSelectOffer?.(quote.scenarioId)
-                            }
-                            disabled={isCalculating}
-                            className={`w-full px-1 sm:px-3 md:px-4 py-1 sm:py-2 md:py-2.5 text-[8px] sm:text-[10px] md:text-xs font-semibold rounded transition-all duration-200 leading-tight ${
-                              isSelected
-                                ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            } ${isCalculating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                          >
-                            {isSelected
-                              ? `✓ ${getDisplayLabel(quote.scenarioId, quote.label)}`
-                              : getDisplayLabel(quote.scenarioId, quote.label)}
-                          </button>
+                          {isFLEX ? (
+                            <CrossSellingButton formData={formData} compact />
+                          ) : (
+                            <button
+                              onClick={() =>
+                                !isCalculating &&
+                                onSelectOffer?.(quote.scenarioId)
+                              }
+                              disabled={isCalculating}
+                              className={`w-full px-1 sm:px-3 md:px-4 py-1 sm:py-2 md:py-2.5 text-[8px] sm:text-[10px] md:text-xs font-semibold rounded transition-all duration-200 leading-tight ${
+                                isSelected
+                                  ? "bg-emerald-600 text-white shadow-md hover:bg-emerald-700"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              } ${isCalculating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                            >
+                              {isSelected
+                                ? `✓ ${getDisplayLabel(quote.scenarioId, quote.label)}`
+                                : getDisplayLabel(
+                                    quote.scenarioId,
+                                    quote.label,
+                                  )}
+                            </button>
+                          )}
                         </td>
                       );
                     })}
@@ -771,13 +817,26 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
 
                 {/* Prix */}
                 <div className="text-center py-1.5 sm:py-2">
-                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
-                    {formatPrice(quote.pricing.finalPrice)}
-                  </div>
-                  <div className="text-[10px] sm:text-xs text-gray-600 mt-0.5">
-                    {quote.logistics.workersCount} déménageur
-                    {quote.logistics.workersCount > 1 ? "s" : ""}
-                  </div>
+                  {quote.scenarioId === "FLEX" && !hasCrossSellingSelection ? (
+                    <>
+                      <div className="text-base sm:text-lg font-semibold text-gray-500">
+                        —
+                      </div>
+                      <div className="text-[9px] sm:text-[10px] text-gray-500 mt-0.5">
+                        Choisissez des options pour voir le prix
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
+                        {formatPrice(quote.pricing.finalPrice)}
+                      </div>
+                      <div className="text-[10px] sm:text-xs text-gray-600 mt-0.5">
+                        {quote.logistics.workersCount} déménageur
+                        {quote.logistics.workersCount > 1 ? "s" : ""}
+                      </div>
+                    </>
+                  )}
                   {isCalculating && (
                     <div className="mt-1">
                       <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-emerald-600 mx-auto"></div>
@@ -792,9 +851,9 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                   </p>
                 )}
 
-                {/* Options configurables (formule FLEX uniquement) */}
+                {/* Options configurables + Sélection cross-selling (formule FLEX uniquement) */}
                 {quote.scenarioId === "FLEX" && (
-                  <div className="mt-2 pt-2 border-t border-gray-300">
+                  <div className="mt-2 pt-2 border-t border-gray-300 space-y-2">
                     <div className="text-[9px] sm:text-[10px] font-semibold text-indigo-700 mb-1">
                       Options configurables :
                     </div>
@@ -810,6 +869,9 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                       <span className="bg-indigo-100 text-indigo-700 text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded">
                         +{FLEX_OPTIONS_LABELS.length - 5}
                       </span>
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <CrossSellingButton formData={formData} compact />
                     </div>
                   </div>
                 )}

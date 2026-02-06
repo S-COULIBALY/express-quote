@@ -49,7 +49,35 @@ const ServiceCard: React.FC<{
   calculatedPrice?: number;
   onToggle: () => void;
   onClick: () => void;
-}> = ({ service, isSelected, isSelectionMode, calculatedPrice, onToggle, onClick }) => {
+  crossSelling?: ReturnType<typeof useCrossSellingOptional>;
+}> = ({
+  service,
+  isSelected,
+  isSelectionMode,
+  calculatedPrice,
+  onToggle,
+  onClick,
+  crossSelling,
+}) => {
+  const initialDays = crossSelling?.formContext?.storageDurationDays ?? 30;
+  const [storageDurationInput, setStorageDurationInput] = useState<string>(() =>
+    String(initialDays),
+  );
+
+  // Mettre à jour le contexte avec la valeur numérique (1-365), sans écraser la saisie en cours
+  const numericDuration = (() => {
+    const n = parseInt(storageDurationInput, 10);
+    if (Number.isNaN(n) || n < 1) return 30;
+    return Math.min(365, n);
+  })();
+  useEffect(() => {
+    if (service.id === "storage" && isSelected && crossSelling) {
+      crossSelling.setFormContext({
+        ...crossSelling.formContext,
+        storageDurationDays: numericDuration,
+      });
+    }
+  }, [numericDuration, service.id, isSelected, crossSelling]);
   return (
     <div
       className={`bg-white rounded-xl p-2.5 sm:p-3 md:p-4 border-2 transition-all duration-300 cursor-pointer group relative overflow-hidden ${
@@ -81,7 +109,9 @@ const ServiceCard: React.FC<{
       )}
 
       {/* Icône */}
-      <div className={`text-2xl sm:text-3xl md:text-3xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform ${isSelectionMode ? "mt-3 sm:mt-4 md:mt-4" : ""}`}>
+      <div
+        className={`text-2xl sm:text-3xl md:text-3xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform ${isSelectionMode ? "mt-3 sm:mt-4 md:mt-4" : ""}`}
+      >
         {service.icon}
       </div>
 
@@ -103,7 +133,9 @@ const ServiceCard: React.FC<{
           </span>
         ) : (
           <div className="flex flex-col">
-            <span className="text-[10px] sm:text-xs md:text-xs text-gray-500">à partir de</span>
+            <span className="text-[10px] sm:text-xs md:text-xs text-gray-500">
+              à partir de
+            </span>
             <span className="text-blue-600 font-semibold text-xs sm:text-sm md:text-sm">
               {formatDisplayPrice(service)}
             </span>
@@ -113,6 +145,34 @@ const ServiceCard: React.FC<{
           <ArrowRightIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-4 md:h-4 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
         )}
       </div>
+
+      {/* Champ Durée de stockage pour Garde-meuble temporaire */}
+      {service.id === "storage" && isSelected && isSelectionMode && (
+        <div
+          className="mt-3 pt-3 border-t border-emerald-200"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <label className="block text-[10px] sm:text-xs md:text-sm font-medium text-gray-700 mb-1.5">
+            📦 Durée de stockage (jours)
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={storageDurationInput}
+            onChange={(e) => setStorageDurationInput(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+            placeholder="Ex: 30"
+            aria-label="Durée de stockage en jours"
+          />
+          <p className="mt-1 text-[9px] sm:text-[10px] text-gray-500">
+            Nombre de jours de stockage souhaité (1 à 365 jours)
+          </p>
+        </div>
+      )}
     </div>
   );
 };
@@ -168,13 +228,18 @@ const SupplyCard: React.FC<{
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-1.5 lg:gap-2">
         <span className="text-orange-600 font-bold text-sm sm:text-base md:text-base">
           {supply.price}€
-          <span className="text-[10px] sm:text-xs md:text-xs text-gray-500 font-normal ml-0.5 sm:ml-1">/{supply.unit}</span>
+          <span className="text-[10px] sm:text-xs md:text-xs text-gray-500 font-normal ml-0.5 sm:ml-1">
+            /{supply.unit}
+          </span>
         </span>
 
         {isSelectionMode ? (
           <div className="flex items-center justify-center md:justify-end gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
             <button
-              onClick={(e) => { e.stopPropagation(); onRemove(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
               className={`w-6 h-6 sm:w-6 sm:h-6 md:w-6 md:h-6 rounded-full flex items-center justify-center transition-all p-0 ${
                 quantity > 0
                   ? "bg-orange-100 text-orange-600 hover:bg-orange-200"
@@ -184,9 +249,14 @@ const SupplyCard: React.FC<{
             >
               <MinusIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-3.5 md:h-3.5" />
             </button>
-            <span className="w-6 sm:w-6 md:w-6 text-center font-bold text-gray-900 text-xs sm:text-sm md:text-sm min-w-[20px]">{quantity}</span>
+            <span className="w-6 sm:w-6 md:w-6 text-center font-bold text-gray-900 text-xs sm:text-sm md:text-sm min-w-[20px]">
+              {quantity}
+            </span>
             <button
-              onClick={(e) => { e.stopPropagation(); onAdd(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd();
+              }}
               className="w-6 h-6 sm:w-6 sm:h-6 md:w-6 md:h-6 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-all p-0"
             >
               <PlusIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-3.5 md:h-3.5" />
@@ -202,8 +272,12 @@ const SupplyCard: React.FC<{
       {/* Total si quantité > 0 */}
       {isSelectionMode && quantity > 0 && (
         <div className="mt-2 pt-2 border-t border-orange-200 text-right">
-          <span className="text-xs sm:text-sm md:text-sm text-gray-600">Total: </span>
-          <span className="font-bold text-orange-600 text-xs sm:text-sm md:text-sm">{supply.price * quantity}€</span>
+          <span className="text-xs sm:text-sm md:text-sm text-gray-600">
+            Total:{" "}
+          </span>
+          <span className="font-bold text-orange-600 text-xs sm:text-sm md:text-sm">
+            {supply.price * quantity}€
+          </span>
         </div>
       )}
     </div>
@@ -233,20 +307,34 @@ const SelectionSummaryBar: React.FC<{
           <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-wrap">
             <div className="flex items-center gap-1.5 sm:gap-2 bg-emerald-100 text-emerald-700 px-2 sm:px-3 md:px-3 py-1 sm:py-1.5 rounded-full">
               <ShoppingCartIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="font-bold text-xs sm:text-sm md:text-base">{itemsCount} article{itemsCount > 1 ? "s" : ""}</span>
+              <span className="font-bold text-xs sm:text-sm md:text-base">
+                {itemsCount} article{itemsCount > 1 ? "s" : ""}
+              </span>
             </div>
             <div className="text-xs sm:text-sm md:text-base text-gray-600">
-              {servicesCount > 0 && <span>{servicesCount} service{servicesCount > 1 ? "s" : ""}</span>}
+              {servicesCount > 0 && (
+                <span>
+                  {servicesCount} service{servicesCount > 1 ? "s" : ""}
+                </span>
+              )}
               {servicesCount > 0 && suppliesCount > 0 && <span> + </span>}
-              {suppliesCount > 0 && <span>{suppliesCount} fourniture{suppliesCount > 1 ? "s" : ""}</span>}
+              {suppliesCount > 0 && (
+                <span>
+                  {suppliesCount} fourniture{suppliesCount > 1 ? "s" : ""}
+                </span>
+              )}
             </div>
           </div>
 
           {/* Section droite - Mobile: en bas */}
           <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
             <div className="text-right flex-1 sm:flex-none">
-              <div className="text-xs sm:text-sm md:text-base text-gray-500">Total estimé</div>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold text-emerald-600">{total.toFixed(0)}€</div>
+              <div className="text-xs sm:text-sm md:text-base text-gray-500">
+                Total estimé
+              </div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-emerald-600">
+                {total.toFixed(0)}€
+              </div>
             </div>
 
             <button
@@ -295,12 +383,20 @@ function CatalogueContent() {
 
   // État local pour le mode sélection
   const [isSelectionMode, setIsSelectionMode] = useState(isFromForm);
-  const [localSelectedServices, setLocalSelectedServices] = useState<Set<string>>(new Set());
-  const [localSelectedSupplies, setLocalSelectedSupplies] = useState<Map<string, number>>(new Map());
+  const [localSelectedServices, setLocalSelectedServices] = useState<
+    Set<string>
+  >(new Set());
+  const [localSelectedSupplies, setLocalSelectedSupplies] = useState<
+    Map<string, number>
+  >(new Map());
 
   // Contexte du formulaire (passé via query params)
-  const formVolume = searchParams.get("volume") ? parseFloat(searchParams.get("volume")!) : undefined;
-  const formSurface = searchParams.get("surface") ? parseFloat(searchParams.get("surface")!) : undefined;
+  const formVolume = searchParams.get("volume")
+    ? parseFloat(searchParams.get("volume")!)
+    : undefined;
+  const formSurface = searchParams.get("surface")
+    ? parseFloat(searchParams.get("surface")!)
+    : undefined;
 
   // Ref pour éviter les appels multiples dans useEffect
   const initializationKey = useRef<string | null>(null);
@@ -339,7 +435,7 @@ function CatalogueContent() {
       }
     } else {
       // Mode local
-      setLocalSelectedServices(prev => {
+      setLocalSelectedServices((prev) => {
         const updated = new Set(prev);
         if (updated.has(serviceId)) {
           updated.delete(serviceId);
@@ -355,7 +451,7 @@ function CatalogueContent() {
     if (crossSelling) {
       crossSelling.addSupply(supplyId, 1);
     } else {
-      setLocalSelectedSupplies(prev => {
+      setLocalSelectedSupplies((prev) => {
         const updated = new Map(prev);
         updated.set(supplyId, (prev.get(supplyId) || 0) + 1);
         return updated;
@@ -372,7 +468,7 @@ function CatalogueContent() {
         crossSelling.removeSupply(supplyId);
       }
     } else {
-      setLocalSelectedSupplies(prev => {
+      setLocalSelectedSupplies((prev) => {
         const updated = new Map(prev);
         const currentQty = prev.get(supplyId) || 0;
         if (currentQty > 1) {
@@ -389,13 +485,17 @@ function CatalogueContent() {
     if (isSelectionMode) {
       handleServiceToggle(serviceId);
     } else {
-      router.push(`/catalogue/catalog-demenagement-sur-mesure?service=${serviceId}`);
+      router.push(
+        `/catalogue/catalog-demenagement-sur-mesure?service=${serviceId}`,
+      );
     }
   };
 
   const handleSupplyClick = (supplyId: string) => {
     if (!isSelectionMode) {
-      router.push(`/catalogue/catalog-demenagement-sur-mesure?fourniture=${supplyId}`);
+      router.push(
+        `/catalogue/catalog-demenagement-sur-mesure?fourniture=${supplyId}`,
+      );
     }
   };
 
@@ -409,7 +509,7 @@ function CatalogueContent() {
         router.push(returnPath);
       }
     } catch (error) {
-      console.error('Error navigating back to form:', error);
+      console.error("Error navigating back to form:", error);
       // Fallback: toujours rediriger vers le formulaire
       router.push(returnPath);
     }
@@ -452,23 +552,37 @@ function CatalogueContent() {
     let total = 0;
 
     // Services (prix estimé simple)
-    localSelectedServices.forEach(serviceId => {
-      const service = SERVICES.find(s => s.id === serviceId) || OPTIONS.find(s => s.id === serviceId);
+    const priceContext = {
+      volume: formVolume,
+      surface: formSurface,
+      storageDurationDays: crossSelling?.formContext?.storageDurationDays,
+    };
+    localSelectedServices.forEach((serviceId) => {
+      const service =
+        SERVICES.find((s) => s.id === serviceId) ||
+        OPTIONS.find((s) => s.id === serviceId);
       if (service) {
-        total += calculateServicePrice(service, { volume: formVolume, surface: formSurface });
+        total += calculateServicePrice(service, priceContext);
       }
     });
 
     // Fournitures
     localSelectedSupplies.forEach((qty, supplyId) => {
-      const supply = SUPPLIES.find(s => s.id === supplyId);
+      const supply = SUPPLIES.find((s) => s.id === supplyId);
       if (supply) {
         total += supply.price * qty;
       }
     });
 
     return total;
-  }, [crossSelling, localSelectedServices, localSelectedSupplies, formVolume, formSurface]);
+  }, [
+    crossSelling,
+    localSelectedServices,
+    localSelectedSupplies,
+    formVolume,
+    formSurface,
+    crossSelling?.formContext?.storageDurationDays,
+  ]);
 
   const servicesCount = crossSelling
     ? crossSelling.selection.services.length
@@ -476,14 +590,19 @@ function CatalogueContent() {
 
   const suppliesCount = crossSelling
     ? crossSelling.selection.supplies.reduce((sum, s) => sum + s.quantity, 0)
-    : Array.from(localSelectedSupplies.values()).reduce((sum, qty) => sum + qty, 0);
+    : Array.from(localSelectedSupplies.values()).reduce(
+        (sum, qty) => sum + qty,
+        0,
+      );
 
   // ============================================================================
   // RENDER
   // ============================================================================
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 form-generator font-ios ${isSelectionMode ? "pb-28 sm:pb-32 md:pb-32" : ""}`}>
+    <div
+      className={`min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 form-generator font-ios ${isSelectionMode ? "pb-28 sm:pb-32 md:pb-32" : ""}`}
+    >
       <FormStylesSimplified globalConfig={globalFormPreset} />
       <CatalogueSchema />
       <ServicesNavigation />
@@ -516,7 +635,8 @@ function CatalogueContent() {
                 Tout pour votre déménagement
               </h1>
               <p className="text-xs sm:text-sm md:text-base text-gray-600">
-                Services professionnels, fournitures d'emballage et options personnalisées
+                Services professionnels, fournitures d'emballage et options
+                personnalisées
               </p>
             </div>
           )}
@@ -529,11 +649,15 @@ function CatalogueContent() {
           <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8">
             <div className="flex justify-center">
               <button
-                onClick={() => router.push("/catalogue/catalog-demenagement-sur-mesure")}
+                onClick={() =>
+                  router.push("/catalogue/catalog-demenagement-sur-mesure")
+                }
                 className="group w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-6 md:px-6 py-2.5 sm:py-3 md:py-3 rounded-lg font-bold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm md:text-base lg:text-base min-h-[44px] sm:min-h-auto"
               >
                 <TruckIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="whitespace-nowrap">Demander un devis déménagement</span>
+                <span className="whitespace-nowrap">
+                  Demander un devis déménagement
+                </span>
                 <ArrowRightIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
@@ -543,7 +667,6 @@ function CatalogueContent() {
 
       {/* Contenu principal - optimisé mobile */}
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8 py-4 sm:py-5 md:py-6 lg:py-8">
-
         {/* Section 1: Services - optimisé mobile */}
         <div className="mb-8 sm:mb-10 md:mb-10 lg:mb-12">
           <div className="text-center mb-4 sm:mb-5 md:mb-6">
@@ -568,7 +691,10 @@ function CatalogueContent() {
                 isSelectionMode={isSelectionMode}
                 calculatedPrice={
                   isSelectionMode && formVolume
-                    ? calculateServicePrice(service, { volume: formVolume, surface: formSurface })
+                    ? calculateServicePrice(service, {
+                        volume: formVolume,
+                        surface: formSurface,
+                      })
                     : undefined
                 }
                 onToggle={() => handleServiceToggle(service.id)}
@@ -602,11 +728,17 @@ function CatalogueContent() {
                 isSelectionMode={isSelectionMode}
                 calculatedPrice={
                   isSelectionMode && formVolume
-                    ? calculateServicePrice(option, { volume: formVolume, surface: formSurface })
+                    ? calculateServicePrice(option, {
+                        volume: formVolume,
+                        surface: formSurface,
+                        storageDurationDays:
+                          crossSelling?.formContext?.storageDurationDays,
+                      })
                     : undefined
                 }
                 onToggle={() => handleServiceToggle(option.id)}
                 onClick={() => handleServiceClick(option.id)}
+                crossSelling={crossSelling}
               />
             ))}
           </div>
@@ -657,11 +789,15 @@ function CatalogueContent() {
                 Un devis personnalisé adapté à vos besoins spécifiques
               </p>
               <button
-                onClick={() => router.push("/catalogue/catalog-demenagement-sur-mesure")}
+                onClick={() =>
+                  router.push("/catalogue/catalog-demenagement-sur-mesure")
+                }
                 className="inline-flex items-center gap-1.5 sm:gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-6 md:px-6 lg:px-8 py-2.5 sm:py-3 md:py-3 lg:py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-xl text-xs sm:text-sm md:text-base lg:text-base min-h-[44px] sm:min-h-auto"
               >
                 <TruckIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="whitespace-nowrap">Obtenir mon devis gratuit</span>
+                <span className="whitespace-nowrap">
+                  Obtenir mon devis gratuit
+                </span>
                 <ArrowRightIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             </div>
@@ -686,14 +822,16 @@ function CatalogueContent() {
 // Wrapper avec Suspense pour useSearchParams
 export default function CataloguePage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement du catalogue...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Chargement du catalogue...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <CatalogueContent />
     </Suspense>
   );

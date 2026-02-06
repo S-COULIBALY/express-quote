@@ -8,10 +8,10 @@
  * Cette séparation évite le calcul en double et assure une source unique de vérité.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { devLog } from '@/lib/conditional-logger';
-import { calculateDistance } from '@/actions/distanceCalculator';
-import { useCrossSellingOptional } from '@/contexts';
+import { useState, useCallback, useEffect, useRef } from "react";
+import { devLog } from "@/lib/conditional-logger";
+import { calculateDistance } from "@/actions/distanceCalculator";
+import { useCrossSellingOptional } from "@/contexts";
 
 /**
  * Résultat du calcul de base (étape 1)
@@ -43,7 +43,7 @@ export interface ScenarioScore {
   score: number;
   reasons: string[];
   warnings: string[];
-  confidence: 'LOW' | 'MEDIUM' | 'HIGH';
+  confidence: "LOW" | "MEDIUM" | "HIGH";
   /** Phrases orientées client (à la première personne) */
   clientPhrases: readonly string[];
 }
@@ -76,7 +76,7 @@ export interface MultiOffersResult {
     cheapest: string;
     recommended: string;
     recommendedReasons?: string[];
-    recommendedConfidence?: 'LOW' | 'MEDIUM' | 'HIGH';
+    recommendedConfidence?: "LOW" | "MEDIUM" | "HIGH";
     alternative?: string;
     alternativeReasons?: string[];
     priceRange: {
@@ -127,12 +127,17 @@ export const useModularQuotation = (): UseModularQuotationResult => {
   const crossSelling = useCrossSellingOptional();
 
   // État pour le coût de base (étape 1)
-  const [baseCostResult, setBaseCostResult] = useState<BaseCostResult | null>(null);
+  const [baseCostResult, setBaseCostResult] = useState<BaseCostResult | null>(
+    null,
+  );
   const [isCalculatingBaseCost, setIsCalculatingBaseCost] = useState(false);
 
   // État pour les multi-offres (étape 2)
-  const [multiOffers, setMultiOffers] = useState<MultiOffersResult | null>(null);
-  const [isCalculatingMultiOffers, setIsCalculatingMultiOffers] = useState(false);
+  const [multiOffers, setMultiOffers] = useState<MultiOffersResult | null>(
+    null,
+  );
+  const [isCalculatingMultiOffers, setIsCalculatingMultiOffers] =
+    useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -143,86 +148,129 @@ export const useModularQuotation = (): UseModularQuotationResult => {
   /**
    * Enrichit les données du formulaire avec les sélections cross-selling
    */
-  const enrichFormDataWithCrossSelling = useCallback((formData: any): any => {
-    if (!crossSelling) {
-      return formData;
-    }
+  const enrichFormDataWithCrossSelling = useCallback(
+    (formData: any): any => {
+      if (!crossSelling) {
+        return formData;
+      }
 
-    const pricingData = crossSelling.getSelectionForPricing();
+      const pricingData = crossSelling.getSelectionForPricing();
 
-    devLog.debug('useModularQuotation', '🛒 Enrichissement avec cross-selling:', {
-      servicesCount: crossSelling.selection.services.length,
-      suppliesCount: crossSelling.selection.supplies.length,
-      servicesTotal: pricingData.servicesTotal,
-      suppliesTotal: pricingData.suppliesTotal,
-    });
+      devLog.debug(
+        "useModularQuotation",
+        "🛒 Enrichissement avec cross-selling:",
+        {
+          servicesCount: crossSelling.selection.services.length,
+          suppliesCount: crossSelling.selection.supplies.length,
+          servicesTotal: pricingData.servicesTotal,
+          suppliesTotal: pricingData.suppliesTotal,
+        },
+      );
 
-    return {
-      ...formData,
-      // Services cross-selling (flags pour les modules)
-      packing: formData.packing || pricingData.packing,
-      dismantling: formData.dismantling || pricingData.dismantling,
-      reassembly: formData.reassembly || pricingData.reassembly,
-      cleaningEnd: formData.cleaningEnd || pricingData.cleaningEnd,
-      // NOTE: furnitureLift et insurancePremium SUPPRIMÉS du cross-selling
-      // - Monte-meubles: géré par pickupFurnitureLift/deliveryFurnitureLift (checkbox formulaire)
-      // - Assurance: gérée dans PaymentPriceSection (après scénarios multi-offres)
-      temporaryStorage: formData.temporaryStorage || pricingData.storage,
+      return {
+        ...formData,
+        // Services cross-selling (flags pour les modules)
+        packing: formData.packing || pricingData.packing,
+        dismantling: formData.dismantling || pricingData.dismantling,
+        reassembly: formData.reassembly || pricingData.reassembly,
+        cleaningEnd: formData.cleaningEnd || pricingData.cleaningEnd,
+        // NOTE: furnitureLift et insurancePremium SUPPRIMÉS du cross-selling
+        // - Monte-meubles: géré par pickupFurnitureLift/deliveryFurnitureLift (checkbox formulaire)
+        // - Assurance: gérée dans PaymentPriceSection (après scénarios multi-offres)
+        temporaryStorage: formData.temporaryStorage || pricingData.storage,
+        storageDurationDays:
+          formData.storageDurationDays ||
+          crossSelling.formContext?.storageDurationDays,
 
-      // Objets spéciaux
-      piano: formData.piano || pricingData.hasPiano,
-      safe: formData.safe || pricingData.hasSafe,
-      artwork: formData.artwork || pricingData.hasArtwork,
+        // Objets spéciaux
+        piano: formData.piano || pricingData.hasPiano,
+        safe: formData.safe || pricingData.hasSafe,
+        artwork: formData.artwork || pricingData.hasArtwork,
 
-      // Fournitures (prix fixes ajoutés au total)
-      crossSellingSuppliesTotal: pricingData.suppliesTotal,
-      crossSellingSuppliesDetails: pricingData.suppliesDetails,
+        // Fournitures (prix fixes ajoutés au total)
+        crossSellingSuppliesTotal: pricingData.suppliesTotal,
+        crossSellingSuppliesDetails: pricingData.suppliesDetails,
 
-      // Totaux cross-selling
-      crossSellingServicesTotal: pricingData.servicesTotal,
-      crossSellingGrandTotal: pricingData.grandTotal,
-    };
-  }, [crossSelling]);
+        // Totaux cross-selling
+        crossSellingServicesTotal: pricingData.servicesTotal,
+        crossSellingGrandTotal: pricingData.grandTotal,
+      };
+    },
+    [crossSelling],
+  );
 
   /**
    * Enrichit les données du formulaire avec la distance calculée si nécessaire
    */
-  const enrichFormDataWithDistance = useCallback(async (formData: any): Promise<any> => {
-    // Vérifier si la distance est déjà fournie
-    if (formData.distance && formData.distance > 0) {
-      devLog.debug('useModularQuotation', '📍 Distance déjà fournie:', formData.distance);
-      return formData;
-    }
-
-    // Récupérer les adresses (support des différents noms de champs)
-    const departureAddress = formData.departureAddress || formData.pickupAddress || formData.adresseDepart;
-    const arrivalAddress = formData.arrivalAddress || formData.deliveryAddress || formData.adresseArrivee;
-
-    // Si les deux adresses sont présentes, calculer la distance
-    if (departureAddress && arrivalAddress && departureAddress !== arrivalAddress) {
-      try {
-        devLog.debug('useModularQuotation', '🗺️ Calcul de la distance entre:', {
-          departure: departureAddress,
-          arrival: arrivalAddress,
-        });
-
-        const distance = await calculateDistance(departureAddress, arrivalAddress);
-
-        if (distance > 0) {
-          devLog.debug('useModularQuotation', '✅ Distance calculée:', distance, 'km');
-          return {
-            ...formData,
-            distance,
-          };
-        }
-      } catch (error) {
-        devLog.error('useModularQuotation', '❌ Erreur calcul distance:', error);
-        // Continue sans distance - le backend utilisera un fallback
+  const enrichFormDataWithDistance = useCallback(
+    async (formData: any): Promise<any> => {
+      // Vérifier si la distance est déjà fournie
+      if (formData.distance && formData.distance > 0) {
+        devLog.debug(
+          "useModularQuotation",
+          "📍 Distance déjà fournie:",
+          formData.distance,
+        );
+        return formData;
       }
-    }
 
-    return formData;
-  }, []);
+      // Récupérer les adresses (support des différents noms de champs)
+      const departureAddress =
+        formData.departureAddress ||
+        formData.pickupAddress ||
+        formData.adresseDepart;
+      const arrivalAddress =
+        formData.arrivalAddress ||
+        formData.deliveryAddress ||
+        formData.adresseArrivee;
+
+      // Si les deux adresses sont présentes, calculer la distance
+      if (
+        departureAddress &&
+        arrivalAddress &&
+        departureAddress !== arrivalAddress
+      ) {
+        try {
+          devLog.debug(
+            "useModularQuotation",
+            "🗺️ Calcul de la distance entre:",
+            {
+              departure: departureAddress,
+              arrival: arrivalAddress,
+            },
+          );
+
+          const distance = await calculateDistance(
+            departureAddress,
+            arrivalAddress,
+          );
+
+          if (distance > 0) {
+            devLog.debug(
+              "useModularQuotation",
+              "✅ Distance calculée:",
+              distance,
+              "km",
+            );
+            return {
+              ...formData,
+              distance,
+            };
+          }
+        } catch (error) {
+          devLog.error(
+            "useModularQuotation",
+            "❌ Erreur calcul distance:",
+            error,
+          );
+          // Continue sans distance - le backend utilisera un fallback
+        }
+      }
+
+      return formData;
+    },
+    [],
+  );
 
   /**
    * ÉTAPE 1 : Calcule le coût opérationnel de base
@@ -239,32 +287,41 @@ export const useModularQuotation = (): UseModularQuotationResult => {
 
       try {
         // Enrichir les données avec les sélections cross-selling
-        const formDataWithCrossSelling = enrichFormDataWithCrossSelling(formData);
+        const formDataWithCrossSelling =
+          enrichFormDataWithCrossSelling(formData);
 
         // Enrichir les données avec la distance si nécessaire
-        const enrichedFormData = await enrichFormDataWithDistance(formDataWithCrossSelling);
+        const enrichedFormData = await enrichFormDataWithDistance(
+          formDataWithCrossSelling,
+        );
 
-        devLog.info('useModularQuotation', '🔧 [ÉTAPE 1] Calcul du coût de base...', {
-          formDataKeys: Object.keys(enrichedFormData),
-        });
+        devLog.info(
+          "useModularQuotation",
+          "🔧 [ÉTAPE 1] Calcul du coût de base...",
+          {
+            formDataKeys: Object.keys(enrichedFormData),
+          },
+        );
 
-        const response = await fetch('/api/quotation/calculate', {
-          method: 'POST',
+        const response = await fetch("/api/quotation/calculate", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(enrichedFormData),
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || 'Erreur lors du calcul du coût de base');
+          throw new Error(
+            errorData.message || "Erreur lors du calcul du coût de base",
+          );
         }
 
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.message || 'Calcul du coût de base échoué');
+          throw new Error(data.message || "Calcul du coût de base échoué");
         }
 
         const result: BaseCostResult = {
@@ -274,18 +331,23 @@ export const useModularQuotation = (): UseModularQuotationResult => {
           activatedModules: data.activatedModules || [],
         };
 
-        devLog.info('useModularQuotation', '✅ [ÉTAPE 1] Coût de base calculé:', {
-          baseCost: result.baseCost,
-          distanceKm: result.breakdown.distance.km,
-          adjustedVolume: result.breakdown.volume.adjustedVolume,
-        });
+        devLog.info(
+          "useModularQuotation",
+          "✅ [ÉTAPE 1] Coût de base calculé:",
+          {
+            baseCost: result.baseCost,
+            distanceKm: result.breakdown.distance.km,
+            adjustedVolume: result.breakdown.volume.adjustedVolume,
+          },
+        );
 
         setBaseCostResult(result);
         return result;
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        const errorMessage =
+          err instanceof Error ? err.message : "Erreur inconnue";
         setError(errorMessage);
-        devLog.error('useModularQuotation', '❌ Erreur calcul coût de base:', {
+        devLog.error("useModularQuotation", "❌ Erreur calcul coût de base:", {
           error: errorMessage,
         });
         return null;
@@ -293,7 +355,7 @@ export const useModularQuotation = (): UseModularQuotationResult => {
         setIsCalculatingBaseCost(false);
       }
     },
-    [enrichFormDataWithDistance, enrichFormDataWithCrossSelling]
+    [enrichFormDataWithDistance, enrichFormDataWithCrossSelling],
   );
 
   /**
@@ -316,13 +378,13 @@ export const useModularQuotation = (): UseModularQuotationResult => {
         // Si pas de baseCost, on doit d'abord le calculer
         if (!currentBaseCost && !formData.baseCost) {
           devLog.info(
-            'useModularQuotation',
-            '⚠️ [ÉTAPE 2] Pas de baseCost, appel de calculateBaseCost...'
+            "useModularQuotation",
+            "⚠️ [ÉTAPE 2] Pas de baseCost, appel de calculateBaseCost...",
           );
           currentBaseCost = await calculateBaseCost(formData);
 
           if (!currentBaseCost) {
-            throw new Error('Impossible de calculer le coût de base');
+            throw new Error("Impossible de calculer le coût de base");
           }
         }
 
@@ -333,27 +395,33 @@ export const useModularQuotation = (): UseModularQuotationResult => {
           scenarios: formData.scenarios, // Optionnel
         };
 
-        devLog.info('useModularQuotation', '🎯 [ÉTAPE 2] Génération des 6 offres...', {
-          baseCost: payload.baseCost,
-        });
+        devLog.info(
+          "useModularQuotation",
+          "🎯 [ÉTAPE 2] Génération des 6 offres...",
+          {
+            baseCost: payload.baseCost,
+          },
+        );
 
-        const response = await fetch('/api/quotation/multi-offers', {
-          method: 'POST',
+        const response = await fetch("/api/quotation/multi-offers", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || 'Erreur lors du calcul des multi-offres');
+          throw new Error(
+            errorData.message || "Erreur lors du calcul des multi-offres",
+          );
         }
 
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.message || 'Calcul multi-offres échoué');
+          throw new Error(data.message || "Calcul multi-offres échoué");
         }
 
         // L'API retourne 'quotes'
@@ -365,7 +433,7 @@ export const useModularQuotation = (): UseModularQuotationResult => {
           if (item.context) {
             // Récupérer les données de logistique depuis le contexte formaté
             const logistics = item.context.logistics || {};
-            
+
             // Si vehicleCount est 0 ou undefined, essayer de le récupérer depuis le computed de base
             // ou utiliser une valeur par défaut basée sur le volume
             let vehicleCount = logistics.vehicleCount;
@@ -379,16 +447,19 @@ export const useModularQuotation = (): UseModularQuotationResult => {
                 vehicleCount = 1; // Par défaut, au moins 1 véhicule
               }
             }
-            
+
             return {
               scenarioId: item.scenarioId,
               label: item.label,
               description: item.description,
               pricing: item.context.pricing || {
                 totalCosts: item.context.pricing?.totalCosts || 0,
-                basePrice: item.basePrice || item.context.pricing?.basePrice || 0,
-                finalPrice: item.finalPrice || item.context.pricing?.finalPrice || 0,
-                marginRate: item.marginRate || item.context.pricing?.marginRate || 0.3,
+                basePrice:
+                  item.basePrice || item.context.pricing?.basePrice || 0,
+                finalPrice:
+                  item.finalPrice || item.context.pricing?.finalPrice || 0,
+                marginRate:
+                  item.marginRate || item.context.pricing?.marginRate || 0.3,
               },
               logistics: {
                 baseVolume: logistics.baseVolume || 0,
@@ -424,10 +495,11 @@ export const useModularQuotation = (): UseModularQuotationResult => {
           distanceKm,
           quotes: quotes,
           comparison: {
-            cheapest: comparison.cheapest?.scenarioId || '',
-            recommended: comparison.recommended?.scenarioId || '',
+            cheapest: comparison.cheapest?.scenarioId || "",
+            recommended: comparison.recommended?.scenarioId || "",
             recommendedReasons: comparison.recommended?.reasons || [],
-            recommendedConfidence: comparison.recommended?.confidence || 'MEDIUM',
+            recommendedConfidence:
+              comparison.recommended?.confidence || "MEDIUM",
             alternative: comparison.alternative?.scenarioId,
             alternativeReasons: comparison.alternative?.reasons,
             priceRange: {
@@ -438,7 +510,7 @@ export const useModularQuotation = (): UseModularQuotationResult => {
           },
         };
 
-        devLog.info('useModularQuotation', '✅ [ÉTAPE 2] 6 offres générées:', {
+        devLog.info("useModularQuotation", "✅ [ÉTAPE 2] 6 offres générées:", {
           quotesCount: quotes.length,
           recommended: multiOffersResult.comparison.recommended,
           priceRange: multiOffersResult.comparison.priceRange,
@@ -447,9 +519,10 @@ export const useModularQuotation = (): UseModularQuotationResult => {
         setMultiOffers(multiOffersResult);
         return multiOffersResult;
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        const errorMessage =
+          err instanceof Error ? err.message : "Erreur inconnue";
         setError(errorMessage);
-        devLog.error('useModularQuotation', '❌ Erreur calcul multi-offres:', {
+        devLog.error("useModularQuotation", "❌ Erreur calcul multi-offres:", {
           error: errorMessage,
         });
         return null;
@@ -457,7 +530,7 @@ export const useModularQuotation = (): UseModularQuotationResult => {
         setIsCalculatingMultiOffers(false);
       }
     },
-    [baseCostResult, calculateBaseCost]
+    [baseCostResult, calculateBaseCost],
   );
 
   /**
@@ -470,13 +543,19 @@ export const useModularQuotation = (): UseModularQuotationResult => {
    */
   const calculateFullQuote = useCallback(
     async (formData: any): Promise<MultiOffersResult | null> => {
-      devLog.info('useModularQuotation', '🚀 Début du flux complet (calculate → multi-offers)');
+      devLog.info(
+        "useModularQuotation",
+        "🚀 Début du flux complet (calculate → multi-offers)",
+      );
 
       // Étape 1 : Calculer le coût de base
       const baseCost = await calculateBaseCost(formData);
 
       if (!baseCost) {
-        devLog.error('useModularQuotation', '❌ Échec du calcul du coût de base');
+        devLog.error(
+          "useModularQuotation",
+          "❌ Échec du calcul du coût de base",
+        );
         return null;
       }
 
@@ -489,12 +568,15 @@ export const useModularQuotation = (): UseModularQuotationResult => {
       const result = await calculateMultiOffers(multiOffersPayload);
 
       if (result) {
-        devLog.info('useModularQuotation', '✅ Flux complet terminé avec succès');
+        devLog.info(
+          "useModularQuotation",
+          "✅ Flux complet terminé avec succès",
+        );
       }
 
       return result;
     },
-    [calculateBaseCost, calculateMultiOffers]
+    [calculateBaseCost, calculateMultiOffers],
   );
 
   /**
@@ -515,7 +597,7 @@ export const useModularQuotation = (): UseModularQuotationResult => {
         await calculateFullQuote(formData);
       }, DEBOUNCE_DELAY);
     },
-    [calculateFullQuote]
+    [calculateFullQuote],
   );
 
   // Nettoyer le timer au démontage
@@ -530,9 +612,9 @@ export const useModularQuotation = (): UseModularQuotationResult => {
   // Prix calculé (pour compatibilité avec useRealTimePricing)
   // Utilise le prix recommandé des multi-offres ou le baseCost
   const calculatedPrice =
-    multiOffers?.quotes?.find((q) => q.scenarioId === multiOffers.comparison.recommended)?.pricing
-      ?.finalPrice ||
-    (baseCostResult?.baseCost ?? 0) * 1.3; // Marge standard 30%
+    multiOffers?.quotes?.find(
+      (q) => q.scenarioId === multiOffers.comparison.recommended,
+    )?.pricing?.finalPrice || (baseCostResult?.baseCost ?? 0) * 1.3; // Marge standard 30%
 
   const priceDetails = baseCostResult || null;
   const isPriceLoading = isCalculatingBaseCost || isCalculatingMultiOffers;
@@ -563,4 +645,3 @@ export const useModularQuotation = (): UseModularQuotationResult => {
     error,
   };
 };
-

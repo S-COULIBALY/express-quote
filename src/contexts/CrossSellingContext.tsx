@@ -1,6 +1,12 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
 import {
   ServiceDefinition,
   SupplyDefinition,
@@ -9,8 +15,8 @@ import {
   SUPPLIES,
   getServiceById,
   getSupplyById,
-  calculateServicePrice
-} from '@/config/services-catalog';
+  calculateServicePrice,
+} from "@/config/services-catalog";
 
 // ============================================================================
 // TYPES
@@ -43,6 +49,7 @@ export interface FormContext {
   rooms?: number;
   hasPiano?: boolean;
   hasBulkyFurniture?: boolean;
+  storageDurationDays?: number;
 }
 
 interface CrossSellingContextValue {
@@ -111,16 +118,26 @@ export interface CrossSellingPricingData {
 // CONTEXT
 // ============================================================================
 
-const CrossSellingContext = createContext<CrossSellingContextValue | null>(null);
+const CrossSellingContext = createContext<CrossSellingContextValue | null>(
+  null,
+);
 
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
-export function CrossSellingProvider({ children }: { children: React.ReactNode }) {
+export function CrossSellingProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // État des sélections
-  const [selectedServices, setSelectedServices] = useState<Map<string, SelectedService>>(new Map());
-  const [selectedSupplies, setSelectedSupplies] = useState<Map<string, SelectedSupply>>(new Map());
+  const [selectedServices, setSelectedServices] = useState<
+    Map<string, SelectedService>
+  >(new Map());
+  const [selectedSupplies, setSelectedSupplies] = useState<
+    Map<string, SelectedSupply>
+  >(new Map());
 
   // Contexte du formulaire (pour calcul des prix)
   const [formContext, setFormContext] = useState<FormContext>({});
@@ -133,11 +150,14 @@ export function CrossSellingProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (Object.keys(formContext).length > 0) {
       // Recalculer les prix des services
-      setSelectedServices(prev => {
+      setSelectedServices((prev) => {
         const updated = new Map(prev);
         updated.forEach((selected, id) => {
           const newPrice = calculateServicePrice(selected.service, formContext);
-          updated.set(id, { ...selected, calculatedPrice: newPrice * selected.quantity });
+          updated.set(id, {
+            ...selected,
+            calculatedPrice: newPrice * selected.quantity,
+          });
         });
         return updated;
       });
@@ -148,47 +168,58 @@ export function CrossSellingProvider({ children }: { children: React.ReactNode }
   // ACTIONS - SERVICES
   // ============================================================================
 
-  const addService = useCallback((serviceId: string, quantity = 1) => {
-    const service = getServiceById(serviceId);
-    if (!service) return;
+  const addService = useCallback(
+    (serviceId: string, quantity = 1) => {
+      const service = getServiceById(serviceId);
+      if (!service) return;
 
-    const calculatedPrice = calculateServicePrice(service, formContext) * quantity;
+      const calculatedPrice =
+        calculateServicePrice(service, formContext) * quantity;
 
-    setSelectedServices(prev => {
-      const updated = new Map(prev);
-      updated.set(serviceId, { service, quantity, calculatedPrice });
-      return updated;
-    });
-  }, [formContext]);
+      setSelectedServices((prev) => {
+        const updated = new Map(prev);
+        updated.set(serviceId, { service, quantity, calculatedPrice });
+        return updated;
+      });
+    },
+    [formContext],
+  );
 
   const removeService = useCallback((serviceId: string) => {
-    setSelectedServices(prev => {
+    setSelectedServices((prev) => {
       const updated = new Map(prev);
       updated.delete(serviceId);
       return updated;
     });
   }, []);
 
-  const updateServiceQuantity = useCallback((serviceId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeService(serviceId);
-      return;
-    }
-
-    setSelectedServices(prev => {
-      const updated = new Map(prev);
-      const existing = updated.get(serviceId);
-      if (existing) {
-        const calculatedPrice = calculateServicePrice(existing.service, formContext) * quantity;
-        updated.set(serviceId, { ...existing, quantity, calculatedPrice });
+  const updateServiceQuantity = useCallback(
+    (serviceId: string, quantity: number) => {
+      if (quantity <= 0) {
+        removeService(serviceId);
+        return;
       }
-      return updated;
-    });
-  }, [formContext, removeService]);
 
-  const isServiceSelected = useCallback((serviceId: string) => {
-    return selectedServices.has(serviceId);
-  }, [selectedServices]);
+      setSelectedServices((prev) => {
+        const updated = new Map(prev);
+        const existing = updated.get(serviceId);
+        if (existing) {
+          const calculatedPrice =
+            calculateServicePrice(existing.service, formContext) * quantity;
+          updated.set(serviceId, { ...existing, quantity, calculatedPrice });
+        }
+        return updated;
+      });
+    },
+    [formContext, removeService],
+  );
+
+  const isServiceSelected = useCallback(
+    (serviceId: string) => {
+      return selectedServices.has(serviceId);
+    },
+    [selectedServices],
+  );
 
   // ============================================================================
   // ACTIONS - FOURNITURES
@@ -198,54 +229,63 @@ export function CrossSellingProvider({ children }: { children: React.ReactNode }
     const supply = getSupplyById(supplyId);
     if (!supply) return;
 
-    setSelectedSupplies(prev => {
+    setSelectedSupplies((prev) => {
       const updated = new Map(prev);
       const existing = updated.get(supplyId);
       const newQuantity = existing ? existing.quantity + quantity : quantity;
       updated.set(supplyId, {
         supply,
         quantity: newQuantity,
-        totalPrice: supply.price * newQuantity
+        totalPrice: supply.price * newQuantity,
       });
       return updated;
     });
   }, []);
 
   const removeSupply = useCallback((supplyId: string) => {
-    setSelectedSupplies(prev => {
+    setSelectedSupplies((prev) => {
       const updated = new Map(prev);
       updated.delete(supplyId);
       return updated;
     });
   }, []);
 
-  const updateSupplyQuantity = useCallback((supplyId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeSupply(supplyId);
-      return;
-    }
-
-    setSelectedSupplies(prev => {
-      const updated = new Map(prev);
-      const existing = updated.get(supplyId);
-      if (existing) {
-        updated.set(supplyId, {
-          ...existing,
-          quantity,
-          totalPrice: existing.supply.price * quantity
-        });
+  const updateSupplyQuantity = useCallback(
+    (supplyId: string, quantity: number) => {
+      if (quantity <= 0) {
+        removeSupply(supplyId);
+        return;
       }
-      return updated;
-    });
-  }, [removeSupply]);
 
-  const isSupplySelected = useCallback((supplyId: string) => {
-    return selectedSupplies.has(supplyId);
-  }, [selectedSupplies]);
+      setSelectedSupplies((prev) => {
+        const updated = new Map(prev);
+        const existing = updated.get(supplyId);
+        if (existing) {
+          updated.set(supplyId, {
+            ...existing,
+            quantity,
+            totalPrice: existing.supply.price * quantity,
+          });
+        }
+        return updated;
+      });
+    },
+    [removeSupply],
+  );
 
-  const getSupplyQuantity = useCallback((supplyId: string) => {
-    return selectedSupplies.get(supplyId)?.quantity || 0;
-  }, [selectedSupplies]);
+  const isSupplySelected = useCallback(
+    (supplyId: string) => {
+      return selectedSupplies.has(supplyId);
+    },
+    [selectedSupplies],
+  );
+
+  const getSupplyQuantity = useCallback(
+    (supplyId: string) => {
+      return selectedSupplies.get(supplyId)?.quantity || 0;
+    },
+    [selectedSupplies],
+  );
 
   // ============================================================================
   // CALCULS
@@ -255,15 +295,21 @@ export function CrossSellingProvider({ children }: { children: React.ReactNode }
     const services = Array.from(selectedServices.values());
     const supplies = Array.from(selectedSupplies.values());
 
-    const totalServicesPrice = services.reduce((sum, s) => sum + s.calculatedPrice, 0);
-    const totalSuppliesPrice = supplies.reduce((sum, s) => sum + s.totalPrice, 0);
+    const totalServicesPrice = services.reduce(
+      (sum, s) => sum + s.calculatedPrice,
+      0,
+    );
+    const totalSuppliesPrice = supplies.reduce(
+      (sum, s) => sum + s.totalPrice,
+      0,
+    );
 
     return {
       services,
       supplies,
       totalServicesPrice,
       totalSuppliesPrice,
-      grandTotal: totalServicesPrice + totalSuppliesPrice
+      grandTotal: totalServicesPrice + totalSuppliesPrice,
     };
   }, [selectedServices, selectedSupplies]);
 
@@ -283,28 +329,28 @@ export function CrossSellingProvider({ children }: { children: React.ReactNode }
     const serviceIds = Array.from(selectedServices.keys());
 
     return {
-      packing: serviceIds.includes('packing'),
-      dismantling: serviceIds.includes('dismantling'),
-      reassembly: serviceIds.includes('reassembly'),
-      cleaningEnd: serviceIds.includes('cleaning-end'),
+      packing: serviceIds.includes("packing"),
+      dismantling: serviceIds.includes("dismantling"),
+      reassembly: serviceIds.includes("reassembly"),
+      cleaningEnd: serviceIds.includes("cleaning-end"),
       // NOTE: furnitureLift et insurancePremium supprimés (gérés ailleurs)
-      storage: serviceIds.includes('storage'),
+      storage: serviceIds.includes("storage"),
 
-      hasPiano: serviceIds.includes('piano-handling'),
-      hasSafe: serviceIds.includes('safe-handling'),
-      hasArtwork: serviceIds.includes('artwork-handling'),
+      hasPiano: serviceIds.includes("piano-handling"),
+      hasSafe: serviceIds.includes("safe-handling"),
+      hasArtwork: serviceIds.includes("artwork-handling"),
 
       suppliesTotal: selection.totalSuppliesPrice,
-      suppliesDetails: selection.supplies.map(s => ({
+      suppliesDetails: selection.supplies.map((s) => ({
         id: s.supply.id,
         name: s.supply.title,
         quantity: s.quantity,
         unitPrice: s.supply.price,
-        total: s.totalPrice
+        total: s.totalPrice,
       })),
 
       servicesTotal: selection.totalServicesPrice,
-      grandTotal: selection.grandTotal
+      grandTotal: selection.grandTotal,
     };
   }, [selectedServices, calculateTotals]);
 
@@ -334,7 +380,7 @@ export function CrossSellingProvider({ children }: { children: React.ReactNode }
     setIsFromForm,
 
     clearSelection,
-    getSelectionForPricing
+    getSelectionForPricing,
   };
 
   return (
@@ -351,7 +397,9 @@ export function CrossSellingProvider({ children }: { children: React.ReactNode }
 export function useCrossSelling() {
   const context = useContext(CrossSellingContext);
   if (!context) {
-    throw new Error('useCrossSelling must be used within a CrossSellingProvider');
+    throw new Error(
+      "useCrossSelling must be used within a CrossSellingProvider",
+    );
   }
   return context;
 }
