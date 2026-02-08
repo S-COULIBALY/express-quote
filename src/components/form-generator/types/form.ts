@@ -42,7 +42,8 @@ export interface FormField {
     | "access-constraints" // Pour LogisticsModal (contraintes depuis modal-data.ts)
     | "whatsapp-consent" // Pour WhatsAppOptInConsent
     | "furniture-lift-checkbox" // Pour le composant Monte-meubles
-    | "cross-selling"; // Pour le composant de sélection cross-selling
+    | "cross-selling" // Pour le composant de sélection cross-selling
+    | "volume-with-calculator"; // Volume (m³) + lien vers calculateur (slide / bottom sheet)
   label?: ReactNode; //   label: "Option de livraison" | <CustomLabel />,
   required?: boolean | ((formData: any) => boolean); //   required: true,
   helpText?: string; // Texte d'aide affiché sous le champ

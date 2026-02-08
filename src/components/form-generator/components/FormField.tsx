@@ -16,6 +16,7 @@ import { WhatsAppOptInConsent } from "@/components/WhatsAppOptInConsent";
 import { LogisticsModal } from "./LogisticsModal";
 import { CrossSellingButton } from "./CrossSellingButton";
 import { FurnitureLiftCheckbox } from "./FurnitureLiftCheckbox";
+import { VolumeWithCalculatorField } from "./VolumeWithCalculatorField";
 
 interface FormFieldProps {
   field: FormFieldType;
@@ -510,6 +511,17 @@ export const FormField: React.FC<FormFieldProps> = ({
             onChange={onChange}
             formData={formData}
             error={error}
+          />
+        );
+
+      case "volume-with-calculator":
+        return (
+          <VolumeWithCalculatorField
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
+            register={register}
           />
         );
 

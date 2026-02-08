@@ -530,11 +530,10 @@ export default function DemenagementSurMesurePage() {
           const hasEssentialData =
             formData.departureAddress ||
             formData.arrivalAddress ||
-            formData.volume ||
+            formData.estimatedVolume != null ||
             formData.movingDate ||
             formData.pickupAddress ||
-            formData.deliveryAddress ||
-            formData.volumeEstime;
+            formData.deliveryAddress;
 
           if (hasEssentialData) {
             quotation.calculateWithDebounce(formData);
@@ -557,10 +556,9 @@ export default function DemenagementSurMesurePage() {
         formData &&
         (formData.pickupAddress ||
           formData.deliveryAddress ||
-          formData.volumeEstime ||
+          formData.estimatedVolume != null ||
           formData.departureAddress ||
-          formData.arrivalAddress ||
-          formData.volume)
+          formData.arrivalAddress)
       ) {
         quotation.calculateWithDebounce(formData);
       }

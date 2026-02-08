@@ -23,11 +23,11 @@ export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
   const router = useRouter();
   const crossSelling = useCrossSellingOptional();
 
-  // Extraire les données du formulaire pour le contexte
-  const volume = (formData?.volumeEstime as string) || "";
+  // Extraire les données du formulaire pour le contexte (volume en m³)
+  const estimatedVolume = formData?.estimatedVolume as number | undefined;
+  const volumeEstimeStr = (formData?.volumeEstime as string) || "";
   const surface = (formData?.surface as number) || 0;
 
-  // Calculer le volume numérique approximatif
   const getVolumeNumber = (volumeStr: string): number => {
     const volumeMap: Record<string, number> = {
       "tres-petit": 10,
@@ -40,6 +40,11 @@ export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
     };
     return volumeMap[volumeStr] || 30;
   };
+
+  const volume =
+    estimatedVolume != null && estimatedVolume > 0
+      ? estimatedVolume
+      : getVolumeNumber(volumeEstimeStr);
 
   // Compter les services/fournitures déjà sélectionnés
   // Utiliser useMemo pour optimiser et forcer la réactivité
@@ -58,14 +63,14 @@ export const CrossSellingButton: React.FC<CrossSellingButtonProps> = ({
     // Construire l'URL avec les paramètres du formulaire
     const params = new URLSearchParams({
       fromForm: "true",
-      volume: String(getVolumeNumber(volume)),
+      volume: String(volume),
       surface: String(surface),
     });
 
     // Stocker le contexte du formulaire si le provider existe
     if (crossSelling) {
       crossSelling.setFormContext({
-        volume: getVolumeNumber(volume),
+        volume,
         surface,
       });
     }

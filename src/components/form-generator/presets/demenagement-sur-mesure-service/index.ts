@@ -111,14 +111,8 @@ export const getDemenagementSurMesureServiceConfig = (
       deliveryFurnitureLift: false, // Monte-meubles arrivée (géré automatiquement selon seuils)
       deliveryCarryDistance: "",
 
-      // Informations générales
-      typeDemenagement: "",
-      surface: "",
-      nombrePieces: "",
-      volumeEstime: "",
-      volumeMethod: "FORM", // Par défaut : estimation standard
-      objectList: "", // Pour méthode LIST
-      volumeVideo: undefined, // Pour méthode VIDEO
+      // Informations générales (volume uniquement ; calculateur dans le formulaire)
+      estimatedVolume: undefined as number | undefined,
 
       // Objets spéciaux et services - maintenant gérés via les modals uniquement
       // Les sélections sont dans pickupLogistics et deliveryLogistics
@@ -179,15 +173,9 @@ export const getDemenagementSurMesureServiceConfig = (
                 format: () => service.description,
               },
               {
-                key: "typeDemenagement",
-                label: "Type de déménagement",
-                format: (value: any) => value || "À définir",
-                style: "font-medium text-gray-700",
-              },
-              {
-                key: "surface",
-                label: "Surface",
-                format: (value: any) => (value ? `${value} m²` : "À définir"),
+                key: "estimatedVolume",
+                label: "Volume",
+                format: (value: any) => (value ? `${value} m³` : "À définir"),
                 style: "font-medium text-gray-700",
               },
             ],
@@ -341,150 +329,12 @@ export const getDemenagementSurMesureServiceConfig = (
         columns: 2,
         fields: [
           {
-            name: "typeDemenagement",
-            type: "select",
-            label: "Type de logement",
-            required: true,
-            options: [
-              { value: "STUDIO", label: "Studio" },
-              { value: "F2", label: "F2 (2 pièces)" },
-              { value: "F3", label: "F3 (3 pièces)" },
-              { value: "F4", label: "F4 (4 pièces)" },
-              { value: "F5+", label: "F5+ (5 pièces et plus)" },
-              { value: "HOUSE", label: "Maison" },
-              { value: "bureau", label: "Bureau/Commerce" },
-              { value: "entrepot", label: "Entrepôt/Local" },
-            ],
-          },
-          {
-            name: "surface",
-            type: "number",
-            label: "Surface approximative (m²)",
-            required: true,
-            validation: {
-              min: 1,
-              max: 1000,
-              custom: (value: any) => {
-                if (!value || value <= 0)
-                  return "La surface doit être supérieure à 0";
-                if (value > 1000)
-                  return "La surface ne peut pas dépasser 1000 m²";
-                return true;
-              },
-            },
-            componentProps: {
-              min: 1,
-              max: 1000,
-              placeholder: "Ex: 80",
-            },
-          },
-          {
-            name: "nombrePieces",
-            type: "number",
-            label: "Nombre de pièces",
-            required: true,
-            validation: {
-              min: 1,
-              max: 20,
-              custom: (value: any) => {
-                if (!value || value <= 0)
-                  return "Le nombre de pièces doit être supérieur à 0";
-                if (value > 20)
-                  return "Le nombre de pièces ne peut pas dépasser 20";
-                return true;
-              },
-            },
-            componentProps: {
-              min: 1,
-              max: 20,
-              placeholder: "Ex: 4",
-            },
-          },
-          {
-            name: "volumeMethod",
-            type: "select",
-            label: "Méthode estimation volume",
-            required: false,
-            options: [
-              { value: "FORM", label: "📐 Estimation standard (surface/type)" },
-              {
-                value: "LIST",
-                label: "📋 Liste d'objets (plus précis, -5% sur marge)",
-              },
-              {
-                value: "VIDEO",
-                label: "🎥 Vidéo (le plus précis, -8% sur marge)",
-              },
-            ],
-          },
-          {
-            name: "volumeEstime",
-            type: "select",
-            label: "Volume estimé",
-            required: true,
-            helpText:
-              "💡 Vous n'êtes pas sûr ? Utilisez notre calculateur ou choisissez une méthode plus précise ci-dessus. Astuce : 1 pièce ≈ 10-15 m³ | 1 m² ≈ 0.4-0.5 m³",
-            options: [
-              {
-                value: "tres-petit",
-                label: "Très petit (< 15m³)",
-                description:
-                  "Studio, petit T1 - Exemples : 1 canapé, 1 table, quelques cartons, pas de gros meubles",
-              },
-              {
-                value: "moyen-1",
-                label: "Moyen-1 (15-25m³)",
-                description:
-                  "Petit F2, studio meublé - Exemples : salon basique, 1 chambre, cuisine équipée",
-              },
-              {
-                value: "moyen-2",
-                label: "Moyen-2 (25-35m³)",
-                description:
-                  "F2 complet, petit F3 - Exemples : salon complet, 1-2 chambres meublées, cuisine équipée",
-              },
-              {
-                value: "moyen-intermediaire",
-                label: "Moyen-intermédiaire (35-50m³)",
-                description:
-                  "F3, F4 standard - Exemples : salon complet, 2-3 chambres meublées, cuisine équipée, rangements",
-              },
-              {
-                value: "moyen-grand",
-                label: "Moyen-Grand (50-70m³)",
-                description:
-                  "Grand F4, F5, petite maison - Exemples : plusieurs pièces complètes, garage partiel, rangements",
-              },
-              {
-                value: "grand",
-                label: "Grand (70-100m³)",
-                description:
-                  "Grande maison, villa - Exemples : toutes pièces complètes, garage, cave, rangements importants",
-              },
-              {
-                value: "tres-grand",
-                label: "Très grand (> 100m³)",
-                description:
-                  "Très grande maison, villa avec dépendances - Exemples : mobilier complet + garage + cave + combles",
-              },
-            ],
-            conditional: {
-              dependsOn: "volumeMethod",
-              condition: (value: any, formData: any) => {
-                // Afficher uniquement si méthode FORM ou non spécifiée
-                return (
-                  !formData?.volumeMethod || formData.volumeMethod === "FORM"
-                );
-              },
-            },
-          },
-          {
             name: "estimatedVolume",
-            type: "number",
-            label: "Volume exact (m³) - Optionnel",
+            type: "volume-with-calculator",
+            label: "Volume (m³)",
             required: false,
             helpText:
-              "💡 Connaissez-vous votre volume exact ? Saisissez-le ici pour un devis plus précis et une marge de sécurité réduite (-5% à -8% sur le prix).",
+              "Saisissez le volume à déménager en m³, ou utilisez le calculateur ci-dessous pour une estimation.",
             validation: {
               min: 5,
               max: 200,
@@ -501,74 +351,7 @@ export const getDemenagementSurMesureServiceConfig = (
               step: 0.5,
               placeholder: "Ex: 42.5",
             },
-            conditional: {
-              dependsOn: "volumeMethod",
-              condition: (value: any, formData: any) => {
-                // Afficher uniquement si méthode FORM ou non spécifiée
-                return (
-                  !formData?.volumeMethod || formData.volumeMethod === "FORM"
-                );
-              },
-            },
-          },
-          {
-            name: "objectList",
-            type: "textarea",
-            label: "📋 Liste des objets à déménager",
-            required: false,
-            componentProps: {
-              rows: 6,
-              maxLength: 2000,
-              placeholder:
-                "Ex: 1 canapé 3 places, 2 armoires, 1 table à manger, 1 piano droit, 3 bibliothèques...",
-            },
-            conditional: {
-              dependsOn: "volumeMethod",
-              condition: (value: any, formData: any) => {
-                return formData?.volumeMethod === "LIST";
-              },
-            },
-            validation: {
-              custom: (value: any, formData: any) => {
-                if (
-                  formData?.volumeMethod === "LIST" &&
-                  (!value || value.trim().length < 10)
-                ) {
-                  return "Veuillez fournir une liste d'au moins 10 caractères";
-                }
-                return true;
-              },
-            },
-          },
-          {
-            name: "volumeVideo",
-            type: "text",
-            label: "🎥 URL de la vidéo de votre logement",
-            required: false,
-            componentProps: {
-              helperText:
-                "Collez l'URL de votre vidéo (YouTube, Vimeo, ou lien direct). Ex: https://example.com/video.mp4",
-            },
-            conditional: {
-              dependsOn: "volumeMethod",
-              condition: (value: any, formData: any) => {
-                return formData?.volumeMethod === "VIDEO";
-              },
-            },
-            validation: {
-              custom: (value: any, formData: any) => {
-                if (
-                  formData?.volumeMethod === "VIDEO" &&
-                  (!value || value.trim().length === 0)
-                ) {
-                  return "Veuillez fournir une URL de vidéo";
-                }
-                if (value && !value.match(/^https?:\/\//)) {
-                  return "L'URL doit commencer par http:// ou https://";
-                }
-                return true;
-              },
-            },
+            columnSpan: 2,
           },
         ],
       },
@@ -812,14 +595,7 @@ export const getDemenagementSurMesureServiceConfig = (
       ? async (fieldName: string, value: any, formData: any) => {
           // Liste des champs qui déclenchent un recalcul de prix
           const priceRelevantFields = [
-            "typeDemenagement",
-            "surface",
-            "nombrePieces",
-            "volumeEstime",
             "estimatedVolume",
-            "volumeMethod",
-            "objectList",
-            "volumeVideo", // Nouveaux champs volume
             "adresseDepart",
             "adresseArrivee",
             "pickupAddress",
@@ -924,14 +700,8 @@ export const demenagementSurMesureDefaultValues = {
   deliveryElevator: "no",
   deliveryCarryDistance: "",
 
-  // Informations générales
-  typeDemenagement: "",
-  surface: "",
-  nombrePieces: "",
-  volumeEstime: "",
-  volumeMethod: "FORM",
-  objectList: "",
-  volumeVideo: undefined,
+  // Informations générales (volume uniquement)
+  estimatedVolume: undefined as number | undefined,
 
   // Mobilier (legacy)
   meubles: [],
@@ -961,11 +731,7 @@ export const demenagementSurMesureSummaryConfig: FormSummaryConfig = {
   sections: [
     {
       title: "Informations générales",
-      fields: [
-        { key: "typeDemenagement", label: "Type de déménagement" },
-        { key: "surface", label: "Surface", suffix: " m²" },
-        { key: "nombrePieces", label: "Nombre de pièces" },
-      ],
+      fields: [{ key: "estimatedVolume", label: "Volume", suffix: " m³" }],
     },
     {
       title: "Adresses",
