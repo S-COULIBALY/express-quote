@@ -57,21 +57,6 @@ export class ReassemblyCostModule implements QuoteModule {
       breakdown.push({ item: 'Meubles encombrants', cost: config.COST_PER_BULKY_FURNITURE });
     }
 
-    // Ajouter coût selon nombre de pièces (plus de pièces = plus de meubles à remonter)
-    let complexItemsCount = 0;
-    if (ctx.rooms) {
-      if (ctx.rooms >= 4) {
-        complexItemsCount = 2; // 2 meubles complexes
-      } else if (ctx.rooms >= 3) {
-        complexItemsCount = 1; // 1 meuble complexe
-      }
-      if (complexItemsCount > 0) {
-        const complexItemsCost = config.COST_PER_COMPLEX_ITEM * complexItemsCount;
-        reassemblyCost += complexItemsCost;
-        breakdown.push({ item: `Meubles complexes (${complexItemsCount})`, cost: complexItemsCost });
-      }
-    }
-
     // Ajouter coût pour piano (remontage spécialisé)
     if (ctx.piano) {
       reassemblyCost += config.PIANO_COST;
@@ -83,9 +68,6 @@ export class ReassemblyCostModule implements QuoteModule {
     console.log(`      Coût de base: ${config.BASE_COST}€`);
     if (ctx.bulkyFurniture) {
       console.log(`      Meubles encombrants: +${config.COST_PER_BULKY_FURNITURE}€`);
-    }
-    if (complexItemsCount > 0) {
-      console.log(`      Meubles complexes (${complexItemsCount}): ${complexItemsCount} × ${config.COST_PER_COMPLEX_ITEM}€ = ${(complexItemsCount * config.COST_PER_COMPLEX_ITEM).toFixed(2)}€`);
     }
     if (ctx.piano) {
       console.log(`      Remontage piano: +${config.PIANO_COST}€`);
@@ -108,8 +90,6 @@ export class ReassemblyCostModule implements QuoteModule {
               baseCost: config.BASE_COST,
               bulkyFurniture: ctx.bulkyFurniture || false,
               piano: ctx.piano || false,
-              rooms: ctx.rooms || 0,
-              complexItemsCount,
               breakdown,
               serviceType: 'REASSEMBLY_ONLY', // Indique que c'est le remontage seul
             }

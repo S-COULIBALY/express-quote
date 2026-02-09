@@ -26,9 +26,6 @@ describe('Système en 2 Étapes - BaseCostEngine + MultiQuoteService', () => {
     it('should calculate baseCost for a simple moving scenario', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
-        rooms: 3,
         volumeMethod: 'FORM' as const,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
@@ -95,9 +92,6 @@ describe('Système en 2 Étapes - BaseCostEngine + MultiQuoteService', () => {
     it('should calculate baseCost for long distance moving (IDF → Province)', () => {
       const formData = {
         movingDate: '2025-04-01T10:00:00Z',
-        housingType: 'F4' as const,
-        surface: 85,
-        rooms: 4,
         volumeMethod: 'FORM' as const,
         estimatedVolume: 45,
         volumeConfidence: 'HIGH' as const,
@@ -135,8 +129,6 @@ describe('Système en 2 Étapes - BaseCostEngine + MultiQuoteService', () => {
     it('should not include variable costs in baseCost (workers-calculation, labor-base)', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -162,9 +154,6 @@ describe('Système en 2 Étapes - BaseCostEngine + MultiQuoteService', () => {
     it('should generate 6 variants from baseCost without recalculating base modules', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
-        rooms: 3,
         volumeMethod: 'FORM' as const,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
@@ -230,8 +219,6 @@ describe('Système en 2 Étapes - BaseCostEngine + MultiQuoteService', () => {
     it('should apply different margins for each scenario', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -279,8 +266,6 @@ describe('Système en 2 Étapes - BaseCostEngine + MultiQuoteService', () => {
     it('should add scenario-specific costs (packing, insurance, etc.)', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -320,8 +305,6 @@ describe('Système en 2 Étapes - BaseCostEngine + MultiQuoteService', () => {
     it('should reuse context.computed from step 1 (incremental mode)', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -363,9 +346,6 @@ describe('Système en 2 Étapes - BaseCostEngine + MultiQuoteService', () => {
     it('should complete full flow: baseCost → 6 variants', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
-        rooms: 3,
         volumeMethod: 'FORM' as const,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
@@ -412,9 +392,6 @@ describe('Système en 2 Étapes - BaseCostEngine + MultiQuoteService', () => {
     it('should handle long distance scenario correctly', () => {
       const formData = {
         movingDate: '2025-04-01T10:00:00Z',
-        housingType: 'F4' as const,
-        surface: 85,
-        rooms: 4,
         volumeMethod: 'FORM' as const,
         estimatedVolume: 45,
         volumeConfidence: 'HIGH' as const,

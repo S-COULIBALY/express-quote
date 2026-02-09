@@ -20,42 +20,12 @@ describe('DismantlingCostModule', () => {
       expect(module.isApplicable(ctx)).toBe(true);
     });
 
-    it('devrait être applicable si logement F2/F3/F4/HOUSE', () => {
-      const housingTypes = ['F2', 'F3', 'F4', 'HOUSE'] as const;
-      
-      housingTypes.forEach(housingType => {
-        const ctx: QuoteContext = {
-          serviceType: 'MOVING',
-          region: 'IDF',
-          departureAddress: '123 Rue de Paris',
-          arrivalAddress: '456 Avenue Montaigne',
-          housingType,
-        };
-
-        expect(module.isApplicable(ctx)).toBe(true);
-      });
-    });
-
-    it('devrait être applicable si nombre de pièces ≥ 2', () => {
+    it('ne devrait pas être applicable si pas dismantling et pas bulkyFurniture', () => {
       const ctx: QuoteContext = {
         serviceType: 'MOVING',
         region: 'IDF',
         departureAddress: '123 Rue de Paris',
         arrivalAddress: '456 Avenue Montaigne',
-        rooms: 2,
-      };
-
-      expect(module.isApplicable(ctx)).toBe(true);
-    });
-
-    it('ne devrait pas être applicable si logement STUDIO avec 1 pièce', () => {
-      const ctx: QuoteContext = {
-        serviceType: 'MOVING',
-        region: 'IDF',
-        departureAddress: '123 Rue de Paris',
-        arrivalAddress: '456 Avenue Montaigne',
-        housingType: 'STUDIO',
-        rooms: 1,
       };
 
       expect(module.isApplicable(ctx)).toBe(false);
@@ -83,7 +53,6 @@ describe('DismantlingCostModule', () => {
       expect(cost?.metadata).toMatchObject({
         baseCost: config.BASE_COST,
         bulkyFurniture: true,
-        complexItemsCount: 0,
       });
       expect(cost?.metadata.breakdown).toBeDefined();
       expect(result.computed?.activatedModules).toContain('dismantling-cost');
@@ -110,57 +79,14 @@ describe('DismantlingCostModule', () => {
       });
     });
 
-    it('devrait ajouter un surcoût pour 3 pièces (1 meuble complexe)', () => {
-      const ctx: QuoteContext = {
-        serviceType: 'MOVING',
-        region: 'IDF',
-        departureAddress: '123 Rue de Paris',
-        arrivalAddress: '456 Avenue Montaigne',
-        rooms: 3,
-        computed: createEmptyComputedContext(),
-      };
-
-      const result = module.apply(ctx);
-
-      const cost = result.computed?.costs[0];
-      const expectedCost = config.BASE_COST + config.COST_PER_COMPLEX_ITEM; // 80 + 40 = 120€
-      expect(cost?.amount).toBe(expectedCost);
-      expect(cost?.metadata).toMatchObject({
-        rooms: 3,
-        complexItemsCount: 1,
-      });
-    });
-
-    it('devrait ajouter un surcoût pour 4+ pièces (2 meubles complexes)', () => {
-      const ctx: QuoteContext = {
-        serviceType: 'MOVING',
-        region: 'IDF',
-        departureAddress: '123 Rue de Paris',
-        arrivalAddress: '456 Avenue Montaigne',
-        housingType: 'F4',
-        rooms: 4,
-        computed: createEmptyComputedContext(),
-      };
-
-      const result = module.apply(ctx);
-
-      const cost = result.computed?.costs[0];
-      const expectedCost = config.BASE_COST + (config.COST_PER_COMPLEX_ITEM * 2); // 80 + 80 = 160€
-      expect(cost?.amount).toBe(expectedCost);
-      expect(cost?.metadata).toMatchObject({
-        rooms: 4,
-        complexItemsCount: 2,
-      });
-    });
-
     it('devrait calculer correctement le breakdown', () => {
       const ctx: QuoteContext = {
         serviceType: 'MOVING',
         region: 'IDF',
         departureAddress: '123 Rue de Paris',
         arrivalAddress: '456 Avenue Montaigne',
+        dismantling: true,
         bulkyFurniture: true,
-        rooms: 4,
         piano: true,
         computed: createEmptyComputedContext(),
       };
@@ -170,8 +96,8 @@ describe('DismantlingCostModule', () => {
       const cost = result.computed?.costs[0];
       expect(cost?.metadata.breakdown).toBeDefined();
       const breakdown = cost?.metadata.breakdown as Array<{ item: string; cost: number }>;
-      expect(breakdown.length).toBe(4); // Base + bulky + complex + piano
-      expect(breakdown[0].item).toBe('Coût de base');
+      expect(breakdown.length).toBe(3); // Base + bulky + piano
+      expect(breakdown[0].item).toBe('Coût de base démontage');
       expect(breakdown[0].cost).toBe(config.BASE_COST);
     });
   });

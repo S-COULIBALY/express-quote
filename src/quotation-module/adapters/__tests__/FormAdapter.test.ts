@@ -7,12 +7,7 @@ describe('FormAdapter', () => {
       const formData: FormData = {
         movingDate: '2025-03-15T10:00:00Z',
         flexibility: 'PLUS_MINUS_3',
-        housingType: 'F3',
-        surface: 65,
-        rooms: 3,
-        volumeMethod: 'FORM',
         estimatedVolume: 30,
-        volumeConfidence: 'MEDIUM',
         departureAddress: '123 Rue de Paris',
         departurePostalCode: '75001',
         departureCity: 'Paris',
@@ -34,9 +29,6 @@ describe('FormAdapter', () => {
       expect(result.region).toBe('IDF');
       expect(result.movingDate).toBe('2025-03-15T10:00:00Z');
       expect(result.flexibility).toBe('PLUS_MINUS_3');
-      expect(result.housingType).toBe('F3');
-      expect(result.surface).toBe(65);
-      expect(result.rooms).toBe(3);
       expect(result.volumeMethod).toBe('FORM');
       expect(result.estimatedVolume).toBe(30);
       expect(result.volumeConfidence).toBe('MEDIUM');
@@ -59,8 +51,6 @@ describe('FormAdapter', () => {
       const formData: FormData = {
         departureAddress: '123 Rue de Paris',
         arrivalAddress: '456 Avenue de Lyon',
-        surface: '65',
-        rooms: '3',
         estimatedVolume: '30.5',
         distance: '465',
         declaredValue: '20000',
@@ -68,8 +58,6 @@ describe('FormAdapter', () => {
 
       const result = FormAdapter.toQuoteContext(formData);
 
-      expect(result.surface).toBe(65);
-      expect(result.rooms).toBe(3);
       expect(result.estimatedVolume).toBe(30.5);
       expect(result.distance).toBe(465);
       expect(result.declaredValue).toBe(20000);
@@ -150,26 +138,20 @@ describe('FormAdapter', () => {
         departureAddress: '123 Rue de Paris',
         arrivalAddress: '456 Avenue de Lyon',
         flexibility: 'INVALID' as any,
-        housingType: 'INVALID' as any,
-        volumeMethod: 'INVALID' as any,
-        volumeConfidence: 'INVALID' as any,
       };
 
       const result = FormAdapter.toQuoteContext(formData);
 
       expect(result.flexibility).toBeUndefined();
-      expect(result.housingType).toBeUndefined();
-      expect(result.volumeMethod).toBeUndefined();
-      expect(result.volumeConfidence).toBeUndefined();
+      expect(result.volumeMethod).toBe('FORM');
+      expect(result.volumeConfidence).toBe('LOW');
     });
 
     it('should handle invalid numbers', () => {
       const formData: FormData = {
         departureAddress: '123 Rue de Paris',
         arrivalAddress: '456 Avenue de Lyon',
-        surface: 'invalid',
-        rooms: 'not-a-number',
-        estimatedVolume: NaN,
+        estimatedVolume: NaN as number,
         distance: Infinity,
       };
 
@@ -287,83 +269,24 @@ describe('FormAdapter', () => {
       });
     });
 
-    describe('Enrichissement automatique - Confiance du volume', () => {
-      it('should calculate HIGH confidence for VIDEO method', () => {
+    describe('Enrichissement automatique - Confiance du volume (FORM uniquement)', () => {
+      it('should calculate MEDIUM confidence when estimatedVolume is provided', () => {
         const formData: FormData = {
           departureAddress: '123 Rue de Paris',
           arrivalAddress: '456 Avenue de Lyon',
-          volumeMethod: 'VIDEO',
+          estimatedVolume: 30,
         };
 
         const result = FormAdapter.toQuoteContext(formData);
 
-        expect(result.volumeConfidence).toBe('HIGH');
-      });
-
-      it('should calculate MEDIUM confidence for LIST method', () => {
-        const formData: FormData = {
-          departureAddress: '123 Rue de Paris',
-          arrivalAddress: '456 Avenue de Lyon',
-          volumeMethod: 'LIST',
-        };
-
-        const result = FormAdapter.toQuoteContext(formData);
-
+        expect(result.volumeMethod).toBe('FORM');
         expect(result.volumeConfidence).toBe('MEDIUM');
       });
 
-      it('should calculate MEDIUM confidence for FORM method with coherent volume', () => {
+      it('should calculate LOW confidence when no estimatedVolume', () => {
         const formData: FormData = {
           departureAddress: '123 Rue de Paris',
           arrivalAddress: '456 Avenue de Lyon',
-          volumeMethod: 'FORM',
-          housingType: 'F3',
-          surface: 65,
-          estimatedVolume: 30, // Cohérent avec surface (65 * 2.5 * 0.3 ≈ 48.75, ratio ≈ 0.62)
-        };
-
-        const result = FormAdapter.toQuoteContext(formData);
-
-        // Le volume 30 est cohérent avec surface 65 (ratio ≈ 0.62, dans la plage 0.7-1.3)
-        // En fait, 30/48.75 ≈ 0.62, donc en dessous de 0.7, donc LOW
-        // Mais testons avec un volume plus cohérent
-        expect(result.volumeConfidence).toBeDefined();
-      });
-
-      it('should calculate LOW confidence for FORM method with incoherent volume', () => {
-        const formData: FormData = {
-          departureAddress: '123 Rue de Paris',
-          arrivalAddress: '456 Avenue de Lyon',
-          volumeMethod: 'FORM',
-          housingType: 'F3',
-          surface: 65,
-          estimatedVolume: 5, // Très incohérent (ratio très faible)
-        };
-
-        const result = FormAdapter.toQuoteContext(formData);
-
-        expect(result.volumeConfidence).toBe('LOW');
-      });
-
-      it('should use provided confidence if available', () => {
-        const formData: FormData = {
-          departureAddress: '123 Rue de Paris',
-          arrivalAddress: '456 Avenue de Lyon',
-          volumeMethod: 'FORM',
-          volumeConfidence: 'HIGH', // Valeur fournie manuellement
-        };
-
-        const result = FormAdapter.toQuoteContext(formData);
-
-        expect(result.volumeConfidence).toBe('HIGH'); // Utilise la valeur fournie
-      });
-
-      it('should calculate LOW confidence by default if method is FORM but no surface/volume', () => {
-        const formData: FormData = {
-          departureAddress: '123 Rue de Paris',
-          arrivalAddress: '456 Avenue de Lyon',
-          volumeMethod: 'FORM',
-          // Pas de surface ni estimatedVolume
         };
 
         const result = FormAdapter.toQuoteContext(formData);

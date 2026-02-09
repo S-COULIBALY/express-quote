@@ -21,16 +21,9 @@ export interface QuoteContext {
   flexibility?: "NONE" | "PLUS_MINUS_3" | "PLUS_MINUS_7";
 
   // ============================================================================
-  // LOGEMENT
-  // ============================================================================
-  housingType?: "STUDIO" | "F2" | "F3" | "F4" | "HOUSE";
-  surface?: number; // m²
-  rooms?: number;
-
-  // ============================================================================
   // VOLUME
   // ============================================================================
-  volumeMethod?: "FORM" | "LIST" | "VIDEO";
+  volumeMethod?: "FORM";
   estimatedVolume?: number; // m³
   volumeConfidence?: "LOW" | "MEDIUM" | "HIGH";
 

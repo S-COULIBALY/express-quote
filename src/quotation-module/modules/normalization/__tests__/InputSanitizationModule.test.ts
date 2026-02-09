@@ -145,7 +145,6 @@ describe('InputSanitizationModule', () => {
         arrivalPostalCode: '69002',
         arrivalCity: 'Lyon',
         movingDate: '2025-03-15T10:00:00Z',
-        surface: 65,
         estimatedVolume: 30,
         distance: 15,
         declaredValue: 15000,
@@ -171,7 +170,6 @@ describe('InputSanitizationModule', () => {
       expect(result.movingDate).toBe('2025-03-15T10:00:00Z');
 
       // Nombres validés
-      expect(result.surface).toBe(65);
       expect(result.estimatedVolume).toBe(30);
       expect(result.distance).toBe(15);
       expect(result.declaredValue).toBe(15000);
@@ -221,7 +219,6 @@ describe('InputSanitizationModule', () => {
         arrivalAddress: '456 Avenue de Lyon',
         departurePostalCode: 'invalid',
         movingDate: 'invalid-date',
-        surface: -10,
         estimatedVolume: NaN,
         distance: Infinity,
         computed: createEmptyComputedContext(),
@@ -231,17 +228,15 @@ describe('InputSanitizationModule', () => {
 
       expect(result.departurePostalCode).toBeUndefined();
       expect(result.movingDate).toBeUndefined();
-      expect(result.surface).toBeUndefined();
       expect(result.estimatedVolume).toBeUndefined();
       expect(result.distance).toBeUndefined();
 
       // Vérifier les statistiques de sanitisation
       const stats = result.computed?.metadata?.sanitizationStats;
       expect(stats).toBeDefined();
-      expect(stats?.invalidFields).toBeGreaterThan(0); // Au moins 5 champs invalides
+      expect(stats?.invalidFields).toBeGreaterThan(0); // Au moins 4 champs invalides (surface/rooms retirés)
       expect(stats?.fields?.departurePostalCode?.invalid).toBe(true);
       expect(stats?.fields?.movingDate?.invalid).toBe(true);
-      expect(stats?.fields?.surface?.invalid).toBe(true);
       expect(stats?.fields?.estimatedVolume?.invalid).toBe(true);
       expect(stats?.fields?.distance?.invalid).toBe(true);
     });

@@ -1,6 +1,6 @@
 import { WorkersCalculationModule } from '../WorkersCalculationModule';
 import { QuoteContext } from '../../types/quote-types';
-import { MODULES_CONFIG } from '../../../config/modules.config';
+import { MODULES_CONFIG } from '../../../../config/modules.config';
 
 describe('WorkersCalculationModule', () => {
   let module: WorkersCalculationModule;
@@ -14,8 +14,7 @@ describe('WorkersCalculationModule', () => {
       serviceType: 'MOVING',
       region: 'IDF',
       movingDate: '2025-03-15T00:00:00Z',
-      housingType: 'F3',
-      surface: 65,
+      estimatedVolume: 35,
       departureAddress: '123 Rue Test, 75001 Paris',
       arrivalAddress: '456 Avenue Test, 75002 Paris',
       computed: {

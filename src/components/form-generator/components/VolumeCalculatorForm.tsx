@@ -119,6 +119,10 @@ function formStateToEstimateInput(
     storage: {
       cellar: state.annexes.includes("cave"),
       garage: state.annexes.includes("garage"),
+      attic: state.annexes.includes("grenier"),
+      shed: state.annexes.includes("abri"),
+      balcony: state.annexes.includes("balcon"),
+      veranda: state.annexes.includes("veranda"),
     },
     density: "STANDARD",
   };

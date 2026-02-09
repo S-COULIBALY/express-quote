@@ -29,6 +29,10 @@ export interface EstimateInput {
   storage?: {
     cellar?: boolean;
     garage?: boolean;
+    attic?: boolean; // Grenier
+    shed?: boolean; // Abri de jardin
+    balcony?: boolean; // Balcon/Terrasse
+    veranda?: boolean; // Véranda
   };
   density?: DensityLevel;
 }
@@ -64,6 +68,10 @@ const VOLUME_TABLES = {
   STORAGE: {
     CELLAR: 6,
     GARAGE: 10,
+    ATTIC: 8, // Grenier
+    SHED: 5, // Abri de jardin
+    BALCONY: 2, // Balcon/Terrasse
+    VERANDA: 4, // Véranda
   },
 } as const;
 
@@ -106,7 +114,9 @@ export function estimateVolumeV3(ctx: EstimateInput): number {
   }
 
   if (ctx.bedrooms?.length) {
-    for (const bedroom of ctx.bedrooms) {
+    // Sécurité : limiter à 7 chambres max pour éviter les abus
+    const bedroomsToProcess = ctx.bedrooms.slice(0, 7);
+    for (const bedroom of bedroomsToProcess) {
       roomsVolume += VOLUME_TABLES.BEDROOM[bedroom.level];
     }
   }
@@ -165,13 +175,25 @@ export function estimateVolumeV3(ctx: EstimateInput): number {
     }
   }
 
-  // 5. Cave / garage
+  // 5. Espaces de stockage (cave, garage, grenier, abri, balcon, véranda)
   let storageVolume = 0;
   if (ctx.storage?.cellar) {
     storageVolume += VOLUME_TABLES.STORAGE.CELLAR;
   }
   if (ctx.storage?.garage) {
     storageVolume += VOLUME_TABLES.STORAGE.GARAGE;
+  }
+  if (ctx.storage?.attic) {
+    storageVolume += VOLUME_TABLES.STORAGE.ATTIC;
+  }
+  if (ctx.storage?.shed) {
+    storageVolume += VOLUME_TABLES.STORAGE.SHED;
+  }
+  if (ctx.storage?.balcony) {
+    storageVolume += VOLUME_TABLES.STORAGE.BALCONY;
+  }
+  if (ctx.storage?.veranda) {
+    storageVolume += VOLUME_TABLES.STORAGE.VERANDA;
   }
 
   // 6. Volume objets total
@@ -186,9 +208,17 @@ export function estimateVolumeV3(ctx: EstimateInput): number {
   // 9. Foisonnement (emballage + vide camion)
   base *= 1.12;
 
-  // 10. Bornes réalistes
-  const min = ctx.surface * 0.25;
-  const max = ctx.surface * 0.8;
+  // 10. Bornes réalistes adaptatives
+  // Min : prend en compte la surface ET l'inventaire (le maximum des deux)
+  const minFromSurface = ctx.surface * 0.25;
+  const minFromInventory = (roomsVolume + objectsVolume) * 0.5; // Au moins 50% de l'inventaire
+  const min = Math.max(minFromSurface, minFromInventory);
+
+  // Max : prend en compte la surface ET l'inventaire (le minimum des deux pour éviter les sur-estimations)
+  const maxFromSurface = ctx.surface * 0.8;
+  const maxFromInventory = (roomsVolume + objectsVolume) * 1.5; // Au maximum 150% de l'inventaire
+  const max = Math.min(maxFromSurface, maxFromInventory);
+
   const finalVolume = clamp(base, min, max);
 
   // 11. Arrondi professionnel

@@ -23,16 +23,8 @@ export interface FormData {
   dateSouhaitee?: string | Date; // Alias depuis le formulaire
   flexibility?: 'NONE' | 'PLUS_MINUS_3' | 'PLUS_MINUS_7' | string;
 
-  // Logement
-  housingType?: 'STUDIO' | 'F2' | 'F3' | 'F4' | 'F5+' | 'HOUSE' | string;
-  surface?: number | string;
-  rooms?: number | string;
-
-  // Volume
-  volumeMethod?: 'FORM' | 'LIST' | 'VIDEO';
+  // Volume (calculateur V3 dans le formulaire principal ; seul champ volume envoyé)
   estimatedVolume?: number | string;
-  volumeEstime?: 'petit' | 'moyen' | 'grand' | 'tres-grand' | string; // Support du format catégoriel depuis le formulaire
-  volumeConfidence?: 'LOW' | 'MEDIUM' | 'HIGH';
 
   // Adresse départ (support de plusieurs conventions de nommage)
   departureAddress?: string; // Convention moteur de tarification
@@ -169,28 +161,10 @@ export class FormAdapter {
       movingDate: this.normalizeDate(formData.movingDate || formData.dateSouhaitee),
       flexibility: this.convertFlexibilityFromForm(formData.flexibility) ?? this.normalizeFlexibility(formData.flexibility),
 
-      // Logement
-      housingType: this.normalizeHousingType(formData.housingType),
-      surface: this.normalizeNumber(formData.surface),
-      rooms: this.normalizeInteger(formData.rooms),
-
-      // Volume
-      // Priorité : estimatedVolume (input number exact) > volumeEstime (select catégorie)
-      // Si l'utilisateur a saisi un volume exact, on l'utilise (plus précis)
-      // Sinon, on convertit la catégorie sélectionnée
-      volumeMethod: this.normalizeVolumeMethod(formData.volumeMethod),
-      estimatedVolume: this.normalizeNumber(formData.estimatedVolume) ?? this.convertVolumeEstimeToNumeric(formData.volumeEstime),
-      // Confiance du volume : utilise valeur fournie OU calcul automatique
-      volumeConfidence: (() => {
-        const provided = this.normalizeVolumeConfidence(formData.volumeConfidence);
-        if (provided !== undefined) return provided;
-        return this.calculateVolumeConfidence({
-          method: this.normalizeVolumeMethod(formData.volumeMethod),
-          housingType: this.normalizeHousingType(formData.housingType),
-          surface: this.normalizeNumber(formData.surface),
-          estimatedVolume: this.convertVolumeEstimeToNumeric(formData.volumeEstime) ?? this.normalizeNumber(formData.estimatedVolume)
-        });
-      })(),
+      // Volume (calculateur V3 côté client uniquement)
+      volumeMethod: 'FORM',
+      estimatedVolume: this.normalizeNumber(formData.estimatedVolume),
+      volumeConfidence: this.calculateVolumeConfidence(this.normalizeNumber(formData.estimatedVolume)),
 
       // Adresse départ (avec support des alias pickupAddress, adresseDepart, pickupPostalCode, pickupCity)
       // Ordre de priorité : departureAddress > pickupAddress > adresseDepart
@@ -326,41 +300,6 @@ export class FormAdapter {
   }
 
   /**
-   * Normalise housingType
-   */
-  private static normalizeHousingType(
-    housingType?: 'STUDIO' | 'F2' | 'F3' | 'F4' | 'F5+' | 'HOUSE' | string
-  ): 'STUDIO' | 'F2' | 'F3' | 'F4' | 'HOUSE' | undefined {
-    if (!housingType) return undefined;
-    const valid = ['STUDIO', 'F2', 'F3', 'F4', 'F5+', 'HOUSE'];
-    // Mapper F5+ vers F4 pour la compatibilité avec QuoteContext
-    if (housingType === 'F5+') return 'F4';
-    return valid.includes(housingType) ? (housingType as any) : undefined;
-  }
-
-  /**
-   * Normalise volumeMethod
-   */
-  private static normalizeVolumeMethod(
-    volumeMethod?: 'FORM' | 'LIST' | 'VIDEO' | string
-  ): 'FORM' | 'LIST' | 'VIDEO' | undefined {
-    if (!volumeMethod) return undefined;
-    const valid = ['FORM', 'LIST', 'VIDEO'];
-    return valid.includes(volumeMethod) ? (volumeMethod as any) : undefined;
-  }
-
-  /**
-   * Normalise volumeConfidence
-   */
-  private static normalizeVolumeConfidence(
-    confidence?: 'LOW' | 'MEDIUM' | 'HIGH' | string
-  ): 'LOW' | 'MEDIUM' | 'HIGH' | undefined {
-    if (!confidence) return undefined;
-    const valid = ['LOW', 'MEDIUM', 'HIGH'];
-    return valid.includes(confidence) ? (confidence as any) : undefined;
-  }
-
-  /**
    * Normalise elevatorSize
    */
   private static normalizeElevatorSize(
@@ -433,58 +372,6 @@ export class FormAdapter {
   // ============================================================================
   // MÉTHODES DE CONVERSION SPÉCIFIQUES AU FORMULAIRE
   // ============================================================================
-
-  /**
-   * Convertit volumeEstime catégoriel en volume numérique (m³)
-   *
-   * Mapping avec catégories resserrées :
-   * - "tres-petit" → 12 m³ (< 15m³)
-   * - "petit" → 20 m³ (15-25m³)
-   * - "petit-moyen" → 30 m³ (25-35m³)
-   * - "moyen" → 42 m³ (35-50m³)
-   * - "moyen-grand" → 60 m³ (50-70m³)
-   * - "grand" → 85 m³ (70-100m³)
-   * - "tres-grand" / "très-grand" → 120 m³ (> 100m³)
-   *
-   * Gère les variantes avec/sans accents et différentes casses
-   */
-  private static convertVolumeEstimeToNumeric(volumeEstime?: string): number | undefined {
-    if (!volumeEstime || typeof volumeEstime !== 'string') return undefined;
-
-    // Normaliser : lowercase + remplacer accents courants
-    const normalized = volumeEstime
-      .toLowerCase()
-      .trim()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, ''); // Supprime les accents
-
-    const mapping: Record<string, number> = {
-      // Nouvelles catégories resserrées avec nouveaux noms
-      'tres-petit': 12,
-      'trespetit': 12,
-      'très-petit': 12,
-      'moyen-1': 20,
-      'moyen1': 20, // Sans tiret
-      'petit': 20, // Alias pour compatibilité
-      'moyen-2': 30,
-      'moyen2': 30, // Sans tiret
-      'petit-moyen': 30, // Alias pour compatibilité
-      'petitmoyen': 30,
-      'moyen-intermediaire': 42,
-      'moyenintermediaire': 42, // Sans tiret
-      'moyen': 42, // Alias pour compatibilité
-      'moyen-grand': 60,
-      'moyengrand': 60,
-      'grand': 85,
-      'tres-grand': 120,
-      'tresgrand': 120, // Sans tiret
-      'très-grand': 120,
-      'extra-grand': 120, // Alias possible
-      'extragrand': 120,
-    };
-
-    return mapping[normalized];
-  }
 
   /**
    * Convertit l'enum elevator ('no'|'small'|'medium'|'large') en boolean
@@ -594,84 +481,18 @@ export class FormAdapter {
   }
 
   /**
-   * Calcule la confiance du volume estimé
+   * Calcule la confiance du volume estimé (méthode FORM uniquement).
+   * Le volume vient du calculateur V3 côté client (fiable).
    *
-   * LOGIQUE :
-   * - VIDEO : HIGH (analyse IA précise)
-   * - LIST : MEDIUM (liste d'objets analysée)
-   * - FORM : Vérifie cohérence entre surface et volume estimé
-   *   - Si cohérent (ratio 0.7-1.3) : MEDIUM
-   *   - Sinon : LOW
-   *
-   * @param params Paramètres (method, housingType, surface, estimatedVolume)
-   * @returns Confiance calculée
+   * @param estimatedVolume Volume en m³
+   * @returns Confiance calculée (MEDIUM si volume fourni, LOW sinon)
    */
-  private static calculateVolumeConfidence(params: {
-    method?: 'FORM' | 'LIST' | 'VIDEO';
-    housingType?: string;
-    surface?: number;
-    estimatedVolume?: number;
-  }): 'LOW' | 'MEDIUM' | 'HIGH' | undefined {
-    const { method, housingType, surface, estimatedVolume } = params;
-
-    // Si pas de méthode, impossible de calculer
-    if (!method) {
-      return undefined;
+  private static calculateVolumeConfidence(estimatedVolume?: number): 'LOW' | 'MEDIUM' | 'HIGH' | undefined {
+    if (estimatedVolume && estimatedVolume > 0) {
+      return 'MEDIUM'; // Calculateur V3 fiable
     }
-
-    // VIDEO = haute confiance (analyse IA précise)
-    if (method === 'VIDEO') {
-      return 'HIGH';
-    }
-
-    // LIST = confiance moyenne (liste d'objets analysée)
-    if (method === 'LIST') {
-      return 'MEDIUM';
-    }
-
-    // FORM = vérifier cohérence entre surface et volume estimé
-    if (method === 'FORM' && surface && estimatedVolume && surface > 0 && estimatedVolume > 0) {
-      const expectedVolume = this.estimateVolumeFromSurface(surface, housingType);
-      if (expectedVolume > 0) {
-        const ratio = estimatedVolume / expectedVolume;
-
-        // Si cohérent (ratio entre 0.7 et 1.3)
-        if (ratio >= 0.7 && ratio <= 1.3) {
-          return 'MEDIUM';
-        }
-      }
-    }
-
-    // Par défaut : confiance faible
     return 'LOW';
   }
 
-  /**
-   * Estime le volume depuis la surface
-   *
-   * Formule approximative : surface × hauteur sous plafond × taux de remplissage
-   *
-   * @param surface Surface en m²
-   * @param housingType Type de logement (pour ajustement éventuel)
-   * @returns Volume estimé en m³
-   */
-  private static estimateVolumeFromSurface(
-    surface: number,
-    housingType?: string
-  ): number {
-    // Formule approximative : surface × hauteur sous plafond × taux de remplissage
-    const height = 2.5; // m (hauteur sous plafond standard)
-    const fillRate = 0.3; // 30% de remplissage moyen (meubles, objets)
-
-    // Ajustement selon le type de logement (optionnel)
-    let typeFactor = 1.0;
-    if (housingType === 'STUDIO') {
-      typeFactor = 0.9; // Studio : remplissage légèrement plus faible
-    } else if (housingType === 'HOUSE') {
-      typeFactor = 1.1; // Maison : remplissage légèrement plus élevé
-    }
-
-    return surface * height * fillRate * typeFactor;
-  }
 }
 

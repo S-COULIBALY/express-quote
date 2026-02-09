@@ -43,7 +43,10 @@ export class CleaningEndCostModule implements QuoteModule {
     }
 
     const costPerM2 = MODULES_CONFIG.crossSelling.CLEANING_COST_PER_M2;
-    const surface = ctx.surface || 0;
+    // Surface déduite du volume (m³ → m², hauteur sous plafond ~2.5 m)
+    const surface = (ctx.estimatedVolume != null && ctx.estimatedVolume > 0)
+      ? Math.round(ctx.estimatedVolume / 2.5)
+      : 0;
     const cleaningCost = surface * costPerM2;
 
     // Logs détaillés du calcul

@@ -135,7 +135,7 @@ export const FurnitureLiftCheckbox: React.FC<FurnitureLiftCheckboxProps> = ({
     <div className="relative">
       {/* Container horizontal - optimisé mobile avec plus d'espace pour le texte */}
       <div
-        className={`flex flex-row items-center gap-1.5 sm:gap-3 py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg border cursor-pointer transition-all duration-150 ${
+        className={`flex flex-row items-center gap-1.5 sm:gap-3 py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg border cursor-pointer transition-all duration-150 w-full ${
           isMandatory
             ? "bg-red-50 border-red-200"
             : isRecommended
@@ -163,9 +163,11 @@ export const FurnitureLiftCheckbox: React.FC<FurnitureLiftCheckboxProps> = ({
           )}
         </div>
 
-        {/* Label - optimisé mobile avec plus d'espace */}
-        <span className={`text-[10px] sm:text-xs font-medium flex-1 min-w-0 ${isMandatory ? "text-red-700" : "text-gray-800"}`}>
-          Monte-meubles {addressLabel}
+        {/* Label - Monte / meuble (sans tiret, sans pluriel, retour à la ligne) + Départ/Arrivée */}
+        <span className={`text-[10px] sm:text-xs font-medium flex-1 min-w-0 leading-tight ${isMandatory ? "text-red-700" : "text-gray-800"}`}>
+          Monte
+          <br />
+          meuble {addressLabel}
         </span>
 
         {/* Badge de statut - optimisé mobile - plus compact */}

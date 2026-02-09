@@ -157,6 +157,17 @@ export const FormSection: React.FC<FormSectionProps> = ({
             // Déterminer les classes CSS pour la grille
             const getFieldClasses = () => {
               if (effectiveColumns >= 2) {
+                // Vérifier si le champ a des classes de largeur personnalisées (w-[80%], w-[20%], etc.)
+                const hasCustomWidth = field.className?.includes("w-[");
+                
+                if (hasCustomWidth && field.className) {
+                  // Si largeur personnalisée, extraire les classes de largeur et les autres classes
+                  const widthClass = field.className.match(/w-\[[\d%]+\]/)?.[0] || "";
+                  const otherClasses = field.className.replace(/w-\[[\d%]+\]/g, "").trim();
+                  // Retourner la largeur + autres classes, avec flex-shrink-0 pour éviter le rétrécissement
+                  return `${widthClass} flex-shrink-0 ${otherClasses}`.trim();
+                }
+                
                 // Mode grille : utiliser columnSpan ou inline
                 if (field.columnSpan === 2) {
                   return "col-span-2"; // Largeur 2/3 ou 2/2
@@ -181,6 +192,75 @@ export const FormSection: React.FC<FormSectionProps> = ({
               return ""; // Mode normal : pas de classes de grille
             };
 
+            // Vérifier si le champ a des largeurs personnalisées
+            const hasCustomWidth = field.className?.includes("w-[");
+            
+            // Si le champ précédent avait une largeur personnalisée et que celui-ci aussi,
+            // on doit les grouper. Pour simplifier, on vérifie si le champ suivant a aussi une largeur personnalisée
+            const nextField = section.fields[index + 1];
+            const nextHasCustomWidth = nextField?.className?.includes("w-[");
+            const prevField = section.fields[index - 1];
+            const prevHasCustomWidth = prevField?.className?.includes("w-[");
+            
+            // Si c'est le premier champ d'un groupe avec largeurs personnalisées
+            if (hasCustomWidth && !prevHasCustomWidth) {
+              // Trouver tous les champs consécutifs avec largeurs personnalisées
+              const groupFields: typeof section.fields = [];
+              let j = index;
+              while (j < section.fields.length && section.fields[j].className?.includes("w-[")) {
+                const groupField = section.fields[j];
+                const shouldShowGroup = groupField.conditional
+                  ? groupField.conditional.condition(
+                      formData?.[groupField.conditional.dependsOn],
+                      formData,
+                    )
+                  : true;
+                if (shouldShowGroup) {
+                  groupFields.push(groupField);
+                }
+                j++;
+              }
+              
+              // Rendre le groupe dans un conteneur flex qui span toute la largeur de la grille
+              return (
+                <div
+                  key={`group-${field.name}`}
+                  className={`flex flex-nowrap items-start gap-x-2 ${
+                    effectiveColumns >= 2 ? "col-span-2" : ""
+                  }`}
+                >
+                  {groupFields.map((groupField) => {
+                    const widthClass = groupField.className?.match(/w-\[[\d%]+\]/)?.[0] || "";
+                    const otherClasses = groupField.className?.replace(/w-\[[\d%]+\]/g, "").trim() || "";
+                    
+                    return (
+                      <div
+                        key={groupField.name}
+                        className={`${widthClass} flex-shrink-0 ${otherClasses}`.trim()}
+                      >
+                        <FormField
+                          field={groupField}
+                          register={register}
+                          errors={errors}
+                          value={formData?.[groupField.name]}
+                          onChange={(value) => {
+                            onFieldChange?.(groupField.name, value);
+                          }}
+                          formData={formData}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            }
+            
+            // Si ce champ fait partie d'un groupe déjà rendu, le sauter
+            if (hasCustomWidth && prevHasCustomWidth) {
+              return null;
+            }
+            
+            // Champ normal - utiliser le système de grille
             return (
               <div
                 key={field.name}

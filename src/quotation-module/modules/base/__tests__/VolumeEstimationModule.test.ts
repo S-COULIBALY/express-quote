@@ -13,10 +13,8 @@ describe('VolumeEstimationModule', () => {
       serviceType: 'MOVING',
       region: 'IDF',
       movingDate: '2025-03-15T00:00:00Z',
-      housingType: 'F3',
-      surface: 65,
-      rooms: 3,
       volumeMethod: 'FORM',
+      estimatedVolume: 35,
       volumeConfidence: 'MEDIUM',
       departureAddress: '123 Rue Test, 75001 Paris',
       arrivalAddress: '456 Avenue Test, 75002 Paris',
@@ -33,28 +31,6 @@ describe('VolumeEstimationModule', () => {
         metadata: {},
       },
     };
-  });
-
-  describe('calculateSpecialItemsVolume', () => {
-    it('should calculate volume for special items', () => {
-      const ctx: QuoteContext = {
-        ...baseContext,
-        piano: true,
-        bulkyFurniture: true,
-      };
-      const result = module['calculateSpecialItemsVolume'](ctx);
-      const expectedVolume = volumeConfig.SPECIAL_ITEMS_VOLUME.PIANO + volumeConfig.SPECIAL_ITEMS_VOLUME.BULKY_FURNITURE;
-      expect(result.volume).toBe(expectedVolume);
-      expect(result.items).toHaveLength(2);
-      expect(result.items).toContain(`Piano: +${volumeConfig.SPECIAL_ITEMS_VOLUME.PIANO} m³`);
-      expect(result.items).toContain(`Meubles encombrants: +${volumeConfig.SPECIAL_ITEMS_VOLUME.BULKY_FURNITURE} m³`);
-    });
-
-    it('should return 0 for no special items', () => {
-      const result = module['calculateSpecialItemsVolume'](baseContext);
-      expect(result.volume).toBe(0);
-      expect(result.items).toHaveLength(0);
-    });
   });
 
   describe('apply method', () => {
@@ -86,65 +62,35 @@ describe('VolumeEstimationModule', () => {
       expect(result.computed?.adjustedVolume).toBeGreaterThan(0);
     });
 
-    it('should handle VIDEO volume method', () => {
+    it('should always use FORM volume method in metadata', () => {
       const ctx: QuoteContext = {
         ...baseContext,
-        volumeMethod: 'VIDEO',
         estimatedVolume: 35,
         volumeConfidence: 'HIGH',
       };
       const result = module.apply(ctx);
 
       expect(result.computed?.adjustedVolume).toBeDefined();
-      expect(result.computed?.metadata?.volumeMethod).toBe('VIDEO');
+      expect(result.computed?.metadata?.volumeMethod).toBe('FORM');
     });
 
-    it('should handle LIST volume method', () => {
+    it('should use fallback volume when not provided', () => {
       const ctx: QuoteContext = {
         ...baseContext,
-        volumeMethod: 'LIST',
-        estimatedVolume: 28,
-        volumeConfidence: 'MEDIUM',
-      };
-      const result = module.apply(ctx);
-
-      expect(result.computed?.adjustedVolume).toBeDefined();
-      expect(result.computed?.metadata?.volumeMethod).toBe('LIST');
-    });
-
-    it('should add special items volume when not provided', () => {
-      const ctx: QuoteContext = {
-        ...baseContext,
+        estimatedVolume: undefined,
         piano: true,
         bulkyFurniture: true,
       };
       const result = module.apply(ctx);
 
       expect(result.computed?.baseVolume).toBeGreaterThan(0);
-      // Volume devrait inclure piano (8) + bulky (5) = 13 m³ additionnels
-    });
-
-    it('should include validation thresholds in metadata', () => {
-      const result = module.apply(baseContext);
-
-      expect(result.computed?.metadata?.validationThresholds).toBeDefined();
-      expect(result.computed?.metadata?.validationThresholds?.criticalUnderestimate).toBe(volumeConfig.VOLUME_VALIDATION_THRESHOLDS.CRITICAL_UNDERESTIMATE);
-      expect(result.computed?.metadata?.validationThresholds?.mediumUnderestimate).toBe(volumeConfig.VOLUME_VALIDATION_THRESHOLDS.MEDIUM_UNDERESTIMATE);
-      expect(result.computed?.metadata?.validationThresholds?.overestimate).toBe(volumeConfig.VOLUME_VALIDATION_THRESHOLDS.OVERESTIMATE);
-    });
-
-    it('should include safety margins in metadata', () => {
-      const result = module.apply(baseContext);
-
-      expect(result.computed?.metadata?.safetyMargins).toBeDefined();
-      expect(result.computed?.metadata?.safetyMargins?.critical).toBe(volumeConfig.SAFETY_MARGINS.CRITICAL);
-      expect(result.computed?.metadata?.safetyMargins?.medium).toBe(volumeConfig.SAFETY_MARGINS.MEDIUM);
+      // Fallback F3 = 20 m³ (pas d'ajout d'objets spéciaux côté backend)
     });
 
     it('should include confidence adjustment details in metadata', () => {
       const ctx: QuoteContext = {
         ...baseContext,
-        volumeMethod: 'FORM',
+        estimatedVolume: 30,
         volumeConfidence: 'MEDIUM',
       };
       const result = module.apply(ctx);
@@ -156,42 +102,14 @@ describe('VolumeEstimationModule', () => {
       expect(result.computed?.metadata?.confidenceAdjustment?.adjustmentPercentage).toBeDefined();
     });
 
-    it('should apply critical safety margin for severe underestimation', () => {
+    it('should use user volume with minimal margin (V3 calculator)', () => {
       const ctx: QuoteContext = {
         ...baseContext,
-        surface: 100, // Volume théorique ~45 m³ (100 * 0.45)
-        estimatedVolume: 20, // Sous-estimation de ~55% (>30%)
+        estimatedVolume: 43,
       };
       const result = module.apply(ctx);
 
-      // Le volume devrait être corrigé avec marge critique
-      expect(result.computed?.metadata?.safetyMarginApplied).toBe(volumeConfig.SAFETY_MARGINS.CRITICAL);
-      expect(result.computed?.metadata?.volumeValidationApplied).toBe(true);
-      expect(result.computed?.manualReviewRequired).toBe(true);
-    });
-
-    it('should apply medium safety margin for moderate underestimation', () => {
-      const ctx: QuoteContext = {
-        ...baseContext,
-        surface: 100, // Volume théorique ~45 m³
-        estimatedVolume: 30, // Sous-estimation de ~33% (15-30%)
-      };
-      const result = module.apply(ctx);
-
-      // Le volume devrait être corrigé avec marge moyenne
-      expect(result.computed?.metadata?.safetyMarginApplied).toBe(volumeConfig.SAFETY_MARGINS.MEDIUM);
-      expect(result.computed?.metadata?.volumeValidationApplied).toBe(true);
-    });
-
-    it('should use user volume when difference is small', () => {
-      const ctx: QuoteContext = {
-        ...baseContext,
-        surface: 100, // Volume théorique ~45 m³
-        estimatedVolume: 43, // Écart de ~4% (<15%)
-      };
-      const result = module.apply(ctx);
-
-      // Le volume fourni devrait être utilisé sans marge
+      expect(result.computed?.baseVolume).toBe(43);
       expect(result.computed?.metadata?.safetyMarginApplied).toBeNull();
       expect(result.computed?.metadata?.volumeValidationApplied).toBe(false);
     });

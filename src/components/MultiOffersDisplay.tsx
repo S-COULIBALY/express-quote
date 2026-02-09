@@ -16,6 +16,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { ChevronRightIcon } from "@heroicons/react/24/solid";
 import { MultiOffersResult } from "@/hooks/shared/useModularQuotation";
 import {
   getScenarioServices,
@@ -669,7 +670,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
               </table>
             </div>
             {showScrollIndicator && (
-              <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-24 flex items-center justify-end pr-2 sm:pr-4 pl-4 sm:pl-6 bg-gradient-to-l from-white via-white/95 to-transparent z-20 pointer-events-none">
+              <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-24 flex items-center justify-end pr-2 sm:pr-4 pl-2 sm:pl-6 bg-gradient-to-l from-white via-white/95 to-transparent z-20 pointer-events-none">
                 <button
                   type="button"
                   onClick={() => {
@@ -683,7 +684,7 @@ export const MultiOffersDisplay: React.FC<MultiOffersDisplayProps> = ({
                   className="pointer-events-auto flex items-center justify-center gap-0.5 sm:gap-1 text-blue-600 hover:text-blue-700 font-semibold text-sm cursor-pointer transition-colors min-w-[2rem] sm:min-w-0 h-8 sm:h-auto rounded-l-md sm:rounded-none bg-white/90 sm:bg-transparent border-l border-gray-200/80 sm:border-0"
                   aria-label="Défiler vers la droite pour voir plus de formules"
                 >
-                  <span className="animate-bounce text-base sm:text-sm">→</span>
+                  <ChevronRightIcon className="w-8 h-8 sm:w-7 sm:h-7 animate-bounce text-blue-700 flex-shrink-0" />
                   <span className="hidden sm:inline whitespace-nowrap">
                     Plus
                   </span>

@@ -13,7 +13,7 @@ import { MODULES_CONFIG } from '../../config/modules.config';
  * - Ajoute un requirement et une proposition cross-selling
  *
  * LOGIQUE MÉTIER :
- * - Nettoyage toujours disponible en option si une surface est fournie
+ * - Nettoyage disponible en option si un volume est fourni (surface déduite du volume : surface ≈ volume / 2.5)
  * - Pas de conditions restrictives
  */
 export class CleaningEndRequirementModule implements QuoteModule {
@@ -21,12 +21,17 @@ export class CleaningEndRequirementModule implements QuoteModule {
   readonly description = 'Recommande le nettoyage de fin de chantier';
   readonly priority = 83; // PHASE 8 - Options & Cross-Selling
 
+  /** Surface effective pour le nettoyage, déduite du volume (m³ → m² avec hauteur sous plafond ~2.5 m). */
+  private getEffectiveSurface(ctx: QuoteContext): number {
+    if (ctx.estimatedVolume == null || ctx.estimatedVolume <= 0) return 0;
+    return Math.round(ctx.estimatedVolume / 2.5);
+  }
+
   /**
-   * Le module s'applique si une surface est fournie (pas de conditions restrictives)
+   * Le module s'applique si un volume est fourni (surface déduite pour la recommandation).
    */
   isApplicable(ctx: QuoteContext): boolean {
-    const surface = ctx.surface || 0;
-    return surface > 0; // Disponible si surface > 0
+    return this.getEffectiveSurface(ctx) > 0;
   }
 
   apply(ctx: QuoteContext): QuoteContext {
@@ -37,7 +42,7 @@ export class CleaningEndRequirementModule implements QuoteModule {
     }
 
     const costPerM2 = MODULES_CONFIG.crossSelling.CLEANING_COST_PER_M2;
-    const surface = ctx.surface || 0;
+    const surface = this.getEffectiveSurface(ctx);
     const estimatedCost = surface * costPerM2;
 
     // Ajouter un requirement

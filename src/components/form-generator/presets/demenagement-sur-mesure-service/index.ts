@@ -365,8 +365,8 @@ export const getDemenagementSurMesureServiceConfig = (
             type: "address-pickup",
             label: "📍 Adresse de départ",
             required: true,
-            columnSpan: 2,
-            className: "pickup-section",
+            columnSpan: 1,
+            className: "pickup-section w-[70%]",
             validation: {
               custom: (value: any) => {
                 if (!value || !value.trim()) {
@@ -377,6 +377,22 @@ export const getDemenagementSurMesureServiceConfig = (
             },
             componentProps: {
               iconColor: "#10b981",
+            },
+          },
+          {
+            name: "pickupFurnitureLift",
+            type: "furniture-lift-checkbox",
+            label: "",
+            className: "pickup-field w-[30%]",
+            componentProps: {
+              addressType: "pickup",
+              floorFieldName: "pickupFloor",
+              elevatorFieldName: "pickupElevator",
+              // Seuils de gestion automatique
+              thresholds: {
+                HIGH: 3, // ≥3 : Coché par défaut, décochable avec warning
+                CRITICAL: 5, // ≥5 : Coché et non décochable
+              },
             },
           },
           {
@@ -432,26 +448,8 @@ export const getDemenagementSurMesureServiceConfig = (
             componentProps: {
               type: "pickup",
               buttonLabel: "Contraintes & Spécificités",
-              modalTitle:
-                "Contraintes d'accès & Services Supplémentaires - Départ",
+              modalTitle: "Contraintes",
               showServices: true,
-            },
-          },
-
-          {
-            name: "pickupFurnitureLift",
-            type: "furniture-lift-checkbox",
-            label: "Monte-meubles départ",
-            className: "pickup-field",
-            componentProps: {
-              addressType: "pickup",
-              floorFieldName: "pickupFloor",
-              elevatorFieldName: "pickupElevator",
-              // Seuils de gestion automatique
-              thresholds: {
-                HIGH: 3, // ≥3 : Coché par défaut, décochable avec warning
-                CRITICAL: 5, // ≥5 : Coché et non décochable
-              },
             },
           },
 
@@ -465,8 +463,8 @@ export const getDemenagementSurMesureServiceConfig = (
             type: "address-delivery",
             label: "📍 Adresse d'arrivée",
             required: true,
-            columnSpan: 2,
-            className: "delivery-section",
+            columnSpan: 1,
+            className: "delivery-section w-[70%]",
             validation: {
               custom: (value: any) => {
                 if (!value || !value.trim()) {
@@ -477,6 +475,22 @@ export const getDemenagementSurMesureServiceConfig = (
             },
             componentProps: {
               iconColor: "#ef4444",
+            },
+          },
+          {
+            name: "deliveryFurnitureLift",
+            type: "furniture-lift-checkbox",
+            label: "",
+            className: "delivery-field w-[30%]",
+            componentProps: {
+              addressType: "delivery",
+              floorFieldName: "deliveryFloor",
+              elevatorFieldName: "deliveryElevator",
+              // Seuils de gestion automatique
+              thresholds: {
+                HIGH: 3, // ≥3 : Coché par défaut, décochable avec warning
+                CRITICAL: 5, // ≥5 : Coché et non décochable
+              },
             },
           },
           {
@@ -532,25 +546,8 @@ export const getDemenagementSurMesureServiceConfig = (
             componentProps: {
               type: "delivery",
               buttonLabel: "Contraintes & Spécificités",
-              modalTitle:
-                "Contraintes d'accès & Services Supplémentaires - Arrivée",
+              modalTitle: "Contraintes",
               showServices: true,
-            },
-          },
-          {
-            name: "deliveryFurnitureLift",
-            type: "furniture-lift-checkbox",
-            label: "Monte-meubles arrivée",
-            className: "delivery-field",
-            componentProps: {
-              addressType: "delivery",
-              floorFieldName: "deliveryFloor",
-              elevatorFieldName: "deliveryElevator",
-              // Seuils de gestion automatique
-              thresholds: {
-                HIGH: 3, // ≥3 : Coché par défaut, décochable avec warning
-                CRITICAL: 5, // ≥5 : Coché et non décochable
-              },
             },
           },
         ],

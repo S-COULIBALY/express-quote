@@ -26,8 +26,6 @@ describe('Gestion d\'Erreurs - Intégration', () => {
     it('should throw error when movingDate is missing', () => {
       const formData = {
         // movingDate manquant intentionnellement
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -49,8 +47,6 @@ describe('Gestion d\'Erreurs - Intégration', () => {
     it('should throw error when movingDate is in the past', () => {
       const formData = {
         movingDate: '2020-01-01T10:00:00Z', // Date dans le passé
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -72,8 +68,6 @@ describe('Gestion d\'Erreurs - Intégration', () => {
     it('should throw error when movingDate format is invalid', () => {
       const formData = {
         movingDate: 'invalid-date-format',
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -97,8 +91,6 @@ describe('Gestion d\'Erreurs - Intégration', () => {
     it('should continue execution even if a non-critical module fails', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -153,8 +145,6 @@ describe('Gestion d\'Erreurs - Intégration', () => {
     it('should sanitize dangerous input', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue <script>alert("xss")</script> de Paris',
@@ -177,8 +167,6 @@ describe('Gestion d\'Erreurs - Intégration', () => {
     it('should handle invalid numbers gracefully', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 'invalid-number' as any,
         estimatedVolume: NaN as any,
         distance: Infinity as any,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -192,7 +180,6 @@ describe('Gestion d\'Erreurs - Intégration', () => {
       const result = engine.execute(context);
 
       // Les valeurs invalides devraient être undefined
-      expect(result.surface).toBeUndefined();
       expect(result.estimatedVolume).toBeUndefined();
       expect(result.distance).toBeUndefined();
 
@@ -205,8 +192,6 @@ describe('Gestion d\'Erreurs - Intégration', () => {
     it('should skip modules when dependencies are missing', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         // estimatedVolume manquant intentionnellement
         departureAddress: '123 Rue de Paris, 75001 Paris',
         departurePostalCode: '75001',

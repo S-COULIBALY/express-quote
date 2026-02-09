@@ -11,7 +11,7 @@ describe('CleaningEndCostModule', () => {
     expect(module.id).toBe('cleaning-end-cost');
     expect(module.description).toBe('Calcule le coût du nettoyage de fin de chantier si accepté');
     expect(module.priority).toBe(86);
-    expect(module.dependencies).toEqual(['cleaning-end-requirement']);
+    expect(module.dependencies).toEqual([]); // Pas de dépendance stricte, activé via cleaningEnd
   });
 
   it('devrait être applicable si nettoyage recommandé ET accepté', () => {
@@ -60,19 +60,6 @@ describe('CleaningEndCostModule', () => {
     expect(module.isApplicable(ctx)).toBe(false);
   });
 
-  it('ne devrait pas être applicable si pas de recommandation', () => {
-    const ctx: QuoteContext = {
-      serviceType: 'MOVING',
-      region: 'IDF',
-      departureAddress: '123 Rue de Paris',
-      arrivalAddress: '456 Avenue Montaigne',
-      cleaningEnd: true,
-      computed: createEmptyComputedContext(),
-    };
-
-    expect(module.isApplicable(ctx)).toBe(false);
-  });
-
   it('devrait ajouter le coût de nettoyage', () => {
     const ctx: QuoteContext = {
       serviceType: 'MOVING',
@@ -80,7 +67,7 @@ describe('CleaningEndCostModule', () => {
       departureAddress: '123 Rue de Paris',
       arrivalAddress: '456 Avenue Montaigne',
       cleaningEnd: true,
-      surface: 80,
+      estimatedVolume: 200, // ≈ 80 m² (200/2.5)
       computed: {
         ...createEmptyComputedContext(),
         requirements: [
@@ -101,7 +88,7 @@ describe('CleaningEndCostModule', () => {
     expect(cost).toBeDefined();
     const expectedCost = 80 * config.CLEANING_COST_PER_M2; // 80 m² * 8 €/m² = 640€
     expect(cost?.amount).toBe(expectedCost);
-    expect(cost?.category).toBe('ADMINISTRATIVE');
+    expect(cost?.category).toBe('SERVICE');
     expect(cost?.label).toBe('Nettoyage de fin de chantier');
     expect(cost?.metadata).toMatchObject({
       surface: 80,

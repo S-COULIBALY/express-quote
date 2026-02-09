@@ -27,9 +27,6 @@ describe('Pipeline MVP Phase 1 - Intégration Complète', () => {
     it('should calculate a complete quote for a simple moving scenario', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
-        rooms: 3,
         volumeMethod: 'FORM' as const,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
@@ -103,9 +100,6 @@ describe('Pipeline MVP Phase 1 - Intégration Complète', () => {
     it('should calculate a quote for long distance moving', () => {
       const formData = {
         movingDate: '2025-04-01T10:00:00Z',
-        housingType: 'F4' as const,
-        surface: 85,
-        rooms: 4,
         volumeMethod: 'FORM' as const,
         estimatedVolume: 45,
         volumeConfidence: 'HIGH' as const,
@@ -148,8 +142,6 @@ describe('Pipeline MVP Phase 1 - Intégration Complète', () => {
     it('should calculate a quote with special items (piano)', () => {
       const formData = {
         movingDate: '2025-03-20T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         volumeMethod: 'FORM' as const,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
@@ -186,8 +178,6 @@ describe('Pipeline MVP Phase 1 - Intégration Complète', () => {
     it('should calculate a quote with access constraints (no elevator)', () => {
       const formData = {
         movingDate: '2025-03-25T10:00:00Z',
-        housingType: 'F2' as const,
-        surface: 45,
         volumeMethod: 'FORM' as const,
         estimatedVolume: 20,
         volumeConfidence: 'MEDIUM' as const,

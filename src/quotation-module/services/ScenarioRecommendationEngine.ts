@@ -391,12 +391,6 @@ export class ScenarioRecommendationEngine {
       reasons.push('Nettoyage fin de bail inclus');
     }
 
-    // ✅ Favorise si logement maison
-    if (ctx.housingType === 'HOUSE') {
-      score += 15;
-      reasons.push('Maison - service complet adapté');
-    }
-
     // ✅ Favorise si plusieurs objets spéciaux
     const specialItems = [ctx.artwork, ctx.piano, ctx.safe, ctx.builtInAppliances].filter(Boolean).length;
     if (specialItems >= 2) {
@@ -404,8 +398,8 @@ export class ScenarioRecommendationEngine {
       reasons.push('Nombreux objets spéciaux nécessitant un service premium');
     }
 
-    // ❌ Pénalise si petit budget apparent (studio, petit volume)
-    if (ctx.housingType === 'STUDIO' || (ctx.estimatedVolume && ctx.estimatedVolume <= THRESHOLDS.SMALL_VOLUME)) {
+    // ❌ Pénalise si petit budget apparent (petit volume)
+    if (ctx.estimatedVolume && ctx.estimatedVolume <= THRESHOLDS.SMALL_VOLUME) {
       score -= 25;
       warnings.push('Petit logement - formules ECO/STANDARD plus adaptées');
     }

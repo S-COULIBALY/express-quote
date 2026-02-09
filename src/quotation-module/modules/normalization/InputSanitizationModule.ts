@@ -35,8 +35,6 @@ export class InputSanitizationModule implements QuoteModule {
     const sanitizedMovingDate = this.sanitizeDate(ctx.movingDate);
 
     // Sanitisation des valeurs numériques (protection contre NaN, Infinity)
-    const sanitizedSurface = this.sanitizeNumber(ctx.surface);
-    const sanitizedRooms = this.sanitizeNumber(ctx.rooms);
     const sanitizedEstimatedVolume = this.sanitizeNumber(ctx.estimatedVolume);
     const sanitizedDistance = this.sanitizeNumber(ctx.distance);
     const sanitizedDeclaredValue = this.sanitizeNumber(ctx.declaredValue);
@@ -58,8 +56,6 @@ export class InputSanitizationModule implements QuoteModule {
       departureCity: sanitizedDepartureCity,
       arrivalCity: sanitizedArrivalCity,
       movingDate: sanitizedMovingDate,
-      surface: sanitizedSurface,
-      rooms: sanitizedRooms,
       estimatedVolume: sanitizedEstimatedVolume,
       distance: sanitizedDistance,
       declaredValue: sanitizedDeclaredValue,
@@ -108,7 +104,6 @@ export class InputSanitizationModule implements QuoteModule {
 
     // Valeurs numériques
     const numericFields = [
-      { name: 'Surface', original: ctx.surface, sanitized: sanitizedSurface },
       { name: 'Volume', original: ctx.estimatedVolume, sanitized: sanitizedEstimatedVolume },
       { name: 'Distance', original: ctx.distance, sanitized: sanitizedDistance },
       { name: 'Valeur déclarée', original: ctx.declaredValue, sanitized: sanitizedDeclaredValue },
@@ -152,8 +147,6 @@ export class InputSanitizationModule implements QuoteModule {
       // Date sanitizée
       movingDate: sanitizedMovingDate,
       // Valeurs numériques sanitizées
-      surface: sanitizedSurface,
-      rooms: sanitizedRooms,
       estimatedVolume: sanitizedEstimatedVolume,
       distance: sanitizedDistance,
       declaredValue: sanitizedDeclaredValue,
@@ -233,8 +226,6 @@ export class InputSanitizationModule implements QuoteModule {
       { original: 'departureCity', sanitized: 'departureCity' },
       { original: 'arrivalCity', sanitized: 'arrivalCity' },
       { original: 'movingDate', sanitized: 'movingDate' },
-      { original: 'surface', sanitized: 'surface' },
-      { original: 'rooms', sanitized: 'rooms' },
       { original: 'estimatedVolume', sanitized: 'estimatedVolume' },
       { original: 'distance', sanitized: 'distance' },
       { original: 'declaredValue', sanitized: 'declaredValue' },

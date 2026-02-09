@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
-import { X, Info } from "lucide-react";
+import { createPortal } from 'react-dom';
+import { Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 // ✅ Seules les contraintes d'accès sont gérées ici
 // Les services et fournitures sont maintenant gérés via le catalogue cross-selling
@@ -63,6 +63,22 @@ const detectLongCarryingDistance = (carryDistance?: '0-10' | '10-30' | '30+'): b
   return carryDistance === '30+';
 };
 
+/** z-index pour overlay et panel (aligné sur VolumeCalculatorDrawer) */
+const DRAWER_OVERLAY_Z = 100;
+const DRAWER_PANEL_Z = 101;
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    setIsMobile(mq.matches);
+    const handler = () => setIsMobile(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
 // ✅ Fonction pure en dehors du composant pour éviter les re-créations
 const normalizeValue = (val: any): Record<string, boolean> => {
   if (!val || typeof val !== 'object') return {};
@@ -118,8 +134,11 @@ export const LogisticsModal: React.FC<LogisticsModalProps> = ({
   }, []);
 
   const [isOpen, setIsOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [selectedRules, setSelectedRules] = useState<any>(initialNormalizedValue);
   const [blockedRuleMessage, setBlockedRuleMessage] = useState<string>('');
+
+  const handleClose = useCallback(() => setIsOpen(false), []);
 
   // ✅ Calculer la sévérité du monte-meubles pour l'avertissement
   const furnitureLiftSeverity = useMemo(() => {
@@ -219,42 +238,67 @@ export const LogisticsModal: React.FC<LogisticsModalProps> = ({
 
   const selectedCount = Object.keys(selectedRules).filter(key => selectedRules[key]).length;
 
-  return (
-    <div className="relative group">
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-between text-left font-normal"
-          >
-            <span className="truncate">
-              {selectedCount > 0
-                ? `${selectedCount} ${selectedCount === 1 ? 'élément sélectionné' : 'éléments sélectionnés'}`
-                : buttonLabel}
-            </span>
-            <Info className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </DialogTrigger>
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, handleClose]);
 
-        {/* ✅ Message d'info si aucune sélection - Version discrète */}
-        {selectedCount === 0 && (
-          <p className="mt-0.5 text-[10px] sm:text-[11px] text-gray-400 opacity-60 italic">
-            Cliquez pour sélectionner des contraintes d'accès et services supplémentaires
-          </p>
-        )}
-        
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto !pr-6">
-        <DialogHeader className="text-center bg-emerald-500 pb-6 -mt-6 -mx-6 px-6 pt-6 relative">
-          <DialogTitle className="text-center text-white font-medium text-xl">{modalTitle}</DialogTitle>
-          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-100 transition-colors hover:bg-orange-600 focus:outline-none disabled:pointer-events-none bg-orange-500 p-2 text-white">
-            <X className="h-5 w-5" />
-            <span className="sr-only">Fermer</span>
-          </DialogClose>
-        </DialogHeader>
-
-        {/* ✅ Contenu du modal - données statiques, pas de chargement */}
-        <div className="space-y-6">
+  const drawerContent = isOpen ? (
+    <>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="Fermer"
+        className="fixed inset-0 bg-black/40 animate-in fade-in duration-200"
+        style={{ zIndex: DRAWER_OVERLAY_Z }}
+        onClick={handleClose}
+        onKeyDown={(e) => e.key === "Enter" && handleClose()}
+      />
+      <div
+        className={
+          isMobile
+            ? "fixed inset-x-0 bottom-0 top-[15%] rounded-t-2xl bg-white shadow-xl flex flex-col animate-in slide-in-from-bottom duration-300 ease-out"
+            : "fixed right-0 top-0 bottom-0 w-full max-w-[480px] sm:max-w-[520px] bg-white shadow-xl flex flex-col animate-in slide-in-from-right duration-300 ease-out"
+        }
+        style={{ zIndex: DRAWER_PANEL_Z }}
+        aria-modal="true"
+        aria-labelledby="logistics-drawer-title"
+        role="dialog"
+      >
+        <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-white rounded-t-2xl px-4 py-3">
+          <h2 id="logistics-drawer-title" className="text-lg font-semibold text-gray-900 flex-1 min-w-0 truncate pr-2">
+            {modalTitle}
+          </h2>
+          <span className="inline-flex flex-shrink-0" style={{ width: 36, height: 36 }}>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 active:scale-[0.98] transition-colors w-full h-full p-0 min-w-0"
+              style={{ width: 36, height: 36 }}
+              aria-label="Fermer"
+            >
+              <svg
+                className="w-4 h-4 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={3}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </span>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="space-y-6">
             {/* ✅ Avertissement monte-meubles gradé selon l'étage */}
             {furnitureLiftWarning && (
               <div className={`border-l-4 rounded-lg p-4 ${furnitureLiftWarning.className}`}>
@@ -384,8 +428,34 @@ export const LogisticsModal: React.FC<LogisticsModalProps> = ({
               </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
+    </>
+  ) : null;
+
+  return (
+    <div className="relative group">
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full justify-between text-left font-normal"
+        onClick={() => setIsOpen(true)}
+      >
+        <span className="truncate">
+          {selectedCount > 0
+            ? `${selectedCount} ${selectedCount === 1 ? 'élément sélectionné' : 'éléments sélectionnés'}`
+            : buttonLabel}
+        </span>
+        <Info className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+
+      {selectedCount === 0 && (
+        <p className="mt-0.5 text-[10px] sm:text-[11px] text-gray-400 opacity-60 italic">
+          Cliquez pour sélectionner des contraintes d'accès
+        </p>
+      )}
+
+      {typeof document !== "undefined" && createPortal(drawerContent, document.body)}
     </div>
   );
 };

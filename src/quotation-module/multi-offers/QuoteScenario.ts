@@ -276,7 +276,7 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
       reassembly: true,
       bulkyFurniture: true,
       artwork: true,
-      surface: 80, // Assure que le nettoyage est recommandé (>60m²)
+      estimatedVolume: 200, // ≈80 m² pour recommandation nettoyage (surface = volume/2.5)
       // Assurance renforcée incluse
       declaredValueInsurance: true,
       declaredValue: 50000, // Valeur par défaut pour formules haut de gamme
@@ -344,7 +344,7 @@ export const STANDARD_SCENARIOS: QuoteScenario[] = [
       reassembly: true,
       bulkyFurniture: true,
       artwork: true,
-      surface: 80, // Assure que le nettoyage est recommandé (>60m²)
+      estimatedVolume: 200, // ≈80 m² pour recommandation nettoyage (surface = volume/2.5)
       // Assurance renforcée incluse
       declaredValueInsurance: true,
       declaredValue: 50000, // Valeur par défaut pour formules haut de gamme

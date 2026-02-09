@@ -13,13 +13,13 @@ describe('CleaningEndRequirementModule', () => {
     expect(module.priority).toBe(83);
   });
 
-  it('devrait être applicable si surface > 0 (pas de conditions restrictives)', () => {
+  it('devrait être applicable si volume > 0 (surface déduite du volume)', () => {
     const ctx: QuoteContext = {
       serviceType: 'MOVING',
       region: 'IDF',
       departureAddress: '123 Rue de Paris',
       arrivalAddress: '456 Avenue Montaigne',
-      surface: 50, // N'importe quelle surface > 0
+      estimatedVolume: 125, // ≈ 50 m² (125/2.5)
       computed: createEmptyComputedContext(),
     };
 
@@ -32,21 +32,20 @@ describe('CleaningEndRequirementModule', () => {
       region: 'IDF',
       departureAddress: '123 Rue de Paris',
       arrivalAddress: '456 Avenue Montaigne',
-      surface: 80,
-      temporaryStorage: true, // Même avec stockage temporaire
+      estimatedVolume: 200, // ≈ 80 m²
+      temporaryStorage: true,
       computed: createEmptyComputedContext(),
     };
 
     expect(module.isApplicable(ctx)).toBe(true);
   });
 
-  it('ne devrait pas être applicable si surface = 0', () => {
+  it('ne devrait pas être applicable si volume absent ou 0', () => {
     const ctx: QuoteContext = {
       serviceType: 'MOVING',
       region: 'IDF',
       departureAddress: '123 Rue de Paris',
       arrivalAddress: '456 Avenue Montaigne',
-      surface: 0,
       computed: createEmptyComputedContext(),
     };
 
@@ -59,7 +58,7 @@ describe('CleaningEndRequirementModule', () => {
       region: 'IDF',
       departureAddress: '123 Rue de Paris',
       arrivalAddress: '456 Avenue Montaigne',
-      surface: 80,
+      estimatedVolume: 200, // ≈ 80 m² (200/2.5)
       computed: createEmptyComputedContext(),
     };
 
@@ -86,20 +85,20 @@ describe('CleaningEndRequirementModule', () => {
     expect(result.computed?.activatedModules).toContain('cleaning-end-requirement');
   });
 
-  it('devrait fonctionner pour n\'importe quelle surface > 0', () => {
+  it('devrait fonctionner pour différents volumes (surface déduite)', () => {
     const testCases = [
-      { surface: 30, expectedCost: 30 * config.CLEANING_COST_PER_M2 },
-      { surface: 60, expectedCost: 60 * config.CLEANING_COST_PER_M2 },
-      { surface: 100, expectedCost: 100 * config.CLEANING_COST_PER_M2 },
+      { estimatedVolume: 75, effectiveSurface: 30, expectedCost: 30 * config.CLEANING_COST_PER_M2 },
+      { estimatedVolume: 150, effectiveSurface: 60, expectedCost: 60 * config.CLEANING_COST_PER_M2 },
+      { estimatedVolume: 250, effectiveSurface: 100, expectedCost: 100 * config.CLEANING_COST_PER_M2 },
     ];
 
-    testCases.forEach(({ surface, expectedCost }) => {
+    testCases.forEach(({ estimatedVolume, expectedCost }) => {
       const ctx: QuoteContext = {
         serviceType: 'MOVING',
         region: 'IDF',
         departureAddress: '123 Rue de Paris',
         arrivalAddress: '456 Avenue Montaigne',
-        surface,
+        estimatedVolume,
         computed: createEmptyComputedContext(),
       };
 
