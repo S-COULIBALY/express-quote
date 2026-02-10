@@ -457,7 +457,7 @@ L'endpoint `POST /api/quotation/multi-offers` retourne un objet JSON contenant :
           {
             "type": "CLEANING_RECOMMENDED",
             "severity": "LOW",
-            "reason": "Nettoyage de fin de chantier recommandé : surface importante (65 m²), déménagement complet.",
+            "reason": "Nettoyage de fin de chantier recommandé : volume important, déménagement complet.",
             "moduleId": "cleaning-end-requirement"
           }
         ],
@@ -469,7 +469,7 @@ L'endpoint `POST /api/quotation/multi-offers` retourne un objet JSON contenant :
           {
             "id": "CLEANING_END_OPTION",
             "label": "Nettoyage de fin de chantier",
-            "reason": "Recommandé pour surface importante (65 m²)",
+            "reason": "Recommandé pour volume important",
             "benefit": "Remise en état du logement pour faciliter la remise des clés",
             "priceImpact": 520,
             "optional": true
@@ -503,7 +503,7 @@ L'endpoint `POST /api/quotation/multi-offers` retourne un objet JSON contenant :
             "id": "req-1",
             "type": "CLEANING_RECOMMENDED",
             "severity": "LOW",
-            "description": "Nettoyage de fin de chantier recommandé : surface importante (65 m²), déménagement complet.",
+            "description": "Nettoyage de fin de chantier recommandé : volume important, déménagement complet.",
             "required": false,
             "moduleId": "cleaning-end-requirement"
           }
@@ -530,7 +530,7 @@ L'endpoint `POST /api/quotation/multi-offers` retourne un objet JSON contenant :
           {
             "moduleId": "cleaning-end-requirement",
             "decision": "ACTIVATED",
-            "reason": "Nettoyage de fin de chantier recommandé : surface importante (65 m²), déménagement complet.",
+            "reason": "Nettoyage de fin de chantier recommandé : volume important, déménagement complet.",
             "timestamp": "2026-03-20T10:00:00.000Z",
             "impact": "COST"
           }
@@ -973,7 +973,7 @@ L'endpoint `POST /api/quotation/multi-offers` retourne un objet JSON contenant :
           {
             "type": "CLEANING_RECOMMENDED",
             "severity": "LOW",
-            "reason": "Nettoyage de fin de chantier recommandé : surface importante (65 m²), déménagement complet.",
+            "reason": "Nettoyage de fin de chantier recommandé : volume important, déménagement complet.",
             "moduleId": "cleaning-end-requirement"
           }
         ],
@@ -1022,7 +1022,7 @@ L'endpoint `POST /api/quotation/multi-offers` retourne un objet JSON contenant :
             "id": "req-2",
             "type": "CLEANING_RECOMMENDED",
             "severity": "LOW",
-            "description": "Nettoyage de fin de chantier recommandé : surface importante (65 m²), déménagement complet.",
+            "description": "Nettoyage de fin de chantier recommandé : volume important, déménagement complet.",
             "required": false,
             "moduleId": "cleaning-end-requirement"
           }

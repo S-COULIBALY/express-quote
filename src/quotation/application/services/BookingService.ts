@@ -175,12 +175,19 @@ export class BookingService {
         );
 
         if (verification.valid) {
-          // ✅ Signature valide - Utiliser le prix signé
-          serverCalculatedPrice = quoteData.securedPrice.totalPrice;
-          priceSource = `signature HMAC (${verification.details?.ageHours?.toFixed(2)}h)`;
+          // ✅ Signature valide → la soumission est authentique
+          // IMPORTANT: securedPrice.totalPrice = coût de base serveur (sans marge scénario)
+          // Le prix réel accepté par le client est dans quoteData.totalPrice (scénario + options)
+          const serverBaseCost = quoteData.securedPrice.totalPrice;
+          serverCalculatedPrice = quoteData.totalPrice || quoteData.calculatedPrice || serverBaseCost;
+          priceSource = `signature HMAC - prix scénario (${verification.details?.ageHours?.toFixed(2)}h)`;
 
-          logger.info('✅ Prix signé validé et utilisé', {
-            price: serverCalculatedPrice,
+          logger.info('✅ Prix signé validé - prix scénario utilisé', {
+            serverBaseCost,
+            scenarioPrice: quoteData.calculatedPrice,
+            totalPriceWithOptions: quoteData.totalPrice,
+            priceUsed: serverCalculatedPrice,
+            selectedScenario: quoteData.selectedScenario,
             calculationId: quoteData.securedPrice.calculationId,
             signatureAge: verification.details?.ageHours?.toFixed(2) + 'h',
             calculatedAt: quoteData.securedPrice.calculatedAt
@@ -203,17 +210,25 @@ export class BookingService {
 
       logger.info(`💰 Prix validé: ${serverCalculatedPrice}€ (source: ${priceSource})`);
 
-      // 4. Vérifier si l'assurance était demandée (depuis quoteData ou formData)
+      // 4. Ajout assurance si nécessaire
+      // IMPORTANT: Si la signature est valide, quoteData.totalPrice inclut DÉJÀ l'assurance
+      // et la protection fragile (ajoutées côté frontend dans handleSubmitFromPaymentCard).
+      // L'assurance ne doit être ajoutée que dans le cas d'un RECALCUL serveur (fallback).
       let finalPrice = serverCalculatedPrice;
-      const wantsInsurance = quoteData.insurance || quoteData.insuranceAmount > 0 || quoteData.wantsInsurance;
-      if (wantsInsurance) {
-        const insurancePrice = await this.unifiedDataService.getConfigurationValue(
-          ConfigurationCategory.PRICING_FACTORS,
-          PricingFactorsConfigKey.INSURANCE_PRICE,
-          25 // Valeur par défaut
-        );
-        finalPrice += insurancePrice;
-        logger.info(`✅ Assurance ajoutée: +${insurancePrice}€ (prix final: ${finalPrice}€)`);
+      if (priceSource.startsWith('recalcul')) {
+        const wantsInsurance = quoteData.insurance || quoteData.insuranceAmount > 0 || quoteData.wantsInsurance
+          || quoteData.declaredValueInsurance;
+        if (wantsInsurance) {
+          const insurancePrice = await this.unifiedDataService.getConfigurationValue(
+            ConfigurationCategory.PRICING_FACTORS,
+            PricingFactorsConfigKey.INSURANCE_PRICE,
+            25 // Valeur par défaut
+          );
+          finalPrice += insurancePrice;
+          logger.info(`✅ Assurance ajoutée (recalcul): +${insurancePrice}€ (prix final: ${finalPrice}€)`);
+        }
+      } else {
+        logger.info(`✅ Prix scénario utilisé (assurance déjà incluse dans totalPrice): ${finalPrice}€`);
       }
 
       logger.info(`💰 Étape 3: Montant final calculé: ${finalPrice} EUR`);
@@ -240,7 +255,10 @@ export class BookingService {
       await this.storeBookingCoordinates(booking, quoteRequest.getQuoteData());
 
       // 7. Créer la Transaction associée
-      logger.info(`💳 Étape 6: Création de la Transaction...`);
+      // IMPORTANT: La transaction doit refléter le montant réellement débité (acompte 30%),
+      // pas le prix total du booking. Le Booking.totalAmount contient le prix total.
+      const depositAmount = Math.round(finalPrice * 0.3 * 100) / 100; // 30% arrondi à 2 décimales
+      logger.info(`💳 Étape 6: Création de la Transaction (acompte: ${depositAmount}€ sur total: ${finalPrice}€)...`);
 
       // Créer directement avec Prisma (plus simple et évite les problèmes d'entité)
       const { prisma } = await import('@/lib/prisma');
@@ -248,7 +266,7 @@ export class BookingService {
         data: {
           id: crypto.randomUUID(),
           bookingId: booking.getId()!,
-          amount: finalPrice,
+          amount: depositAmount,
           currency: 'EUR',
           status: 'COMPLETED',
           paymentMethod: 'card',
@@ -258,7 +276,7 @@ export class BookingService {
         }
       });
 
-      logger.info(`✅ Transaction créée avec PaymentIntent: ${sessionId}`);
+      logger.info(`✅ Transaction créée: acompte ${depositAmount}€ (total booking: ${finalPrice}€), PaymentIntent: ${sessionId}`);
 
       // 8. TRANSITION CRITIQUE : DRAFT → PAYMENT_COMPLETED (le paiement est déjà confirmé par le webhook)
       booking.updateStatus(BookingStatus.PAYMENT_COMPLETED);
@@ -331,8 +349,52 @@ export class BookingService {
         }
 
         // ÉTAPE 3: Notification client avec documents
-        logger.info('📧 Étape 8.3: Notification client...');
+        logger.info('📧 Étape 8.3: Notification client (avec génération PDF)...');
         let customerResult = { success: false };
+        let customerAttachments: any[] = [];
+
+        // ✅ CORRIGÉ: Générer les documents PDF avant d'envoyer la notification client
+        try {
+          const documentsResponse = await fetch(`${baseUrl}/api/documents/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'User-Agent': 'BookingService/1.0' },
+            body: JSON.stringify({
+              bookingId: savedBooking.getId(),
+              trigger: 'BOOKING_CONFIRMED',
+              targetAudience: 'CUSTOMER',
+              customerData: {
+                email: savedBooking.getCustomer().getContactInfo().getEmail(),
+                name: savedBooking.getCustomer().getFullName()
+              }
+            })
+          });
+
+          if (documentsResponse.ok) {
+            const docsResult = await documentsResponse.json();
+            if (docsResult.success && docsResult.documents?.length > 0) {
+              customerAttachments = docsResult.documents.map((doc: any) => ({
+                filename: doc.filename,
+                content: doc.base64Content || doc.content,
+                contentType: doc.mimeType || 'application/pdf',
+                size: doc.size,
+                mimeType: doc.mimeType || 'application/pdf'
+              }));
+              logger.info('✅ Documents générés pour client', {
+                bookingId: savedBooking.getId(),
+                count: customerAttachments.length
+              });
+            }
+          } else {
+            logger.warn('⚠️ Erreur génération documents client, envoi sans pièces jointes', {
+              status: documentsResponse.status
+            });
+          }
+        } catch (docError) {
+          logger.warn('⚠️ Erreur génération documents, envoi sans pièces jointes', {
+            error: docError instanceof Error ? docError.message : 'Erreur inconnue'
+          });
+        }
+
         try {
           const customerNotificationResponse = await fetch(`${baseUrl}/api/notifications/business/booking-confirmation`, {
             method: 'POST',
@@ -342,8 +404,10 @@ export class BookingService {
             },
             body: JSON.stringify({
               bookingId: savedBooking.getId(),
-              customerEmail: savedBooking.getCustomer().getContactInfo().getEmail(),
+              email: savedBooking.getCustomer().getContactInfo().getEmail(), // ✅ CORRIGÉ: était "customerEmail", l'API attend "email"
+              customerEmail: savedBooking.getCustomer().getContactInfo().getEmail(), // Gardé pour compatibilité
               customerName: savedBooking.getCustomer().getFullName(),
+              customerPhone: savedBooking.getCustomer().getContactInfo().getPhone(), // ✅ AJOUTÉ: pour SMS
               bookingReference: `EQ-${savedBooking.getId()?.slice(-8).toUpperCase()}`,
               serviceType: savedBooking.getType(),
               serviceName: savedBooking.getType() || 'Service Express Quote',
@@ -352,13 +416,17 @@ export class BookingService {
               serviceTime: '09:00',
               confirmationDate: new Date().toISOString(),
               viewBookingUrl: `${baseUrl}/bookings/${savedBooking.getId()}`,
-              supportUrl: `${baseUrl}/contact`
+              supportUrl: `${baseUrl}/contact`,
+              attachments: customerAttachments // ✅ CORRIGÉ: Pièces jointes PDF
             })
           });
 
           if (customerNotificationResponse.ok) {
             customerResult = await customerNotificationResponse.json();
-            logger.info('✅ Notification client envoyée', { success: customerResult.success });
+            logger.info('✅ Notification client envoyée', {
+              success: customerResult.success,
+              attachmentsCount: customerAttachments.length
+            });
           } else {
             const errorText = await customerNotificationResponse.text();
             logger.error('❌ Erreur API notification client', {
@@ -376,7 +444,8 @@ export class BookingService {
         logger.info(`✅ Confirmation BOOKING_CONFIRMED terminée`, {
           internalStaff: internalStaffResult.success,
           customer: customerResult.success,
-          professionalAttribution: 'triggered'
+          professionalAttribution: 'triggered',
+          customerAttachments: customerAttachments.length
         });
 
       } catch (confirmationError) {
@@ -1036,8 +1105,10 @@ export class BookingService {
           },
           body: JSON.stringify({
             bookingId: savedBooking.getId(),
-            customerEmail: savedBooking.getCustomer().getContactInfo().getEmail(),
+            email: savedBooking.getCustomer().getContactInfo().getEmail(), // ✅ CORRIGÉ: était "customerEmail"
+            customerEmail: savedBooking.getCustomer().getContactInfo().getEmail(), // Gardé pour compatibilité
             customerName: savedBooking.getCustomer().getFullName(),
+            customerPhone: savedBooking.getCustomer().getContactInfo().getPhone(), // ✅ AJOUTÉ: pour SMS
             bookingReference: `EQ-${savedBooking.getId()?.slice(-8).toUpperCase()}`,
             serviceType: savedBooking.getType(),
             serviceName: savedBooking.getType() || 'Service Express Quote',
@@ -1139,10 +1210,10 @@ export class BookingService {
       }
       
       // Créer un nouveau client
-      // Utiliser une valeur par défaut si le téléphone est manquant
-      const phone = customerData.phone && customerData.phone.trim() !== '' 
-        ? customerData.phone 
-        : '+33600000000'; // Valeur par défaut si téléphone manquant
+      // ✅ CORRIGÉ: Ne PAS utiliser un faux numéro — laisser vide pour éviter d'envoyer un SMS à un inconnu
+      const phone = customerData.phone && customerData.phone.trim() !== ''
+        ? customerData.phone
+        : ''; // Vide si téléphone manquant (SMS ne sera pas envoyé)
       
       logger.info('📋 [TRACE UTILISATEUR] Création nouveau client avec ContactInfo:', {
         firstName: customerData.firstName,
@@ -1465,7 +1536,24 @@ export class BookingService {
       const customerFirstName = booking.getCustomer().getContactInfo().getFirstName();
       const scheduledDate = booking.getScheduledDate() || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const totalAmount = booking.getTotalAmount().getAmount();
-      const locationAddress = 'Adresse à préciser'; // TODO: Extraire depuis quoteData
+
+      // ✅ CORRIGÉ: Extraire l'adresse depuis quoteData du QuoteRequest
+      let locationAddress = 'Adresse à préciser';
+      let deliveryAddress: string | undefined;
+      try {
+        const { prisma: prismaClient } = await import('@/lib/prisma');
+        const qr = await prismaClient.quoteRequest.findFirst({
+          where: { Booking: { some: { id: booking.getId()! } } },
+          select: { quoteData: true }
+        });
+        if (qr?.quoteData) {
+          const qd = qr.quoteData as any;
+          locationAddress = qd.pickupAddress || qd.departureAddress || qd.locationAddress || locationAddress;
+          deliveryAddress = qd.deliveryAddress || qd.arrivalAddress;
+        }
+      } catch (addrError) {
+        logger.warn('⚠️ Erreur récupération adresse depuis QuoteRequest:', addrError);
+      }
 
       const bookingData = {
         // Nouvelles données étendues pour le flux en 2 étapes
@@ -1481,14 +1569,14 @@ export class BookingService {
           customerEmail: booking.getCustomer().getContactInfo().getEmail(),
           customerPhone: booking.getCustomer().getContactInfo().getPhone(),
           fullPickupAddress: locationAddress,
-          fullDeliveryAddress: undefined // TODO: Extraire depuis quoteData
+          fullDeliveryAddress: deliveryAddress
         },
 
         // Données limitées (pour prestataires)
         limitedClientData: {
           customerName: `${customerFirstName.charAt(0)}. ${booking.getCustomer().getContactInfo().getLastName()}`.trim(),
           pickupAddress: AttributionUtils.extractCityFromAddress(locationAddress),
-          deliveryAddress: undefined, // TODO: Extraire depuis quoteData
+          deliveryAddress: deliveryAddress ? AttributionUtils.extractCityFromAddress(deliveryAddress) : undefined,
           serviceType: booking.getType() || 'CUSTOM',
           quoteDetails: {
             estimatedAmount: Math.round(totalAmount * await this.getEstimationFactor()), // ✅ MIGRÉ: Facteur d'estimation depuis configuration
@@ -1504,7 +1592,7 @@ export class BookingService {
         customerFirstName: booking.getCustomer().getContactInfo().getFirstName(),
         customerLastName: booking.getCustomer().getContactInfo().getLastName(),
         customerPhone: booking.getCustomer().getContactInfo().getPhone(),
-        additionalInfo: {} // TODO: Extraire depuis quoteData
+        additionalInfo: { pickupAddress: locationAddress, deliveryAddress }
       };
 
       // Lancer l'attribution
@@ -1583,8 +1671,24 @@ export class BookingService {
         }
       }
 
-      // 3. Géocoder l'adresse si disponible
-      const address = undefined; // TODO: Extraire depuis quoteData
+      // 3. Géocoder l'adresse si disponible (extraite depuis quoteData du QuoteRequest)
+      let address: string | undefined;
+      try {
+        const { prisma: prismaClient } = await import('@/lib/prisma');
+        const qr = await prismaClient.quoteRequest.findFirst({
+          where: { Booking: { some: { id: booking.getId()! } } },
+          select: { quoteData: true }
+        });
+        if (qr?.quoteData) {
+          const qd = qr.quoteData as any;
+          address = qd.pickupAddress || qd.departureAddress || qd.locationAddress || qd.address;
+          if (address) {
+            logger.info(`📍 Adresse extraite depuis QuoteRequest pour géocodage: ${address}`);
+          }
+        }
+      } catch (qrError) {
+        logger.warn('⚠️ Erreur récupération adresse depuis QuoteRequest:', qrError);
+      }
       if (address) {
         try {
           const { ProfessionalLocationService } = await import('@/bookingAttribution/ProfessionalLocationService');

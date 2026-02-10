@@ -337,7 +337,7 @@ export class InputSanitizationModule implements QuoteModule {
     if (isNaN(value) || !isFinite(value)) {
       return undefined;
     }
-    // Pour les valeurs qui ne peuvent pas être négatives (surface, volume, distance)
+    // Pour les valeurs qui ne peuvent pas être négatives (volume, distance, etc.)
     if (value < 0) {
       return undefined;
     }

@@ -31,14 +31,9 @@ export interface QuoteContext {
   moveDate: Date;
   flexibility?: "NONE" | "PLUS_MINUS_3" | "PLUS_MINUS_7";
 
-  /* ---- Logement ---- */
-  housingType: "STUDIO" | "F2" | "F3" | "F4" | "HOUSE";
-  surface: number;
-  rooms?: number;
-
-  /* ---- Volume ---- */
-  volumeMethod: "FORM" | "LIST" | "VIDEO";
-  estimatedVolume?: number;
+  /* ---- Volume (calculateur V3 côté client ou analyse LIST/VIDEO) ---- */
+  volumeMethod?: "FORM";
+  estimatedVolume?: number;  // m³ – fourni par le calculateur V3 ou par un service d'analyse
   volumeConfidence?: "LOW" | "MEDIUM" | "HIGH";
 
   /* ---- Adresses (DÉPART) ---- */

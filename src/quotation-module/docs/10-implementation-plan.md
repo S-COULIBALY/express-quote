@@ -379,8 +379,6 @@ src/quotation-module/
 // Exemple input brut (frontend)
 {
   "moveDate": "2025-01-28",
-  "surface": 68,
-  "rooms": 3,
   "estimatedVolume": 28,
   "volumeConfidence": "LOW",
   "pickup": {

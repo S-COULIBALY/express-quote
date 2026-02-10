@@ -5,7 +5,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            FORMULAIRE CLIENT                                │
-│   surface, rooms, distance, pickupFloor, deliveryFloor, constraints...      │
+│   estimatedVolume (calculateur V3), distance, pickupFloor, deliveryFloor, constraints... │
 └──────────────────────────────────┬──────────────────────────────────────────┘
                                    │
                                    ▼
@@ -61,18 +61,11 @@
 
 | Module           | ID                  | Priorité | Description                  | Formule                                    | Exemple                         |
 | ---------------- | ------------------- | -------- | ---------------------------- | ------------------------------------------ | ------------------------------- |
-| VolumeEstimation | `volume-estimation` | 20       | Estime le volume à déménager | `surface × coefficient × confidenceFactor` | 60m² × 0.45 × 1.1 = **29.7 m³** |
+| VolumeEstimation | `volume-estimation` | 20       | Utilise le volume fourni (calculateur V3) | `estimatedVolume` + ajustement confiance | 35 m³ × 1.1 = **38.5 m³** (MEDIUM) |
 
-**Détail des coefficients :**
-| Type logement | Coefficient |
-|---------------|-------------|
-| STUDIO | 0.50 |
-| F2 | 0.45 |
-| F3 | 0.45 |
-| F4 | 0.45 |
-| HOUSE | 0.40 |
+**Source du volume :** Le formulaire collecte le volume via le **calculateur V3** côté client (pièces, objets, etc.). Le module n’utilise plus surface/type de logement.
 
-**Marges de confiance (FORM - Volume calculé) :**
+**Marges de confiance (FORM - Volume calculateur V3) :**
 | Confiance | Marge |
 |-----------|-------|
 | LOW | +20% (×1.2) |
@@ -169,8 +162,8 @@ _Note : Si une contrainte s'applique aux 2 adresses, le pourcentage est multipli
 
 | Module             | ID                     | Priorité | Dépendances                                | Description                      | Formule                                | Exemple                             |
 | ------------------ | ---------------------- | -------- | ------------------------------------------ | -------------------------------- | -------------------------------------- | ----------------------------------- |
-| VehicleSelection   | `vehicle-selection`    | 60       | `volume-estimation`                        | Sélection véhicule selon volume  | Seuils : ≤12m³, ≤20m³, ≤30m³           | 29.7m³ → **CAMION_30M3 = 350€**     |
-| WorkersCalculation | `workers-calculation`  | 61       | `volume-estimation`                        | Calcule le nombre de déménageurs | `round(volume / volumePerWorker)`      | round(29.7 / 5) = **6 déménageurs** |
+| VehicleSelection   | `vehicle-selection`    | 60       | `volume-estimation`                        | Sélection véhicule selon volume  | Seuils : ≤12m³, ≤20m³, ≤30m³           | 33 m³ → **CAMION_30M3 = 350€**     |
+| WorkersCalculation | `workers-calculation`  | 61       | `volume-estimation`                        | Calcule le nombre de déménageurs | `round(volume / volumePerWorker)`      | round(33 / 5) = **6 déménageurs** |
 | LaborBase          | `labor-base`           | 62       | `volume-estimation`, `workers-calculation` | Coût de base main-d'œuvre        | `tauxHoraire × heures × workers`       | 30€ × 7h × 6 = **1 260€**           |
 | LaborAccessPenalty | `labor-access-penalty` | 66       | `labor-base`                               | Surcoût accès difficile          | `(étage × €/étage) + (distance × €/m)` | (5 × 25€) + (40 × 2€) = **205€**    |
 
@@ -201,11 +194,11 @@ _Note : Si une contrainte s'applique aux 2 adresses, le pourcentage est multipli
 
 | Module          | ID                  | Priorité | Condition                       | Formule                                        | Exemple                     |
 | --------------- | ------------------- | -------- | ------------------------------- | ---------------------------------------------- | --------------------------- |
-| PackingCost     | `packing-cost`      | 85       | `ctx.packing === true`          | `volume × costPerM3`                           | 29.7m³ × 5€ = **148.50€**   |
+| PackingCost     | `packing-cost`      | 85       | `ctx.packing === true`          | `volume × costPerM3`                           | 33 m³ × 5€ = **148.50€**   |
 | DismantlingCost | `dismantling-cost`  | 86.5     | `ctx.dismantling === true`      | `baseCost + bulkyItems + complexItems + piano` | 50€ + 40€ + 50€ = **140€**  |
 | ReassemblyCost  | `reassembly-cost`   | 86.6     | `ctx.reassembly === true`       | `baseCost + bulkyItems + complexItems + piano` | 50€ + 40€ + 50€ = **140€**  |
-| CleaningEndCost | `cleaning-end-cost` | 86       | `ctx.cleaningEnd === true`      | `surface × costPerM2`                          | 60m² × 8€ = **480€**        |
-| StorageCost     | `storage-cost`      | 87       | `ctx.temporaryStorage === true` | `volume × costPerM3 × months`                  | 29.7m³ × 30€ × 1 = **891€** |
+| CleaningEndCost | `cleaning-end-cost` | 86       | `ctx.cleaningEnd === true`      | Surface déduite du volume (volume/2.5) × costPerM2 | 80 m² (200 m³) × 8€ = **640€** |
+| StorageCost     | `storage-cost`      | 87       | `ctx.temporaryStorage === true` | `volume × costPerM3 × months`                  | 33 m³ × 30€ × 1 = **891€** |
 
 **Configuration cross-selling :**
 | Service | Tarif |
@@ -255,8 +248,7 @@ Où :
 
 **Données d'entrée :**
 
-- Surface : 60 m²
-- Type : F3
+- Volume : 30 m³ (calculateur V3)
 - Distance : 150 km
 - Étage départ : 4 (sans ascenseur, monte-meubles refusé)
 - Étage arrivée : 2 (avec ascenseur)
@@ -267,7 +259,7 @@ Où :
 
 | Phase | Module                | Calcul                | Montant       |
 | ----- | --------------------- | --------------------- | ------------- |
-| 2     | Volume                | 60 × 0.45 × 1.1       | 29.7 m³       |
+| 2     | Volume                | 30 m³ (fourni) × 1.1  | 33 m³         |
 | 3     | Carburant             | (150/100) × 12 × 1.70 | 30.60€        |
 | 3     | Péages                | 150 × 0.70 × 0.08     | 8.40€         |
 | 4     | Trafic IDF            | 39€ × 2%              | 0.78€         |

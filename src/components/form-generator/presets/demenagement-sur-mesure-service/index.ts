@@ -131,10 +131,6 @@ export const getDemenagementSurMesureServiceConfig = (
       stockage: false,
       assurance: false,
 
-      // Contact
-      nom: "",
-      email: "",
-      telephone: "",
       commentaires: "",
 
       // Ajouter les données du service au contexte
@@ -712,10 +708,6 @@ export const demenagementSurMesureDefaultValues = {
   stockage: false,
   assurance: false,
 
-  // Contact
-  nom: "",
-  email: "",
-  telephone: "",
   commentaires: "",
 };
 
@@ -743,14 +735,6 @@ export const demenagementSurMesureSummaryConfig: FormSummaryConfig = {
         { key: "dateSouhaitee", label: "Date souhaitée" },
         { key: "flexibilite", label: "Flexibilité" },
         { key: "horaire", label: "Horaire préféré" },
-      ],
-    },
-    {
-      title: "Contact",
-      fields: [
-        { key: "nom", label: "Nom complet" },
-        { key: "email", label: "Email" },
-        { key: "telephone", label: "Téléphone" },
       ],
     },
   ],

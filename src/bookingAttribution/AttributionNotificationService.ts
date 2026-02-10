@@ -159,11 +159,15 @@ export class AttributionNotificationService {
       const notificationService = await getGlobalNotificationService();
 
       // Préparer les pièces jointes en lisant le contenu des fichiers
+      // doc.path est relatif au dossier de stockage pro, il faut résoudre le chemin absolu
+      const { resolve: pathResolve, isAbsolute } = await import('path');
+      const proStorageBase = process.env.PROFESSIONAL_PDF_STORAGE_PATH || './storage/professional-documents';
       const attachments = await Promise.all(
         documentsResult.documents
           .filter(doc => doc.path)
           .map(async doc => {
-            const content = await fs.readFile(doc.path);
+            const fullPath = isAbsolute(doc.path) ? doc.path : pathResolve(proStorageBase, doc.path);
+            const content = await fs.readFile(fullPath);
             return {
               filename: doc.filename,
               content: content,
@@ -179,9 +183,10 @@ export class AttributionNotificationService {
       });
 
       // ✅ Ajouter à la queue email avec PDF restreint
+      // Template: 'professional-attribution' (enregistré dans templateRegistry via alias)
       const notificationResult = await notificationService.sendEmail({
         to: professional.email,
-        template: 'external-professional-attribution',
+        template: 'professional-attribution',
         data: {
           // Données professionnel
           professionalName: professional.companyName,

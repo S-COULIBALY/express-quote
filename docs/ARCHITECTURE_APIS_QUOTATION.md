@@ -108,7 +108,7 @@ Le `baseCost` retourné par `/calculate` contient **uniquement les coûts FIXES*
 
 | Module                          | Priorité | Description           | Formule/Tarif                             | Inclus dans baseCost     |
 | ------------------------------- | -------- | --------------------- | ----------------------------------------- | ------------------------ |
-| **VolumeEstimationModule**      | 20       | Estimation du volume  | `surface × coefficient` (0.40-0.50 m³/m²) | ✅ (calcul uniquement)   |
+| **VolumeEstimationModule**      | 20       | Volume à déménager     | `estimatedVolume` (calculateur V3) + ajustement confiance | ✅ (calcul uniquement)   |
 | **DistanceModule**              | 30       | Récupération distance | Via Google Maps API (fallback: 20km)      | ✅ (calcul uniquement)   |
 | **FuelCostModule**              | 33       | Coût carburant        | `(distance / 100) × 12L × 1.70€/L`        | ✅ Coût fixe             |
 | **TollCostModule**              | 35       | Péages (si >50km)     | `distance × 70% × 0.08€/km`               | ✅ Coût fixe             |
@@ -128,20 +128,10 @@ Le `baseCost` retourné par `/calculate` contient **uniquement les coûts FIXES*
 
 **Volume (VolumeEstimationModule) :**
 
+Le volume est fourni par le **calculateur V3** côté client (`estimatedVolume`). Le module n’utilise plus surface/type de logement ; en absence de volume, un fallback minimal est appliqué.
+
 ```
-Coefficients par type de logement :
-- STUDIO : 0.50 m³/m² (mobilier dense)
-- F2/F3/F4 : 0.45 m³/m² (mobilier standard)
-- HOUSE : 0.40 m³/m² (mobilier moins dense)
-
-Volumes par défaut (sans surface) :
-- STUDIO : 12 m³
-- F2 : 20 m³
-- F3 : 30 m³
-- F4 : 40 m³
-- HOUSE : 60 m³
-
-Volumes objets spéciaux (ajoutés si non inclus dans estimation) :
+Volumes objets spéciaux (pour services LIST/VIDEO ou fallback) :
 - Piano : +8 m³
 - Meubles encombrants : +5 m³
 - Coffre-fort : +3 m³
@@ -540,14 +530,14 @@ Exemples :
   cleaningEnd: true,
   bulkyFurniture: true,
   artwork: true,
-  surface: 80  // Assure que le nettoyage est recommandé (>60m²)
+  estimatedVolume: 200  // ≈80 m² pour recommandation nettoyage
 }
 ```
 
 **Coûts additionnels :**
 
 - Emballage : `volume × 25€/m³`
-- Nettoyage : `surface × 8€/m²`
+- Nettoyage : surface déduite du volume (volume/2.5) × 8€/m²
 - Démontage : 80€ base + suppléments
 - Objets de valeur : selon type
 
@@ -661,7 +651,7 @@ Note : Cet exemple exclut les options additionnelles (emballage, nettoyage, etc.
 | Service                 | Module              | Tarif       | Formule exacte                                      |
 | ----------------------- | ------------------- | ----------- | --------------------------------------------------- |
 | Emballage professionnel | `packing-cost`      | 25€/m³      | `volume × 25€`                                      |
-| Nettoyage fin de bail   | `cleaning-end-cost` | 8€/m²       | `surface × 8€`                                      |
+| Nettoyage fin de bail   | `cleaning-end-cost` | 8€/m²       | surface effective (volume/2.5) × 8€                  |
 | Stockage temporaire     | `storage-cost`      | 30€/m³/mois | `volume × 30€ × ceil(jours/30)`                     |
 | Démontage meubles       | `dismantling-cost`  | Variable    | 80€ base + 40€/meuble + 60€/encombrant + 100€/piano |
 
@@ -840,7 +830,7 @@ Ce document a été mis à jour avec les formules et tarifs exacts extraits du c
 
 ### Modules de base (coûts FIXES - inclus dans baseCost)
 
-1. **VolumeEstimationModule** : Coefficients précis (0.40-0.50 m³/m²), volumes par défaut, volumes objets spéciaux, ajustements confiance
+1. **VolumeEstimationModule** : Utilise `estimatedVolume` (calculateur V3) ; fallback minimal si absent ; ajustements confiance
 2. **FuelCostModule** : `(distance/100) × 12L × 1.70€/L`
 3. **TollCostModule** : `distance × 70% × 0.08€/km` (si >50km)
 4. **VehicleSelectionModule** : Tarifs de 50€ à 400€ avec capacités
@@ -856,7 +846,7 @@ Ce document a été mis à jour avec les formules et tarifs exacts extraits du c
 
 ### Modules additionnels (cross-selling, options)
 
-8. **CleaningEndCostModule** : `surface × 8€/m²`
+8. **CleaningEndCostModule** : surface déduite du volume (volume/2.5) × 8€/m²
 9. **StorageCostModule** : `volume × 30€/m³ × mois`
 10. **DismantlingCostModule** : 80€ base + 40€/meuble + 60€/encombrant + 100€/piano
 11. **HighValueItemHandlingModule** : Piano 150€, Coffre-fort 200€, Œuvres d'art 100€

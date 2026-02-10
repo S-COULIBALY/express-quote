@@ -113,7 +113,7 @@ Le système modulaire utilise `MODULES_CONFIG` comme **source unique de vérité
 | `fuel`          | Carburant          | `PRICE_PER_LITER`, `VEHICLE_CONSUMPTION_L_PER_100KM`                |
 | `tolls`         | Péages             | `COST_PER_KM`, `HIGHWAY_PERCENTAGE`                                 |
 | `vehicle`       | Véhicules          | `VEHICLE_COSTS`, `VEHICLE_CAPACITIES`                               |
-| `volume`        | Volume             | `VOLUME_COEFFICIENTS`, `BASE_VOLUMES_BY_TYPE`                       |
+| `volume`        | Volume             | Volume fourni par calculateur V3 ; `BASE_VOLUMES_BY_TYPE` (fallback) |
 | `labor`         | Main-d'œuvre       | `BASE_HOURLY_RATE`, `VOLUME_PER_WORKER`                             |
 | `furnitureLift` | Monte-meubles      | `BASE_LIFT_COST`, `DOUBLE_LIFT_SURCHARGE`                           |
 | `crossSelling`  | Options            | `PACKING_COST_PER_M3`, `CLEANING_COST_PER_M2`                       |

@@ -50,12 +50,8 @@ Calcule un devis unique avec le moteur modulaire.
 {
   // Informations déménagement
   movingDate: string;              // ISO 8601: "2026-03-20T10:00:00Z"
-  housingType: "STUDIO" | "F2" | "F3" | "F4" | "HOUSE";
-  surface: number;                 // m²
-  rooms?: number;
-
-  // Volume
-  volumeMethod: "FORM" | "LIST" | "VIDEO";
+  // Volume (calculateur V3 ou analyse LIST/VIDEO)
+  volumeMethod?: "FORM";
   estimatedVolume?: number;        // m³
   volumeConfidence?: "LOW" | "MEDIUM" | "HIGH";
 
@@ -256,9 +252,7 @@ curl -X POST https://api.example.com/api/quotation/calculate \
   -H "Content-Type: application/json" \
   -d '{
     "movingDate": "2026-03-20T10:00:00Z",
-    "housingType": "F3",
-    "surface": 65,
-    "rooms": 3,
+    "estimatedVolume": 35,
     "volumeMethod": "FORM",
     "estimatedVolume": 30,
     "volumeConfidence": "MEDIUM",
@@ -397,9 +391,7 @@ curl -X POST https://api.example.com/api/quotation/multi-offers \
   -H "Content-Type: application/json" \
   -d '{
     "movingDate": "2026-03-20T10:00:00Z",
-    "housingType": "F3",
-    "surface": 65,
-    "rooms": 3,
+    "estimatedVolume": 35,
     "volumeMethod": "FORM",
     "estimatedVolume": 30,
     "departureAddress": "123 Rue de Paris, 75001 Paris",
@@ -520,9 +512,7 @@ const response = await fetch("/api/quotation/calculate", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     movingDate: "2026-03-20T10:00:00Z",
-    housingType: "F3",
-    surface: 65,
-    rooms: 3,
+    estimatedVolume: 35,
     volumeMethod: "FORM",
     estimatedVolume: 30,
     volumeConfidence: "MEDIUM",
@@ -547,9 +537,7 @@ const response = await fetch("/api/quotation/calculate", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     movingDate: "2026-03-20T10:00:00Z",
-    housingType: "F3",
-    surface: 65,
-    rooms: 3,
+    estimatedVolume: 35,
     volumeMethod: "FORM",
     estimatedVolume: 30,
     departureAddress: "123 Rue de Paris, 75001 Paris",
@@ -583,9 +571,7 @@ const response = await fetch("/api/quotation/multi-offers", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     movingDate: "2026-03-20T10:00:00Z",
-    housingType: "F3",
-    surface: 65,
-    rooms: 3,
+    estimatedVolume: 35,
     volumeMethod: "FORM",
     estimatedVolume: 30,
     departureAddress: "123 Rue de Paris, 75001 Paris",
@@ -788,9 +774,7 @@ Content-Type: application/json
 
 {
   "movingDate": "2026-03-20T10:00:00Z",
-  "housingType": "F3",
-  "surface": 65,
-  "rooms": 3,
+  "estimatedVolume": 35,
   "volumeMethod": "FORM",
   "estimatedVolume": 30,
   "volumeConfidence": "MEDIUM",
@@ -887,7 +871,7 @@ Content-Type: application/json
     {
       "type": "CLEANING_RECOMMENDED",
       "severity": "LOW",
-      "reason": "Nettoyage de fin de chantier recommandé : surface importante (65 m²), déménagement complet.",
+      "reason": "Nettoyage de fin de chantier recommandé : volume important (ex. 35 m³), déménagement complet.",
       "moduleId": "cleaning-end-requirement"
     }
   ],
@@ -899,7 +883,7 @@ Content-Type: application/json
     {
       "id": "CLEANING_END_OPTION",
       "label": "Nettoyage de fin de chantier",
-      "reason": "Recommandé pour surface importante (65 m²)",
+      "reason": "Recommandé pour volume important (ex. 35 m³)",
       "benefit": "Remise en état du logement pour faciliter la remise des clés",
       "priceImpact": 520,
       "optional": true
@@ -934,9 +918,7 @@ Content-Type: application/json
 ```json
 {
   "movingDate": "2026-03-20T10:00:00Z",
-  "housingType": "F3",
-  "surface": 65,
-  "rooms": 3,
+  "estimatedVolume": 35,
   "volumeMethod": "FORM",
   "estimatedVolume": 30,
   "departureAddress": "123 Rue de Paris, 75001 Paris",
@@ -993,9 +975,7 @@ Content-Type: application/json
 ```json
 {
   "movingDate": "2026-03-20T10:00:00Z",
-  "housingType": "F3",
-  "surface": 65,
-  "rooms": 3,
+  "estimatedVolume": 35,
   "volumeMethod": "FORM",
   "estimatedVolume": 30,
   "departureAddress": "123 Rue de Paris, 75001 Paris",

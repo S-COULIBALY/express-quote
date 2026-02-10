@@ -15,25 +15,24 @@ L'analyse de la vidéo/liste se fait **EN AMONT** par des services externes, ava
 
 ## 📊 Flux complet par méthode
 
-### Cas 1 : FORM (Formulaire standard)
+### Cas 1 : FORM (Formulaire standard – calculateur V3)
 
 ```
-[Client remplit formulaire]
+[Client remplit formulaire + calculateur de volume V3]
     ↓
 [FormAdapter] → QuoteContext {
   volumeMethod: 'FORM',
-  estimatedVolume: undefined,
-  surface: 65,
-  housingType: 'F3'
+  estimatedVolume: 35,   // ← Volume calculé par le calculateur V3 côté client
+  volumeConfidence: 'MEDIUM'
 }
     ↓
 [QuoteEngine] → VolumeEstimationModule
     ↓
-✅ Calcul automatique depuis surface/housingType
+✅ Utilise estimatedVolume fourni par le calculateur V3
 ✅ Temps réel (<100ms)
 ```
 
-**Qui analyse ?** Personne, calcul automatique depuis les données du formulaire.
+**Qui analyse ?** Le calculateur de volume V3 côté client (pièces, objets, etc.) ; le formulaire ne collecte plus surface/type de logement/pièces.
 
 ---
 
@@ -203,13 +202,12 @@ const analysisJob = await VideoAnalysisService.startAnalysis(videoFile);
 const provisionalContext: QuoteContext = {
   volumeMethod: 'VIDEO',
   estimatedVolume: undefined, // Pas encore analysé
-  surface: 65,
-  housingType: 'F3',
+  // Volume fallback minimal utilisé par VolumeEstimationModule si absent
   // ...
 };
 
 const provisionalQuote = engine.execute(provisionalContext);
-// → Utilise volume théorique (29.25 m³)
+// → Utilise un volume de fallback (ex. 20 m³) jusqu'à réception du résultat vidéo
 ```
 
 ### Étape 2 : Analyse terminée (webhook)

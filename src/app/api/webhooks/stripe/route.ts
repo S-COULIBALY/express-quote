@@ -594,6 +594,26 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
         amount
       } = paymentIntent.metadata;
 
+      // 🔒 SÉCURITÉ: Les données client (email, téléphone) sont collectées sur la BookingPage
+      // et stockées dans PaymentIntent.metadata lors de create-session.
+      // Le QuoteRequest NE CONTIENT PAS les infos client (formulaire catalogue = données devis uniquement).
+      // Sources fiables: 1) billing_details Stripe  2) metadata PaymentIntent
+      // Si les deux sont absentes, c'est un cas anormal → log d'alerte.
+      if (!(combinedBillingDetails.email || customerEmail)) {
+        logger.error('🚨 ALERTE: Email client absent de Stripe billing_details ET metadata', {
+          temporaryId,
+          paymentIntentId: paymentIntent.id,
+          note: 'Les données client sont collectées sur BookingPage, pas dans le formulaire catalogue'
+        });
+      }
+      if (!(combinedBillingDetails.phone || customerPhone)) {
+        logger.warn('⚠️ Téléphone client absent de Stripe billing_details ET metadata', {
+          temporaryId,
+          paymentIntentId: paymentIntent.id,
+          note: 'Le SMS ne sera pas envoyé'
+        });
+      }
+
       // Log détaillé pour tracer l'origine des données utilisateur
       console.log('═══════════════════════════════════════════════════════════════');
       console.log('📋 [TRACE UTILISATEUR] Données client récupérées depuis Stripe');
@@ -629,9 +649,9 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
         },
         extracted: {
           firstName: firstName || customerFirstName || 'Client',
-          lastName: lastName || customerLastName || 'Anonymous',
-          email: combinedBillingDetails.email || customerEmail || 'noreply@example.com',
-          phone: combinedBillingDetails.phone || customerPhone || '',
+          lastName: lastName || customerLastName || '',
+          email: combinedBillingDetails.email || customerEmail || '(ABSENT)',
+          phone: combinedBillingDetails.phone || customerPhone || '(ABSENT)',
           phoneIsEmpty: !(combinedBillingDetails.phone || customerPhone)
         },
         warning: !(combinedBillingDetails.phone || customerPhone) ? '⚠️ Téléphone manquant - utilisation de valeur par défaut' : null
@@ -640,9 +660,9 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
       // Log console pour visibilité immédiate
       console.log('📋 [TRACE UTILISATEUR] Données extraites:', {
         firstName: firstName || customerFirstName || 'Client',
-        lastName: lastName || customerLastName || 'Anonymous',
-        email: combinedBillingDetails.email || customerEmail || 'noreply@example.com',
-        phone: combinedBillingDetails.phone || customerPhone || '',
+        lastName: lastName || customerLastName || '',
+        email: combinedBillingDetails.email || customerEmail || '(ABSENT)',
+        phone: combinedBillingDetails.phone || customerPhone || '(ABSENT)',
         phoneIsEmpty: !(combinedBillingDetails.phone || customerPhone),
         sources: {
           latestCharge: latestChargeBillingDetails,
@@ -659,6 +679,18 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
         warningPhone: !(combinedBillingDetails.phone || customerPhone) ? '⚠️ Téléphone manquant' : null
       });
 
+      // Résoudre l'email et le téléphone (billing_details Stripe > metadata PaymentIntent)
+      const resolvedEmail = combinedBillingDetails.email || customerEmail || '';
+      const resolvedPhone = combinedBillingDetails.phone || customerPhone || '';
+
+      if (!resolvedEmail) {
+        logger.error('🚨 ALERTE: Email client introuvable (Stripe, metadata, QuoteRequest)', {
+          temporaryId,
+          paymentIntentId: paymentIntent.id
+        });
+        // Continuer quand même — le booking doit être créé, mais les notifications email échoueront
+      }
+
       // Appeler /api/bookings/finalize pour créer le Booking
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
       const response = await fetch(`${baseUrl}/api/bookings/finalize`, {
@@ -672,9 +704,9 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
           amount: paymentIntent.amount / 100, // ⚠️ ATTENTION: C'est l'ACOMPTE, pas le prix total!
           customerData: {
             firstName: firstName || customerFirstName || 'Client',
-            lastName: lastName || customerLastName || 'Anonymous',
-            email: combinedBillingDetails.email || customerEmail || 'noreply@example.com',
-            phone: combinedBillingDetails.phone || customerPhone || ''
+            lastName: lastName || customerLastName || '',
+            email: resolvedEmail,
+            phone: resolvedPhone
           },
           quoteType,
           metadata: paymentIntent.metadata
@@ -882,15 +914,32 @@ async function triggerPaymentFailureRecovery(booking: any, paymentIntent: any): 
       customerSegment: 'payment_failed'
     });
 
-    // Ancien système de notification supprimé
-    logger.info('💳 Paiement échoué - notification non envoyée (ancien système supprimé)', { 
-      bookingId, 
-      amount,
-      errorMessage 
-    });
+    // Envoyer notification de paiement échoué (HTML inline — pas de template dédié)
+    if (customer.email) {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const customerName = `${customer.firstName} ${customer.lastName}`;
+        const retryUrl = `${baseUrl}/booking/${booking.quoteRequest?.temporaryId || booking.id}`;
+        const supportUrl = `${baseUrl}/contact`;
 
-    // Programmer des tentatives de récupération
-    await schedulePaymentRecoverySequence(booking, amount, errorMessage);
+        await fetch(`${baseUrl}/api/notifications/email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: customer.email,
+            subject: 'Problème avec votre paiement - Express Quote',
+            html: buildPaymentFailedHtml({ customerName, amount, errorMessage, retryUrl, supportUrl })
+          })
+        });
+        logger.info('✅ Notification paiement échoué envoyée', { bookingId: booking.id, email: customer.email });
+      } catch (notifError) {
+        logger.error('❌ Erreur envoi notification paiement échoué', {
+          error: notifError instanceof Error ? notifError.message : 'Erreur inconnue'
+        });
+      }
+    } else {
+      logger.warn('⚠️ Pas d\'email client pour envoyer la notification d\'échec de paiement', { bookingId: booking.id });
+    }
 
     logger.info(`🚨 Récupération d'urgence déclenchée pour échec de paiement: ${booking.id}`);
 
@@ -907,28 +956,30 @@ async function triggerPaymentCancelRecovery(booking: any, paymentIntent: any): P
     const customer = booking.customer;
     const amount = paymentIntent.amount / 100;
 
-    // Notification plus douce pour annulation
-    const notification = {
-      id: `cancel_recovery_${booking.id}`,
-      type: 'payment_recovery' as const,
-      priority: 'high' as const,
-      channels: ['email', 'sms'] as const,
-      recipient: {
-        email: customer.email,
-        phone: customer.phone,
-        userId: customer.id
-      },
-      content: {
-        title: 'Reprenez votre réservation',
-        message: `Votre réservation de ${amount}€ vous attend. Finalisez-la maintenant.`,
-        actionText: 'Finaliser le paiement',
-        actionUrl: `/payment/${booking.id}`,
-        incentive: 'Assistance gratuite disponible'
-      },
-      metadata: { bookingId: booking.id, amount }
-    };
+    // Envoyer notification de relance (HTML inline — pas de template dédié)
+    if (customer.email) {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const customerName = `${customer.firstName} ${customer.lastName}`;
+        const retryUrl = `${baseUrl}/booking/${booking.quoteRequest?.temporaryId || booking.id}`;
+        const supportUrl = `${baseUrl}/contact`;
 
-    // Ancien système de notification supprimé
+        await fetch(`${baseUrl}/api/notifications/email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: customer.email,
+            subject: 'Reprenez votre réservation - Express Quote',
+            html: buildPaymentRecoveryHtml({ customerName, amount, retryUrl, supportUrl, reason: 'canceled' })
+          })
+        });
+        logger.info('✅ Notification relance paiement annulé envoyée', { bookingId: booking.id });
+      } catch (notifError) {
+        logger.error('❌ Erreur envoi notification relance', {
+          error: notifError instanceof Error ? notifError.message : 'Erreur inconnue'
+        });
+      }
+    }
 
     logger.info(`🔄 Récupération déclenchée pour paiement annulé: ${booking.id}`);
 
@@ -945,28 +996,30 @@ async function triggerSessionExpiredRecovery(booking: any, session: any): Promis
     const customer = booking.customer;
     const amount = session.amount_total / 100;
 
-    // Notification avec urgence pour session expirée
-    const notification = {
-      id: `expired_recovery_${booking.id}`,
-      type: 'payment_recovery' as const,
-      priority: 'urgent' as const,
-      channels: ['email', 'sms', 'push'] as const,
-      recipient: {
-        email: customer.email,
-        phone: customer.phone,
-        userId: customer.id
-      },
-      content: {
-        title: 'Session expirée - Reprenez votre paiement',
-        message: `Votre session de paiement de ${amount}€ a expiré. Créez un nouveau lien de paiement.`,
-        actionText: 'Nouveau paiement',
-        actionUrl: `/payment/${booking.id}`,
-        deadline: '2 heures'
-      },
-      metadata: { bookingId: booking.id, amount }
-    };
+    // Envoyer notification de session expirée (HTML inline — pas de template dédié)
+    if (customer.email) {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const customerName = `${customer.firstName} ${customer.lastName}`;
+        const retryUrl = `${baseUrl}/booking/${booking.quoteRequest?.temporaryId || booking.id}`;
+        const supportUrl = `${baseUrl}/contact`;
 
-    // Ancien système de notification supprimé
+        await fetch(`${baseUrl}/api/notifications/email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: customer.email,
+            subject: 'Votre session de paiement a expiré - Express Quote',
+            html: buildPaymentRecoveryHtml({ customerName, amount, retryUrl, supportUrl, reason: 'expired' })
+          })
+        });
+        logger.info('✅ Notification session expirée envoyée', { bookingId: booking.id });
+      } catch (notifError) {
+        logger.error('❌ Erreur envoi notification session expirée', {
+          error: notifError instanceof Error ? notifError.message : 'Erreur inconnue'
+        });
+      }
+    }
 
     logger.info(`⏰ Récupération déclenchée pour session expirée: ${booking.id}`);
 
@@ -1227,4 +1280,65 @@ function getServiceDisplayName(serviceType: string): string {
     case 'MOVING_PREMIUM': return 'Déménagement sur mesure';
     default: return 'Déménagement';
   }
-} 
+}
+
+// ============================================================================
+// TEMPLATES HTML INLINE POUR NOTIFICATIONS RECOVERY
+// (pas de templates React Email dédiés — HTML simple et fonctionnel)
+// ============================================================================
+
+function buildPaymentFailedHtml(data: {
+  customerName: string;
+  amount: number;
+  errorMessage: string;
+  retryUrl: string;
+  supportUrl: string;
+}): string {
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
+  <h2 style="color:#e53e3e;">Un problème est survenu avec votre paiement</h2>
+  <p>Bonjour ${data.customerName},</p>
+  <p>Votre paiement de <strong>${data.amount.toFixed(2)} €</strong> n'a pas pu être traité.</p>
+  <p style="background:#fff5f5;padding:12px;border-left:4px solid #e53e3e;border-radius:4px;">
+    ${data.errorMessage}
+  </p>
+  <p>Pas d'inquiétude, votre réservation est toujours disponible. Vous pouvez réessayer le paiement en cliquant ci-dessous :</p>
+  <p style="text-align:center;margin:24px 0;">
+    <a href="${data.retryUrl}" style="background:#007ee6;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Réessayer le paiement</a>
+  </p>
+  <p style="font-size:14px;color:#666;">Si le problème persiste, <a href="${data.supportUrl}">contactez notre support</a>.</p>
+  <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+  <p style="font-size:12px;color:#999;">Express Quote — Cet email a été envoyé automatiquement.</p>
+</body></html>`;
+}
+
+function buildPaymentRecoveryHtml(data: {
+  customerName: string;
+  amount: number;
+  retryUrl: string;
+  supportUrl: string;
+  reason: 'canceled' | 'expired';
+}): string {
+  const title = data.reason === 'expired'
+    ? 'Votre session de paiement a expiré'
+    : 'Votre paiement n\'a pas été finalisé';
+  const message = data.reason === 'expired'
+    ? 'Votre session de paiement a expiré avant la finalisation. Votre réservation est toujours disponible.'
+    : 'Votre paiement a été annulé. Votre réservation est toujours disponible si vous souhaitez la reprendre.';
+
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
+  <h2 style="color:#d69e2e;">${title}</h2>
+  <p>Bonjour ${data.customerName},</p>
+  <p>${message}</p>
+  <p>Montant de votre réservation : <strong>${data.amount.toFixed(2)} €</strong></p>
+  <p style="text-align:center;margin:24px 0;">
+    <a href="${data.retryUrl}" style="background:#007ee6;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Reprendre ma réservation</a>
+  </p>
+  <p style="font-size:14px;color:#666;">Besoin d'aide ? <a href="${data.supportUrl}">Contactez notre support</a>.</p>
+  <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+  <p style="font-size:12px;color:#999;">Express Quote — Cet email a été envoyé automatiquement.</p>
+</body></html>`;
+}

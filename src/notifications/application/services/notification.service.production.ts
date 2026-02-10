@@ -394,12 +394,14 @@ export class ProductionNotificationService {
         await this.repository.markAsSending(notificationId);
       }
       
-      // 2. Envoi via l'adapter
+      // 2. Envoi via l'adapter (avec pièces jointes si présentes dans metadata)
+      const emailAttachments = notification.metadata?.attachments;
       const result = await this.circuitBreaker.call(async () => {
         return await this.emailAdapter.sendEmail({
           to: notification.recipient,
           subject: notification.subject || 'Notification',
-          html: notification.content
+          html: notification.content,
+          ...(emailAttachments?.length ? { attachments: emailAttachments } : {})
         });
       });
       
@@ -1320,7 +1322,8 @@ export class ProductionNotificationService {
         { id: 'booking-confirmation-email', factory: () => NotificationTemplateFactory.createBookingConfirmationEmailTemplate() },
         { id: 'payment-confirmation-email', factory: () => NotificationTemplateFactory.createPaymentConfirmationEmailTemplate() },
         { id: 'appointment-reminder-sms', factory: () => NotificationTemplateFactory.createAppointmentReminderTemplate() },
-        { id: 'service-reminder-email', factory: () => NotificationTemplateFactory.createServiceReminderEmailTemplate() }
+        { id: 'service-reminder-email', factory: () => NotificationTemplateFactory.createServiceReminderEmailTemplate() },
+        { id: 'professional-attribution-email', factory: () => NotificationTemplateFactory.createProfessionalAttributionEmailTemplate() }
       ];
       
       for (const { id, factory } of templates) {
@@ -1378,7 +1381,15 @@ export class ProductionNotificationService {
       } else {
         this.logger.error('❌ Template service-reminder-email non trouvé pour créer l\'alias');
       }
-      
+
+      const professionalAttributionEmail = this.templateRegistry.get('professional-attribution-email');
+      if (professionalAttributionEmail) {
+        this.templateRegistry.set('professional-attribution', professionalAttributionEmail);
+        this.logger.info('✅ Alias professional-attribution créé pour professional-attribution-email');
+      } else {
+        this.logger.error('❌ Template professional-attribution-email non trouvé pour créer l\'alias');
+      }
+
       // Debug: Log the final registry state
       this.logger.info('📄 Final template registry state:', {
         registryKeys: Array.from(this.templateRegistry.keys()),

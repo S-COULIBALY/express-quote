@@ -56,8 +56,8 @@ const longDistanceThreshold = MODULES_CONFIG.distance.LONG_DISTANCE_THRESHOLD_KM
 // Carburant
 const fuelPrice = MODULES_CONFIG.fuel.PRICE_PER_LITER;
 
-// Volume
-const studioCoefficient = MODULES_CONFIG.volume.VOLUME_COEFFICIENTS.STUDIO;
+// Volume (coefficients utilisés par ListAnalysisService/VideoAnalysisService ou fallback ; le formulaire principal utilise le calculateur V3 → estimatedVolume)
+const studioCoefficient = MODULES_CONFIG.volume.VOLUME_COEFFICIENTS?.STUDIO;
 
 // Main-d'œuvre
 const defaultWorkers = MODULES_CONFIG.labor.DEFAULT_WORKERS_COUNT;

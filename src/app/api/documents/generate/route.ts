@@ -11,6 +11,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import * as fs from 'fs';
+import * as path from 'path';
 import { DocumentService } from '@/documents/application/services/DocumentService';
 import { DocumentType } from '@/documents/domain/entities/Document';
 import { logger } from '@/lib/logger';
@@ -65,15 +67,36 @@ export async function POST(request: NextRequest) {
         totalSize: `${Math.round(result.metadata.totalSize / 1024)}KB`
       });
 
-      return NextResponse.json({
-        success: true,
-        documents: result.documents.map(doc => ({
+      // Lire les fichiers générés pour inclure le contenu base64
+      // Permet aux consommateurs de l'API d'attacher les PDFs directement aux emails
+      const storageBasePath = process.env.PDF_STORAGE_PATH || './storage/documents';
+      const documentsWithContent = result.documents.map(doc => {
+        let base64Content: string | undefined;
+        try {
+          const fullPath = path.resolve(storageBasePath, doc.path);
+          if (fs.existsSync(fullPath)) {
+            const buffer = fs.readFileSync(fullPath);
+            base64Content = buffer.toString('base64');
+          }
+        } catch (readError) {
+          requestLogger.warn('⚠️ Impossible de lire le fichier PDF pour base64', {
+            path: doc.path,
+            error: readError instanceof Error ? readError.message : 'Erreur inconnue'
+          });
+        }
+        return {
           type: doc.type,
           filename: doc.filename,
           path: doc.path,
           size: doc.size,
-          mimeType: doc.mimeType
-        })),
+          mimeType: doc.mimeType,
+          base64Content
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        documents: documentsWithContent,
         metadata: result.metadata
       });
 

@@ -154,15 +154,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
 
       if (verification.valid) {
-        // ✅ Signature valide - Utiliser le prix signé (RAPIDE)
-        serverCalculatedPrice = quoteData.securedPrice.totalPrice;
+        // ✅ Signature valide → la soumission est authentique
+        // IMPORTANT: securedPrice.totalPrice = coût de base serveur (sans marge scénario)
+        // Le prix réel accepté par le client est dans quoteData.totalPrice (scénario + options)
+        const serverBaseCost = quoteData.securedPrice.totalPrice;
+        serverCalculatedPrice = quoteData.totalPrice || quoteData.calculatedPrice || serverBaseCost;
         depositAmount = serverCalculatedPrice * 0.3;
         verificationMethod = 'signature';
 
-        logger.info('✅ Signature valide - Prix accepté sans recalcul', {
+        logger.info('✅ Signature valide - Prix scénario utilisé pour acompte', {
           temporaryId,
-          totalPrice: serverCalculatedPrice,
+          serverBaseCost,
+          scenarioPrice: quoteData.calculatedPrice,
+          totalPriceWithOptions: quoteData.totalPrice,
+          serverCalculatedPrice,
           depositAmount,
+          selectedScenario: quoteData.selectedScenario,
           calculationId: quoteData.securedPrice.calculationId,
           signatureAge: verification.details?.ageHours?.toFixed(2) + 'h'
         });

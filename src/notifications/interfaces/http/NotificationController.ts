@@ -879,10 +879,16 @@ export class NotificationController {
       const attachmentsB64: any[] = [];
       if (validData.attachments && validData.attachments.length > 0) {
         const fs = await import('fs/promises');
+        const pathModule = await import('path');
+        const storageBasePath = process.env.PDF_STORAGE_PATH || './storage/documents';
 
         for (const attachment of validData.attachments) {
           try {
-            const fileBuffer = await fs.readFile(attachment.path);
+            // Résoudre le chemin: si relatif, le résoudre depuis le dossier de stockage
+            const filePath = pathModule.isAbsolute(attachment.path)
+              ? attachment.path
+              : pathModule.resolve(storageBasePath, attachment.path);
+            const fileBuffer = await fs.readFile(filePath);
             const base64Content = fileBuffer.toString('base64');
 
             attachmentsB64.push({

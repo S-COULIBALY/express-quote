@@ -27,14 +27,17 @@ export const createDemenagementSurMesureSubmissionConfig = (
   submissionType: 'MOVING_PREMIUM',
 
   validateFormData: (formData: Record<string, unknown>) => {
-    // Validation des champs requis pour un service sur mesure
-    if (!formData.scheduledDate || !formData.pickupAddress || !formData.deliveryAddress) {
-      return 'Veuillez remplir tous les champs obligatoires.';
+    // Validation de la date (supporte les deux noms de champs)
+    const date = formData.dateSouhaitee || formData.scheduledDate;
+    if (!date) {
+      return 'Veuillez remplir la date souhaitée.';
     }
 
-    // Validation spécifique au déménagement sur mesure
-    if (!formData.typeDemenagement || !formData.surface || !formData.nombrePieces) {
-      return 'Veuillez spécifier le type de déménagement, la surface et le nombre de pièces.';
+    // Validation des adresses (supporte les alias : pickupAddress / adresseDepart, etc.)
+    const pickupAddr = formData.pickupAddress || formData.adresseDepart || formData.departureAddress;
+    const deliveryAddr = formData.deliveryAddress || formData.adresseArrivee || formData.arrivalAddress;
+    if (!pickupAddr || !deliveryAddr) {
+      return 'Veuillez remplir les adresses de départ et d\'arrivée.';
     }
 
     return true;
@@ -49,52 +52,72 @@ export const createDemenagementSurMesureSubmissionConfig = (
       serviceType: 'MOVING_PREMIUM',
       catalogId: service.catalogId,
 
-      // Informations générales
-      typeDemenagement: formData.typeDemenagement,
-      surface: parseInt(String(formData.surface)),
-      nombrePieces: parseInt(String(formData.nombrePieces)),
-      volumeEstime: formData.volumeEstime,
+      // Volume (calculateur V3)
+      estimatedVolume: formData.estimatedVolume,
 
-      // Planification
-      scheduledDate: formData.scheduledDate,
+      // Planification (supporte alias dateSouhaitee / scheduledDate)
+      scheduledDate: formData.dateSouhaitee || formData.scheduledDate,
       flexibilite: formData.flexibilite,
       horaire: formData.horaire,
 
-      // Adresses et contraintes
-      pickupAddress: formData.pickupAddress,
-      deliveryAddress: formData.deliveryAddress,
+      // Adresses (supporte alias pickupAddress / adresseDepart / departureAddress)
+      pickupAddress: formData.pickupAddress || formData.adresseDepart || formData.departureAddress,
+      deliveryAddress: formData.deliveryAddress || formData.adresseArrivee || formData.arrivalAddress,
+      pickupPostalCode: formData.pickupPostalCode,
+      pickupCity: formData.pickupCity,
+      deliveryPostalCode: formData.deliveryPostalCode,
+      deliveryCity: formData.deliveryCity,
       distanceEstimee: extra?.distance || distance,
 
-      // Contraintes logistiques
-      etageDepart: parseInt(String(formData.etageDepart)) || 0,
-      etageArrivee: parseInt(String(formData.etageArrivee)) || 0,
-      ascenseurDepart: formData.ascenseurDepart,
-      ascenseurArrivee: formData.ascenseurArrivee,
-      pickupLogisticsConstraints: formData.pickupLogisticsConstraints,
-      deliveryLogisticsConstraints: formData.deliveryLogisticsConstraints,
-      additionalServices: formData.additionalServices,
+      // Contraintes logistiques (noms cohérents avec le formulaire)
+      pickupFloor: parseInt(String(formData.pickupFloor)) || 0,
+      deliveryFloor: parseInt(String(formData.deliveryFloor)) || 0,
+      pickupElevator: formData.pickupElevator,
+      deliveryElevator: formData.deliveryElevator,
+      pickupCarryDistance: formData.pickupCarryDistance,
+      deliveryCarryDistance: formData.deliveryCarryDistance,
+      pickupFurnitureLift: formData.pickupFurnitureLift,
+      deliveryFurnitureLift: formData.deliveryFurnitureLift,
+      pickupLogistics: formData.pickupLogistics,
+      deliveryLogistics: formData.deliveryLogistics,
 
-      // Mobilier et objets
-      meubles: formData.meubles || [],
-      electromenager: formData.electromenager || [],
-      objetsFragiles: formData.objetsFragiles || [],
+      // Stockage temporaire
+      storageDurationDays: formData.storageDurationDays,
 
-      // Services optionnels
-      emballage: formData.emballage,
-      montage: formData.montage,
-      nettoyage: formData.nettoyage,
-      stockage: formData.stockage,
-      assurance: formData.assurance,
+      // Services cross-selling (injectés depuis CrossSellingContext à la soumission)
+      packing: formData.packing,
+      dismantling: formData.dismantling,
+      reassembly: formData.reassembly,
+      cleaningEnd: formData.cleaningEnd,
+      temporaryStorage: formData.temporaryStorage,
+      piano: formData.piano,
+      safe: formData.safe,
+      artwork: formData.artwork,
+      crossSellingSuppliesTotal: formData.crossSellingSuppliesTotal,
+      crossSellingSuppliesDetails: formData.crossSellingSuppliesDetails,
+      crossSellingServicesTotal: formData.crossSellingServicesTotal,
+      crossSellingGrandTotal: formData.crossSellingGrandTotal,
+
+      // Informations supplémentaires
+      additionalInfo: formData.additionalInfo,
 
       // Contact
       nom: formData.nom,
       email: formData.email,
       telephone: formData.telephone,
-      commentaires: formData.commentaires,
 
       // Prix et calculs
       calculatedPrice: formData.calculatedPrice || 0,
+      totalPrice: formData.totalPrice || 0,
+      selectedScenario: formData.selectedScenario,
       isDynamicPricing: true,
+
+      // Options assurance/protection (gérées dans PaymentPriceSection)
+      fragileProtection: formData.fragileProtection,
+      fragileProtectionAmount: formData.fragileProtectionAmount,
+      declaredValueInsurance: formData.declaredValueInsurance,
+      declaredValue: formData.declaredValue,
+      insurancePremium: formData.insurancePremium,
 
       // Données du service
       serviceName: service.name,
@@ -112,17 +135,26 @@ export const createDemenagementSurMesureSubmissionConfig = (
   },
 
   getNotificationData: (formData: Record<string, unknown>) => {
-    const servicesOptionnels: string[] = [];
-    if (formData.emballage) servicesOptionnels.push('Emballage');
-    if (formData.montage) servicesOptionnels.push('Montage/Démontage');
-    if (formData.nettoyage) servicesOptionnels.push('Nettoyage');
-    if (formData.stockage) servicesOptionnels.push('Stockage');
-    if (formData.assurance) servicesOptionnels.push('Assurance');
+    const pickupAddr = formData.pickupAddress || formData.adresseDepart || formData.departureAddress;
+    const deliveryAddr = formData.deliveryAddress || formData.adresseArrivee || formData.arrivalAddress;
+    const date = formData.dateSouhaitee || formData.scheduledDate;
+    const volume = formData.estimatedVolume;
+    const scenario = formData.selectedScenario || 'STANDARD';
+
+    // Services inclus selon le scénario sélectionné et les sélections cross-selling
+    const servicesInclus: string[] = [];
+    if (formData.packing) servicesInclus.push('Emballage');
+    if (formData.dismantling) servicesInclus.push('Démontage');
+    if (formData.reassembly) servicesInclus.push('Remontage');
+    if (formData.cleaningEnd) servicesInclus.push('Nettoyage');
+    if (formData.temporaryStorage || formData.storageDurationDays) servicesInclus.push('Stockage');
+    if (formData.declaredValueInsurance) servicesInclus.push('Assurance');
+    if (formData.fragileProtection) servicesInclus.push('Protection fragiles');
 
     return {
-      serviceDate: formData.scheduledDate,
-      serviceAddress: `${formData.pickupAddress} → ${formData.deliveryAddress}`,
-      additionalDetails: `Type: ${formData.typeDemenagement}, Surface: ${formData.surface}m², ${formData.nombrePieces} pièces${servicesOptionnels.length > 0 ? `, Services: ${servicesOptionnels.join(', ')}` : ''}`
+      serviceDate: date,
+      serviceAddress: `${pickupAddr} → ${deliveryAddr}`,
+      additionalDetails: `Volume: ${volume ? `${volume} m³` : 'À estimer'}, Formule: ${scenario}${servicesInclus.length > 0 ? `, Services: ${servicesInclus.join(', ')}` : ''}${formData.storageDurationDays ? `, Stockage: ${formData.storageDurationDays} jours` : ''}`
     };
   }
 });

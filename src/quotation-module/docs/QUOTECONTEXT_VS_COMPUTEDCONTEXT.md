@@ -18,7 +18,7 @@ export interface QuoteContext {
   serviceType: 'MOVING';
   region: 'IDF';
   movingDate?: string;
-  housingType?: 'STUDIO' | 'F2' | 'F3' | 'F4' | 'HOUSE';
+  estimatedVolume?: number;  // Volume (m³) – calculateur V3 ou analyse LIST/VIDEO
   departureAddress: string;
   arrivalAddress: string;
   declaredValue?: number;

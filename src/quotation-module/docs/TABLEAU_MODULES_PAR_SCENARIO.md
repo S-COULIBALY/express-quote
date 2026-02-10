@@ -51,7 +51,7 @@ Ce document récapitule les **38 modules** du système de cotation, organisés e
 
 | # | Module | Priority | Type | Rôle / Fonction |
 |:-:|--------|:--------:|:----:|-----------------|
-| 4 | `volume-estimation` | 20 | BASE | Estime volume si non fourni (surface × coeff + ajustements) |
+| 4 | `volume-estimation` | 20 | BASE | Utilise le volume fourni (calculateur V3) ou fallback minimal |
 | 5 | `volume-uncertainty-risk` | 22 | Additionnel | Surcoût si volume incertain (écart estimation/déclaré) |
 
 ---
@@ -139,11 +139,12 @@ Ce document récapitule les **38 modules** du système de cotation, organisés e
 | 35 | `packing-requirement` | 82 | Additionnel | Détecte besoin emballage, propose cross-sell |
 | 36 | `packing-cost` | 85 | Additionnel | Coût emballage professionnel (5€/m³) |
 | 37 | `cleaning-end-requirement` | 83 | Additionnel | Détecte besoin nettoyage, propose cross-sell |
-| 38 | `cleaning-end-cost` | 86 | Additionnel | Coût nettoyage fin de bail (8€/m²) |
+| 38 | `cleaning-end-cost` | 86 | Additionnel | Coût nettoyage fin de bail (surface déduite du volume, 8€/m²) |
 | 39 | `dismantling-cost` | 86.5 | Additionnel | Coût démontage meubles (50€ base + extras) |
 | 40 | `reassembly-cost` | 86.6 | Additionnel | Coût remontage meubles (50€ base + extras) |
 | 41 | `storage-requirement` | 84 | Additionnel | Détecte besoin stockage temporaire |
 | 42 | `storage-cost` | 87 | Additionnel | Coût stockage (30€/m³/mois) |
+| 43 | `supplies-cost` | 90 | Additionnel | Coût fournitures catalogue (cartons, bulles, adhésif) |
 
 ---
 
@@ -158,8 +159,8 @@ Ce document récapitule les **38 modules** du système de cotation, organisés e
 | 5 | Monte-Meubles | 0 | 4 | 4 |
 | 6 | Main d'Œuvre | 3 | 2 | 5 |
 | 7 | Assurance & Risque | 0 | 6 | 6 |
-| 8 | Options & Cross-Selling | 0 | 10 | 10 |
-| **TOTAL** | | **11** | **27** | **38** |
+| 8 | Options & Cross-Selling | 0 | 11 | 11 |
+| **TOTAL** | | **11** | **28** | **39** |
 
 ---
 
@@ -169,17 +170,17 @@ Ce document récapitule les **38 modules** du système de cotation, organisés e
 
 | Module / Prestation              |  ECO  |  STANDARD  |  CONFORT  |  PREMIUM  |  SÉCURITÉ+  |  FLEX  |
 | -------------------------------- | :---: | :--------: | :-------: | :-------: | :---------: | :----: |
-| **Emballage (packing)**          |   ❌   |      ⭕     |     ✅     |     ✅     |      ✅      |    ⭕   |
+| **Emballage (packing)**          |   ❌   |      ✅     |     ✅     |     ✅     |      ✅      |    ⭕   |
 | **Fournitures (cartons, etc.)**  |   ❌   |      ⭕     |     ✅     |     ✅     |      ✅      |    ⭕   |
-| **Démontage des meubles**        |   ❌   |      ⭕     |     ✅     |     ✅     |      ✅      |    ✅   |
-| **Remontage des meubles**        |   ❌   |      ⭕     |     ✅     |     ✅     |      ✅      |    ✅   |
+| **Démontage des meubles**        |   ❌   |      ✅     |     ✅     |     ✅     |      ✅      |    ⭕   |
+| **Remontage des meubles**        |   ❌   |      ❌     |     ✅     |     ✅     |      ✅      |    ⭕   |
 | **Objets de valeur / fragiles**  |   ❌   |      ⭕     |     ⭕     |     ✅     |      ✅      |    ⭕   |
-| **Assurance renforcée**          |   ⭕   |      ⭕     |     ⭕     |     ✅     |      ✅      |    ⭕   |
+| **Assurance renforcée**          |   ⭕   |      ❌     |     ⭕     |     ✅     |      ✅      |    ⭕   |
 | -------------------------------- | ----- | ---------- | --------- | --------- | ----------- | ------ |
 | **Nettoyage fin de prestation**  |   ❌   |      ❌     |     ⭕     |     ✅     |      ✅      |    ⭕   |
 | **Monte-meubles (si requis)**    |   ⭕*  |     ⭕*     |     ⭕*    |     ⭕*    |      ⭕*     |   ⭕*   |
-| **Étape / nuit intermédiaire**   |   ❌   |      ❌     |     ⭕     |     ⭕     |      ⭕      |    ✅   |
-| **Flexibilité équipe / planning**|   ❌   |      ❌     |     ⭕     |     ⭕     |      ⭕      |    ✅   |
+| **Étape / nuit intermédiaire**   |   ❌   |      ❌     |     ❌     |     ⭕     |      ⭕      |    ⭕   |
+| **Flexibilité équipe / planning**|   ❌   |      ❌     |     ❌     |     ⭕     |      ⭕      |    ⭕   |
 
 **Légende :**
 - ✅ = **Inclus d'office** dans la formule
@@ -197,7 +198,7 @@ Ce document récapitule les **38 modules** du système de cotation, organisés e
 | `volume-uncertainty-risk` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | **PHASE 3 - Distance** |
 | `long-distance-surcharge` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
-| `overnight-stop-cost` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ✅ |
+| `overnight-stop-cost` | ❌ | ⚪ | ❌ | ⚪ | ⚪ | ⚪ |
 | **PHASE 4 - Accès & Contraintes** |
 | `no-elevator-pickup` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | `no-elevator-delivery` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
@@ -208,27 +209,28 @@ Ce document récapitule les **38 modules** du système de cotation, organisés e
 | **PHASE 5 - Monte-Meubles** |
 | `monte-meubles-recommendation` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | `monte-meubles-refusal-impact` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
-| `furniture-lift-cost` | ⚪ | ⚪ | ⚪ | ✅ | ⚪ | ⚪ |
+| `furniture-lift-cost` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | `manual-handling-risk-cost` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | **PHASE 6 - Main d'œuvre** |
 | `labor-access-penalty` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
-| `crew-flexibility` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ✅ |
+| `crew-flexibility` | ❌ | ⚪ | ❌ | ⚪ | ⚪ | ⚪ |
 | **PHASE 7 - Assurance & Risque** |
 | `declared-value-validation` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
-| `insurance-premium` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
-| `high-value-item-handling` | ❌ | ⚪ | ✅ | ⚪ | ✅ | ⚪ |
+| `insurance-premium` | ⚪ | ❌ | ⚪ | ✅ | ✅ | ⚪ |
+| `high-value-item-handling` | ❌ | ⚪ | ⚪ | ✅ | ✅ | ⚪ |
 | `co-ownership-rules` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | `neighborhood-damage-risk` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | `public-domain-occupation` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | **PHASE 8 - Options & Cross-Selling** |
 | `end-of-month` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | `weekend` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
-| `packing-requirement` | ❌ | ⚪ | ✅ | ⚪ | ✅ | ⚪ |
-| `packing-cost` | ❌ | ⚪ | ✅ | ⚪ | ✅ | ⚪ |
-| `cleaning-end-requirement` | ❌ | ⚪ | ⚪ | ⚪ | ✅ | ⚪ |
-| `cleaning-end-cost` | ❌ | ⚪ | ⚪ | ⚪ | ✅ | ⚪ |
-| `dismantling-cost` | ❌ | ⚪ | ✅ | ✅ | ✅ | ✅ |
-| `reassembly-cost` | ❌ | ⚪ | ✅ | ✅ | ✅ | ✅ |
+| `packing-requirement` | ❌ | ✅ | ✅ | ✅ | ✅ | ⚪ |
+| `packing-cost` | ❌ | ✅ | ✅ | ✅ | ✅ | ⚪ |
+| `cleaning-end-requirement` | ❌ | ❌ | ⚪ | ✅ | ✅ | ⚪ |
+| `cleaning-end-cost` | ❌ | ❌ | ⚪ | ✅ | ✅ | ⚪ |
+| `dismantling-cost` | ❌ | ✅ | ✅ | ✅ | ✅ | ⚪ |
+| `reassembly-cost` | ❌ | ❌ | ✅ | ✅ | ✅ | ⚪ |
+| `supplies-cost` | ❌ | ⚪ | ✅ | ✅ | ✅ | ⚪ |
 | `storage-requirement` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 | `storage-cost` | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ | ⚪ |
 
@@ -248,12 +250,12 @@ Ce document récapitule les **38 modules** du système de cotation, organisés e
 
 | Scénario | Marge | Modules forcés | Modules bloqués | Stratégie |
 |----------|:-----:|----------------|-----------------|-----------|
-| **ECO** | 20% | - | 7 modules (packing, cleaning, dismantling, reassembly, high-value) | Prix minimum, client fait tout |
-| **STANDARD** | 30% | - | - | Équilibre prix/service |
-| **CONFORT** | 35% | 5 (packing, dismantling, reassembly, high-value) | - | Emballage + démontage/remontage pro |
-| **SÉCURITÉ+** | 32% | 8 (packing, cleaning, dismantling, reassembly, high-value, supplies, insurance) | - | Protection maximale avec emballage, nettoyage, fournitures et assurance incluse |
-| **PREMIUM** | 40% | 7 (packing, cleaning, dismantling, reassembly, high-value) | - | Clé en main tout inclus |
-| **FLEX** | 38% | 4 (overnight-stop, crew-flexibility, dismantling, reassembly) | - | Longue distance + démontage/remontage |
+| **ECO** | 20% | - | 10 (packing-*, cleaning-*, dismantling, reassembly, high-value, supplies, overnight-stop, crew-flexibility) | Prix minimum, client fait tout |
+| **STANDARD** | 30% | 3 (packing-requirement, packing-cost, dismantling-cost) | 4 (reassembly-cost, cleaning-end-*, insurance-premium) | Emballage + démontage inclus |
+| **CONFORT** | 35% | 5 (packing-*, dismantling-cost, reassembly-cost, supplies-cost) | 2 (overnight-stop-cost, crew-flexibility) | Emballage + démontage/remontage + fournitures |
+| **SÉCURITÉ+** | 32% | 9 (packing-*, cleaning-end-*, dismantling, reassembly, high-value, supplies, insurance) | - | Protection maximale avec assurance incluse (50 000€) |
+| **PREMIUM** | 40% | 9 (packing-*, cleaning-end-*, dismantling, reassembly, high-value, supplies, insurance) | - | Clé en main tout inclus avec assurance (50 000€) |
+| **FLEX** | 38% | - (sélection client : `useClientSelection: true`) | - | Formule 100% personnalisable |
 
 ---
 
@@ -295,29 +297,33 @@ Un module marqué ⚪ ne s'exécute **que si** sa méthode `isApplicable(ctx)` r
 - **Modules actifs** : Uniquement les modules conditionnels (accès, distance, etc.)
 
 ### STANDARD (30% marge)
-- **Aucune restriction** : Tous les modules s'exécutent selon `isApplicable()`
-- **Résultat** : Équilibre prix/service, recommandé par défaut
+- **Modules forcés (3)** : `packing-requirement`, `packing-cost`, `dismantling-cost`
+- **Modules bloqués (4)** : `reassembly-cost`, `cleaning-end-requirement`, `cleaning-end-cost`, `insurance-premium`
+- **Overrides** : `packing: true`, `dismantling: true`
+- **Résultat** : Emballage + démontage inclus, pas de remontage ni nettoyage
 
 ### CONFORT (35% marge)
-- **Modules forcés (5)** : `packing-*`, `dismantling-cost`, `reassembly-cost`, `high-value-item-handling`
-- **Overrides** : `packing: true`, `dismantling: true`, `reassembly: true`, `bulkyFurniture: true`, `artwork: true`
-- **Résultat** : Emballage et démontage/remontage professionnels inclus
+- **Modules forcés (5)** : `packing-requirement`, `packing-cost`, `dismantling-cost`, `reassembly-cost`, `supplies-cost`
+- **Modules bloqués (2)** : `overnight-stop-cost`, `crew-flexibility`
+- **Overrides** : `packing: true`, `dismantling: true`, `reassembly: true`, `bulkyFurniture: true`, `forceSupplies: true`
+- **Résultat** : Emballage, démontage/remontage et fournitures professionnels inclus
 
 ### SÉCURITÉ+ (32% marge)
-- **Modules forcés (8)** : `packing-cost`, `cleaning-end-cost`, `dismantling-cost`, `reassembly-cost`, `high-value-item-handling`, `supplies-cost`, `insurance-premium`
-- **Overrides** : `packing: true`, `cleaningEnd: true`, `dismantling: true`, `reassembly: true`, `bulkyFurniture: true`, `artwork: true`, `declaredValueInsurance: true`, `declaredValue: 50000`, `crossSellingSuppliesTotal: 100`
+- **Modules forcés (9)** : `packing-requirement`, `packing-cost`, `cleaning-end-requirement`, `cleaning-end-cost`, `dismantling-cost`, `reassembly-cost`, `high-value-item-handling`, `supplies-cost`, `insurance-premium`
+- **Overrides** : `packing: true`, `cleaningEnd: true`, `dismantling: true`, `reassembly: true`, `bulkyFurniture: true`, `artwork: true`, `estimatedVolume: 200`, `declaredValueInsurance: true`, `declaredValue: 50000`, `forceSupplies: true`
 - **Note** : Monte-meubles reste conditionnel selon contraintes techniques (étage ≥3 ou ≥5)
-- **Résultat** : Monte-meubles + démontage/remontage professionnels, protection maximale
+- **Résultat** : Protection maximale avec assurance renforcée incluse (50 000€)
 
 ### PREMIUM (40% marge)
-- **Modules forcés (7)** : Tous les services (packing, cleaning, dismantling, reassembly, high-value)
-- **Overrides** : `packing: true`, `cleaningEnd: true`, `dismantling: true`, `reassembly: true`, `bulkyFurniture: true`, `artwork: true`, `surface: 80`
-- **Résultat** : Service clé en main tout inclus
+- **Modules forcés (9)** : `packing-requirement`, `packing-cost`, `cleaning-end-requirement`, `cleaning-end-cost`, `dismantling-cost`, `reassembly-cost`, `high-value-item-handling`, `supplies-cost`, `insurance-premium`
+- **Overrides** : `packing: true`, `cleaningEnd: true`, `dismantling: true`, `reassembly: true`, `bulkyFurniture: true`, `artwork: true`, `estimatedVolume: 200`, `declaredValueInsurance: true`, `declaredValue: 50000`, `forceSupplies: true`
+- **Résultat** : Service clé en main tout inclus avec assurance (50 000€)
 
 ### FLEX (38% marge)
-- **Modules forcés (4)** : `overnight-stop-cost`, `crew-flexibility`, `dismantling-cost`, `reassembly-cost`
-- **Overrides** : `crewFlexibility: true`, `forceOvernightStop: true`, `dismantling: true`, `reassembly: true`
-- **Résultat** : Adaptabilité maximale + démontage/remontage, longue distance avec arrêt nuit si >1000km
+- **Aucun module forcé** : `useClientSelection: true`
+- **Aucun module bloqué**
+- **Aucun override** : Le contexte est entièrement piloté par les sélections du client (catalogue cross-selling)
+- **Résultat** : Formule 100% personnalisable selon les besoins du client
 
 ---
 
@@ -377,21 +383,21 @@ CostModule (Type C) → Facture si client accepte (flag = true)
 | Service | Requirement | Cost | Condition d'activation | Tarification |
 |---------|:-----------:|:----:|------------------------|--------------|
 | **Emballage** | 82 | 85 | Volume > 40m³ OU fragile OU longue distance | volume × 5€/m³ |
-| **Nettoyage** | 83 | 86 | Surface fournie (toujours disponible) | surface × 8€/m² |
+| **Nettoyage** | 83 | 86 | Volume fourni (surface déduite : volume/2.5) | surface effective × 8€/m² |
 | **Stockage** | 84 | 87 | `temporaryStorage` OU `storageDurationDays > 0` | volume × 30€/m³/mois |
 | **Démontage** | - | 86.5 | `dismantling` OU `bulkyFurniture` | 50€ base + extras |
 | **Remontage** | - | 86.6 | `reassembly` OU `bulkyFurniture` | 50€ base + extras |
 
 ### Contrôle du Cross-Selling par Scénario
 
-| Scénario | Emballage | Nettoyage | Démontage/Remontage | Stockage |
-|----------|:---------:|:---------:|:-------------------:|:--------:|
-| **ECO** | ❌ Bloqué | ❌ Bloqué | ❌ Bloqué | ⚪ Default |
-| **STANDARD** | ⚪ Default | ⚪ Default | ⚪ Default | ⚪ Default |
-| **CONFORT** | ✅ Forcé | ⚪ Default | ✅ Forcé | ⚪ Default |
-| **SÉCURITÉ+** | ✅ Forcé | ✅ Forcé | ✅ Forcé | ✅ Forcé |
-| **PREMIUM** | ✅ Forcé | ✅ Forcé | ✅ Forcé | ⚪ Default |
-| **FLEX** | ⚪ Default | ⚪ Default | ✅ Forcé | ⚪ Default |
+| Scénario | Emballage | Nettoyage | Démontage | Remontage | Fournitures | Stockage |
+|----------|:---------:|:---------:|:---------:|:---------:|:-----------:|:--------:|
+| **ECO** | ❌ Bloqué | ❌ Bloqué | ❌ Bloqué | ❌ Bloqué | ❌ Bloqué | ⚪ Default |
+| **STANDARD** | ✅ Forcé | ❌ Bloqué | ✅ Forcé | ❌ Bloqué | ⚪ Default | ⚪ Default |
+| **CONFORT** | ✅ Forcé | ⚪ Default | ✅ Forcé | ✅ Forcé | ✅ Forcé | ⚪ Default |
+| **SÉCURITÉ+** | ✅ Forcé | ✅ Forcé | ✅ Forcé | ✅ Forcé | ✅ Forcé | ⚪ Default |
+| **PREMIUM** | ✅ Forcé | ✅ Forcé | ✅ Forcé | ✅ Forcé | ✅ Forcé | ⚪ Default |
+| **FLEX** | ⚪ Client | ⚪ Client | ⚪ Client | ⚪ Client | ⚪ Client | ⚪ Client |
 
 ### Tarification Cross-Selling
 

@@ -37,7 +37,7 @@
 ### Scénario : Client avec vidéo analysée
 
 **Données client** :
-- F3, 65 m², Paris → Lyon
+- Paris → Lyon
 - Vidéo analysée : 42 m³ détectés
 - Piano présent
 - Valeur déclarée : 20 000 €
@@ -84,11 +84,6 @@ const quoteContext: QuoteContext = {
   
   // Date
   movingDate: '2025-03-15T10:00:00Z',
-  
-  // Logement
-  housingType: 'F3',
-  surface: 65,
-  rooms: 3,
   
   // Volume (résultat du service vidéo)
   volumeMethod: 'VIDEO',           // ← Méthode vidéo
@@ -853,8 +848,6 @@ async function calculateQuoteWithVideo(videoUrl: string) {
     serviceType: 'MOVING',
     region: 'IDF',
     movingDate: '2025-03-15T10:00:00Z',
-    housingType: 'F3',
-    surface: 65,
     volumeMethod: 'VIDEO',
     estimatedVolume: analysis.estimatedVolume,
     volumeConfidence: analysis.confidence,

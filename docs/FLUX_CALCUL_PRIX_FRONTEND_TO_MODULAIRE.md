@@ -61,7 +61,7 @@
 | Formulaire        | `FormGenerator` + `formRef`                                  | Formulaire dynamique (preset `getDemenagementSurMesureServiceConfig`). Données via `formRef.current.getFormData()`.                        |
 | Hook calcul       | `useModularQuotation()`                                      | `src/hooks/shared/useModularQuotation.ts` – orchestre les 2 appels API et le debounce.                                                     |
 | Déclenchement     | `useEffect` (interval 1s)                                    | Compare `JSON.stringify(formData)` à `lastFormDataRef` ; si changement et données minimales → `quotation.calculateWithDebounce(formData)`. |
-| Données minimales | `hasEssentialData`                                           | Au moins un parmi : `departureAddress`, `arrivalAddress`, `volume`, `movingDate`, `pickupAddress`, `deliveryAddress`, `volumeEstime`.      |
+| Données minimales | `hasEssentialData`                                           | Au moins un parmi : `departureAddress`, `arrivalAddress`, `estimatedVolume` (ou `volume`), `movingDate`, `pickupAddress`, `deliveryAddress`.      |
 | Prix affiché      | `PriceProvider` + `PaymentPriceSection`                      | `usePrice().calculatedPrice` ; si scénario choisi → prix de la quote correspondante.                                                       |
 
 **Important** : Aucun calcul de prix dans le frontend. Toute la logique est déléguée aux APIs et au moteur modulaire.
@@ -123,7 +123,7 @@ Séquence dans `QuoteController.calculateQuote` :
 **Fichier** : `src/quotation-module/adapters/FormAdapter.ts`
 
 - **FormAdapter.toQuoteContext(formData)** :
-  - Mapping des champs formulaire (avec alias : `pickupAddress` ↔ `departureAddress`, `volumeEstime`, `housingType`, etc.) vers la structure attendue par le moteur.
+  - Mapping des champs formulaire (avec alias : `pickupAddress` ↔ `departureAddress`, `estimatedVolume` / `volume`, etc.) vers la structure attendue par le moteur.
   - Gestion des contraintes d’accès et services (modals) via `ModalSelectionsAdapter` / `modalSelectionsToQuoteContext`.
   - Aucune logique métier de tarification : uniquement normalisation et mise en forme pour `QuoteContext`.
 

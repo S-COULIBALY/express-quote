@@ -215,8 +215,6 @@ describe('Pipeline MVP Phase 1 - Intégration Complète', () => {
     it('should execute modules in the correct priority order', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',
@@ -259,8 +257,6 @@ describe('Pipeline MVP Phase 1 - Intégration Complète', () => {
     it('should respect module dependencies', () => {
       const formData = {
         movingDate: '2025-03-15T10:00:00Z',
-        housingType: 'F3' as const,
-        surface: 65,
         estimatedVolume: 30,
         volumeConfidence: 'MEDIUM' as const,
         departureAddress: '123 Rue de Paris, 75001 Paris',

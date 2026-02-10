@@ -199,8 +199,6 @@ const { jobId } = await videoService.startAnalysis(videoFile.url);
 const provisionalContext: QuoteContext = {
   volumeMethod: 'VIDEO',
   estimatedVolume: undefined, // Pas encore analysé
-  surface: 65,
-  housingType: 'F3',
   // ...
 };
 const provisionalQuote = engine.execute(provisionalContext);

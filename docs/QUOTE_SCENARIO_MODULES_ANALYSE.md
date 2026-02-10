@@ -87,13 +87,13 @@
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **enabledModules**  | `packing-requirement`, `packing-cost`, `cleaning-end-requirement`, `cleaning-end-cost`, `dismantling-cost`, `reassembly-cost`, `high-value-item-handling`, `supplies-cost`, `insurance-premium`                      |
 | **disabledModules** | _(aucun)_                                                                                                                                                                                                            |
-| **overrides**       | `packing: true`, `cleaningEnd: true`, `dismantling: true`, `reassembly: true`, `bulkyFurniture: true`, `artwork: true`, `surface: 80`, `declaredValueInsurance: true`, `declaredValue: 50000`, `forceSupplies: true` |
+| **overrides**       | `packing: true`, `cleaningEnd: true`, `dismantling: true`, `reassembly: true`, `bulkyFurniture: true`, `artwork: true`, `estimatedVolume: 200`, `declaredValueInsurance: true`, `declaredValue: 50000`, `forceSupplies: true` |
 | **marginRate**      | 0.32 (32 %)                                                                                                                                                                                                          |
 
 **Comportement** :
 
 - Tous les modules listés dans `enabledModules` sont autorisés à s’exécuter ; les overrides garantissent que les conditions métier sont remplies (emballage, nettoyage, démontage/remontage, fournitures, objets de valeur, assurance à 50 000 €).
-- `surface: 80` pousse le nettoyage fin de prestation à être pertinent ; `declaredValueInsurance` + `declaredValue: 50000` alimentent le module `insurance-premium`.
+- `estimatedVolume: 200` (≈80 m² pour nettoyage) pousse le nettoyage fin de prestation à être pertinent ; `declaredValueInsurance` + `declaredValue: 50000` alimentent le module `insurance-premium`.
 - Sélection client **ignorée** (formule tout inclus).
 - **Coûts additionnels** = emballage + nettoyage + démontage + remontage + fournitures + prise en charge objets de valeur + prime d’assurance (50 k€).
 - Prix final = `(baseCost + additionalCosts) × (1 + 0.32)`.
@@ -106,7 +106,7 @@
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **enabledModules**  | _(identique à SÉCURITÉ+)_ : `packing-requirement`, `packing-cost`, `cleaning-end-requirement`, `cleaning-end-cost`, `dismantling-cost`, `reassembly-cost`, `high-value-item-handling`, `supplies-cost`, `insurance-premium` |
 | **disabledModules** | _(aucun)_                                                                                                                                                                                                                   |
-| **overrides**       | _(identique à SÉCURITÉ+)_ : packing, cleaningEnd, dismantling, reassembly, bulkyFurniture, artwork, surface 80, declaredValueInsurance, declaredValue 50000, forceSupplies                                                  |
+| **overrides**       | _(identique à SÉCURITÉ+)_ : packing, cleaningEnd, dismantling, reassembly, bulkyFurniture, artwork, estimatedVolume 200, declaredValueInsurance, declaredValue 50000, forceSupplies                                                  |
 | **marginRate**      | 0.40 (40 %)                                                                                                                                                                                                                 |
 
 **Comportement** :
@@ -147,7 +147,7 @@
 | **ECO**       | Tout cross-selling désactivé                                                         | Aucun                                                           | 20 %  | 0                                                      |
 | **STANDARD**  | Tous les modules applicables (selon ctx)                                             | Aucun                                                           | 30 %  | Sélection client uniquement                            |
 | **CONFORT**   | Uniquement emballage + démontage/remontage + fournitures                             | packing, dismantling, reassembly, bulkyFurniture, forceSupplies | 35 %  | Emballage, démontage, remontage, fournitures           |
-| **SÉCURITÉ+** | Emballage, nettoyage, démontage, remontage, fournitures, objets de valeur, assurance | Idem + cleaningEnd, assurance 50 k€, surface 80                 | 32 %  | Tout inclus + assurance 50 k€                          |
+| **SÉCURITÉ+** | Emballage, nettoyage, démontage, remontage, fournitures, objets de valeur, assurance | Idem + cleaningEnd, assurance 50 k€, volume 200 m³ (nettoyage) | 32 %  | Tout inclus + assurance 50 k€                          |
 | **PREMIUM**   | Même liste que SÉCURITÉ+                                                             | Identiques à SÉCURITÉ+                                          | 40 %  | Même que SÉCURITÉ+, prix plus élevé par la marge       |
 | **FLEX**      | Arrêt nuit, flexibilité équipe, démontage, remontage                                 | crewFlexibility, forceOvernightStop, dismantling, reassembly    | 38 %  | Démontage, remontage, flexibilité, éventuel arrêt nuit |
 

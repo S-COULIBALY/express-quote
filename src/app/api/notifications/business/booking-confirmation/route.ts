@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
  */
 async function handleBookingConfirmationWithAttachments(data: any) {
   const {
-    email,
+    email: emailField,
+    customerEmail: customerEmailField, // ✅ Accepter les deux noms de champ
     customerName,
     bookingId,
     bookingReference,
@@ -55,6 +56,9 @@ async function handleBookingConfirmationWithAttachments(data: any) {
     attachments = [],
     attachedDocuments = []
   } = data;
+
+  // ✅ CORRIGÉ: Accepter "email" ou "customerEmail" (compatibilité)
+  const email = emailField || customerEmailField;
 
   logger.info('📎 Envoi confirmation avec pièces jointes via queue', {
     email: email?.replace(/(.{3}).*(@.*)/, '$1***$2'),

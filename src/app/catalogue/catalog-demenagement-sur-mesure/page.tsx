@@ -21,6 +21,7 @@ import {
   calculateInsurancePremium,
   formatInsuranceRate,
 } from "@/quotation-module/config/insurance.config";
+import { useCrossSellingOptional } from "@/contexts";
 
 // Import CSS externe pour les styles mobile (évite les problèmes de minification Vercel)
 import "@/styles/form-compact-mobile.css";
@@ -510,6 +511,9 @@ export default function DemenagementSurMesurePage() {
   // 2. Hook de calcul modulaire (remplace useRealTimePricing)
   const quotation = useModularQuotation();
 
+  // Cross-selling context (pour injecter les sélections catalogue à la soumission)
+  const crossSelling = useCrossSellingOptional();
+
   // 3. Écouter les changements du formulaire pour déclencher le calcul (amélioration de la version actuelle)
   useEffect(() => {
     if (!formRef.current) return;
@@ -600,6 +604,32 @@ export default function DemenagementSurMesurePage() {
       // Récupérer les données du formulaire
       const formData = formRef.current?.getFormData() || {};
 
+      // ✅ Enrichir avec les sélections cross-selling du catalogue (même logique que useModularQuotation)
+      // Sans cet enrichissement, les services sélectionnés (emballage, démontage, etc.) seraient perdus
+      let enrichedFormData = { ...formData };
+      if (crossSelling) {
+        const pricingData = crossSelling.getSelectionForPricing();
+        enrichedFormData = {
+          ...enrichedFormData,
+          // Services cross-selling (flags pour les modules côté serveur)
+          packing: formData.packing || pricingData.packing,
+          dismantling: formData.dismantling || pricingData.dismantling,
+          reassembly: formData.reassembly || pricingData.reassembly,
+          cleaningEnd: formData.cleaningEnd || pricingData.cleaningEnd,
+          temporaryStorage: formData.temporaryStorage || pricingData.storage,
+          storageDurationDays: formData.storageDurationDays || crossSelling.formContext?.storageDurationDays,
+          // Objets spéciaux
+          piano: formData.piano || pricingData.hasPiano,
+          safe: formData.safe || pricingData.hasSafe,
+          artwork: formData.artwork || pricingData.hasArtwork,
+          // Fournitures
+          crossSellingSuppliesTotal: pricingData.suppliesTotal,
+          crossSellingSuppliesDetails: pricingData.suppliesDetails,
+          crossSellingServicesTotal: pricingData.servicesTotal,
+          crossSellingGrandTotal: pricingData.grandTotal,
+        };
+      }
+
       // Calculer la prime d'assurance si sélectionnée (source unique de vérité)
       const insurancePremium = options.declaredValueInsurance
         ? calculateInsurancePremium(options.declaredValue)
@@ -623,7 +653,7 @@ export default function DemenagementSurMesurePage() {
 
       // Ajouter les options et le scénario sélectionné
       const dataWithOptions = {
-        ...formData,
+        ...enrichedFormData,
         // ✅ Prix du scénario sélectionné (base, sans options d'assurance)
         calculatedPrice: scenarioPrice,
         // ✅ Prix total avec options d'assurance (correspond au prix affiché dans PaymentPriceSection)

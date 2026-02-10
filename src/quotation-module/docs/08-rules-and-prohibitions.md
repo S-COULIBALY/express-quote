@@ -100,7 +100,7 @@ export class VehicleSelectionModule implements QuoteModule {
 export class AllInOneModule implements QuoteModule {
   apply(ctx: QuoteContext): void {
     // Calcule le volume
-    ctx.computed!.baseVolume = ctx.surface * 0.4;
+    ctx.computed!.baseVolume = (ctx.estimatedVolume ?? 0) * 1;
     // Calcule le prix
     ctx.computed!.basePrice = 1000;
     // Ajuste le risque
@@ -117,7 +117,7 @@ export class AllInOneModule implements QuoteModule {
 // ✅ BON : Modules séparés, responsabilité unique
 export class VolumeEstimationModule implements QuoteModule {
   apply(ctx: QuoteContext): void {
-    ctx.computed!.baseVolume = ctx.surface * 0.4;
+    ctx.computed!.baseVolume = (ctx.estimatedVolume ?? 0) * 1;
   }
 }
 
@@ -226,7 +226,7 @@ export class MonteMeublesRecommendationModule implements QuoteModule {
 export class VolumeBaseModule implements QuoteModule {
   apply(ctx: QuoteContext): void {
     // Calcule le volume
-    ctx.computed!.baseVolume = ctx.surface * 0.4;
+    ctx.computed!.baseVolume = (ctx.estimatedVolume ?? 0) * 1;
     // Ajuste le risque
     ctx.computed!.riskScore = (ctx.computed!.riskScore || 0) + 10;
     // Ajoute des metadata UI
@@ -241,7 +241,7 @@ export class VolumeBaseModule implements QuoteModule {
 // ✅ BON : Modules séparés, responsabilité unique
 export class VolumeEstimationModule implements QuoteModule {
   apply(ctx: QuoteContext): void {
-    ctx.computed!.baseVolume = ctx.surface * 0.4;
+    ctx.computed!.baseVolume = (ctx.estimatedVolume ?? 0) * 1;
     ctx.computed!.adjustedVolume = ctx.computed!.baseVolume;
   }
 }

@@ -235,7 +235,7 @@
 
 **Services FORCÉS :**
 - ✅ Emballage professionnel complet (5€/m³)
-- ✅ Nettoyage fin de bail inclus (8€/m²)
+- ✅ Nettoyage fin de bail inclus (surface déduite du volume, 8€/m²)
 - ✅ Démontage/remontage professionnels
 - ✅ Fournitures d'emballage incluses
 - ✅ Assurance renforcée incluse (valeur déclarée 50 000€)
@@ -296,7 +296,7 @@
   reassembly: true,
   bulkyFurniture: true,
   artwork: true,
-  surface: 80, // Assure que le nettoyage est recommandé (>60m²)
+  estimatedVolume: 200, // ≈80 m² pour recommandation nettoyage
 }
 ```
 

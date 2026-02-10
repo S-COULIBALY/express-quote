@@ -163,12 +163,16 @@ async function submitQuoteRequest(
   const { quoteData: nestedQuoteData, ...requestDataWithoutQuoteData } = requestData;
 
   // ✅ Structure plate normalisée (sans duplication formData)
+  // Priorité au prix du scénario sélectionné (dans requestData) sur le prix recommandé (paramètre du hook)
+  const submittedPrice = requestDataWithoutQuoteData.calculatedPrice || calculatedPrice;
+  const submittedTotalPrice = requestDataWithoutQuoteData.totalPrice || submittedPrice;
+
   const quoteRequestData = {
     serviceType: serviceType,
     quoteData: {
       ...requestDataWithoutQuoteData,
-      calculatedPrice,
-      totalPrice: calculatedPrice,
+      calculatedPrice: submittedPrice,
+      totalPrice: submittedTotalPrice,
       submissionDate: new Date().toISOString(),
       catalogId,
       catalogSelectionId: catalogId,

@@ -36,8 +36,10 @@ export class ContactInfo {
         if (!this.validateEmail(this.email)) {
             throw new Error('Invalid email format');
         }
-        if (!this.phone || this.phone.trim() === '') {
-            throw new Error('Phone number is required');
+        // Le téléphone est optionnel — mieux vaut pas de téléphone qu'un faux numéro
+        // Les notifications SMS seront simplement ignorées si le téléphone est absent
+        if (this.phone && this.phone.trim() !== '' && !/^\+?[\d\s()-]{6,}$/.test(this.phone.trim())) {
+            throw new Error('Invalid phone number format');
         }
     }
 

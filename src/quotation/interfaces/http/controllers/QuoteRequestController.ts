@@ -41,16 +41,20 @@ export class QuoteRequestController {
             const quoteData = req.body.quoteData || {};
             const clientCalculatedPrice = quoteData.calculatedPrice || quoteData.totalPrice || 0;
 
+            // ✅ Supporter les deux noms de champs: pickupLogistics (frontend) et pickupLogisticsConstraints (legacy)
+            const pickupLogistics = quoteData.pickupLogistics || quoteData.pickupLogisticsConstraints;
+            const deliveryLogistics = quoteData.deliveryLogistics || quoteData.deliveryLogisticsConstraints;
+
             logger.info('📁 [QuoteRequestController.ts] 📥 Données reçues du frontend:', {
                 'req.body.serviceType': req.body.serviceType,
                 'quoteData.serviceType': quoteData.serviceType,
                 clientCalculatedPrice,
                 hasPickupAddress: !!quoteData.pickupAddress,
                 hasDeliveryAddress: !!quoteData.deliveryAddress,
-                constraintsCount: (quoteData.pickupLogisticsConstraints?.addressConstraints ? Object.keys(quoteData.pickupLogisticsConstraints.addressConstraints).length : 0) +
-                                  (quoteData.deliveryLogisticsConstraints?.addressConstraints ? Object.keys(quoteData.deliveryLogisticsConstraints.addressConstraints).length : 0),
-                'quoteData.pickupLogisticsConstraints.globalServices': quoteData.pickupLogisticsConstraints?.globalServices,
-                'quoteData.deliveryLogisticsConstraints.globalServices': quoteData.deliveryLogisticsConstraints?.globalServices
+                constraintsCount: (pickupLogistics?.addressConstraints ? Object.keys(pickupLogistics.addressConstraints).length : 0) +
+                                  (deliveryLogistics?.addressConstraints ? Object.keys(deliveryLogistics.addressConstraints).length : 0),
+                'pickupLogistics.globalServices': pickupLogistics?.globalServices,
+                'deliveryLogistics.globalServices': deliveryLogistics?.globalServices
             });
 
             // 🔒 SÉCURITÉ: Recalculer le prix côté serveur pour validation
@@ -65,17 +69,27 @@ export class QuoteRequestController {
             // 🔧 EXTRACTION DES GLOBAL SERVICES: Fusionner les globalServices de pickup et delivery
             let additionalServices: Record<string, boolean> = {};
 
-            if (quoteData.pickupLogisticsConstraints?.globalServices) {
-                additionalServices = { ...additionalServices, ...quoteData.pickupLogisticsConstraints.globalServices };
+            if (pickupLogistics?.globalServices) {
+                additionalServices = { ...additionalServices, ...pickupLogistics.globalServices };
             }
 
-            if (quoteData.deliveryLogisticsConstraints?.globalServices) {
-                additionalServices = { ...additionalServices, ...quoteData.deliveryLogisticsConstraints.globalServices };
+            if (deliveryLogistics?.globalServices) {
+                additionalServices = { ...additionalServices, ...deliveryLogistics.globalServices };
             }
+
+            // ✅ Aussi extraire les services cross-selling envoyés directement dans quoteData
+            // (injectés par handleSubmitFromPaymentCard depuis CrossSellingContext)
+            const crossSellingFlags = ['packing', 'dismantling', 'reassembly', 'cleaningEnd', 'temporaryStorage', 'piano', 'safe', 'artwork'] as const;
+            crossSellingFlags.forEach(flag => {
+                if (quoteData[flag] === true) {
+                    additionalServices[flag] = true;
+                }
+            });
 
             logger.info('🔧 [QuoteRequestController.ts] Services globaux extraits:', {
-                pickupGlobalServices: quoteData.pickupLogisticsConstraints?.globalServices,
-                deliveryGlobalServices: quoteData.deliveryLogisticsConstraints?.globalServices,
+                pickupGlobalServices: pickupLogistics?.globalServices,
+                deliveryGlobalServices: deliveryLogistics?.globalServices,
+                crossSellingFlags: crossSellingFlags.filter(f => quoteData[f] === true),
                 mergedAdditionalServices: additionalServices,
                 count: Object.keys(additionalServices).length
             });
@@ -124,15 +138,20 @@ export class QuoteRequestController {
                 priceCalculationRequest  // Utiliser l'objet complet avec serviceType
             );
 
-            // Stocker le prix sécurisé dans quoteData
+            // Stocker le prix sécurisé dans quoteData (vérification anti-manipulation)
             req.body.quoteData.securedPrice = securedPrice;
-            // Garder aussi l'ancien champ pour compatibilité
-            req.body.quoteData.calculatedPrice = serverPrice.summary.total;
-            req.body.quoteData.totalPrice = serverPrice.summary.total;
+            // ✅ Stocker le coût de base serveur pour audit (ne PAS écraser les prix soumis)
+            req.body.quoteData.serverBaseCost = serverPrice.summary.total;
+            // ✅ Conserver les prix soumis par le client (prix scénario + options assurance)
+            // calculatedPrice = prix du scénario sélectionné (avec marge)
+            // totalPrice = calculatedPrice + fragileProtection + insurancePremium
+            // Ces valeurs sont celles que le client a acceptées et doit payer
 
             logger.info('✅ Prix calculé et signé:', {
-                totalPrice: securedPrice.totalPrice,
-                basePrice: securedPrice.basePrice,
+                serverBaseCost: serverPrice.summary.total,
+                clientCalculatedPrice: quoteData.calculatedPrice,
+                clientTotalPrice: quoteData.totalPrice,
+                selectedScenario: quoteData.selectedScenario,
                 calculationId: securedPrice.calculationId,
                 signature: securedPrice.signature.substring(0, 16) + '...',
                 constraintsCount: securedPrice.dataFingerprint.constraintsCount,
@@ -220,19 +239,26 @@ export class QuoteRequestController {
                 );
 
                 if (verification.valid) {
-                    // ✅ Signature valide - Utiliser le prix sécurisé
+                    // ✅ Signature valide - Utiliser les prix soumis par le client (scénario + options)
+                    // securedPrice.basePrice/totalPrice = coût de base serveur (vérification)
+                    // quoteData.calculatedPrice = prix du scénario sélectionné
+                    // quoteData.totalPrice = prix total avec options (assurance, protection)
                     calculatedPrice = {
                         basePrice: quoteData.securedPrice.basePrice,
-                        totalPrice: quoteData.securedPrice.totalPrice,
-                        currency: quoteData.securedPrice.currency,
+                        totalPrice: quoteData.totalPrice || quoteData.calculatedPrice || quoteData.securedPrice.totalPrice,
+                        currency: quoteData.securedPrice.currency || 'EUR',
                         calculationId: quoteData.securedPrice.calculationId,
-                        calculatedAt: quoteData.securedPrice.calculatedAt
+                        calculatedAt: quoteData.securedPrice.calculatedAt,
+                        serverBaseCost: quoteData.serverBaseCost,
+                        selectedScenario: quoteData.selectedScenario,
                     };
 
                     logger.info(`✅ [QuoteRequestController] Prix signé valide - Pas de recalcul nécessaire`, {
                         temporaryId,
                         totalPrice: calculatedPrice.totalPrice,
                         basePrice: calculatedPrice.basePrice,
+                        serverBaseCost: quoteData.serverBaseCost,
+                        selectedScenario: quoteData.selectedScenario,
                         calculationId: calculatedPrice.calculationId,
                         signatureAge: verification.details?.ageHours?.toFixed(2) + 'h'
                     });

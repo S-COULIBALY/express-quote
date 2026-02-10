@@ -158,7 +158,7 @@ enabledModules: [
 ]
 overrides: { 
   packing: true, cleaningEnd: true, dismantling: true, reassembly: true,
-  bulkyFurniture: true, artwork: true, surface: 80,
+  bulkyFurniture: true, artwork: true, estimatedVolume: 200,
   declaredValueInsurance: true, declaredValue: 50000,
   crossSellingSuppliesTotal: 100
 }
@@ -176,7 +176,7 @@ enabledModules: [
 ]
 overrides: { 
   packing: true, cleaningEnd: true, dismantling: true, reassembly: true,
-  bulkyFurniture: true, artwork: true, surface: 80,
+  bulkyFurniture: true, artwork: true, estimatedVolume: 200,
   declaredValueInsurance: true, declaredValue: 50000,
   crossSellingSuppliesTotal: 100
 }
