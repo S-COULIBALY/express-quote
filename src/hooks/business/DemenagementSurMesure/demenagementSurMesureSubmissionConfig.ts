@@ -101,11 +101,6 @@ export const createDemenagementSurMesureSubmissionConfig = (
       // Informations supplémentaires
       additionalInfo: formData.additionalInfo,
 
-      // Contact
-      nom: formData.nom,
-      email: formData.email,
-      telephone: formData.telephone,
-
       // Prix et calculs
       calculatedPrice: formData.calculatedPrice || 0,
       totalPrice: formData.totalPrice || 0,
