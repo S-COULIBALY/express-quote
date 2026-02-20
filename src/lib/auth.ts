@@ -5,15 +5,18 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// Les administrateurs sont codés en dur pour simplifier
+// Administrateurs avec mots de passe hachés (bcrypt)
+// Pour changer le mot de passe : node -e "require('bcryptjs').hash('nouveau-mdp', 12).then(console.log)"
 const ADMIN_USERS = [
   {
     id: "admin-1",
     name: "Admin",
-    email: "admin@express-quote.com",
-    password: "admin123", // Dans un environnement de production, utiliser des mots de passe hachés
-    role: "ADMIN"
-  }
+    email: process.env.ADMIN_EMAIL || "admin@express-quote.com",
+    passwordHash:
+      process.env.ADMIN_PASSWORD_HASH ||
+      "$2b$12$qt/nlniihlY1EyAIX67dTOyaWnZTSkSsllFtXl9IPmOsh/Q1esKl6",
+    role: "ADMIN",
+  },
 ];
 
 export const authOptions: NextAuthOptions = {
@@ -30,7 +33,7 @@ export const authOptions: NextAuthOptions = {
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Mot de passe", type: "password" }
+        password: { label: "Mot de passe", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -38,13 +41,19 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          // Vérifier les administrateurs codés en dur
-          const adminUser = ADMIN_USERS.find(user => 
-            user.email === credentials.email && 
-            user.password === credentials.password
+          // Vérifier les administrateurs (mot de passe haché bcrypt)
+          const adminCandidate = ADMIN_USERS.find(
+            (user) => user.email === credentials.email,
           );
 
-          if (adminUser) {
+          if (
+            adminCandidate &&
+            (await bcrypt.compare(
+              credentials.password,
+              adminCandidate.passwordHash,
+            ))
+          ) {
+            const adminUser = adminCandidate;
             return {
               id: adminUser.id,
               name: adminUser.name,
@@ -56,20 +65,23 @@ export const authOptions: NextAuthOptions = {
           // Vérifier les professionnels externes
           const professional = await prisma.professional.findUnique({
             where: {
-              email: credentials.email
+              email: credentials.email,
             },
             select: {
               id: true,
               companyName: true,
               email: true,
               password: true,
-              verified: true
-            }
+              verified: true,
+            },
           });
 
           if (professional && professional.verified && professional.password) {
             // Vérifier le mot de passe haché avec bcrypt
-            const isPasswordValid = await bcrypt.compare(credentials.password, professional.password);
+            const isPasswordValid = await bcrypt.compare(
+              credentials.password,
+              professional.password,
+            );
             if (isPasswordValid) {
               return {
                 id: professional.id,
@@ -83,7 +95,7 @@ export const authOptions: NextAuthOptions = {
           // Vérifier le staff interne
           const internalStaff = await prisma.internal_staff.findUnique({
             where: {
-              email: credentials.email
+              email: credentials.email,
             },
             select: {
               id: true,
@@ -92,13 +104,20 @@ export const authOptions: NextAuthOptions = {
               email: true,
               password: true,
               role: true,
-              is_active: true
-            }
+              is_active: true,
+            },
           });
 
-          if (internalStaff && internalStaff.is_active && internalStaff.password) {
+          if (
+            internalStaff &&
+            internalStaff.is_active &&
+            internalStaff.password
+          ) {
             // Vérifier le mot de passe haché avec bcrypt
-            const isPasswordValid = await bcrypt.compare(credentials.password, internalStaff.password);
+            const isPasswordValid = await bcrypt.compare(
+              credentials.password,
+              internalStaff.password,
+            );
             if (isPasswordValid) {
               return {
                 id: internalStaff.id,
@@ -114,8 +133,8 @@ export const authOptions: NextAuthOptions = {
           console.error("Erreur d'authentification:", error);
           return null;
         }
-      }
-    })
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user }) {
@@ -131,8 +150,8 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
       }
       return session;
-    }
-  }
+    },
+  },
 };
 
 // Augmenter la définition des types pour inclure nos champs personnalisés
@@ -141,7 +160,7 @@ declare module "next-auth" {
     id: string;
     role: string;
   }
-  
+
   interface Session {
     user: {
       id: string;
@@ -149,7 +168,7 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       role: string;
-    }
+    };
   }
 }
 
@@ -160,4 +179,4 @@ declare module "next-auth/jwt" {
   }
 }
 
-export default authOptions; 
+export default authOptions;

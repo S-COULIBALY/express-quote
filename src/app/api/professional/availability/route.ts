@@ -22,8 +22,10 @@ async function authenticateProfessional(request: NextRequest) {
     throw new Error("Non authentifié");
   }
 
-  const jwtSecret =
-    process.env.JWT_SECRET || process.env.SIGNATURE_SECRET || "default-secret";
+  const jwtSecret = process.env.JWT_SECRET || process.env.SIGNATURE_SECRET;
+  if (!jwtSecret) {
+    throw new Error("JWT_SECRET ou SIGNATURE_SECRET manquant");
+  }
   const decoded = jwt.verify(token, jwtSecret) as any;
 
   if (decoded.type !== "professional") {
