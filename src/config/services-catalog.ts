@@ -251,6 +251,48 @@ export const SERVICES: ServiceDefinition[] = [
       priority: 86,
     },
   },
+  // --- MONTAGE MEUBLES NEUFS ---
+  {
+    id: "new-furniture-assembly",
+    title: "Montage de meubles neufs",
+    description:
+      "Montage professionnel de vos meubles neufs (IKEA, Conforama, etc.). Outillage et visserie inclus.",
+    shortDescription: "Montage meubles neufs par nos techniciens",
+    icon: "🪑",
+    category: "SERVICE",
+    pricingType: "FIXED",
+    basePrice: 80,
+    unit: "forfait",
+    displayPrice: "À partir de 80€",
+    isAvailable: true,
+    metadata: {
+      scope: "DELIVERY",
+      group: "assembly",
+      priority: 86.7,
+    },
+  },
+
+  // --- MISE AU REBUT ---
+  {
+    id: "waste-disposal",
+    title: "Mise au rebut et gestion des déchets",
+    description:
+      "Évacuation et traitement de vos encombrants, meubles usagés et déchets de déménagement. Tri sélectif et recyclage assurés.",
+    shortDescription: "Évacuation encombrants et déchets",
+    icon: "♻️",
+    category: "SERVICE",
+    pricingType: "FIXED",
+    basePrice: 120,
+    unit: "forfait",
+    displayPrice: "À partir de 120€",
+    isAvailable: true,
+    metadata: {
+      scope: "PICKUP",
+      group: "waste",
+      priority: 88,
+    },
+  },
+
   // NOTE: Monte-meubles SUPPRIMÉ du catalogue
   // Géré par FurnitureLiftCheckbox dans le formulaire (par adresse avec seuils HIGH/CRITICAL)
 ];

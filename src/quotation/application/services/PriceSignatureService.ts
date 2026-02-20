@@ -1,5 +1,5 @@
-import crypto from 'crypto';
-import { logger } from '@/lib/logger';
+import crypto from "crypto";
+import { logger } from "@/lib/logger";
 
 /**
  * Structure de données pour un prix sécurisé avec signature cryptographique
@@ -16,13 +16,11 @@ export interface SecuredPrice {
 
   // Sécurité cryptographique
   signature: string; // HMAC-SHA256
-  signatureVersion: 'v1';
+  signatureVersion: "v1";
 
   // Empreinte des données (pour détecter modifications)
   dataFingerprint: {
     serviceType: string;
-    workers: number;
-    duration: number;
     distance: number;
     constraintsCount: number;
     servicesCount: number;
@@ -57,10 +55,13 @@ export class PriceSignatureService {
   private readonly SIGNATURE_MAX_AGE_HOURS = 24;
 
   constructor() {
-    this.SECRET_KEY = process.env.PRICE_SIGNATURE_SECRET || this.generateFallbackSecret();
+    this.SECRET_KEY =
+      process.env.PRICE_SIGNATURE_SECRET || this.generateFallbackSecret();
 
     if (!process.env.PRICE_SIGNATURE_SECRET) {
-      logger.warn('⚠️ PRICE_SIGNATURE_SECRET non définie - Utilisation d\'une clé temporaire (NON SÉCURISÉ EN PRODUCTION)');
+      logger.warn(
+        "⚠️ PRICE_SIGNATURE_SECRET non définie - Utilisation d'une clé temporaire (NON SÉCURISÉ EN PRODUCTION)",
+      );
     }
   }
 
@@ -68,15 +69,20 @@ export class PriceSignatureService {
    * Génère une clé secrète de fallback (pour développement uniquement)
    */
   private generateFallbackSecret(): string {
-    return crypto.randomBytes(32).toString('hex');
+    return crypto.randomBytes(32).toString("hex");
   }
 
   /**
    * Génère une signature HMAC-SHA256 pour un prix calculé
    */
   generateSignature(
-    priceData: { total: number; base: number; calculationId: string; calculatedAt: Date },
-    quoteData: any
+    priceData: {
+      total: number;
+      base: number;
+      calculationId: string;
+      calculatedAt: Date;
+    },
+    quoteData: any,
   ): string {
     // 1. Créer le payload à signer (données immuables)
     const payload = {
@@ -87,9 +93,7 @@ export class PriceSignatureService {
       calculationId: priceData.calculationId,
 
       // Empreinte des données (pour détecter modifications)
-      serviceType: quoteData.serviceType || 'UNKNOWN',
-      workers: quoteData.workers || 0,
-      duration: quoteData.duration || 0,
+      serviceType: quoteData.serviceType || "UNKNOWN",
       distance: quoteData.distance || 0,
       constraintsCount: this.countConstraints(quoteData),
       servicesCount: this.countServices(quoteData),
@@ -99,15 +103,15 @@ export class PriceSignatureService {
     const canonical = JSON.stringify(payload, Object.keys(payload).sort());
 
     // 3. Générer HMAC-SHA256
-    const hmac = crypto.createHmac('sha256', this.SECRET_KEY);
+    const hmac = crypto.createHmac("sha256", this.SECRET_KEY);
     hmac.update(canonical);
 
-    const signature = hmac.digest('hex');
+    const signature = hmac.digest("hex");
 
-    logger.debug('🔐 Signature générée', {
+    logger.debug("🔐 Signature générée", {
       calculationId: priceData.calculationId,
-      signature: signature.substring(0, 16) + '...',
-      payloadKeys: Object.keys(payload)
+      signature: signature.substring(0, 16) + "...",
+      payloadKeys: Object.keys(payload),
     });
 
     return signature;
@@ -118,7 +122,7 @@ export class PriceSignatureService {
    */
   createSecuredPrice(
     priceData: { total: number; base: number; calculationId: string },
-    quoteData: any
+    quoteData: any,
   ): SecuredPrice {
     const calculatedAt = new Date();
 
@@ -127,27 +131,25 @@ export class PriceSignatureService {
         total: priceData.total,
         base: priceData.base,
         calculationId: priceData.calculationId,
-        calculatedAt
+        calculatedAt,
       },
-      quoteData
+      quoteData,
     );
 
     return {
       totalPrice: priceData.total,
       basePrice: priceData.base,
-      currency: 'EUR',
+      currency: "EUR",
       calculatedAt,
       calculationId: priceData.calculationId,
       signature,
-      signatureVersion: 'v1',
+      signatureVersion: "v1",
       dataFingerprint: {
-        serviceType: quoteData.serviceType || 'UNKNOWN',
-        workers: quoteData.workers || 0,
-        duration: quoteData.duration || 0,
+        serviceType: quoteData.serviceType || "UNKNOWN",
         distance: quoteData.distance || 0,
         constraintsCount: this.countConstraints(quoteData),
         servicesCount: this.countServices(quoteData),
-      }
+      },
     };
   }
 
@@ -157,15 +159,15 @@ export class PriceSignatureService {
    */
   verifySignature(
     securedPrice: SecuredPrice,
-    quoteData: any
+    quoteData: any,
   ): SignatureVerificationResult {
     try {
       // 1. Vérifier que la signature existe
       if (!securedPrice || !securedPrice.signature) {
         return {
           valid: false,
-          reason: 'Signature manquante',
-          details: { signatureMatch: false, ageValid: false }
+          reason: "Signature manquante",
+          details: { signatureMatch: false, ageValid: false },
         };
       }
 
@@ -175,37 +177,40 @@ export class PriceSignatureService {
           total: securedPrice.totalPrice,
           base: securedPrice.basePrice,
           calculationId: securedPrice.calculationId,
-          calculatedAt: new Date(securedPrice.calculatedAt)
+          calculatedAt: new Date(securedPrice.calculatedAt),
         },
-        quoteData
+        quoteData,
       );
 
       // 3. Comparaison temporelle constante (évite timing attacks)
       let signatureMatch = false;
       try {
         signatureMatch = crypto.timingSafeEqual(
-          Buffer.from(securedPrice.signature, 'hex'),
-          Buffer.from(expectedSignature, 'hex')
+          Buffer.from(securedPrice.signature, "hex"),
+          Buffer.from(expectedSignature, "hex"),
         );
       } catch (error) {
         return {
           valid: false,
-          reason: 'Format de signature invalide',
-          details: { signatureMatch: false, ageValid: false }
+          reason: "Format de signature invalide",
+          details: { signatureMatch: false, ageValid: false },
         };
       }
 
       if (!signatureMatch) {
-        logger.warn('⚠️ Signature invalide - Données potentiellement modifiées', {
-          calculationId: securedPrice.calculationId,
-          expected: expectedSignature.substring(0, 16) + '...',
-          received: securedPrice.signature.substring(0, 16) + '...'
-        });
+        logger.warn(
+          "⚠️ Signature invalide - Données potentiellement modifiées",
+          {
+            calculationId: securedPrice.calculationId,
+            expected: expectedSignature.substring(0, 16) + "...",
+            received: securedPrice.signature.substring(0, 16) + "...",
+          },
+        );
 
         return {
           valid: false,
-          reason: 'Signature ne correspond pas - Données modifiées',
-          details: { signatureMatch: false, ageValid: true }
+          reason: "Signature ne correspond pas - Données modifiées",
+          details: { signatureMatch: false, ageValid: true },
         };
       }
 
@@ -215,40 +220,39 @@ export class PriceSignatureService {
       const ageValid = ageHours <= this.SIGNATURE_MAX_AGE_HOURS;
 
       if (!ageValid) {
-        logger.warn('⚠️ Signature expirée', {
+        logger.warn("⚠️ Signature expirée", {
           calculationId: securedPrice.calculationId,
           ageHours: ageHours.toFixed(2),
-          maxAge: this.SIGNATURE_MAX_AGE_HOURS
+          maxAge: this.SIGNATURE_MAX_AGE_HOURS,
         });
 
         return {
           valid: false,
           reason: `Signature expirée (${ageHours.toFixed(1)}h > ${this.SIGNATURE_MAX_AGE_HOURS}h)`,
-          details: { signatureMatch: true, ageValid: false, ageHours }
+          details: { signatureMatch: true, ageValid: false, ageHours },
         };
       }
 
       // ✅ Signature valide et récente
-      logger.debug('✅ Signature valide', {
+      logger.debug("✅ Signature valide", {
         calculationId: securedPrice.calculationId,
-        ageHours: ageHours.toFixed(2)
+        ageHours: ageHours.toFixed(2),
       });
 
       return {
         valid: true,
-        details: { signatureMatch: true, ageValid: true, ageHours }
+        details: { signatureMatch: true, ageValid: true, ageHours },
       };
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la vérification de signature', {
-        error: error instanceof Error ? error.message : 'Erreur inconnue',
-        calculationId: securedPrice?.calculationId
+      logger.error("❌ Erreur lors de la vérification de signature", {
+        error: error instanceof Error ? error.message : "Erreur inconnue",
+        calculationId: securedPrice?.calculationId,
       });
 
       return {
         valid: false,
-        reason: `Erreur de vérification: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-        details: { signatureMatch: false, ageValid: false }
+        reason: `Erreur de vérification: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+        details: { signatureMatch: false, ageValid: false },
       };
     }
   }
@@ -260,11 +264,15 @@ export class PriceSignatureService {
     let count = 0;
 
     if (data.pickupLogisticsConstraints?.addressConstraints) {
-      count += Object.keys(data.pickupLogisticsConstraints.addressConstraints).length;
+      count += Object.keys(
+        data.pickupLogisticsConstraints.addressConstraints,
+      ).length;
     }
 
     if (data.deliveryLogisticsConstraints?.addressConstraints) {
-      count += Object.keys(data.deliveryLogisticsConstraints.addressConstraints).length;
+      count += Object.keys(
+        data.deliveryLogisticsConstraints.addressConstraints,
+      ).length;
     }
 
     return count;
@@ -277,19 +285,27 @@ export class PriceSignatureService {
     let count = 0;
 
     if (data.pickupLogisticsConstraints?.addressServices) {
-      count += Object.keys(data.pickupLogisticsConstraints.addressServices).length;
+      count += Object.keys(
+        data.pickupLogisticsConstraints.addressServices,
+      ).length;
     }
 
     if (data.deliveryLogisticsConstraints?.addressServices) {
-      count += Object.keys(data.deliveryLogisticsConstraints.addressServices).length;
+      count += Object.keys(
+        data.deliveryLogisticsConstraints.addressServices,
+      ).length;
     }
 
     if (data.pickupLogisticsConstraints?.globalServices) {
-      count += Object.keys(data.pickupLogisticsConstraints.globalServices).length;
+      count += Object.keys(
+        data.pickupLogisticsConstraints.globalServices,
+      ).length;
     }
 
     if (data.deliveryLogisticsConstraints?.globalServices) {
-      count += Object.keys(data.deliveryLogisticsConstraints.globalServices).length;
+      count += Object.keys(
+        data.deliveryLogisticsConstraints.globalServices,
+      ).length;
     }
 
     return count;

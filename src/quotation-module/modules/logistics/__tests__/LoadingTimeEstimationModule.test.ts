@@ -1,23 +1,28 @@
-import { LoadingTimeEstimationModule } from '../LoadingTimeEstimationModule';
-import { QuoteContext } from '../../../types/quote-types';
-import { createEmptyComputedContext } from '../../../core/ComputedContext';
+import { LoadingTimeEstimationModule } from "../LoadingTimeEstimationModule";
+import { QuoteContext } from "../../../types/quote-types";
+import { createEmptyComputedContext } from "../../../core/ComputedContext";
 
-describe('LoadingTimeEstimationModule', () => {
-  const module = new LoadingTimeEstimationModule();
+describe("LoadingTimeEstimationModule", () => {
+  const mod = new LoadingTimeEstimationModule();
 
-  it('devrait avoir les bonnes propriétés', () => {
-    expect(module.id).toBe('loading-time-estimation');
-    expect(module.description).toBe('Estime le temps de chargement et déchargement');
-    expect(module.priority).toBe(48);
-    expect(module.dependencies).toEqual(['volume-estimation', 'workers-calculation']);
+  it("devrait avoir les bonnes propriétés", () => {
+    expect(mod.id).toBe("loading-time-estimation");
+    expect(mod.description).toBe(
+      "Estime le temps de chargement et déchargement",
+    );
+    expect(mod.priority).toBe(68);
+    expect(mod.dependencies).toEqual([
+      "volume-estimation",
+      "workers-calculation",
+    ]);
   });
 
-  it('devrait estimer le temps de chargement', () => {
+  it("devrait estimer le temps de chargement", () => {
     const ctx: QuoteContext = {
-      serviceType: 'MOVING',
-      region: 'IDF',
-      departureAddress: '123 Rue de Paris',
-      arrivalAddress: '456 Avenue Montaigne',
+      serviceType: "MOVING",
+      region: "IDF",
+      departureAddress: "123 Rue de Paris",
+      arrivalAddress: "456 Avenue Montaigne",
       computed: {
         ...createEmptyComputedContext(),
         adjustedVolume: 30, // 30 m³
@@ -25,20 +30,22 @@ describe('LoadingTimeEstimationModule', () => {
       },
     };
 
-    const result = module.apply(ctx);
+    const result = mod.apply(ctx);
 
     expect(result.computed?.metadata?.loadingTimeMinutes).toBeDefined();
     expect(result.computed?.metadata?.unloadingTimeMinutes).toBeDefined();
     expect(result.computed?.metadata?.totalHandlingTimeMinutes).toBeDefined();
-    expect(result.computed?.activatedModules).toContain('loading-time-estimation');
+    expect(result.computed?.activatedModules).toContain(
+      "loading-time-estimation",
+    );
   });
 
-  it('devrait ajouter des pénalités pour étages sans ascenseur', () => {
+  it("devrait ajouter des pénalités pour étages sans ascenseur", () => {
     const ctx: QuoteContext = {
-      serviceType: 'MOVING',
-      region: 'IDF',
-      departureAddress: '123 Rue de Paris',
-      arrivalAddress: '456 Avenue Montaigne',
+      serviceType: "MOVING",
+      region: "IDF",
+      departureAddress: "123 Rue de Paris",
+      arrivalAddress: "456 Avenue Montaigne",
       pickupFloor: 3,
       pickupHasElevator: false,
       computed: {
@@ -48,7 +55,7 @@ describe('LoadingTimeEstimationModule', () => {
       },
     };
 
-    const result = module.apply(ctx);
+    const result = mod.apply(ctx);
     const loadingTime = result.computed?.metadata?.loadingTimeMinutes || 0;
     const baseTime = result.computed?.metadata?.baseLoadingTimeMinutes || 0;
 
@@ -57,12 +64,12 @@ describe('LoadingTimeEstimationModule', () => {
     expect(result.computed?.metadata?.pickupPenaltyMinutes).toBeGreaterThan(0);
   });
 
-  it('devrait ajouter des pénalités pour distance de portage', () => {
+  it("devrait ajouter des pénalités pour distance de portage", () => {
     const ctx: QuoteContext = {
-      serviceType: 'MOVING',
-      region: 'IDF',
-      departureAddress: '123 Rue de Paris',
-      arrivalAddress: '456 Avenue Montaigne',
+      serviceType: "MOVING",
+      region: "IDF",
+      departureAddress: "123 Rue de Paris",
+      arrivalAddress: "456 Avenue Montaigne",
       pickupCarryDistance: 20, // 20 mètres
       computed: {
         ...createEmptyComputedContext(),
@@ -71,21 +78,20 @@ describe('LoadingTimeEstimationModule', () => {
       },
     };
 
-    const result = module.apply(ctx);
+    const result = mod.apply(ctx);
     expect(result.computed?.metadata?.pickupPenaltyMinutes).toBeGreaterThan(0);
   });
 
-  it('ne devrait rien faire si volume ou déménageurs manquants', () => {
+  it("ne devrait rien faire si volume ou déménageurs manquants", () => {
     const ctx: QuoteContext = {
-      serviceType: 'MOVING',
-      region: 'IDF',
-      departureAddress: '123 Rue de Paris',
-      arrivalAddress: '456 Avenue Montaigne',
+      serviceType: "MOVING",
+      region: "IDF",
+      departureAddress: "123 Rue de Paris",
+      arrivalAddress: "456 Avenue Montaigne",
       computed: createEmptyComputedContext(),
     };
 
-    const result = module.apply(ctx);
+    const result = mod.apply(ctx);
     expect(result.computed?.metadata?.loadingTimeMinutes).toBeUndefined();
   });
 });
-

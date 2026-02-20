@@ -1,25 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
-import Stripe from 'stripe';
-import { priceSignatureService } from '@/quotation/application/services/PriceSignatureService';
+import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
+import Stripe from "stripe";
+import { priceSignatureService } from "@/quotation/application/services/PriceSignatureService";
 
 // Rendre cette route dynamique pour éviter l'initialisation Stripe pendant le build
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-const BASE_URL = () => process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+const BASE_URL = () =>
+  process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 /**
  * Recalcule le prix total via quotation-module (calculate + multi-offers).
  * Utilisé quand la signature est absente ou invalide (défense en profondeur).
  */
-async function recalculateTotalWithQuotationModule(quoteData: Record<string, unknown>): Promise<{ totalPrice: number } | { error: string }> {
+async function recalculateTotalWithQuotationModule(
+  quoteData: Record<string, unknown>,
+): Promise<{ totalPrice: number } | { error: string }> {
   try {
     const calcRes = await fetch(`${BASE_URL()}/api/quotation/calculate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(quoteData),
-      cache: 'no-store'
+      cache: "no-store",
     });
     if (!calcRes.ok) {
       const errText = await calcRes.text();
@@ -27,16 +30,19 @@ async function recalculateTotalWithQuotationModule(quoteData: Record<string, unk
     }
     const calcJson = await calcRes.json();
     if (!calcJson.success || calcJson.baseCost == null) {
-      return { error: 'calculate: réponse invalide ou baseCost manquant' };
+      return { error: "calculate: réponse invalide ou baseCost manquant" };
     }
     const baseCost = calcJson.baseCost as number;
-    const context = calcJson.context ?? { original: quoteData, computed: calcJson.breakdown };
+    const context = calcJson.context ?? {
+      original: quoteData,
+      computed: calcJson.breakdown,
+    };
 
     const multiRes = await fetch(`${BASE_URL()}/api/quotation/multi-offers`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ baseCost, context }),
-      cache: 'no-store'
+      cache: "no-store",
     });
     if (!multiRes.ok) {
       const errText = await multiRes.text();
@@ -44,11 +50,13 @@ async function recalculateTotalWithQuotationModule(quoteData: Record<string, unk
     }
     const multiJson = await multiRes.json();
     const variants = multiJson.variants ?? multiJson.offers ?? [];
-    const standard = variants.find((v: { scenarioId?: string }) => v.scenarioId === 'STANDARD');
+    const standard = variants.find(
+      (v: { scenarioId?: string }) => v.scenarioId === "STANDARD",
+    );
     const first = variants[0];
     const chosen = standard ?? first;
-    if (!chosen || typeof chosen.finalPrice !== 'number') {
-      return { error: 'multi-offers: aucun scénario avec finalPrice' };
+    if (!chosen || typeof chosen.finalPrice !== "number") {
+      return { error: "multi-offers: aucun scénario avec finalPrice" };
     }
     return { totalPrice: chosen.finalPrice };
   } catch (e) {
@@ -60,12 +68,14 @@ async function recalculateTotalWithQuotationModule(quoteData: Record<string, unk
 // Initialiser Stripe uniquement si la clé est disponible
 function getStripeInstance(): Stripe | null {
   const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey || secretKey.trim() === '') {
-    logger.warn('⚠️ STRIPE_SECRET_KEY non définie - Les paiements ne fonctionneront pas');
+  if (!secretKey || secretKey.trim() === "") {
+    logger.warn(
+      "⚠️ STRIPE_SECRET_KEY non définie - Les paiements ne fonctionneront pas",
+    );
     return null;
   }
   return new Stripe(secretKey, {
-    apiVersion: '2025-08-27.basil'
+    apiVersion: "2025-08-27.basil",
   });
 }
 
@@ -79,31 +89,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const stripe = getStripeInstance();
     if (!stripe) {
       return NextResponse.json(
-        { success: false, error: 'Configuration Stripe manquante' },
-        { status: 500 }
+        { success: false, error: "Configuration Stripe manquante" },
+        { status: 500 },
       );
     }
 
     const { temporaryId, customerData, amount } = await request.json();
 
-    logger.info('💳 Création session Stripe', {
+    logger.info("💳 Création session Stripe", {
       temporaryId,
       amount,
-      customerEmail: customerData?.email
+      customerEmail: customerData?.email,
     });
 
     // Validation des données
     if (!temporaryId) {
       return NextResponse.json(
-        { success: false, error: 'temporaryId requis' },
-        { status: 400 }
+        { success: false, error: "temporaryId requis" },
+        { status: 400 },
       );
     }
 
     if (!amount || amount <= 0) {
       return NextResponse.json(
-        { success: false, error: 'Montant invalide' },
-        { status: 400 }
+        { success: false, error: "Montant invalide" },
+        { status: 400 },
       );
     }
 
@@ -111,29 +121,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // On valide juste que l'objet existe
     if (!customerData) {
       return NextResponse.json(
-        { success: false, error: 'Données client requises' },
-        { status: 400 }
+        { success: false, error: "Données client requises" },
+        { status: 400 },
       );
     }
 
     // Récupérer le QuoteRequest pour vérifier qu'il existe
     const quoteResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/quotesRequest/${temporaryId}`,
-      { cache: 'no-store' }
+      `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/quotesRequest/${temporaryId}`,
+      { cache: "no-store" },
     );
 
     if (!quoteResponse.ok) {
       return NextResponse.json(
-        { success: false, error: 'Devis non trouvé ou expiré' },
-        { status: 404 }
+        { success: false, error: "Devis non trouvé ou expiré" },
+        { status: 404 },
       );
     }
 
     const quoteRequestData = await quoteResponse.json();
     if (!quoteRequestData.success) {
       return NextResponse.json(
-        { success: false, error: 'Erreur lors de la récupération du devis' },
-        { status: 500 }
+        { success: false, error: "Erreur lors de la récupération du devis" },
+        { status: 500 },
       );
     }
 
@@ -146,48 +156,45 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let verificationMethod: string;
 
     if (quoteData.securedPrice) {
-      logger.info('🔐 Vérification signature cryptographique', { temporaryId });
+      logger.info("🔐 Vérification signature cryptographique", { temporaryId });
 
       const verification = priceSignatureService.verifySignature(
         quoteData.securedPrice,
-        quoteData
+        quoteData,
       );
 
       if (verification.valid) {
-        // ✅ Signature valide → la soumission est authentique
-        // IMPORTANT: securedPrice.totalPrice = coût de base serveur (sans marge scénario)
-        // Le prix réel accepté par le client est dans quoteData.totalPrice (scénario + options)
-        const serverBaseCost = quoteData.securedPrice.totalPrice;
-        serverCalculatedPrice = quoteData.totalPrice || quoteData.calculatedPrice || serverBaseCost;
+        // Signature valide → securedPrice.totalPrice = prix scénario recalculé serveur
+        serverCalculatedPrice =
+          quoteData.totalPrice || quoteData.securedPrice.totalPrice;
         depositAmount = serverCalculatedPrice * 0.3;
-        verificationMethod = 'signature';
+        verificationMethod = "signature";
 
-        logger.info('✅ Signature valide - Prix scénario utilisé pour acompte', {
+        logger.info("✅ Signature valide - Prix scénario vérifié", {
           temporaryId,
-          serverBaseCost,
-          scenarioPrice: quoteData.calculatedPrice,
-          totalPriceWithOptions: quoteData.totalPrice,
           serverCalculatedPrice,
           depositAmount,
           selectedScenario: quoteData.selectedScenario,
           calculationId: quoteData.securedPrice.calculationId,
-          signatureAge: verification.details?.ageHours?.toFixed(2) + 'h'
+          signatureAge: verification.details?.ageHours?.toFixed(2) + "h",
         });
       } else {
         // ⚠️ Signature invalide - DÉFENSE EN PROFONDEUR: Recalcul
-        logger.warn('⚠️ ALERTE SÉCURITÉ: Signature invalide - Recalcul forcé', {
+        logger.warn("⚠️ ALERTE SÉCURITÉ: Signature invalide - Recalcul forcé", {
           temporaryId,
-          reason: verification.reason
+          reason: verification.reason,
         });
 
-        verificationMethod = 'recalcul (signature invalide)';
+        verificationMethod = "recalcul (signature invalide)";
 
         const recalc = await recalculateTotalWithQuotationModule(quoteData);
-        if ('error' in recalc) {
-          logger.error('❌ Erreur recalcul prix sécurisé', { error: recalc.error });
+        if ("error" in recalc) {
+          logger.error("❌ Erreur recalcul prix sécurisé", {
+            error: recalc.error,
+          });
           return NextResponse.json(
-            { success: false, error: 'Erreur lors du calcul du prix' },
-            { status: 500 }
+            { success: false, error: "Erreur lors du calcul du prix" },
+            { status: 500 },
           );
         }
         serverCalculatedPrice = recalc.totalPrice;
@@ -195,15 +202,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     } else {
       // Pas de signature (ancien système) - DÉFENSE EN PROFONDEUR: Recalcul
-      logger.warn('⚠️ Pas de signature - Recalcul de sécurité', { temporaryId });
-      verificationMethod = 'recalcul (pas de signature)';
+      logger.warn("⚠️ Pas de signature - Recalcul de sécurité", {
+        temporaryId,
+      });
+      verificationMethod = "recalcul (pas de signature)";
 
       const recalc = await recalculateTotalWithQuotationModule(quoteData);
-      if ('error' in recalc) {
-        logger.error('❌ Erreur recalcul prix sécurisé', { error: recalc.error });
+      if ("error" in recalc) {
+        logger.error("❌ Erreur recalcul prix sécurisé", {
+          error: recalc.error,
+        });
         return NextResponse.json(
-          { success: false, error: 'Erreur lors du calcul du prix' },
-          { status: 500 }
+          { success: false, error: "Erreur lors du calcul du prix" },
+          { status: 500 },
         );
       }
       serverCalculatedPrice = recalc.totalPrice;
@@ -215,30 +226,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const priceDifference = Math.abs(clientAmount - depositAmount);
 
     if (priceDifference > 0.01) {
-      logger.warn('⚠️ ALERTE: Prix client différent du prix serveur', {
+      logger.warn("⚠️ ALERTE: Prix client différent du prix serveur", {
         clientAmount,
         serverAmount: depositAmount,
         difference: priceDifference.toFixed(2),
-        differencePercent: ((priceDifference / depositAmount) * 100).toFixed(2) + '%',
+        differencePercent:
+          ((priceDifference / depositAmount) * 100).toFixed(2) + "%",
         temporaryId,
-        verificationMethod
+        verificationMethod,
       });
     } else {
-      logger.info('✅ Prix client et serveur cohérents', {
+      logger.info("✅ Prix client et serveur cohérents", {
         clientAmount,
         serverAmount: depositAmount,
         temporaryId,
-        verificationMethod
+        verificationMethod,
       });
     }
 
     // 🔒 UTILISER LE PRIX SERVEUR, PAS LE PRIX CLIENT
     const paymentIntentAmount = Math.round(depositAmount * 100); // Montant en centimes
-    
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: paymentIntentAmount, // Montant en centimes - PRIX SERVEUR (ACOMPTE)
-      currency: 'eur',
-      payment_method_types: ['card'],
+      currency: "eur",
+      payment_method_types: ["card"],
       automatic_payment_methods: {
         enabled: false,
       },
@@ -246,32 +258,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       payment_method_options: {
         card: {
           // Demander explicitement les billing details complets
-          setup_future_usage: 'off_session',
+          setup_future_usage: "off_session",
         },
       },
       metadata: {
         temporaryId,
-        customerFirstName: customerData.firstName || '',
-        customerLastName: customerData.lastName || '',
-        customerEmail: customerData.email || '',
-        customerPhone: customerData.phone || '',
+        customerFirstName: customerData.firstName || "",
+        customerLastName: customerData.lastName || "",
+        customerEmail: customerData.email || "",
+        customerPhone: customerData.phone || "",
         quoteType: quoteRequest.type,
         // 🔒 Stocker le prix serveur ET l'ID de calcul pour validation webhook
         serverCalculatedPrice: serverCalculatedPrice.toFixed(2),
         depositAmount: depositAmount.toFixed(2),
-        calculationId: quoteData.securedPrice?.calculationId || 'unknown',
+        calculationId: quoteData.securedPrice?.calculationId || "unknown",
         clientSubmittedAmount: clientAmount.toString(),
       },
       description: getServiceDescription(quoteRequest),
       // receipt_email optionnel, Stripe l'enverra si fourni via PaymentElement
     });
 
-    logger.info('✅ PaymentIntent Stripe créé avec prix sécurisé', {
+    logger.info("✅ PaymentIntent Stripe créé avec prix sécurisé", {
       paymentIntentId: paymentIntent.id,
       temporaryId,
       serverAmount: depositAmount,
       clientAmount: clientAmount,
-      serverTotalPrice: serverCalculatedPrice
+      serverTotalPrice: serverCalculatedPrice,
     });
 
     return NextResponse.json({
@@ -282,20 +294,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       recalculatedPrice: {
         total: serverCalculatedPrice,
         deposit: depositAmount,
-        currency: 'EUR'
-      }
+        currency: "EUR",
+      },
     });
-
   } catch (error) {
-    logger.error('❌ Erreur création session Stripe:', error);
+    logger.error("❌ Erreur création session Stripe:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Erreur lors de la création de la session de paiement',
-        message: error instanceof Error ? error.message : 'Erreur inconnue'
+        error: "Erreur lors de la création de la session de paiement",
+        message: error instanceof Error ? error.message : "Erreur inconnue",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -309,12 +320,12 @@ function getServiceDescription(quoteRequest: any): string {
 
   // Seul le déménagement est actif ; anciens types affichés comme déménagement pour compatibilité
   switch (type) {
-    case 'MOVING':
-    case 'MOVING_PREMIUM':
-    case 'CLEANING':
-    case 'DELIVERY':
-    case 'PACKING':
-      return `Déménagement - ${quoteData.pickupAddress || quoteData.departureAddress || 'Adresse de départ'} → ${quoteData.deliveryAddress || quoteData.arrivalAddress || "Adresse d'arrivée"}`;
+    case "MOVING":
+    case "MOVING_PREMIUM":
+    case "CLEANING":
+    case "DELIVERY":
+    case "PACKING":
+      return `Déménagement - ${quoteData.pickupAddress || quoteData.departureAddress || "Adresse de départ"} → ${quoteData.deliveryAddress || quoteData.arrivalAddress || "Adresse d'arrivée"}`;
     default:
       return `Service ${type}`;
   }

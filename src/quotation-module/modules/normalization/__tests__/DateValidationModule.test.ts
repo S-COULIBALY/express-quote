@@ -1,94 +1,117 @@
-import { DateValidationModule } from '../DateValidationModule';
-import { QuoteContext } from '../../types/quote-types';
+import { DateValidationModule } from "../DateValidationModule";
+import { QuoteContext } from "../../types/quote-types";
+import { createEmptyComputedContext } from "../../../core/ComputedContext";
 
-describe('DateValidationModule', () => {
-  let module: DateValidationModule;
-  let baseContext: QuoteContext;
+describe("DateValidationModule", () => {
+  let mod: DateValidationModule;
 
   beforeEach(() => {
-    module = new DateValidationModule();
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    baseContext = {
-      pickupDate: tomorrow.toISOString(),
-      dropoffDate: null,
-      activatedModules: []
-    } as QuoteContext;
+    mod = new DateValidationModule();
   });
 
-  // Tests cas normaux
-  describe('Dates valides', () => {
-    it('devrait normaliser une date de départ dans le futur', () => {
+  describe("Dates valides", () => {
+    it("devrait normaliser une date de départ dans le futur", () => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      baseContext.pickupDate = tomorrow.toISOString();
 
-      const result = module.apply(baseContext);
-      
-      expect(result.pickupDate).toBeDefined();
-      expect(new Date(result.pickupDate).getHours()).toBe(12);
-      expect(new Date(result.pickupDate).getMinutes()).toBe(0);
+      const ctx: QuoteContext = {
+        serviceType: "MOVING",
+        region: "IDF",
+        departureAddress: "123 Rue Test",
+        arrivalAddress: "456 Rue Test",
+        movingDate: tomorrow.toISOString(),
+        computed: createEmptyComputedContext(),
+      };
+
+      const result = mod.apply(ctx);
+      expect(result.movingDate).toBeDefined();
+      expect(result.computed?.activatedModules).toContain("date-validation");
+      expect(result.computed?.metadata?.dateValidationApplied).toBe(true);
+      expect(result.computed?.metadata?.daysUntilMoving).toBeGreaterThanOrEqual(
+        0,
+      );
     });
 
-    it('devrait gérer des dates de départ et de livraison valides', () => {
+    it("devrait normaliser une date sans heure en midi par défaut", () => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      const nextWeek = new Date(tomorrow);
-      nextWeek.setDate(nextWeek.getDate() + 7);
+      const dateOnly = tomorrow.toISOString().split("T")[0]; // '2025-03-15'
 
-      baseContext.pickupDate = tomorrow.toISOString();
-      baseContext.dropoffDate = nextWeek.toISOString();
+      const ctx: QuoteContext = {
+        serviceType: "MOVING",
+        region: "IDF",
+        departureAddress: "123 Rue Test",
+        arrivalAddress: "456 Rue Test",
+        movingDate: dateOnly,
+        computed: createEmptyComputedContext(),
+      };
 
-      const result = module.apply(baseContext);
-      
-      expect(result.estimatedMoveDuration).toBe(7);
-      expect(new Date(result.dropoffDate).getHours()).toBe(12);
+      const result = mod.apply(ctx);
+      expect(new Date(result.movingDate!).getHours()).toBe(12);
     });
   });
 
-  // Tests de limites
-  describe('Cas limites', () => {
-    it('devrait lever une erreur si la date de départ est dans le passé', () => {
+  describe("Cas limites", () => {
+    it("devrait lever une erreur si la date de départ est manquante", () => {
+      const ctx: QuoteContext = {
+        serviceType: "MOVING",
+        region: "IDF",
+        departureAddress: "123 Rue Test",
+        arrivalAddress: "456 Rue Test",
+        computed: createEmptyComputedContext(),
+      };
+
+      expect(() => mod.apply(ctx)).toThrow("Date de déménagement manquante");
+    });
+
+    it("devrait lever une erreur si la date de départ est dans le passé", () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      baseContext.pickupDate = yesterday.toISOString();
 
-      expect(() => module.apply(baseContext)).toThrow('Date de déménagement invalide');
+      const ctx: QuoteContext = {
+        serviceType: "MOVING",
+        region: "IDF",
+        departureAddress: "123 Rue Test",
+        arrivalAddress: "456 Rue Test",
+        movingDate: yesterday.toISOString(),
+        computed: createEmptyComputedContext(),
+      };
+
+      expect(() => mod.apply(ctx)).toThrow(
+        "Date de déménagement dans le passé",
+      );
     });
 
-    it('devrait lever une erreur si la date de livraison est avant la date de départ', () => {
+    it("devrait lever une erreur si la date est invalide", () => {
+      const ctx: QuoteContext = {
+        serviceType: "MOVING",
+        region: "IDF",
+        departureAddress: "123 Rue Test",
+        arrivalAddress: "456 Rue Test",
+        movingDate: "not-a-date",
+        computed: createEmptyComputedContext(),
+      };
+
+      expect(() => mod.apply(ctx)).toThrow("Date de déménagement invalide");
+    });
+  });
+
+  describe("Traçabilité", () => {
+    it("devrait ajouter le module aux modules activés", () => {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
 
-      baseContext.pickupDate = tomorrow.toISOString();
-      baseContext.dropoffDate = yesterday.toISOString();
+      const ctx: QuoteContext = {
+        serviceType: "MOVING",
+        region: "IDF",
+        departureAddress: "123 Rue Test",
+        arrivalAddress: "456 Rue Test",
+        movingDate: tomorrow.toISOString(),
+        computed: createEmptyComputedContext(),
+      };
 
-      expect(() => module.apply(baseContext)).toThrow('Date de livraison invalide');
-    });
-  });
-
-  // Tests de traçabilité
-  describe('Traçabilité', () => {
-    it('devrait ajouter le module aux modules activés', () => {
-      const result = module.apply(baseContext);
-      
-      expect(result.activatedModules).toHaveLength(1);
-      expect(result.activatedModules[0].id).toBe('date-validation');
-      expect(result.activatedModules[0].priority).toBe(11);
-    });
-  });
-
-  // Tests valeurs par défaut
-  describe('Valeurs par défaut', () => {
-    it('devrait avoir une durée estimée de 1 jour sans date de livraison', () => {
-      const result = module.apply(baseContext);
-      
-      expect(result.estimatedMoveDuration).toBe(1);
+      const result = mod.apply(ctx);
+      expect(result.computed?.activatedModules).toContain("date-validation");
     });
   });
 });
