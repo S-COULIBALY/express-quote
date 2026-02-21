@@ -1,8 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { logger } from '@/lib/logger';
-
-const prisma = new PrismaClient();
+import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
+import { getGlobalNotificationService } from "@/notifications/interfaces/http/GlobalNotificationService";
 
 /**
  * POST /api/analytics/abandon
@@ -11,12 +9,12 @@ const prisma = new PrismaClient();
 export async function POST(request: NextRequest) {
   try {
     const abandonEvent = await request.json();
-    
+
     // Validation des données
     if (!abandonEvent.sessionId || !abandonEvent.stage) {
       return NextResponse.json(
-        { error: 'Session ID et stage requis' },
-        { status: 400 }
+        { error: "Session ID et stage requis" },
+        { status: 400 },
       );
     }
 
@@ -25,45 +23,26 @@ export async function POST(request: NextRequest) {
       ...abandonEvent,
       ipAddress: getClientIP(request),
       serverTimestamp: new Date(),
-      userAgent: request.headers.get('user-agent') || 'unknown'
+      userAgent: request.headers.get("user-agent") || "unknown",
     };
 
     // TODO: Enregistrer dans la base de données (modèle abandonEvent à créer dans Prisma)
-    // await prisma.abandonEvent.create({
-    //   data: {
-    //     id: abandonEvent.id,
-    //     sessionId: abandonEvent.sessionId,
-    //     userId: abandonEvent.userId,
-    //     stage: abandonEvent.stage,
-    //     timestamp: new Date(abandonEvent.timestamp),
-    //     timeSpent: abandonEvent.timeSpent,
-    //     data: abandonEvent.data,
-    //     metadata: abandonEvent.metadata,
-    //     userAgent: enrichedEvent.userAgent,
-    //     ipAddress: enrichedEvent.ipAddress,
-    //     recoveryAttempts: abandonEvent.recoveryAttempts || 0,
-    //     isRecovered: abandonEvent.isRecovered || false
-    //   }
-    // });
+    // await prisma.abandonEvent.create({ ... });
 
-    // Déclencher le processus de récupération
+    // Déclencher le processus de récupération (BullMQ — résistant aux redémarrages serverless)
     await triggerRecoveryProcess(enrichedEvent);
 
     // Logger l'événement
-    logger.warn(`🚨 Abandon enregistré: ${abandonEvent.stage}`, {
+    logger.warn(`Abandon enregistré: ${abandonEvent.stage}`, {
       sessionId: abandonEvent.sessionId,
       stage: abandonEvent.stage,
-      timeSpent: abandonEvent.timeSpent
+      timeSpent: abandonEvent.timeSpent,
     });
 
     return NextResponse.json({ success: true });
-
   } catch (error) {
-    logger.error('Erreur lors de l\'enregistrement de l\'abandon:', error);
-    return NextResponse.json(
-      { error: 'Erreur serveur' },
-      { status: 500 }
-    );
+    logger.error("Erreur lors de l'enregistrement de l'abandon:", error);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
 
@@ -74,238 +53,275 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get('sessionId');
-    const stage = searchParams.get('stage');
-    const days = parseInt(searchParams.get('days') || '7');
+    const sessionId = searchParams.get("sessionId");
+    const stage = searchParams.get("stage");
+    const days = parseInt(searchParams.get("days") || "7");
 
     const dateFrom = new Date();
     dateFrom.setDate(dateFrom.getDate() - days);
 
-    // Construire les filtres
-    const where: any = {
-      timestamp: { gte: dateFrom }
+    const where: Record<string, unknown> = {
+      timestamp: { gte: dateFrom },
     };
 
     if (sessionId) where.sessionId = sessionId;
     if (stage) where.stage = stage;
 
     // TODO: Récupérer les événements (modèle abandonEvent à créer dans Prisma)
-    const events: any[] = [];
-    // const events = await prisma.abandonEvent.findMany({
-    //   where,
-    //   orderBy: { timestamp: 'desc' },
-    //   take: 100
-    // });
+    const events: unknown[] = [];
 
-    // Calculer les statistiques
-    const stats = await calculateAbandonStats(where, dateFrom);
+    const stats = await calculateAbandonStats(dateFrom);
 
     return NextResponse.json({
       success: true,
-      data: {
-        events,
-        stats
-      }
+      data: { events, stats },
     });
-
   } catch (error) {
-    logger.error('Erreur lors de la récupération des abandons:', error);
-    return NextResponse.json(
-      { error: 'Erreur serveur' },
-      { status: 500 }
-    );
+    logger.error("Erreur lors de la récupération des abandons:", error);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
 
 /**
- * Déclencher le processus de récupération
+ * Déclencher le processus de récupération via BullMQ
+ * - Immédiat : notification queued maintenant
+ * - Différé : notification queued avec scheduledAt (BullMQ delay — survit aux redémarrages)
  */
-async function triggerRecoveryProcess(event: any): Promise<void> {
+async function triggerRecoveryProcess(event: {
+  sessionId: string;
+  stage: string;
+  data?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
   try {
-    // Récupération immédiate pour certains types
-    if (shouldTriggerImmediateRecovery(event)) {
+    const immediateStages = [
+      "form_partial",
+      "quote_with_contact",
+      "payment_abandoned",
+    ];
+    if (immediateStages.includes(event.stage)) {
       await scheduleImmediateRecovery(event);
     }
-
-    // Récupération différée selon le stage
     await scheduleDelayedRecovery(event);
-
   } catch (error) {
-    logger.error('Erreur lors du déclenchement de la récupération:', error);
+    logger.error("Erreur lors du déclenchement de la récupération:", error);
   }
 }
 
 /**
- * Vérifier si une récupération immédiate est nécessaire
+ * Récupération immédiate — queued dans BullMQ maintenant
  */
-function shouldTriggerImmediateRecovery(event: any): boolean {
-  const immediateStages = ['form_partial', 'quote_with_contact', 'payment_abandoned'];
-  return immediateStages.includes(event.stage);
-}
+async function scheduleImmediateRecovery(event: {
+  sessionId: string;
+  stage: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  const { sessionId, stage, data } = event;
 
-/**
- * Planifier une récupération immédiate
- */
-async function scheduleImmediateRecovery(event: any): Promise<void> {
   try {
-    // Envoyer une notification immédiate selon le type
-    const recoveryData = {
-      sessionId: event.sessionId,
-      stage: event.stage,
-      data: event.data,
-      metadata: event.metadata
-    };
+    const service = await getGlobalNotificationService();
 
-    // Appeler le service de récupération
-    await fetch('/api/recovery/immediate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(recoveryData)
-    });
+    if (stage === "quote_with_contact") {
+      const quoteData = (data?.quoteData as Record<string, unknown>) || {};
+      const customerInfo =
+        (quoteData.customerInfo as Record<string, unknown>) || {};
+      const totalPrice = quoteData.totalPrice;
+      const quoteId = data?.quoteId as string | undefined;
+      const name = (customerInfo.firstName as string) || "";
 
-  } catch (error) {
-    logger.error('Erreur lors de la récupération immédiate:', error);
-  }
-}
-
-/**
- * Planifier une récupération différée
- */
-async function scheduleDelayedRecovery(event: any): Promise<void> {
-  try {
-    // Programmer selon le stage
-    const delays = {
-      'catalog_early': 0, // Pas de récupération
-      'form_incomplete': 15 * 60 * 1000, // 15 minutes
-      'form_partial': 5 * 60 * 1000, // 5 minutes
-      'quote_created': 30 * 60 * 1000, // 30 minutes
-      'quote_viewed': 60 * 60 * 1000, // 1 heure
-      'quote_with_contact': 15 * 60 * 1000, // 15 minutes
-      'booking_created': 30 * 60 * 1000, // 30 minutes
-      'payment_page': 10 * 60 * 1000, // 10 minutes
-      'payment_abandoned': 5 * 60 * 1000, // 5 minutes
-      'payment_failed': 1 * 60 * 1000, // 1 minute
-    };
-
-    const delay = delays[event.stage as keyof typeof delays] || 0;
-
-    if (delay > 0) {
-      // En production, utiliser une queue comme Redis ou un job scheduler
-      setTimeout(async () => {
-        await sendDelayedRecovery(event);
-      }, delay);
+      if (customerInfo.email) {
+        await service.sendNotification({
+          id: `recovery-imm-email-${sessionId}-${Date.now()}`,
+          type: "email",
+          recipient: customerInfo.email as string,
+          subject: "Votre devis de déménagement vous attend",
+          content: `Bonjour ${name},\n\nVotre devis de ${totalPrice}€ est prêt. Finalisez votre réservation maintenant.\n\nCordialement,\nL'équipe Quotin`,
+          priority: "high",
+          metadata: { sessionId, stage, quoteId },
+        });
+      }
     }
 
+    if (stage === "payment_abandoned") {
+      const paymentData = (data?.paymentData as Record<string, unknown>) || {};
+      const customerInfo =
+        (paymentData.customerInfo as Record<string, unknown>) || {};
+      const amount = paymentData.amount;
+      const bookingId = data?.bookingId as string | undefined;
+      const name = (customerInfo.firstName as string) || "";
+
+      if (customerInfo.email) {
+        await service.sendNotification({
+          id: `recovery-imm-email-${sessionId}-${Date.now()}`,
+          type: "email",
+          recipient: customerInfo.email as string,
+          subject: "Votre paiement a été interrompu",
+          content: `Bonjour ${name},\n\nVotre paiement de ${amount}€ est en attente. Finalisez votre réservation pour confirmer votre déménagement.\n\nCordialement,\nL'équipe Quotin`,
+          priority: "critical",
+          metadata: { sessionId, stage, bookingId },
+        });
+      }
+
+      if (customerInfo.phone) {
+        await service.sendNotification({
+          id: `recovery-imm-sms-${sessionId}-${Date.now()}`,
+          type: "sms",
+          recipient: customerInfo.phone as string,
+          content: `Quotin : Votre paiement de ${amount}€ est en attente. Finalisez votre réservation sur quotin.fr`,
+          priority: "critical",
+          metadata: { sessionId, stage, bookingId },
+        });
+      }
+    }
   } catch (error) {
-    logger.error('Erreur lors de la planification de récupération:', error);
+    logger.error("Erreur lors de la récupération immédiate:", error);
   }
 }
 
 /**
- * Envoyer une récupération différée
+ * Récupération différée — queued dans BullMQ avec scheduledAt
+ * Résistant aux redémarrages contrairement à setTimeout
  */
-async function sendDelayedRecovery(event: any): Promise<void> {
+async function scheduleDelayedRecovery(event: {
+  sessionId: string;
+  stage: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  const delays: Record<string, number> = {
+    catalog_early: 0,
+    form_incomplete: 15 * 60 * 1000,
+    form_partial: 5 * 60 * 1000,
+    quote_created: 30 * 60 * 1000,
+    quote_viewed: 60 * 60 * 1000,
+    quote_with_contact: 15 * 60 * 1000,
+    booking_created: 30 * 60 * 1000,
+    payment_page: 10 * 60 * 1000,
+    payment_abandoned: 5 * 60 * 1000,
+    payment_failed: 1 * 60 * 1000,
+  };
+
+  const delayMs = delays[event.stage] ?? 0;
+  if (delayMs === 0) return;
+
+  const { sessionId, stage, data } = event;
+  const scheduledAt = new Date(Date.now() + delayMs);
+
   try {
-    // TODO: Vérifier si l'utilisateur n'a pas déjà récupéré (modèle abandonEvent à créer dans Prisma)
-    // const latestEvent = await prisma.abandonEvent.findFirst({
-    //   where: { sessionId: event.sessionId },
-    //   orderBy: { timestamp: 'desc' }
-    // });
+    const service = await getGlobalNotificationService();
 
-    // if (latestEvent?.isRecovered) {
-    //   logger.info('Récupération annulée - utilisateur déjà récupéré');
-    //   return;
-    // }
+    let email: string | undefined;
+    let phone: string | undefined;
+    let emailSubject = "";
+    let emailContent = "";
+    let smsContent = "";
 
-    // Envoyer la récupération
-    await fetch('/api/recovery/delayed', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        eventId: event.id,
-        sessionId: event.sessionId,
-        stage: event.stage,
-        data: event.data,
-        metadata: event.metadata
-      })
-    });
+    switch (stage) {
+      case "form_incomplete":
+      case "form_partial": {
+        const formData = (data?.formData as Record<string, unknown>) || {};
+        email = formData.email as string | undefined;
+        phone = formData.phone as string | undefined;
+        const completion = (data?.completion as number) || 0;
+        emailSubject = "Votre demande de devis est incomplète";
+        emailContent = `Votre formulaire est complété à ${completion}%. Revenez terminer votre demande de déménagement sur quotin.fr`;
+        smsContent = `Quotin : Votre demande est incomplète (${completion}%). Finalisez-la sur quotin.fr`;
+        break;
+      }
 
+      case "quote_created":
+      case "quote_viewed":
+      case "quote_with_contact": {
+        const quoteData = (data?.quoteData as Record<string, unknown>) || {};
+        const customerInfo =
+          (quoteData.customerInfo as Record<string, unknown>) || {};
+        email = customerInfo.email as string | undefined;
+        phone = customerInfo.phone as string | undefined;
+        const name = (customerInfo.firstName as string) || "";
+        const price = quoteData.totalPrice;
+        emailSubject = "Votre devis de déménagement est disponible";
+        emailContent = `Bonjour ${name},\n\nVotre devis de ${price}€ vous attend. Réservez votre déménagement sur quotin.fr\n\nCordialement,\nL'équipe Quotin`;
+        smsContent = `Quotin : Votre devis de ${price}€ vous attend. Réservez sur quotin.fr`;
+        break;
+      }
+
+      case "booking_created":
+      case "payment_page":
+      case "payment_abandoned": {
+        const paymentData =
+          (data?.paymentData as Record<string, unknown>) || {};
+        const bookingData =
+          (data?.bookingData as Record<string, unknown>) || {};
+        const customerInfo =
+          ((paymentData.customerInfo || bookingData.customerInfo) as Record<
+            string,
+            unknown
+          >) || {};
+        email = customerInfo.email as string | undefined;
+        phone = customerInfo.phone as string | undefined;
+        const name = (customerInfo.firstName as string) || "";
+        const amount = paymentData.amount || bookingData.totalAmount;
+        emailSubject = "Votre réservation est en attente de paiement";
+        emailContent = `Bonjour ${name},\n\nVotre réservation de ${amount}€ est en attente de paiement. Finalisez votre paiement sur quotin.fr\n\nCordialement,\nL'équipe Quotin`;
+        smsContent = `Quotin : Paiement de ${amount}€ en attente. Finalisez sur quotin.fr`;
+        break;
+      }
+    }
+
+    if (email && emailContent) {
+      await service.sendNotification({
+        id: `recovery-del-email-${sessionId}-${Date.now()}`,
+        type: "email",
+        recipient: email,
+        subject: emailSubject,
+        content: emailContent,
+        priority: "normal",
+        scheduledAt,
+        metadata: { sessionId, stage },
+      });
+    }
+
+    if (phone && smsContent) {
+      await service.sendNotification({
+        id: `recovery-del-sms-${sessionId}-${Date.now()}`,
+        type: "sms",
+        recipient: phone,
+        content: smsContent,
+        priority: "normal",
+        scheduledAt,
+        metadata: { sessionId, stage },
+      });
+    }
   } catch (error) {
-    logger.error('Erreur lors de l\'envoi de récupération différée:', error);
+    logger.error(
+      "Erreur lors de la planification de récupération différée:",
+      error,
+    );
   }
 }
 
 /**
  * Calculer les statistiques d'abandon
  */
-async function calculateAbandonStats(where: any, dateFrom: Date) {
-  try {
-    // TODO: Implémenter les statistiques (modèle abandonEvent à créer dans Prisma)
-    // Grouper par stage
-    // const abandonsByStage = await prisma.abandonEvent.groupBy({
-    //   by: ['stage'],
-    //   where,
-    //   _count: { id: true },
-    //   _avg: { timeSpent: true }
-    // });
-
-    // Taux de récupération
-    // const totalAbandons = await prisma.abandonEvent.count({ where });
-    // const recoveredAbandons = await prisma.abandonEvent.count({
-    //   where: { ...where, isRecovered: true }
-    // });
-
-    const totalAbandons = 0;
-    const recoveredAbandons = 0;
-    const recoveryRate = 0;
-    const abandonsByStage: any[] = [];
-    const hourlyAbandons: any[] = [];
-    const topAbandonPages: any[] = [];
-
-    return {
-      totalAbandons,
-      recoveredAbandons,
-      recoveryRate: Math.round(recoveryRate * 100) / 100,
-      abandonsByStage: abandonsByStage.map(item => ({
-        stage: item.stage,
-        count: item._count.id,
-        avgTimeSpent: Math.round(item._avg.timeSpent || 0)
-      })),
-      hourlyAbandons: hourlyAbandons.map(item => ({
-        hour: item.timestamp,
-        count: item._count.id
-      })),
-      topAbandonPages
-    };
-
-  } catch (error) {
-    logger.error('Erreur lors du calcul des statistiques:', error);
-    return {
-      totalAbandons: 0,
-      recoveredAbandons: 0,
-      recoveryRate: 0,
-      abandonsByStage: [],
-      hourlyAbandons: [],
-      topAbandonPages: []
-    };
-  }
+async function calculateAbandonStats(_dateFrom: Date) {
+  // TODO: Implémenter via modèle abandonEvent Prisma
+  return {
+    totalAbandons: 0,
+    recoveredAbandons: 0,
+    recoveryRate: 0,
+    abandonsByStage: [],
+    hourlyAbandons: [],
+    topAbandonPages: [],
+  };
 }
 
 /**
  * Obtenir l'IP du client
  */
 function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const real = request.headers.get('x-real-ip');
-  const host = request.headers.get('host');
+  const forwarded = request.headers.get("x-forwarded-for");
+  const real = request.headers.get("x-real-ip");
 
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-
-  if (real) {
-    return real;
-  }
-
-  return 'unknown';
-} 
+  if (forwarded) return forwarded.split(",")[0].trim();
+  if (real) return real;
+  return "unknown";
+}
