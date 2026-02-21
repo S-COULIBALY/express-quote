@@ -67,14 +67,11 @@ export async function GET(request: NextRequest) {
  */
 async function checkDatabaseHealth() {
   try {
-    const { PrismaClient } = await import("@prisma/client");
     // Test simple de connexion
     await prisma.$queryRaw`SELECT 1`;
 
     // Test spécifique table notifications
     const notificationCount = await prisma.notifications.count();
-
-    await prisma.$disconnect();
 
     return {
       isHealthy: true,
