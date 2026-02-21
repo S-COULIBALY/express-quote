@@ -8,6 +8,7 @@
 import { PrismaClient } from "@prisma/client";
 import { logger } from "../../../lib/logger";
 import { ServiceType } from "../../domain/enums/ServiceType";
+import { ServerCache } from "../../../lib/server-cache";
 
 export { ServiceType };
 
@@ -63,7 +64,7 @@ export interface UnifiedRule {
   metadata?: any;
   condition?: any;
   isActive: boolean;
-  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH';
+  scope?: "GLOBAL" | "PICKUP" | "DELIVERY" | "BOTH";
 }
 
 export interface UnifiedConfiguration {
@@ -83,8 +84,8 @@ export interface RuleQuery {
   category?: RuleCategory;
   tags?: string[];
   onlyActive?: boolean;
-  scope?: 'GLOBAL' | 'PICKUP' | 'DELIVERY' | 'BOTH';
-  addressType?: 'pickup' | 'delivery' | 'both';
+  scope?: "GLOBAL" | "PICKUP" | "DELIVERY" | "BOTH";
+  addressType?: "pickup" | "delivery" | "both";
 }
 
 export interface ConfigurationQuery {
@@ -101,11 +102,11 @@ export class UnifiedDataService {
   private static instance: UnifiedDataService;
   private prisma: PrismaClient;
 
-  // Cache pour configurations
-  private configCache: Map<string, UnifiedConfiguration[]> = new Map();
-  private configTimestamp: Map<string, number> = new Map();
-
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  // Cache Redis pour configurations (partagé entre toutes les instances)
+  private configCache: ServerCache<UnifiedConfiguration[]> = new ServerCache(
+    5 * 60 * 1000,
+    "unified-config",
+  );
 
   private constructor() {
     this.prisma = new PrismaClient();
@@ -137,7 +138,7 @@ export class UnifiedDataService {
   /** @deprecated */
   async getBusinessRules(
     _serviceType?: ServiceType,
-    _options?: { addressType?: 'pickup' | 'delivery' | 'both' }
+    _options?: { addressType?: "pickup" | "delivery" | "both" },
   ): Promise<UnifiedRule[]> {
     return [];
   }
@@ -159,13 +160,11 @@ export class UnifiedDataService {
   ): Promise<UnifiedConfiguration[]> {
     const cacheKey = `config_${JSON.stringify(query)}`;
 
-    // Vérifier le cache
-    if (this.isCacheValid(cacheKey, this.configTimestamp)) {
-      const cachedConfigs = this.configCache.get(cacheKey);
-      if (cachedConfigs) {
-        logger.debug(`📦 Cache hit pour les configurations: ${cacheKey}`);
-        return cachedConfigs;
-      }
+    // Vérifier le cache Redis
+    const cachedConfigs = await this.configCache.get(cacheKey);
+    if (cachedConfigs) {
+      logger.debug(`📦 Cache hit pour les configurations: ${cacheKey}`);
+      return cachedConfigs;
     }
 
     try {
@@ -193,11 +192,12 @@ export class UnifiedDataService {
         }),
       );
 
-      // Mettre en cache
-      this.configCache.set(cacheKey, unifiedConfigs);
-      this.configTimestamp.set(cacheKey, Date.now());
+      // Mettre en cache Redis
+      await this.configCache.set(cacheKey, unifiedConfigs);
 
-      logger.info(`⚙️ [UnifiedDataService] ${unifiedConfigs.length} config chargée (${query.key || query.category || 'ALL'})`);
+      logger.info(
+        `⚙️ [UnifiedDataService] ${unifiedConfigs.length} config chargée (${query.key || query.category || "ALL"})`,
+      );
       return unifiedConfigs;
     } catch (error) {
       logger.error(
@@ -285,19 +285,18 @@ export class UnifiedDataService {
   // ========================================
 
   /**
-   * Vide tous les caches
+   * Vide tous les caches Redis
    */
-  clearAllCaches(): void {
-    this.configCache.clear();
-    this.configTimestamp.clear();
+  async clearAllCaches(): Promise<void> {
+    await this.configCache.clear();
     logger.info("🗑️ Tous les caches vidés");
   }
 
   /**
    * Invalide le cache
    */
-  invalidateCache(serviceType?: ServiceType): void {
-    this.clearAllCaches();
+  async invalidateCache(_serviceType?: ServiceType): Promise<void> {
+    await this.clearAllCaches();
   }
 
   // ========================================
@@ -341,8 +340,7 @@ export class UnifiedDataService {
         },
       });
 
-      this.configCache.clear();
-      this.configTimestamp.clear();
+      await this.configCache.clear();
 
       logger.info(
         `✅ Configuration ${category}.${key} mise à jour avec succès`,
@@ -354,18 +352,5 @@ export class UnifiedDataService {
       );
       throw error;
     }
-  }
-
-  // ========================================
-  // MÉTHODES PRIVÉES
-  // ========================================
-
-  private isCacheValid(
-    cacheKey: string,
-    timestampMap: Map<string, number>,
-  ): boolean {
-    const timestamp = timestampMap.get(cacheKey);
-    if (!timestamp) return false;
-    return Date.now() - timestamp < this.CACHE_TTL;
   }
 }

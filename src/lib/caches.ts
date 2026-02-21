@@ -1,32 +1,27 @@
 /**
- * 🗄️ Caches Globaux Partagés
- * Instances de cache réutilisables pour toute l'application
+ * 🗄️ Caches Globaux Partagés — Redis
+ *
+ * Remplace les caches in-memory (ClientCache) par des caches Redis
+ * pour garantir la cohérence entre toutes les instances Vercel.
  */
 
-import { ClientCache } from "@/utils/catalogueCache";
+import { ServerCache } from "./server-cache";
 
 /**
- * Cache pour les règles unifiées
- * TTL: 10 minutes (les règles changent rarement)
- *
- * NOTE: Ce cache est conservé pour compatibilité mais n'est plus utilisé
- * par LogisticsModal qui utilise maintenant les données statiques de modal-data.ts
+ * Cache pour les règles unifiées — TTL 10 min
+ * Conservé pour compatibilité ; le calcul de prix utilise désormais MODULES_CONFIG.
  */
-export const rulesCache = new ClientCache<any[]>(10 * 60 * 1000);
+export const rulesCache = new ServerCache<unknown[]>(10 * 60 * 1000, "rules");
 
 /**
- * Cache pour le mapping UUID → Nom de règle
- * TTL: 10 minutes
- *
- * Utilisé pour enrichir les UUIDs avec les noms lors de la transformation
- * de la structure groupée
+ * Cache de mapping UUID → Nom de règle
+ * Conservé en Map synchrone (lookup pur, jamais peuplé côté serveur actif).
  */
 export const rulesNameMapCache = new Map<string, string>();
 
-/**
- * Initialise le cache de mapping UUID → Nom à partir des règles chargées
- */
-export function initializeRulesNameMap(rules: any[]) {
+export function initializeRulesNameMap(
+  rules: { id?: string; name?: string }[],
+) {
   rulesNameMapCache.clear();
   rules.forEach((rule) => {
     if (rule.id && rule.name) {
@@ -38,120 +33,84 @@ export function initializeRulesNameMap(rules: any[]) {
   );
 }
 
-/**
- * Récupère le nom d'une règle depuis son UUID
- */
 export function getRuleName(uuid: string): string {
   return rulesNameMapCache.get(uuid) || uuid;
 }
 
 /**
- * Cache pour le catalogue
- * TTL: 5 minutes
- *
- * Utilisé par:
- * - src/app/catalogue/page.tsx
- * - src/app/catalogue/[catalogId]/page.tsx
+ * Cache pour le catalogue — TTL 5 min
  */
-export const catalogueItemsCache = new ClientCache<any[]>(5 * 60 * 1000);
+export const catalogueItemsCache = new ServerCache<unknown[]>(
+  5 * 60 * 1000,
+  "catalogue-items",
+);
 
 /**
- * Cache pour un catalogue spécifique
- * TTL: 5 minutes
+ * Cache pour un catalogue spécifique — TTL 5 min
  */
-export const catalogueDetailCache = new ClientCache<any>(5 * 60 * 1000);
+export const catalogueDetailCache = new ServerCache<unknown>(
+  5 * 60 * 1000,
+  "catalogue-detail",
+);
 
 /**
- * Cache pour les items (legacy - page admin/items supprimée 2026-02)
- * TTL: 5 minutes
+ * Cache items (legacy) — TTL 5 min
  */
-export const itemsCache = new ClientCache<any[]>(5 * 60 * 1000);
+export const itemsCache = new ServerCache<unknown[]>(5 * 60 * 1000, "items");
 
 /**
- * Cache pour les utilisateurs (futur)
- * TTL: 15 minutes
+ * Cache utilisateurs — TTL 15 min
  */
-export const userCache = new ClientCache<any>(15 * 60 * 1000);
+export const userCache = new ServerCache<unknown>(15 * 60 * 1000, "users");
 
 /**
- * Cache pour les paramètres (futur)
- * TTL: 30 minutes
+ * Cache paramètres — TTL 30 min
  */
-export const settingsCache = new ClientCache<any>(30 * 60 * 1000);
+export const settingsCache = new ServerCache<unknown>(
+  30 * 60 * 1000,
+  "settings",
+);
 
 /**
- * Fonction utilitaire pour invalider tous les caches
- * Utile après des mutations (POST, PUT, DELETE)
+ * Invalide tous les caches Redis de l'application.
+ * Propagé à toutes les instances Vercel automatiquement.
  */
-export function clearAllCaches() {
-  rulesCache.clear();
-  catalogueItemsCache.clear();
-  catalogueDetailCache.clear();
-  itemsCache.clear();
-  userCache.clear();
-  settingsCache.clear();
-
+export async function clearAllCaches() {
+  await Promise.all([
+    rulesCache.clear(),
+    catalogueItemsCache.clear(),
+    catalogueDetailCache.clear(),
+    itemsCache.clear(),
+    userCache.clear(),
+    settingsCache.clear(),
+  ]);
   console.log("🧹 All caches cleared");
 }
 
-/**
- * Invalider uniquement les caches liés aux règles
- */
-export function clearRulesCaches() {
-  rulesCache.clear();
+export async function clearRulesCaches() {
+  await rulesCache.clear();
   console.log("🧹 Rules cache cleared");
 }
 
-/**
- * Invalider uniquement les caches liés au catalogue
- */
-export function clearCatalogueCaches() {
-  catalogueItemsCache.clear();
-  catalogueDetailCache.clear();
-  itemsCache.clear();
+export async function clearCatalogueCaches() {
+  await Promise.all([
+    catalogueItemsCache.clear(),
+    catalogueDetailCache.clear(),
+    itemsCache.clear(),
+  ]);
   console.log("🧹 Catalogue caches cleared");
 }
 
-/**
- * Obtenir des statistiques sur les caches
- */
-export function getCacheStats() {
-  return {
-    rules: {
-      size: rulesCache.size(),
-    },
-    catalogueItems: {
-      size: catalogueItemsCache.size(),
-    },
-    catalogueDetail: {
-      size: catalogueDetailCache.size(),
-    },
-    items: {
-      size: itemsCache.size(),
-    },
-    users: {
-      size: userCache.size(),
-    },
-    settings: {
-      size: settingsCache.size(),
-    },
-  };
-}
+export async function getCacheStats() {
+  const [rules, catalogueItems, catalogueDetail, items, users, settings] =
+    await Promise.all([
+      rulesCache.size(),
+      catalogueItemsCache.size(),
+      catalogueDetailCache.size(),
+      itemsCache.size(),
+      userCache.size(),
+      settingsCache.size(),
+    ]);
 
-// Nettoyage automatique toutes les 5 minutes
-if (typeof window !== "undefined") {
-  setInterval(
-    () => {
-      rulesCache.cleanup();
-      catalogueItemsCache.cleanup();
-      catalogueDetailCache.cleanup();
-      itemsCache.cleanup();
-      userCache.cleanup();
-      settingsCache.cleanup();
-
-      const stats = getCacheStats();
-      console.log("🧹 Auto cleanup completed. Cache stats:", stats);
-    },
-    5 * 60 * 1000,
-  );
+  return { rules, catalogueItems, catalogueDetail, items, users, settings };
 }

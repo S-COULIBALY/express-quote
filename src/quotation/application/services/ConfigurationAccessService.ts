@@ -119,7 +119,7 @@ export class ConfigurationAccessService {
   }
 
   clearCache(): void {
-    this.unifiedDataService.clearAllCaches();
+    void this.unifiedDataService.clearAllCaches();
     logger.info("[ConfigAccessService] Cache vidé (via UnifiedDataService)");
   }
 
