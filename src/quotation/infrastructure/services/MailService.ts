@@ -1,5 +1,5 @@
-import nodemailer from 'nodemailer';
-import { SmtpOptions } from 'nodemailer-smtp-transport';
+import nodemailer from "nodemailer";
+import SMTPTransport from "nodemailer/lib/smtp-transport";
 
 /**
  * Service d'infrastructure pour l'envoi d'emails
@@ -11,7 +11,7 @@ export class MailService {
   /**
    * Constructeur avec injection des dépendances
    */
-  constructor(smtpConfig: SmtpOptions, fromEmail: string) {
+  constructor(smtpConfig: SMTPTransport.Options, fromEmail: string) {
     this.transporter = nodemailer.createTransport(smtpConfig);
     this.fromEmail = fromEmail;
   }
@@ -28,7 +28,7 @@ export class MailService {
       filename: string;
       content: Buffer;
       contentType?: string;
-    }> = []
+    }> = [],
   ): Promise<{ messageId: string }> {
     try {
       const mailOptions = {
@@ -41,14 +41,16 @@ export class MailService {
       };
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log('Email envoyé: %s', info.messageId);
-      
+      console.log("Email envoyé: %s", info.messageId);
+
       return {
         messageId: info.messageId,
       };
     } catch (error) {
-      console.error('Erreur lors de l\'envoi de l\'email:', error);
-      throw new Error(`Erreur lors de l'envoi de l'email: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      console.error("Erreur lors de l'envoi de l'email:", error);
+      throw new Error(
+        `Erreur lors de l'envoi de l'email: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+      );
     }
   }
 
@@ -58,11 +60,14 @@ export class MailService {
   async verifyConnection(): Promise<boolean> {
     try {
       await this.transporter.verify();
-      console.log('Configuration SMTP vérifiée avec succès');
+      console.log("Configuration SMTP vérifiée avec succès");
       return true;
     } catch (error) {
-      console.error('Erreur lors de la vérification de la configuration SMTP:', error);
+      console.error(
+        "Erreur lors de la vérification de la configuration SMTP:",
+        error,
+      );
       return false;
     }
   }
-} 
+}
