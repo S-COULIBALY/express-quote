@@ -7,8 +7,8 @@ import { ConfigurationController } from "@/quotation/interfaces/http/controllers
 export const dynamic = "force-dynamic";
 import { ConfigurationService } from "@/quotation/application/services/ConfigurationService";
 import { PrismaConfigurationRepository } from "@/quotation/infrastructure/repositories/PrismaConfigurationRepository";
-import { PrismaClient } from "@prisma/client";
 import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 // Instance partagée du contrôleur avec injection de dépendances DDD
 let controllerInstance: ConfigurationController | null = null;
@@ -16,7 +16,6 @@ let controllerInstance: ConfigurationController | null = null;
 function getController(): ConfigurationController {
   if (!controllerInstance) {
     // Injection de dépendances selon l'architecture DDD
-    const prisma = new PrismaClient();
     const configurationRepository = new PrismaConfigurationRepository(prisma);
     const configurationService = new ConfigurationService(
       configurationRepository,

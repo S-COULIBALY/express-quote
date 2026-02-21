@@ -1,7 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,8 +8,8 @@ export async function POST(request: NextRequest) {
 
     if (!notificationIds || !Array.isArray(notificationIds)) {
       return NextResponse.json(
-        { error: 'notificationIds array is required' },
-        { status: 400 }
+        { error: "notificationIds array is required" },
+        { status: 400 },
       );
     }
 
@@ -19,24 +17,23 @@ export async function POST(request: NextRequest) {
     const result = await prisma.notifications.updateMany({
       where: {
         id: { in: notificationIds },
-        ...(staffId ? { recipient_id: staffId } : {})
+        ...(staffId ? { recipient_id: staffId } : {}),
       },
       data: {
         read_at: new Date(),
-        status: 'READ'
-      }
+        status: "READ",
+      },
     });
 
     return NextResponse.json({
       success: true,
-      updatedCount: result.count
+      updatedCount: result.count,
     });
   } catch (error) {
-    console.error('Error marking notifications as read:', error);
+    console.error("Error marking notifications as read:", error);
     return NextResponse.json(
-      { error: 'Failed to mark notifications as read' },
-      { status: 500 }
+      { error: "Failed to mark notifications as read" },
+      { status: 500 },
     );
   }
 }
-

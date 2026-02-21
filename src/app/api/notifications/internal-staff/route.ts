@@ -8,12 +8,10 @@
  * - Déclenche les notifications avec documents complets
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { InternalStaffNotificationService } from '@/internalStaffNotification/InternalStaffNotificationService';
-import { PrismaClient } from '@prisma/client';
-import { logger } from '@/lib/logger';
-
-const prisma = new PrismaClient();
+import { NextRequest, NextResponse } from "next/server";
+import { InternalStaffNotificationService } from "@/internalStaffNotification/InternalStaffNotificationService";
+import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 export interface InternalStaffNotificationRequest {
   bookingId: string;
@@ -29,10 +27,10 @@ export interface InternalStaffNotificationRequest {
  * Déclenche les notifications pour l'équipe interne
  */
 export async function POST(request: NextRequest) {
-  const requestLogger = logger.withContext('InternalStaffNotificationAPI');
+  const requestLogger = logger.withContext("InternalStaffNotificationAPI");
 
   try {
-    requestLogger.info('👥 Demande de notification équipe interne');
+    requestLogger.info("👥 Demande de notification équipe interne");
 
     const body: InternalStaffNotificationRequest = await request.json();
 
@@ -42,9 +40,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Données manquantes (bookingId et trigger requis)'
+          error: "Données manquantes (bookingId et trigger requis)",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -52,32 +50,38 @@ export async function POST(request: NextRequest) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        Customer: true
-      }
+        Customer: true,
+      },
     });
 
     if (!booking) {
       return NextResponse.json(
         {
           success: false,
-          error: `Réservation non trouvée: ${bookingId}`
+          error: `Réservation non trouvée: ${bookingId}`,
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Préparer le contexte
-    const context = body.context ? {
-      confirmationDate: body.context.confirmationDate ? new Date(body.context.confirmationDate) : undefined,
-      paymentDate: body.context.paymentDate ? new Date(body.context.paymentDate) : undefined,
-      additionalInfo: body.context.additionalInfo
-    } : undefined;
+    const context = body.context
+      ? {
+          confirmationDate: body.context.confirmationDate
+            ? new Date(body.context.confirmationDate)
+            : undefined,
+          paymentDate: body.context.paymentDate
+            ? new Date(body.context.paymentDate)
+            : undefined,
+          additionalInfo: body.context.additionalInfo,
+        }
+      : undefined;
 
-    requestLogger.info('✅ Validation réussie', {
+    requestLogger.info("✅ Validation réussie", {
       bookingId,
       trigger,
       serviceType: booking.type,
-      hasContext: !!context
+      hasContext: !!context,
     });
 
     // Déclencher les notifications
@@ -85,18 +89,18 @@ export async function POST(request: NextRequest) {
     const results = await notificationService.sendInternalStaffNotifications(
       booking as any,
       trigger,
-      context
+      context,
     );
 
-    const successCount = results.filter(r => r.success).length;
-    const errorCount = results.filter(r => !r.success).length;
+    const successCount = results.filter((r) => r.success).length;
+    const errorCount = results.filter((r) => !r.success).length;
 
-    requestLogger.info('🎉 Notifications équipe interne terminées', {
+    requestLogger.info("🎉 Notifications équipe interne terminées", {
       bookingId,
       trigger,
       totalStaff: results.length,
       successCount,
-      errorCount
+      errorCount,
     });
 
     return NextResponse.json({
@@ -107,31 +111,33 @@ export async function POST(request: NextRequest) {
         total: results.length,
         successful: successCount,
         errors: errorCount,
-        details: results.map(r => ({
+        details: results.map((r) => ({
           staffMember: {
             name: `${r.staffMember.firstName} ${r.staffMember.lastName}`,
             role: r.staffMember.role,
-            email: r.staffMember.email.replace(/(.{3}).*(@.*)/, '$1***$2')
+            email: r.staffMember.email.replace(/(.{3}).*(@.*)/, "$1***$2"),
           },
           success: r.success,
           messageId: r.messageId,
-          error: r.error
-        }))
+          error: r.error,
+        })),
       },
-      message: `Notifications envoyées à ${successCount}/${results.length} responsables`
+      message: `Notifications envoyées à ${successCount}/${results.length} responsables`,
     });
-
   } catch (error) {
-    requestLogger.error('❌ Erreur notification équipe interne', {
-      error: error instanceof Error ? error.message : 'Erreur inconnue',
-      stack: error instanceof Error ? error.stack : undefined
+    requestLogger.error("❌ Erreur notification équipe interne", {
+      error: error instanceof Error ? error.message : "Erreur inconnue",
+      stack: error instanceof Error ? error.stack : undefined,
     });
 
-    return NextResponse.json({
-      success: false,
-      error: 'Erreur interne du serveur',
-      details: error instanceof Error ? error.message : 'Erreur inconnue'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur interne du serveur",
+        details: error instanceof Error ? error.message : "Erreur inconnue",
+      },
+      { status: 500 },
+    );
   }
 }
 
@@ -142,32 +148,35 @@ export async function GET(request: NextRequest) {
   try {
     return NextResponse.json({
       success: true,
-      service: 'Internal Staff Notification API',
-      version: '1.0',
+      service: "Internal Staff Notification API",
+      version: "1.0",
       features: [
-        'Notifications automatiques équipe interne',
-        'Documents complets avec données non restreintes',
-        'Sélection intelligente selon type de service',
-        'Support comptabilité et responsables spécialisés',
-        'Utilisation des APIs de génération et notification'
+        "Notifications automatiques équipe interne",
+        "Documents complets avec données non restreintes",
+        "Sélection intelligente selon type de service",
+        "Support comptabilité et responsables spécialisés",
+        "Utilisation des APIs de génération et notification",
       ],
       triggers: [
-        'BOOKING_CONFIRMED',
-        'PAYMENT_COMPLETED',
-        'SERVICE_STARTED',
-        'BOOKING_CANCELLED'
+        "BOOKING_CONFIRMED",
+        "PAYMENT_COMPLETED",
+        "SERVICE_STARTED",
+        "BOOKING_CANCELLED",
       ],
       recipients: [
-        'Responsables par type de service',
-        'OPERATIONS_MANAGER (toujours)',
-        'ADMIN (toujours)',
-        'ACCOUNTING (selon trigger)'
-      ]
+        "Responsables par type de service",
+        "OPERATIONS_MANAGER (toujours)",
+        "ADMIN (toujours)",
+        "ACCOUNTING (selon trigger)",
+      ],
     });
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: 'Erreur lors de la récupération des informations'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Erreur lors de la récupération des informations",
+      },
+      { status: 500 },
+    );
   }
 }

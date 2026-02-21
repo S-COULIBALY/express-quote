@@ -5,9 +5,15 @@
  * - Suivi des tentatives et retry
  */
 
-import { PrismaClient, ReminderStatus, ReminderType, NotificationPriority } from '@prisma/client';
-import { ProductionLogger } from '../../infrastructure/logging/logger.production';
-import { CircuitBreaker } from '../resilience/circuit.breaker';
+import {
+  PrismaClient,
+  ReminderStatus,
+  ReminderType,
+  NotificationPriority,
+} from "@prisma/client";
+import { ProductionLogger } from "../../infrastructure/logging/logger.production";
+import { CircuitBreaker } from "../resilience/circuit.breaker";
+import { prisma } from "@/lib/prisma";
 
 export interface CreateScheduledReminderData {
   bookingId: string;
@@ -38,22 +44,26 @@ export class ScheduledReminderRepository {
   private prisma: PrismaClient;
   private logger: ProductionLogger;
   private circuitBreaker: CircuitBreaker;
-  
+
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma;
     this.logger = new ProductionLogger({});
-    
+
     // Circuit breaker pour protéger la base de données
     this.circuitBreaker = CircuitBreaker.forDatabase({
       onStateChange: (oldState: string, newState: string, reason: string) => {
-        this.logger.warn(`🔌 ScheduledReminderRepository circuit breaker: ${oldState} -> ${newState} (${reason})`);
+        this.logger.warn(
+          `🔌 ScheduledReminderRepository circuit breaker: ${oldState} -> ${newState} (${reason})`,
+        );
       },
       onFailure: (error: Error) => {
-        this.logger.error('💥 ScheduledReminderRepository database failure', { error: error.message });
-      }
+        this.logger.error("💥 ScheduledReminderRepository database failure", {
+          error: error.message,
+        });
+      },
     });
   }
-  
+
   /**
    * Crée un nouveau rappel programmé
    */
@@ -70,28 +80,29 @@ export class ScheduledReminderRepository {
           recipient_email: data.recipientEmail,
           recipient_phone: data.recipientPhone,
           full_client_data: data.fullClientData,
-          status: 'SCHEDULED', // Statut par défaut
-          priority: data.priority || 'NORMAL',
+          status: "SCHEDULED", // Statut par défaut
+          priority: data.priority || "NORMAL",
           max_attempts: data.maxAttempts || 3,
           attempts: 0,
           metadata: data.metadata || {},
-          updated_at: new Date()
-        } as any
+          updated_at: new Date(),
+        } as any,
       });
-      
-      this.logger.info('📝 Rappel programmé créé', { 
-        id: reminder.id, 
+
+      this.logger.info("📝 Rappel programmé créé", {
+        id: reminder.id,
         reminderType: (reminder as any).reminder_type,
-        scheduledDate: (reminder as any).scheduled_date 
+        scheduledDate: (reminder as any).scheduled_date,
       });
       return reminder;
-      
     } catch (error) {
-      this.logger.error('❌ Erreur création rappel programmé', { error: (error as Error).message });
+      this.logger.error("❌ Erreur création rappel programmé", {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
-  
+
   /**
    * Met à jour un rappel programmé
    */
@@ -101,39 +112,44 @@ export class ScheduledReminderRepository {
         where: { id },
         data: {
           ...data,
-          updated_at: new Date()
-        }
+          updated_at: new Date(),
+        },
       });
-      
-      this.logger.info('📝 Rappel programmé mis à jour', { 
-        id, 
+
+      this.logger.info("📝 Rappel programmé mis à jour", {
+        id,
         status: data.status,
-        attempts: data.attempts 
+        attempts: data.attempts,
       });
-      
+
       return reminder;
-      
     } catch (error) {
-      if ((error as any).code === 'P2025') {
-        this.logger.warn('⚠️ Tentative de mise à jour d\'un rappel qui n\'existe plus', { id });
+      if ((error as any).code === "P2025") {
+        this.logger.warn(
+          "⚠️ Tentative de mise à jour d'un rappel qui n'existe plus",
+          { id },
+        );
         return null;
       }
-      
-      this.logger.error('❌ Erreur mise à jour rappel programmé', { id, error });
+
+      this.logger.error("❌ Erreur mise à jour rappel programmé", {
+        id,
+        error,
+      });
       throw error;
     }
   }
-  
+
   /**
    * Trouve un rappel par ID
    */
   async findById(id: string) {
     try {
       return await this.prisma.scheduled_reminders.findUnique({
-        where: { id }
+        where: { id },
       });
     } catch (error) {
-      this.logger.error('❌ Erreur recherche rappel', { id, error });
+      this.logger.error("❌ Erreur recherche rappel", { id, error });
       throw error;
     }
   }
@@ -147,17 +163,20 @@ export class ScheduledReminderRepository {
     if (!reminder) {
       throw new Error(`Rappel ${id} not found`);
     }
-    if (reminder.status !== 'SCHEDULED') {
-      this.logger.warn('⚠️ Tentative de transition SCHEDULED → PROCESSING sur un rappel non-SCHEDULED', {
-        id,
-        currentStatus: reminder.status
-      });
+    if (reminder.status !== "SCHEDULED") {
+      this.logger.warn(
+        "⚠️ Tentative de transition SCHEDULED → PROCESSING sur un rappel non-SCHEDULED",
+        {
+          id,
+          currentStatus: reminder.status,
+        },
+      );
       return reminder;
     }
-    
+
     return this.update(id, {
-      status: 'PROCESSING',
-      attempts: await this.incrementAttempts(id)
+      status: "PROCESSING",
+      attempts: await this.incrementAttempts(id),
     });
   }
 
@@ -170,17 +189,20 @@ export class ScheduledReminderRepository {
     if (!reminder) {
       throw new Error(`Rappel ${id} not found`);
     }
-    if (reminder.status !== 'PROCESSING') {
-      this.logger.warn('⚠️ Tentative de transition PROCESSING → SENT sur un rappel non-PROCESSING', {
-        id,
-        currentStatus: reminder.status
-      });
+    if (reminder.status !== "PROCESSING") {
+      this.logger.warn(
+        "⚠️ Tentative de transition PROCESSING → SENT sur un rappel non-PROCESSING",
+        {
+          id,
+          currentStatus: reminder.status,
+        },
+      );
       return reminder;
     }
-    
+
     return this.update(id, {
-      status: 'SENT',
-      sent_at: new Date()
+      status: "SENT",
+      sent_at: new Date(),
     } as any);
   }
 
@@ -190,8 +212,8 @@ export class ScheduledReminderRepository {
    */
   async markAsFailed(id: string, error: string) {
     return this.update(id, {
-      status: 'FAILED',
-      lastError: error
+      status: "FAILED",
+      lastError: error,
     });
   }
 
@@ -201,8 +223,8 @@ export class ScheduledReminderRepository {
    */
   async markAsCancelled(id: string, reason?: string) {
     return this.update(id, {
-      status: 'CANCELLED',
-      cancelReason: reason
+      status: "CANCELLED",
+      cancelReason: reason,
     });
   }
 
@@ -212,7 +234,7 @@ export class ScheduledReminderRepository {
    */
   async markAsExpired(id: string) {
     return this.update(id, {
-      status: 'EXPIRED'
+      status: "EXPIRED",
     });
   }
 
@@ -232,17 +254,16 @@ export class ScheduledReminderRepository {
     try {
       return await this.prisma.scheduled_reminders.findMany({
         where: {
-          status: 'SCHEDULED',
-          scheduled_date: { lte: new Date() }
+          status: "SCHEDULED",
+          scheduled_date: { lte: new Date() },
         },
-        orderBy: [
-          { priority: 'desc' },
-          { scheduled_date: 'asc' }
-        ],
-        take: limit
+        orderBy: [{ priority: "desc" }, { scheduled_date: "asc" }],
+        take: limit,
       });
     } catch (error) {
-      this.logger.error('❌ Erreur recherche rappels scheduled ready', { error: (error as Error).message });
+      this.logger.error("❌ Erreur recherche rappels scheduled ready", {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -255,15 +276,17 @@ export class ScheduledReminderRepository {
     try {
       const expirationDate = new Date();
       expirationDate.setHours(expirationDate.getHours() - expirationHours);
-      
+
       return await this.prisma.scheduled_reminders.findMany({
         where: {
-          status: { in: ['SCHEDULED', 'PROCESSING'] },
-          scheduled_date: { lt: expirationDate }
-        }
+          status: { in: ["SCHEDULED", "PROCESSING"] },
+          scheduled_date: { lt: expirationDate },
+        },
       });
     } catch (error) {
-      this.logger.error('❌ Erreur recherche rappels expirés', { error: (error as Error).message });
+      this.logger.error("❌ Erreur recherche rappels expirés", {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -275,10 +298,13 @@ export class ScheduledReminderRepository {
     try {
       return await this.prisma.scheduled_reminders.findMany({
         where: { booking_id: bookingId },
-        orderBy: { scheduled_date: 'asc' }
+        orderBy: { scheduled_date: "asc" },
       });
     } catch (error) {
-      this.logger.error('❌ Erreur recherche rappels par bookingId', { bookingId, error });
+      this.logger.error("❌ Erreur recherche rappels par bookingId", {
+        bookingId,
+        error,
+      });
       throw error;
     }
   }
@@ -290,10 +316,13 @@ export class ScheduledReminderRepository {
     try {
       return await this.prisma.scheduled_reminders.findMany({
         where: { attribution_id: attributionId },
-        orderBy: { scheduled_date: 'asc' }
+        orderBy: { scheduled_date: "asc" },
       });
     } catch (error) {
-      this.logger.error('❌ Erreur recherche rappels par attributionId', { attributionId, error });
+      this.logger.error("❌ Erreur recherche rappels par attributionId", {
+        attributionId,
+        error,
+      });
       throw error;
     }
   }
@@ -305,51 +334,59 @@ export class ScheduledReminderRepository {
     try {
       return await this.circuitBreaker.call(async () => {
         const where = {
-          ...(dateFrom && dateTo && {
-            created_at: {
-              gte: dateFrom,
-              lte: dateTo
-            }
-          })
+          ...(dateFrom &&
+            dateTo && {
+              created_at: {
+                gte: dateFrom,
+                lte: dateTo,
+              },
+            }),
         };
-        
+
         const [total, byStatus, byType] = await Promise.all([
           this.prisma.scheduled_reminders.count({ where }),
           this.prisma.scheduled_reminders.groupBy({
-            by: ['status'],
+            by: ["status"],
             where,
-            _count: { id: true }
+            _count: { id: true },
           }),
           this.prisma.scheduled_reminders.groupBy({
-            by: ['reminder_type'],
+            by: ["reminder_type"],
             where,
-            _count: { id: true }
-          })
+            _count: { id: true },
+          }),
         ]);
-        
-        const statusStats = byStatus.reduce((acc, item) => {
-          acc[item.status] = item._count.id;
-          return acc;
-        }, {} as Record<string, number>);
-        
-        const typeStats = byType.reduce((acc, item) => {
-          acc[(item as any).reminder_type] = item._count.id;
-          return acc;
-        }, {} as Record<string, number>);
-        
+
+        const statusStats = byStatus.reduce(
+          (acc, item) => {
+            acc[item.status] = item._count.id;
+            return acc;
+          },
+          {} as Record<string, number>,
+        );
+
+        const typeStats = byType.reduce(
+          (acc, item) => {
+            acc[(item as any).reminder_type] = item._count.id;
+            return acc;
+          },
+          {} as Record<string, number>,
+        );
+
         const sent = statusStats.SENT || 0;
         const successRate = total > 0 ? (sent / total) * 100 : 0;
-        
+
         return {
           total,
           byStatus: statusStats,
           byType: typeStats,
-          successRate: Math.round(successRate * 100) / 100
+          successRate: Math.round(successRate * 100) / 100,
         };
-      }, 'scheduled-reminder-stats');
-      
+      }, "scheduled-reminder-stats");
     } catch (error) {
-      this.logger.error('❌ Erreur calcul statistiques rappels', { error: (error as Error).message });
+      this.logger.error("❌ Erreur calcul statistiques rappels", {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -360,29 +397,29 @@ export class ScheduledReminderRepository {
   async healthCheck() {
     try {
       const startTime = Date.now();
-      
+
       await this.circuitBreaker.call(async () => {
         await this.prisma.$queryRaw`SELECT 1`;
-      }, 'health-check');
-      
+      }, "health-check");
+
       const latency = Date.now() - startTime;
-      
+
       return {
         isHealthy: true,
         latency,
         circuitBreakerState: this.circuitBreaker.getMetrics().state,
-        lastHealthCheck: new Date()
+        lastHealthCheck: new Date(),
       };
-      
     } catch (error) {
-      this.logger.error('❌ Health check failed', { error: (error as Error).message });
+      this.logger.error("❌ Health check failed", {
+        error: (error as Error).message,
+      });
       return {
         isHealthy: false,
         error: (error as Error).message,
         circuitBreakerState: this.circuitBreaker.getMetrics().state,
-        lastHealthCheck: new Date()
+        lastHealthCheck: new Date(),
       };
     }
   }
 }
-

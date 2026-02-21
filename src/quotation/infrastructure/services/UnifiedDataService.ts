@@ -5,10 +5,11 @@
  * Le calcul de prix utilise quotation-module (MODULES_CONFIG).
  */
 
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { logger } from "../../../lib/logger";
 import { ServiceType } from "../../domain/enums/ServiceType";
 import { ServerCache } from "../../../lib/server-cache";
+import { prisma } from "@/lib/prisma";
 
 export { ServiceType };
 
@@ -109,7 +110,7 @@ export class UnifiedDataService {
   );
 
   private constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma;
   }
 
   static getInstance(): UnifiedDataService {

@@ -6,9 +6,15 @@
  * - Aucune dépendance InversifyJS
  */
 
-import { PrismaClient, NotificationStatus, NotificationChannel, NotificationPriority } from '@prisma/client';
-import { ProductionLogger } from '../../infrastructure/logging/logger.production';
-import { CircuitBreaker } from '../resilience/circuit.breaker';
+import {
+  PrismaClient,
+  NotificationStatus,
+  NotificationChannel,
+  NotificationPriority,
+} from "@prisma/client";
+import { ProductionLogger } from "../../infrastructure/logging/logger.production";
+import { CircuitBreaker } from "../resilience/circuit.breaker";
+import { prisma } from "@/lib/prisma";
 
 export interface CreateNotificationData {
   recipientId: string;
@@ -41,22 +47,26 @@ export class NotificationRepository {
   private prisma: PrismaClient;
   private logger: ProductionLogger;
   private circuitBreaker: CircuitBreaker;
-  
+
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma;
     this.logger = new ProductionLogger({});
-    
+
     // Circuit breaker pour protéger la base de données
     this.circuitBreaker = CircuitBreaker.forDatabase({
       onStateChange: (oldState: string, newState: string, reason: string) => {
-        this.logger.warn(`🔌 Repository circuit breaker: ${oldState} -> ${newState} (${reason})`);
+        this.logger.warn(
+          `🔌 Repository circuit breaker: ${oldState} -> ${newState} (${reason})`,
+        );
       },
       onFailure: (error: Error) => {
-        this.logger.error('💥 Repository database failure', { error: error.message });
-      }
+        this.logger.error("💥 Repository database failure", {
+          error: error.message,
+        });
+      },
     });
   }
-  
+
   /**
    * Crée une nouvelle notification
    * Utilise SCHEDULED si scheduledAt est dans le futur, sinon PENDING
@@ -64,11 +74,11 @@ export class NotificationRepository {
   async create(data: CreateNotificationData) {
     try {
       // Déterminer le statut initial : SCHEDULED si programmé dans le futur, sinon PENDING
-      const initialStatus: NotificationStatus = 
-        data.scheduledAt && data.scheduledAt > new Date() 
-          ? 'SCHEDULED' 
-          : 'PENDING';
-      
+      const initialStatus: NotificationStatus =
+        data.scheduledAt && data.scheduledAt > new Date()
+          ? "SCHEDULED"
+          : "PENDING";
+
       const notification = await this.prisma.notifications.create({
         data: {
           recipient_id: data.recipientId,
@@ -78,30 +88,31 @@ export class NotificationRepository {
           template_data: data.templateData,
           subject: data.subject,
           content: data.content,
-          priority: data.priority || 'NORMAL',
+          priority: data.priority || "NORMAL",
           scheduled_at: data.scheduledAt,
           expires_at: data.expiresAt,
           max_attempts: data.maxAttempts || 3,
           metadata: data.metadata || {},
           tags: data.tags || [],
           attempts: 0,
-          updated_at: new Date()
-        } as any
+          updated_at: new Date(),
+        } as any,
       });
-      
-      this.logger.info('📝 Notification créée', { 
-        id: notification.id, 
+
+      this.logger.info("📝 Notification créée", {
+        id: notification.id,
         channel: notification.channel,
-        status: notification.status 
+        status: notification.status,
       });
       return notification;
-      
     } catch (error) {
-      this.logger.error('❌ Erreur création notification', { error: (error as Error).message });
+      this.logger.error("❌ Erreur création notification", {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
-  
+
   /**
    * Met à jour une notification
    */
@@ -111,86 +122,93 @@ export class NotificationRepository {
         where: { id },
         data: {
           ...(data as any),
-          updated_at: new Date()
-        }
+          updated_at: new Date(),
+        },
       });
-      
-      this.logger.info('📝 Notification mise à jour', { 
-        id, 
+
+      this.logger.info("📝 Notification mise à jour", {
+        id,
         status: data.status,
-        attempts: data.attempts 
+        attempts: data.attempts,
       });
-      
+
       return notification;
-      
     } catch (error) {
       // Si l'enregistrement n'existe plus (nettoyage de test), ne pas faire échouer
-      if ((error as any).code === 'P2025') {
-        this.logger.warn('⚠️ Tentative de mise à jour d\'une notification qui n\'existe plus (probablement nettoyée par les tests)', { id });
+      if ((error as any).code === "P2025") {
+        this.logger.warn(
+          "⚠️ Tentative de mise à jour d'une notification qui n'existe plus (probablement nettoyée par les tests)",
+          { id },
+        );
         return null;
       }
-      
-      this.logger.error('❌ Erreur mise à jour notification', { id, error });
+
+      this.logger.error("❌ Erreur mise à jour notification", { id, error });
       throw error;
     }
   }
-  
+
   /**
    * Trouve une notification par ID
    */
   async findById(id: string) {
     try {
       return await this.prisma.notifications.findUnique({
-        where: { id }
+        where: { id },
       });
     } catch (error) {
-      this.logger.error('❌ Erreur recherche notification', { id, error });
+      this.logger.error("❌ Erreur recherche notification", { id, error });
       throw error;
     }
   }
-  
+
   /**
    * Marque une notification comme en cours d'envoi
    */
   async markAsSending(id: string) {
     return this.update(id, {
-      status: 'SENDING',
-      attempts: await this.incrementAttempts(id)
+      status: "SENDING",
+      attempts: await this.incrementAttempts(id),
     });
   }
-  
+
   /**
    * Marque une notification comme envoyée
    */
-  async markAsSent(id: string, externalId?: string, providerResponse?: any, cost?: number) {
+  async markAsSent(
+    id: string,
+    externalId?: string,
+    providerResponse?: any,
+    cost?: number,
+  ) {
     return this.update(id, {
-      status: 'SENT',
+      status: "SENT",
       sent_at: new Date(),
       external_id: externalId,
       provider_response: providerResponse,
-      cost
+      cost,
     } as any);
   }
-  
+
   /**
    * Marque une notification comme échouée
    */
   async markAsFailed(id: string, error: string, providerResponse?: any) {
     return this.update(id, {
-      status: 'FAILED',
+      status: "FAILED",
       failed_at: new Date(),
       last_error: error,
-      provider_response: providerResponse
+      provider_response: providerResponse,
     } as any);
   }
-  
+
   /**
    * Marque une notification pour retry
    */
   async markAsRetrying(id: string, error: string) {
     return this.update(id, {
-      status: 'RETRYING',
-      last_error: error
+      status: "RETRYING",
+      last_error: error,
     } as any);
   }
 
@@ -199,18 +217,22 @@ export class NotificationRepository {
    */
   async markAsScheduled(id: string) {
     return this.update(id, {
-      status: 'SCHEDULED'
+      status: "SCHEDULED",
     });
   }
 
   /**
    * Marque une notification comme livrée (DELIVERED)
    */
-  async markAsDelivered(id: string, deliveredAt?: Date, providerResponse?: any) {
+  async markAsDelivered(
+    id: string,
+    deliveredAt?: Date,
+    providerResponse?: any,
+  ) {
     return this.update(id, {
-      status: 'DELIVERED',
+      status: "DELIVERED",
       delivered_at: deliveredAt || new Date(),
-      provider_response: providerResponse
+      provider_response: providerResponse,
     } as any);
   }
 
@@ -219,9 +241,9 @@ export class NotificationRepository {
    */
   async markAsRead(id: string, readAt?: Date, providerResponse?: any) {
     return this.update(id, {
-      status: 'READ',
+      status: "READ",
       read_at: readAt || new Date(),
-      provider_response: providerResponse
+      provider_response: providerResponse,
     } as any);
   }
 
@@ -230,8 +252,8 @@ export class NotificationRepository {
    */
   async markAsCancelled(id: string, reason?: string) {
     return this.update(id, {
-      status: 'CANCELLED',
-      last_error: reason
+      status: "CANCELLED",
+      last_error: reason,
     } as any);
   }
 
@@ -240,7 +262,7 @@ export class NotificationRepository {
    */
   async markAsExpired(id: string) {
     return this.update(id, {
-      status: 'EXPIRED'
+      status: "EXPIRED",
     });
   }
 
@@ -252,17 +274,16 @@ export class NotificationRepository {
     try {
       return await this.prisma.notifications.findMany({
         where: {
-          status: 'SCHEDULED',
-          scheduled_at: { lte: new Date() }
+          status: "SCHEDULED",
+          scheduled_at: { lte: new Date() },
         },
-        orderBy: [
-          { priority: 'desc' },
-          { scheduled_at: 'asc' }
-        ],
-        take: limit
+        orderBy: [{ priority: "desc" }, { scheduled_at: "asc" }],
+        take: limit,
       });
     } catch (error) {
-      this.logger.error('❌ Erreur recherche notifications scheduled ready', { error: (error as Error).message });
+      this.logger.error("❌ Erreur recherche notifications scheduled ready", {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -275,30 +296,33 @@ export class NotificationRepository {
     if (!notification) {
       throw new Error(`Notification ${id} not found`);
     }
-    if (notification.status !== 'SCHEDULED') {
-      this.logger.warn('⚠️ Tentative de transition SCHEDULED → PENDING sur une notification non-SCHEDULED', {
-        id,
-        currentStatus: notification.status
-      });
+    if (notification.status !== "SCHEDULED") {
+      this.logger.warn(
+        "⚠️ Tentative de transition SCHEDULED → PENDING sur une notification non-SCHEDULED",
+        {
+          id,
+          currentStatus: notification.status,
+        },
+      );
       return notification;
     }
     return this.update(id, {
-      status: 'PENDING'
+      status: "PENDING",
     });
   }
-  
+
   /**
    * Incrémente le compteur de tentatives
    */
   private async incrementAttempts(id: string): Promise<number> {
     const notification = await this.prisma.notifications.findUnique({
       where: { id },
-      select: { attempts: true }
+      select: { attempts: true },
     });
-    
+
     return (notification?.attempts || 0) + 1;
   }
-  
+
   /**
    * Trouve les notifications en attente de traitement
    * Inclut PENDING, RETRYING, et SCHEDULED qui sont prêtes (scheduledAt <= now)
@@ -310,31 +334,30 @@ export class NotificationRepository {
           OR: [
             // Notifications PENDING ou RETRYING sans scheduledAt ou avec scheduledAt passé
             {
-              status: { in: ['PENDING', 'RETRYING'] },
+              status: { in: ["PENDING", "RETRYING"] },
               OR: [
                 { scheduled_at: null },
-                { scheduled_at: { lte: new Date() } }
-              ]
+                { scheduled_at: { lte: new Date() } },
+              ],
             },
             // Notifications SCHEDULED qui sont prêtes à être traitées
             {
-              status: 'SCHEDULED',
-              scheduled_at: { lte: new Date() }
-            }
-          ]
+              status: "SCHEDULED",
+              scheduled_at: { lte: new Date() },
+            },
+          ],
         },
-        orderBy: [
-          { priority: 'desc' },
-          { created_at: 'asc' }
-        ],
-        take: limit
+        orderBy: [{ priority: "desc" }, { created_at: "asc" }],
+        take: limit,
       });
     } catch (error) {
-      this.logger.error('❌ Erreur recherche notifications pending', { error: (error as Error).message });
+      this.logger.error("❌ Erreur recherche notifications pending", {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
-  
+
   /**
    * Trouve les notifications expirées
    */
@@ -343,15 +366,17 @@ export class NotificationRepository {
       return await this.prisma.notifications.findMany({
         where: {
           expires_at: { lte: new Date() },
-          status: { in: ['PENDING', 'SCHEDULED', 'RETRYING'] }
-        }
+          status: { in: ["PENDING", "SCHEDULED", "RETRYING"] },
+        },
       });
     } catch (error) {
-      this.logger.error('❌ Erreur recherche notifications expirées', { error: (error as Error).message });
+      this.logger.error("❌ Erreur recherche notifications expirées", {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
-  
+
   /**
    * Trouve une notification par ID externe (provider)
    */
@@ -359,11 +384,14 @@ export class NotificationRepository {
     try {
       return await this.circuitBreaker.call(async () => {
         return await this.prisma.notifications.findFirst({
-          where: { external_id: externalId }
+          where: { external_id: externalId },
         });
-      }, 'notification-find-by-external-id');
+      }, "notification-find-by-external-id");
     } catch (error) {
-      this.logger.error('❌ Erreur recherche notification par ID externe', { externalId, error });
+      this.logger.error("❌ Erreur recherche notification par ID externe", {
+        externalId,
+        error,
+      });
       throw error;
     }
   }
@@ -375,51 +403,59 @@ export class NotificationRepository {
     try {
       return await this.circuitBreaker.call(async () => {
         const where = {
-          ...(dateFrom && dateTo && {
-            created_at: {
-              gte: dateFrom,
-              lte: dateTo
-            }
-          })
+          ...(dateFrom &&
+            dateTo && {
+              created_at: {
+                gte: dateFrom,
+                lte: dateTo,
+              },
+            }),
         };
-        
+
         const [total, byStatus, byChannel] = await Promise.all([
           this.prisma.notifications.count({ where }),
           this.prisma.notifications.groupBy({
-            by: ['status'],
+            by: ["status"],
             where,
-            _count: { id: true }
+            _count: { id: true },
           }),
           this.prisma.notifications.groupBy({
-            by: ['channel'],
+            by: ["channel"],
             where,
-            _count: { id: true }
-          })
+            _count: { id: true },
+          }),
         ]);
-        
-        const statusStats = byStatus.reduce((acc, item) => {
-          acc[item.status] = item._count.id;
-          return acc;
-        }, {} as Record<string, number>);
-        
-        const channelStats = byChannel.reduce((acc, item) => {
-          acc[item.channel] = item._count.id;
-          return acc;
-        }, {} as Record<string, number>);
-        
+
+        const statusStats = byStatus.reduce(
+          (acc, item) => {
+            acc[item.status] = item._count.id;
+            return acc;
+          },
+          {} as Record<string, number>,
+        );
+
+        const channelStats = byChannel.reduce(
+          (acc, item) => {
+            acc[item.channel] = item._count.id;
+            return acc;
+          },
+          {} as Record<string, number>,
+        );
+
         const sent = statusStats.SENT || 0;
         const successRate = total > 0 ? (sent / total) * 100 : 0;
-        
+
         return {
           total,
           byStatus: statusStats,
           byChannel: channelStats,
-          successRate: Math.round(successRate * 100) / 100
+          successRate: Math.round(successRate * 100) / 100,
         };
-      }, 'notification-stats');
-      
+      }, "notification-stats");
     } catch (error) {
-      this.logger.error('❌ Erreur calcul statistiques', { error: (error as Error).message });
+      this.logger.error("❌ Erreur calcul statistiques", {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -430,28 +466,29 @@ export class NotificationRepository {
   async healthCheck() {
     try {
       const startTime = Date.now();
-      
+
       await this.circuitBreaker.call(async () => {
         // Test simple de connexion à la base
         await this.prisma.$queryRaw`SELECT 1`;
-      }, 'health-check');
-      
+      }, "health-check");
+
       const latency = Date.now() - startTime;
-      
+
       return {
         isHealthy: true,
         latency,
         circuitBreakerState: this.circuitBreaker.getMetrics().state,
-        lastHealthCheck: new Date()
+        lastHealthCheck: new Date(),
       };
-      
     } catch (error) {
-      this.logger.error('❌ Health check failed', { error: (error as Error).message });
+      this.logger.error("❌ Health check failed", {
+        error: (error as Error).message,
+      });
       return {
         isHealthy: false,
         error: (error as Error).message,
         circuitBreakerState: this.circuitBreaker.getMetrics().state,
-        lastHealthCheck: new Date()
+        lastHealthCheck: new Date(),
       };
     }
   }

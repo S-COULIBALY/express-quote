@@ -1,14 +1,15 @@
-import { injectable } from 'tsyringe';
-import { PrismaClient } from '@prisma/client';
-import { IEmailTemplateRepository } from '../../domain/repositories/IEmailConfigRepository';
-import { EmailTemplate } from '../../domain/entities/EmailConfig';
+import type { PrismaClient } from "@prisma/client";
+import { injectable } from "tsyringe";
+import { IEmailTemplateRepository } from "../../domain/repositories/IEmailConfigRepository";
+import { EmailTemplate } from "../../domain/entities/EmailConfig";
+import { prisma } from "@/lib/prisma";
 
 @injectable()
 export class PrismaEmailTemplateRepository implements IEmailTemplateRepository {
   private prisma: PrismaClient;
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma;
   }
 
   public async getTemplates(): Promise<EmailTemplate[]> {
@@ -16,12 +17,12 @@ export class PrismaEmailTemplateRepository implements IEmailTemplateRepository {
       const templates = await this.prisma.$queryRaw`
         SELECT * FROM "EmailTemplate" WHERE "isActive" = true
       `;
-      
-      return Array.isArray(templates) 
+
+      return Array.isArray(templates)
         ? templates.map((t: any) => this.mapToEmailTemplate(t))
         : [];
     } catch (error) {
-      console.error('Erreur lors de la récupération des templates:', error);
+      console.error("Erreur lors de la récupération des templates:", error);
       return [];
     }
   }
@@ -31,14 +32,17 @@ export class PrismaEmailTemplateRepository implements IEmailTemplateRepository {
       const templates = await this.prisma.$queryRaw`
         SELECT * FROM "EmailTemplate" WHERE "type" = ${type}
       `;
-      
+
       if (Array.isArray(templates) && templates.length > 0) {
         return this.mapToEmailTemplate(templates[0]);
       }
-      
+
       return null;
     } catch (error) {
-      console.error(`Erreur lors de la récupération du template de type ${type}:`, error);
+      console.error(
+        `Erreur lors de la récupération du template de type ${type}:`,
+        error,
+      );
       return null;
     }
   }
@@ -46,7 +50,7 @@ export class PrismaEmailTemplateRepository implements IEmailTemplateRepository {
   public async updateTemplate(template: EmailTemplate): Promise<EmailTemplate> {
     try {
       let result;
-      
+
       if (template.id) {
         // Mise à jour d'un template existant
         result = await this.prisma.$queryRaw`
@@ -64,7 +68,7 @@ export class PrismaEmailTemplateRepository implements IEmailTemplateRepository {
       } else {
         // Création ou mise à jour basée sur le type
         const existingTemplate = await this.getTemplateByType(template.type);
-        
+
         if (existingTemplate) {
           // Mise à jour basée sur le type
           result = await this.prisma.$queryRaw`
@@ -101,14 +105,14 @@ export class PrismaEmailTemplateRepository implements IEmailTemplateRepository {
           `;
         }
       }
-      
+
       if (Array.isArray(result) && result.length > 0) {
         return this.mapToEmailTemplate(result[0]);
       }
-      
-      throw new Error('Échec de la mise à jour du template');
+
+      throw new Error("Échec de la mise à jour du template");
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du template:', error);
+      console.error("Erreur lors de la mise à jour du template:", error);
       throw error;
     }
   }
@@ -122,7 +126,7 @@ export class PrismaEmailTemplateRepository implements IEmailTemplateRepository {
       data.textContent,
       data.type,
       data.variables,
-      data.isActive
+      data.isActive,
     );
   }
-} 
+}

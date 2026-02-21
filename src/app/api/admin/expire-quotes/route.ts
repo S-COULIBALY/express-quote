@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { QuoteExpirationProcessor } from "@/scripts/expire-quotes";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 /**
  * POST /api/admin/expire-quotes
@@ -56,9 +56,6 @@ export async function GET(request: NextRequest) {
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
-
-    const prisma = new PrismaClient();
-
     // Statistiques des devis expirés
     const stats = await prisma.quoteRequest.groupBy({
       by: ["status"],

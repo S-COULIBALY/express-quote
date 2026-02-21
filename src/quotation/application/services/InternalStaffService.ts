@@ -1,8 +1,9 @@
 /**
  * Service pour gérer les responsables internes (InternalStaff)
  */
-import { PrismaClient } from '@prisma/client';
-import { logger } from '@/lib/logger';
+import type { PrismaClient } from "@prisma/client";
+import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 export interface InternalStaffMember {
   id: string;
@@ -24,15 +25,19 @@ export class InternalStaffService {
   private prisma: PrismaClient;
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma;
   }
 
   /**
    * Récupère les responsables internes par type de service
    */
-  async getStaffByServiceType(serviceType: string): Promise<InternalStaffMember[]> {
+  async getStaffByServiceType(
+    serviceType: string,
+  ): Promise<InternalStaffMember[]> {
     try {
-      logger.info(`🔍 Recherche des responsables pour le service: ${serviceType}`);
+      logger.info(
+        `🔍 Recherche des responsables pour le service: ${serviceType}`,
+      );
 
       const staff = await this.prisma.internal_staff.findMany({
         where: {
@@ -42,39 +47,46 @@ export class InternalStaffService {
             // Responsables spécifiques au service
             {
               service_types: {
-                path: ['$'],
-                array_contains: serviceType
-              }
+                path: ["$"],
+                array_contains: serviceType,
+              },
             },
             // Responsables généraux (OPERATIONS_MANAGER, ADMIN)
             {
               role: {
-                in: ['OPERATIONS_MANAGER', 'ADMIN']
-              }
-            }
-          ]
-        }
+                in: ["OPERATIONS_MANAGER", "ADMIN"],
+              },
+            },
+          ],
+        },
       });
 
-      logger.info(`✅ ${staff.length} responsable(s) trouvé(s) pour ${serviceType}`);
+      logger.info(
+        `✅ ${staff.length} responsable(s) trouvé(s) pour ${serviceType}`,
+      );
 
-      return staff.map(member => ({
+      return staff.map((member) => ({
         id: member.id,
         email: member.email,
         firstName: member.first_name,
         lastName: member.last_name,
         role: member.role,
         department: member.department ?? undefined,
-        serviceTypes: Array.isArray(member.service_types) ? member.service_types as string[] : [],
+        serviceTypes: Array.isArray(member.service_types)
+          ? (member.service_types as string[])
+          : [],
         isActive: member.is_active,
         receiveEmail: member.receive_email,
         receiveSMS: member.receive_sms,
         receiveWhatsApp: member.receive_whatsapp,
         phone: member.phone ?? undefined,
-        workingHours: member.working_hours
+        workingHours: member.working_hours,
       }));
     } catch (error) {
-      logger.error('❌ Erreur lors de la récupération des responsables:', error);
+      logger.error(
+        "❌ Erreur lors de la récupération des responsables:",
+        error,
+      );
       return [];
     }
   }
@@ -88,27 +100,32 @@ export class InternalStaffService {
         where: {
           is_active: true,
           receive_email: true,
-          role: 'ACCOUNTING'
-        }
+          role: "ACCOUNTING",
+        },
       });
 
-      return staff.map(member => ({
+      return staff.map((member) => ({
         id: member.id,
         email: member.email,
         firstName: member.first_name,
         lastName: member.last_name,
         role: member.role,
         department: member.department ?? undefined,
-        serviceTypes: Array.isArray(member.service_types) ? member.service_types as string[] : [],
+        serviceTypes: Array.isArray(member.service_types)
+          ? (member.service_types as string[])
+          : [],
         isActive: member.is_active,
         receiveEmail: member.receive_email,
         receiveSMS: member.receive_sms,
         receiveWhatsApp: member.receive_whatsapp,
         phone: member.phone ?? undefined,
-        workingHours: member.working_hours
+        workingHours: member.working_hours,
       }));
     } catch (error) {
-      logger.error('❌ Erreur lors de la récupération du personnel comptable:', error);
+      logger.error(
+        "❌ Erreur lors de la récupération du personnel comptable:",
+        error,
+      );
       return [];
     }
   }
@@ -117,13 +134,15 @@ export class InternalStaffService {
    * Mappe le type de service vers le type ServiceType pour la recherche
    */
   private mapBookingTypeToServiceType(_bookingType: string): string {
-    return 'MOVING';
+    return "MOVING";
   }
 
   /**
    * Récupère les responsables pour une réservation donnée
    */
-  async getStaffForBooking(bookingType: string): Promise<InternalStaffMember[]> {
+  async getStaffForBooking(
+    bookingType: string,
+  ): Promise<InternalStaffMember[]> {
     const serviceType = this.mapBookingTypeToServiceType(bookingType);
     return await this.getStaffByServiceType(serviceType);
   }

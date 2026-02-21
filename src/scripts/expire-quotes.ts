@@ -1,30 +1,30 @@
 #!/usr/bin/env tsx
 
-import { PrismaClient } from '@prisma/client';
-import { logger } from '@/lib/logger';
+import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Script de traitement automatique des devis expirés
- * 
+ *
  * Fonctionnalités :
  * - Identification des devis expirés
  * - Marquage comme EXPIRED
  * - Nettoyage des anciens devis
  * - Analytics et métriques
- * 
+ *
  * Usage :
  * npx tsx src/scripts/expire-quotes.ts
- * 
+ *
  * Cron job recommandé :
  * 0 * * * * (toutes les heures)
  */
 
 class QuoteExpirationProcessor {
-  private readonly logger = logger.withContext('QuoteExpirationProcessor');
-  private readonly prisma = new PrismaClient();
+  private readonly logger = logger.withContext("QuoteExpirationProcessor");
+  private readonly prisma = prisma;
 
   constructor() {
-    this.logger.info('🔄 Initialisation du processeur d\'expiration des devis');
+    this.logger.info("🔄 Initialisation du processeur d'expiration des devis");
   }
 
   /**
@@ -32,14 +32,14 @@ class QuoteExpirationProcessor {
    */
   async processExpiredQuotes(): Promise<void> {
     const startTime = Date.now();
-    this.logger.info('🚀 Début du traitement des devis expirés');
+    this.logger.info("🚀 Début du traitement des devis expirés");
 
     try {
       // 1. Identifier les devis expirés
       const expiredQuotes = await this.identifyExpiredQuotes();
-      
+
       if (expiredQuotes.length === 0) {
-        this.logger.info('ℹ️ Aucun devis expiré trouvé');
+        this.logger.info("ℹ️ Aucun devis expiré trouvé");
         return;
       }
 
@@ -61,11 +61,10 @@ class QuoteExpirationProcessor {
       this.logger.info(`✅ Traitement terminé en ${processingTime}ms`, {
         totalProcessed: results.processedQuotes.length,
         totalErrors: results.errors.length,
-        renewalOpportunities: results.renewalOpportunities
+        renewalOpportunities: results.renewalOpportunities,
       });
-
     } catch (error) {
-      this.logger.error('❌ Erreur fatale lors du traitement:', error);
+      this.logger.error("❌ Erreur fatale lors du traitement:", error);
       throw error;
     }
   }
@@ -78,20 +77,23 @@ class QuoteExpirationProcessor {
       const expiredQuotes = await this.prisma.quoteRequest.findMany({
         where: {
           expiresAt: {
-            lt: new Date()
+            lt: new Date(),
           },
           status: {
-            notIn: ['EXPIRED', 'CONFIRMED', 'CONVERTED']
-          }
+            notIn: ["EXPIRED", "CONFIRMED", "CONVERTED"],
+          },
         },
         orderBy: {
-          expiresAt: 'asc'
-        }
+          expiresAt: "asc",
+        },
       });
 
       return expiredQuotes;
     } catch (error) {
-      this.logger.error('❌ Erreur lors de l\'identification des devis expirés:', error);
+      this.logger.error(
+        "❌ Erreur lors de l'identification des devis expirés:",
+        error,
+      );
       throw error;
     }
   }
@@ -112,19 +114,22 @@ class QuoteExpirationProcessor {
       try {
         // Marquer comme expiré
         await this.markAsExpired(quote.id);
-        
+
         // Vérifier si c'est une opportunité de renouvellement
         if (this.hasContactInfo(quote)) {
           renewalOpportunities++;
         }
-        
+
         processedQuotes.push(quote);
         this.logger.info(`✅ Devis ${quote.temporaryId} marqué comme expiré`);
-        
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+        const errorMessage =
+          error instanceof Error ? error.message : "Erreur inconnue";
         errors.push({ quoteId: quote.id, error: errorMessage });
-        this.logger.error(`❌ Erreur lors du traitement du devis ${quote.temporaryId}:`, error);
+        this.logger.error(
+          `❌ Erreur lors du traitement du devis ${quote.temporaryId}:`,
+          error,
+        );
       }
     }
 
@@ -137,10 +142,10 @@ class QuoteExpirationProcessor {
   private async markAsExpired(quoteId: string): Promise<void> {
     await this.prisma.quoteRequest.update({
       where: { id: quoteId },
-      data: { 
-        status: 'EXPIRED',
-        updatedAt: new Date()
-      }
+      data: {
+        status: "EXPIRED",
+        updatedAt: new Date(),
+      },
     });
   }
 
@@ -149,32 +154,47 @@ class QuoteExpirationProcessor {
    */
   private hasContactInfo(quote: any): boolean {
     const quoteData = quote.quoteData || {};
-    return !!(quoteData.email || quoteData.phone || 
-             quoteData.customerInfo?.email || quoteData.customerInfo?.phone);
+    return !!(
+      quoteData.email ||
+      quoteData.phone ||
+      quoteData.customerInfo?.email ||
+      quoteData.customerInfo?.phone
+    );
   }
 
   /**
    * Log les opportunités de renouvellement
    */
   private async logRenewalOpportunities(processedQuotes: any[]): Promise<void> {
-    const renewalOpportunities = processedQuotes.filter(quote => this.hasContactInfo(quote));
-    
+    const renewalOpportunities = processedQuotes.filter((quote) =>
+      this.hasContactInfo(quote),
+    );
+
     if (renewalOpportunities.length > 0) {
-      this.logger.info(`📧 ${renewalOpportunities.length} opportunités de renouvellement identifiées`);
-      
+      this.logger.info(
+        `📧 ${renewalOpportunities.length} opportunités de renouvellement identifiées`,
+      );
+
       // Log des détails pour chaque opportunité
-      renewalOpportunities.forEach(quote => {
+      renewalOpportunities.forEach((quote) => {
         const quoteData = quote.quoteData || {};
         const customerName = this.extractCustomerName(quoteData);
-        const serviceName = quote.catalogSelection?.marketingTitle || 'Service personnalisé';
-        
-        this.logger.info(`📬 Opportunité de renouvellement: ${quote.temporaryId}`, {
-          customerName,
-          serviceName,
-          originalPrice: quoteData.totalPrice || quote.catalogSelection?.marketingPrice || 0,
-          email: quoteData.email || quoteData.customerInfo?.email,
-          phone: quoteData.phone || quoteData.customerInfo?.phone
-        });
+        const serviceName =
+          quote.catalogSelection?.marketingTitle || "Service personnalisé";
+
+        this.logger.info(
+          `📬 Opportunité de renouvellement: ${quote.temporaryId}`,
+          {
+            customerName,
+            serviceName,
+            originalPrice:
+              quoteData.totalPrice ||
+              quote.catalogSelection?.marketingPrice ||
+              0,
+            email: quoteData.email || quoteData.customerInfo?.email,
+            phone: quoteData.phone || quoteData.customerInfo?.phone,
+          },
+        );
       });
     }
   }
@@ -186,12 +206,12 @@ class QuoteExpirationProcessor {
     if (quoteData.customerInfo?.firstName && quoteData.customerInfo?.lastName) {
       return `${quoteData.customerInfo.firstName} ${quoteData.customerInfo.lastName}`;
     }
-    
+
     if (quoteData.firstName && quoteData.lastName) {
       return `${quoteData.firstName} ${quoteData.lastName}`;
     }
-    
-    return 'Client';
+
+    return "Client";
   }
 
   /**
@@ -204,19 +224,21 @@ class QuoteExpirationProcessor {
 
       const result = await this.prisma.quoteRequest.deleteMany({
         where: {
-          status: 'EXPIRED',
+          status: "EXPIRED",
           updatedAt: {
-            lt: cutoffDate
-          }
-        }
+            lt: cutoffDate,
+          },
+        },
       });
 
       if (result.count > 0) {
         this.logger.info(`🧹 ${result.count} anciens devis supprimés`);
       }
-
     } catch (error) {
-      this.logger.error('❌ Erreur lors du nettoyage des anciens devis:', error);
+      this.logger.error(
+        "❌ Erreur lors du nettoyage des anciens devis:",
+        error,
+      );
     }
   }
 
@@ -229,10 +251,10 @@ class QuoteExpirationProcessor {
         totalProcessed: results.processedQuotes.length,
         totalErrors: results.errors.length,
         renewalOpportunities: results.renewalOpportunities,
-        processingDate: new Date().toISOString()
+        processingDate: new Date().toISOString(),
       };
 
-      this.logger.info('📊 Métriques du traitement:', metrics);
+      this.logger.info("📊 Métriques du traitement:", metrics);
 
       // Optionnel : Enregistrer dans une table de métriques
       // await this.prisma.systemMetrics.create({
@@ -241,9 +263,11 @@ class QuoteExpirationProcessor {
       //     data: metrics
       //   }
       // });
-
     } catch (error) {
-      this.logger.error('❌ Erreur lors de l\'enregistrement des métriques:', error);
+      this.logger.error(
+        "❌ Erreur lors de l'enregistrement des métriques:",
+        error,
+      );
     }
   }
 
@@ -253,9 +277,9 @@ class QuoteExpirationProcessor {
   async cleanup(): Promise<void> {
     try {
       await this.prisma.$disconnect();
-      this.logger.info('🧹 Nettoyage terminé');
+      this.logger.info("🧹 Nettoyage terminé");
     } catch (error) {
-      this.logger.error('❌ Erreur lors du nettoyage:', error);
+      this.logger.error("❌ Erreur lors du nettoyage:", error);
     }
   }
 }
@@ -265,12 +289,12 @@ class QuoteExpirationProcessor {
  */
 async function main() {
   const processor = new QuoteExpirationProcessor();
-  
+
   try {
     await processor.processExpiredQuotes();
     process.exit(0);
   } catch (error) {
-    console.error('💥 Erreur fatale:', error);
+    console.error("💥 Erreur fatale:", error);
     process.exit(1);
   } finally {
     await processor.cleanup();
@@ -282,4 +306,4 @@ if (require.main === module) {
   main();
 }
 
-export { QuoteExpirationProcessor }; 
+export { QuoteExpirationProcessor };

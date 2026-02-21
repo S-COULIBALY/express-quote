@@ -3,12 +3,13 @@
  * Architecture simple sans DDD ni IoC
  */
 
-import { PrismaClient, ServiceType as PrismaServiceType } from '@prisma/client';
-import { ServiceType } from '@/quotation/domain/enums/ServiceType';
-import { ProfessionalLocationService } from './ProfessionalLocationService';
-import { BlacklistService } from './BlacklistService';
-import { AttributionNotificationService } from './AttributionNotificationService';
-import { AttributionUtils } from './AttributionUtils';
+import { PrismaClient, ServiceType as PrismaServiceType } from "@prisma/client";
+import { ServiceType } from "@/quotation/domain/enums/ServiceType";
+import { ProfessionalLocationService } from "./ProfessionalLocationService";
+import { BlacklistService } from "./BlacklistService";
+import { AttributionNotificationService } from "./AttributionNotificationService";
+import { AttributionUtils } from "./AttributionUtils";
+import { prisma } from "@/lib/prisma";
 
 export interface AttributionRequest {
   bookingId: string;
@@ -22,7 +23,7 @@ export interface AttributionRequest {
     bookingReference?: string;
     serviceDate?: Date;
     serviceTime?: string;
-    priority?: 'normal' | 'high' | 'urgent';
+    priority?: "normal" | "high" | "urgent";
 
     // Données complètes (usage interne uniquement)
     fullClientData?: {
@@ -72,7 +73,7 @@ export class AttributionService {
   private notificationService: AttributionNotificationService;
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma;
     this.locationService = new ProfessionalLocationService();
     this.blacklistService = new BlacklistService();
     this.notificationService = new AttributionNotificationService();
@@ -93,9 +94,9 @@ export class AttributionService {
         max_distance_km: request.maxDistanceKm || 100,
         service_latitude: request.serviceLatitude,
         service_longitude: request.serviceLongitude,
-        status: 'BROADCASTING',
-        updated_at: new Date()
-      }
+        status: "BROADCASTING",
+        updated_at: new Date(),
+      },
     });
 
     // 2. Lancer la diffusion
@@ -107,86 +108,108 @@ export class AttributionService {
   /**
    * Diffuse la réservation à tous les professionnels éligibles
    */
-  async broadcastToEligibleProfessionals(attributionId: string, request: AttributionRequest): Promise<void> {
+  async broadcastToEligibleProfessionals(
+    attributionId: string,
+    request: AttributionRequest,
+  ): Promise<void> {
     console.log(`📡 Diffusion pour attribution ${attributionId}`);
 
     // 1. Récupérer l'attribution actuelle
     const attribution = await this.prisma.booking_attributions.findUnique({
       where: { id: attributionId },
-      include: { Booking: true }
+      include: { Booking: true },
     });
 
-    if (!attribution || attribution.status !== 'BROADCASTING') {
-      console.log(`⚠️ Attribution ${attributionId} non éligible pour diffusion`);
+    if (!attribution || attribution.status !== "BROADCASTING") {
+      console.log(
+        `⚠️ Attribution ${attributionId} non éligible pour diffusion`,
+      );
       return;
     }
 
     // 2. Récupérer les professionnels exclus (blacklist + précédents refus)
     const excludedIds = Array.isArray(attribution.excluded_professionals)
-      ? attribution.excluded_professionals as string[]
+      ? (attribution.excluded_professionals as string[])
       : [];
 
-    const blacklistedIds = await this.blacklistService.getBlacklistedProfessionals(request.serviceType);
+    const blacklistedIds =
+      await this.blacklistService.getBlacklistedProfessionals(
+        request.serviceType,
+      );
     const allExcludedIds = [...new Set([...excludedIds, ...blacklistedIds])];
 
     // 3. Trouver les professionnels éligibles
-    const eligibleProfessionals = await this.locationService.findEligibleProfessionals({
-      serviceType: request.serviceType,
-      serviceLatitude: request.serviceLatitude,
-      serviceLongitude: request.serviceLongitude,
-      maxDistanceKm: request.maxDistanceKm || 150,
-      excludedProfessionalIds: allExcludedIds
-    });
+    const eligibleProfessionals =
+      await this.locationService.findEligibleProfessionals({
+        serviceType: request.serviceType,
+        serviceLatitude: request.serviceLatitude,
+        serviceLongitude: request.serviceLongitude,
+        maxDistanceKm: request.maxDistanceKm || 150,
+        excludedProfessionalIds: allExcludedIds,
+      });
 
-    console.log(`👥 ${eligibleProfessionals.length} professionnels éligibles trouvés`);
+    console.log(
+      `👥 ${eligibleProfessionals.length} professionnels éligibles trouvés`,
+    );
 
     if (eligibleProfessionals.length === 0) {
       // Aucun professionnel disponible
       await this.prisma.booking_attributions.update({
         where: { id: attributionId },
-        data: { status: 'EXPIRED', updated_at: new Date() }
+        data: { status: "EXPIRED", updated_at: new Date() },
       });
-      console.log(`❌ Aucun professionnel disponible pour attribution ${attributionId}`);
+      console.log(
+        `❌ Aucun professionnel disponible pour attribution ${attributionId}`,
+      );
       return;
     }
 
     // 4. Envoyer les notifications avec données étendues
     const notificationData = {
       bookingId: request.bookingData.bookingId || request.bookingId,
-      bookingReference: request.bookingData.bookingReference || `BK-${request.bookingId.slice(0, 8)}`,
+      bookingReference:
+        request.bookingData.bookingReference ||
+        `BK-${request.bookingId.slice(0, 8)}`,
       serviceType: request.serviceType,
-      serviceDate: request.bookingData.serviceDate || request.bookingData.scheduledDate,
-      serviceTime: request.bookingData.serviceTime || '09:00',
+      serviceDate:
+        request.bookingData.serviceDate || request.bookingData.scheduledDate,
+      serviceTime: request.bookingData.serviceTime || "09:00",
       totalAmount: request.bookingData.totalAmount,
-      priority: request.bookingData.priority || 'normal',
+      priority: request.bookingData.priority || "normal",
 
       // Données complètes (usage interne)
       fullClientData: request.bookingData.fullClientData || {
-        customerName: `${request.bookingData.customerFirstName} ${request.bookingData.customerLastName}`.trim(),
-        customerEmail: '', // Sera rempli si disponible
+        customerName:
+          `${request.bookingData.customerFirstName} ${request.bookingData.customerLastName}`.trim(),
+        customerEmail: "", // Sera rempli si disponible
         customerPhone: request.bookingData.customerPhone,
         fullPickupAddress: request.bookingData.locationAddress,
-        fullDeliveryAddress: undefined
+        fullDeliveryAddress: undefined,
       },
 
       // Données limitées (pour prestataires)
       limitedClientData: request.bookingData.limitedClientData || {
-        customerName: `${request.bookingData.customerFirstName?.charAt(0)}. ${request.bookingData.customerLastName}`.trim(),
-        pickupAddress: AttributionUtils.extractCityFromAddress(request.bookingData.locationAddress),
+        customerName:
+          `${request.bookingData.customerFirstName?.charAt(0)}. ${request.bookingData.customerLastName}`.trim(),
+        pickupAddress: AttributionUtils.extractCityFromAddress(
+          request.bookingData.locationAddress,
+        ),
         deliveryAddress: undefined,
         serviceType: request.serviceType,
         quoteDetails: {
           estimatedAmount: Math.round(request.bookingData.totalAmount * 0.85), // Estimation sans marge
-          currency: 'EUR',
-          serviceCategory: AttributionUtils.getServiceCategory(request.serviceType)
-        }
-      }
+          currency: "EUR",
+          serviceCategory: AttributionUtils.getServiceCategory(
+            request.serviceType,
+          ),
+        },
+      },
     };
 
     await this.notificationService.sendAttributionNotifications(
       attributionId,
       eligibleProfessionals,
-      notificationData
+      notificationData,
     );
 
     console.log(`✅ Diffusion terminée pour attribution ${attributionId}`);
@@ -195,42 +218,56 @@ export class AttributionService {
   /**
    * Traite l'acceptation d'un professionnel
    */
-  async handleProfessionalAcceptance(attributionId: string, professionalId: string): Promise<{ success: boolean; message: string }> {
-    console.log(`✋ Tentative d'acceptation par professionnel ${professionalId} pour attribution ${attributionId}`);
+  async handleProfessionalAcceptance(
+    attributionId: string,
+    professionalId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    console.log(
+      `✋ Tentative d'acceptation par professionnel ${professionalId} pour attribution ${attributionId}`,
+    );
 
     return await this.prisma.$transaction(async (tx) => {
       // 1. Vérifier l'état de l'attribution
       const attribution = await tx.booking_attributions.findUnique({
         where: { id: attributionId },
-        include: { Booking: true }
+        include: { Booking: true },
       });
 
       if (!attribution) {
-        return { success: false, message: 'Attribution non trouvée' };
+        return { success: false, message: "Attribution non trouvée" };
       }
 
-      if (attribution.status !== 'BROADCASTING' && attribution.status !== 'RE_BROADCASTING') {
-        return { success: false, message: 'Cette mission n\'est plus disponible' };
+      if (
+        attribution.status !== "BROADCASTING" &&
+        attribution.status !== "RE_BROADCASTING"
+      ) {
+        return {
+          success: false,
+          message: "Cette mission n'est plus disponible",
+        };
       }
 
       if (attribution.accepted_professional_id) {
-        return { success: false, message: 'Mission déjà acceptée par un autre professionnel' };
+        return {
+          success: false,
+          message: "Mission déjà acceptée par un autre professionnel",
+        };
       }
 
       // 2. Accepter l'attribution
       await tx.booking_attributions.update({
         where: { id: attributionId },
         data: {
-          status: 'ACCEPTED',
+          status: "ACCEPTED",
           accepted_professional_id: professionalId,
-          updated_at: new Date()
-        }
+          updated_at: new Date(),
+        },
       });
 
       // 3. Assigner le professionnel à la réservation
       await tx.booking.update({
         where: { id: attribution.booking_id },
-        data: { professionalId: professionalId }
+        data: { professionalId: professionalId },
       });
 
       // 4. Enregistrer la réponse
@@ -239,28 +276,42 @@ export class AttributionService {
           id: crypto.randomUUID(),
           attribution_id: attributionId,
           professional_id: professionalId,
-          response_type: 'ACCEPTED',
-          response_time: new Date()
-        }
+          response_type: "ACCEPTED",
+          response_time: new Date(),
+        },
       });
 
       // 5. Réinitialiser le compteur de refus consécutifs pour ce professionnel
-      await this.blacklistService.resetConsecutiveRefusals(professionalId, attribution.service_type as unknown as ServiceType);
+      await this.blacklistService.resetConsecutiveRefusals(
+        professionalId,
+        attribution.service_type as unknown as ServiceType,
+      );
 
-      console.log(`🎉 Attribution ${attributionId} acceptée par professionnel ${professionalId}`);
+      console.log(
+        `🎉 Attribution ${attributionId} acceptée par professionnel ${professionalId}`,
+      );
 
       // 6. Notifier les autres professionnels que la mission est prise (WebSocket)
-      await this.notificationService.notifyAttributionTaken(attributionId, professionalId);
+      await this.notificationService.notifyAttributionTaken(
+        attributionId,
+        professionalId,
+      );
 
-      return { success: true, message: 'Mission acceptée avec succès' };
+      return { success: true, message: "Mission acceptée avec succès" };
     });
   }
 
   /**
    * Traite le refus d'un professionnel
    */
-  async handleProfessionalRefusal(attributionId: string, professionalId: string, reason?: string): Promise<{ success: boolean; message: string }> {
-    console.log(`❌ Refus par professionnel ${professionalId} pour attribution ${attributionId}`);
+  async handleProfessionalRefusal(
+    attributionId: string,
+    professionalId: string,
+    reason?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    console.log(
+      `❌ Refus par professionnel ${professionalId} pour attribution ${attributionId}`,
+    );
 
     // 1. Enregistrer la réponse
     await this.prisma.attribution_responses.create({
@@ -268,27 +319,31 @@ export class AttributionService {
         id: crypto.randomUUID(),
         attribution_id: attributionId,
         professional_id: professionalId,
-        response_type: 'REFUSED',
+        response_type: "REFUSED",
         response_time: new Date(),
-        response_message: reason
-      }
+        response_message: reason,
+      },
     });
 
     // 2. Récupérer l'attribution
     const attribution = await this.prisma.booking_attributions.findUnique({
-      where: { id: attributionId }
+      where: { id: attributionId },
     });
 
     if (!attribution) {
-      return { success: false, message: 'Attribution non trouvée' };
+      return { success: false, message: "Attribution non trouvée" };
     }
 
     // 3. Gérer la blacklist
-    await this.blacklistService.handleRefusal(professionalId, attribution.service_type as unknown as ServiceType, attributionId);
+    await this.blacklistService.handleRefusal(
+      professionalId,
+      attribution.service_type as unknown as ServiceType,
+      attributionId,
+    );
 
     // 4. Ajouter à la liste des exclus pour cette attribution
     const currentExcluded = Array.isArray(attribution.excluded_professionals)
-      ? attribution.excluded_professionals as string[]
+      ? (attribution.excluded_professionals as string[])
       : [];
 
     const updatedExcluded = [...new Set([...currentExcluded, professionalId])];
@@ -297,70 +352,91 @@ export class AttributionService {
       where: { id: attributionId },
       data: {
         excluded_professionals: updatedExcluded,
-        updated_at: new Date()
-      }
+        updated_at: new Date(),
+      },
     });
 
     console.log(`✅ Refus enregistré pour professionnel ${professionalId}`);
-    return { success: true, message: 'Refus enregistré' };
+    return { success: true, message: "Refus enregistré" };
   }
 
   /**
    * Traite l'annulation par un professionnel qui avait accepté
    */
-  async handleProfessionalCancellation(attributionId: string, professionalId: string, _reason?: string): Promise<{ success: boolean; message: string }> {
-    console.log(`🚫 Annulation par professionnel ${professionalId} pour attribution ${attributionId}`);
+  async handleProfessionalCancellation(
+    attributionId: string,
+    professionalId: string,
+    _reason?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    console.log(
+      `🚫 Annulation par professionnel ${professionalId} pour attribution ${attributionId}`,
+    );
 
     return await this.prisma.$transaction(async (tx) => {
       // 1. Vérifier que ce professionnel a bien accepté cette attribution
       const attribution = await tx.booking_attributions.findUnique({
         where: { id: attributionId },
-        include: { Booking: true }
+        include: { Booking: true },
       });
 
-      if (!attribution || attribution.accepted_professional_id !== professionalId) {
-        return { success: false, message: 'Vous n\'êtes pas assigné à cette mission' };
+      if (
+        !attribution ||
+        attribution.accepted_professional_id !== professionalId
+      ) {
+        return {
+          success: false,
+          message: "Vous n'êtes pas assigné à cette mission",
+        };
       }
 
-      if (attribution.status !== 'ACCEPTED') {
-        return { success: false, message: 'Cette mission ne peut plus être annulée' };
+      if (attribution.status !== "ACCEPTED") {
+        return {
+          success: false,
+          message: "Cette mission ne peut plus être annulée",
+        };
       }
 
       // 2. Remettre en diffusion
       await tx.booking_attributions.update({
         where: { id: attributionId },
         data: {
-          status: 'RE_BROADCASTING',
+          status: "RE_BROADCASTING",
           accepted_professional_id: null,
           broadcast_count: { increment: 1 },
           last_broadcast_at: new Date(),
-          updated_at: new Date()
-        }
+          updated_at: new Date(),
+        },
       });
 
       // 3. Retirer l'assignation de la réservation
       await tx.booking.update({
         where: { id: attribution.booking_id },
-        data: { professionalId: null }
+        data: { professionalId: null },
       });
 
       // 4. Ajouter à la liste des exclus
       const currentExcluded = Array.isArray(attribution.excluded_professionals)
-        ? attribution.excluded_professionals as string[]
+        ? (attribution.excluded_professionals as string[])
         : [];
 
-      const updatedExcluded = [...new Set([...currentExcluded, professionalId])];
+      const updatedExcluded = [
+        ...new Set([...currentExcluded, professionalId]),
+      ];
 
       await tx.booking_attributions.update({
         where: { id: attributionId },
         data: {
           excluded_professionals: updatedExcluded,
-          updated_at: new Date()
-        }
+          updated_at: new Date(),
+        },
       });
 
       // 5. Pénaliser plus sévèrement l'annulation qu'un simple refus
-      await this.blacklistService.handleCancellation(professionalId, attribution.service_type as unknown as ServiceType, attributionId);
+      await this.blacklistService.handleCancellation(
+        professionalId,
+        attribution.service_type as unknown as ServiceType,
+        attributionId,
+      );
 
       console.log(`🔄 Remise en diffusion pour attribution ${attributionId}`);
 
@@ -370,8 +446,8 @@ export class AttributionService {
       const bookingData = {
         totalAmount: booking?.totalAmount || 0,
         scheduledDate: booking?.scheduledDate || new Date(),
-        locationAddress: booking?.locationAddress || 'Non spécifié',
-        additionalInfo: booking?.additionalInfo
+        locationAddress: booking?.locationAddress || "Non spécifié",
+        additionalInfo: booking?.additionalInfo,
       };
 
       await this.broadcastToEligibleProfessionals(attributionId, {
@@ -380,10 +456,13 @@ export class AttributionService {
         serviceLatitude: attribution.service_latitude!,
         serviceLongitude: attribution.service_longitude!,
         maxDistanceKm: attribution.max_distance_km,
-        bookingData
+        bookingData,
       });
 
-      return { success: true, message: 'Mission annulée et remise en diffusion' };
+      return {
+        success: true,
+        message: "Mission annulée et remise en diffusion",
+      };
     });
   }
 
@@ -396,19 +475,19 @@ export class AttributionService {
       include: {
         Booking: {
           include: {
-            Customer: true
-          }
+            Customer: true,
+          },
         },
         Professional: true,
         attribution_responses: {
           include: {
-            Professional: true
+            Professional: true,
           },
           orderBy: {
-            response_time: 'desc'
-          }
-        }
-      }
+            response_time: "desc",
+          },
+        },
+      },
     });
 
     return attribution;
@@ -417,20 +496,23 @@ export class AttributionService {
   /**
    * Récupère les attributions pour un professionnel
    */
-  async getProfessionalAttributions(professionalId: string, limit: number = 20) {
+  async getProfessionalAttributions(
+    professionalId: string,
+    limit: number = 20,
+  ) {
     const responses = await this.prisma.attribution_responses.findMany({
       where: { professional_id: professionalId },
       include: {
         booking_attributions: {
           include: {
-            Booking: true
-          }
-        }
+            Booking: true,
+          },
+        },
       },
       orderBy: {
-        response_time: 'desc'
+        response_time: "desc",
       },
-      take: limit
+      take: limit,
     });
 
     return responses;

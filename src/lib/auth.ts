@@ -1,9 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 // Administrateurs avec mots de passe hachés (bcrypt)
 // Pour changer le mot de passe : node -e "require('bcryptjs').hash('nouveau-mdp', 12).then(console.log)"

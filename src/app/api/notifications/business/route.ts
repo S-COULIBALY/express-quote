@@ -3,12 +3,11 @@
  * Gère l'envoi d'emails aux professionnels (attribution, confirmation, etc.)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { render } from '@react-email/components';
-import { PrismaClient } from '@prisma/client';
-import nodemailer from 'nodemailer';
-import { 
-  ProfessionalAttribution, 
+import { NextRequest, NextResponse } from "next/server";
+import { render } from "@react-email/components";
+import nodemailer from "nodemailer";
+import {
+  ProfessionalAttribution,
   MissionAcceptedConfirmation,
   type QuoteConfirmationData,
   type BookingConfirmationData,
@@ -16,15 +15,13 @@ import {
   type ServiceReminderData,
   type Reminder24hData,
   type Reminder7dData,
-  type Reminder1hData
-} from '@/notifications/templates/react-email';
-
-const prisma = new PrismaClient();
+  type Reminder1hData,
+} from "@/notifications/templates/react-email";
 
 // Configuration SMTP
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
   secure: false,
   auth: {
     user: process.env.SMTP_USER,
@@ -33,7 +30,7 @@ const transporter = nodemailer.createTransport({
 });
 
 interface ProfessionalAttributionRequest {
-  type: 'professional-attribution';
+  type: "professional-attribution";
   professionalEmail: string;
   attributionId: string;
   serviceType: string;
@@ -50,14 +47,14 @@ interface ProfessionalAttributionRequest {
   refuseUrl: string;
   dashboardUrl: string;
   attributionDetailsUrl: string;
-  priority: 'normal' | 'high' | 'urgent';
+  priority: "normal" | "high" | "urgent";
   expiresAt: string;
   supportEmail: string;
   supportPhone: string;
 }
 
 interface MissionAcceptedRequest {
-  type: 'mission-accepted-confirmation';
+  type: "mission-accepted-confirmation";
   professionalEmail: string;
   professionalName: string;
   attributionId: string;
@@ -75,32 +72,36 @@ interface MissionAcceptedRequest {
   supportPhone: string;
 }
 
-type BusinessNotificationRequest = ProfessionalAttributionRequest | MissionAcceptedRequest;
+type BusinessNotificationRequest =
+  | ProfessionalAttributionRequest
+  | MissionAcceptedRequest;
 
 export async function POST(request: NextRequest) {
   try {
     const data: BusinessNotificationRequest = await request.json();
 
-    console.log(`📧 Envoi notification business: ${data.type} vers ${data.professionalEmail}`);
+    console.log(
+      `📧 Envoi notification business: ${data.type} vers ${data.professionalEmail}`,
+    );
 
     let emailHtml: string;
     let subject: string;
 
     switch (data.type) {
-      case 'professional-attribution':
+      case "professional-attribution":
         emailHtml = await render(ProfessionalAttribution(data as any));
         subject = `🚀 Nouvelle mission ${data.serviceType} - ${data.totalAmount}€ à ${data.locationCity}`;
         break;
 
-      case 'mission-accepted-confirmation':
+      case "mission-accepted-confirmation":
         emailHtml = await render(MissionAcceptedConfirmation(data as any));
         subject = `✅ Mission confirmée - ${data.serviceType} le ${data.scheduledDate}`;
         break;
 
       default:
         return NextResponse.json(
-          { success: false, error: 'Type de notification non supporté' },
-          { status: 400 }
+          { success: false, error: "Type de notification non supporté" },
+          { status: 400 },
         );
     }
 
@@ -118,20 +119,19 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Notification envoyée avec succès',
-      emailSent: true
+      message: "Notification envoyée avec succès",
+      emailSent: true,
     });
-
   } catch (error) {
-    console.error('❌ Erreur envoi notification business:', error);
-    
+    console.error("❌ Erreur envoi notification business:", error);
+
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Erreur lors de l\'envoi de la notification',
-        details: error instanceof Error ? error.message : 'Erreur inconnue'
+      {
+        success: false,
+        error: "Erreur lors de l'envoi de la notification",
+        details: error instanceof Error ? error.message : "Erreur inconnue",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -139,91 +139,94 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
+    const type = searchParams.get("type");
 
     if (!type) {
       return NextResponse.json({
         success: true,
         availableTypes: [
-          'professional-attribution',
-          'mission-accepted-confirmation'
+          "professional-attribution",
+          "mission-accepted-confirmation",
         ],
-        description: 'API pour l\'envoi de notifications business aux professionnels'
+        description:
+          "API pour l'envoi de notifications business aux professionnels",
       });
     }
 
     // Renvoie un exemple de payload pour le type demandé
     switch (type) {
-      case 'professional-attribution':
+      case "professional-attribution":
         return NextResponse.json({
           success: true,
-          type: 'professional-attribution',
+          type: "professional-attribution",
           examplePayload: {
-            type: 'professional-attribution',
-            professionalEmail: 'professionnel@example.com',
-            attributionId: 'attr_123',
-            serviceType: 'Déménagement',
+            type: "professional-attribution",
+            professionalEmail: "professionnel@example.com",
+            attributionId: "attr_123",
+            serviceType: "Déménagement",
             totalAmount: 450,
-            scheduledDate: '15 mars 2024',
-            scheduledTime: '09:00',
-            locationCity: 'Paris',
-            locationDistrict: '15ème arrondissement',
+            scheduledDate: "15 mars 2024",
+            scheduledTime: "09:00",
+            locationCity: "Paris",
+            locationDistrict: "15ème arrondissement",
             distanceKm: 12.5,
-            duration: '4-6h',
-            description: 'Mission de déménagement T3 vers T4',
-            requirements: 'Véhicule grand volume, matériel d\'emballage',
-            acceptUrl: 'https://express-quote.com/api/attribution/attr_123/accept?professionalId=prof_456&token=abc123',
-            refuseUrl: 'https://express-quote.com/api/attribution/attr_123/refuse?professionalId=prof_456&token=abc123',
-            dashboardUrl: 'https://express-quote.com/professional/dashboard',
-            attributionDetailsUrl: 'https://express-quote.com/professional/attributions/attr_123',
-            priority: 'normal',
-            expiresAt: '16 mars 2024 09:00',
-            supportEmail: 'support@express-quote.com',
-            supportPhone: '+33 1 23 45 67 89'
-          }
+            duration: "4-6h",
+            description: "Mission de déménagement T3 vers T4",
+            requirements: "Véhicule grand volume, matériel d'emballage",
+            acceptUrl:
+              "https://express-quote.com/api/attribution/attr_123/accept?professionalId=prof_456&token=abc123",
+            refuseUrl:
+              "https://express-quote.com/api/attribution/attr_123/refuse?professionalId=prof_456&token=abc123",
+            dashboardUrl: "https://express-quote.com/professional/dashboard",
+            attributionDetailsUrl:
+              "https://express-quote.com/professional/attributions/attr_123",
+            priority: "normal",
+            expiresAt: "16 mars 2024 09:00",
+            supportEmail: "support@express-quote.com",
+            supportPhone: "+33 1 23 45 67 89",
+          },
         });
 
-      case 'mission-accepted-confirmation':
+      case "mission-accepted-confirmation":
         return NextResponse.json({
           success: true,
-          type: 'mission-accepted-confirmation',
+          type: "mission-accepted-confirmation",
           examplePayload: {
-            type: 'mission-accepted-confirmation',
-            professionalEmail: 'professionnel@example.com',
-            professionalName: 'Déménagements Express',
-            attributionId: 'attr_123',
-            serviceType: 'Déménagement',
+            type: "mission-accepted-confirmation",
+            professionalEmail: "professionnel@example.com",
+            professionalName: "Déménagements Express",
+            attributionId: "attr_123",
+            serviceType: "Déménagement",
             totalAmount: 450,
-            scheduledDate: '15 mars 2024',
-            scheduledTime: '09:00',
-            clientName: 'Marie Martin',
-            clientPhone: '+33 1 23 45 67 89',
-            clientEmail: 'marie.martin@example.com',
-            serviceAddress: '123 Rue de la Paix, 75001 Paris',
-            instructions: 'Sonnez au 2ème étage, code d\'accès 1234',
-            dashboardUrl: 'https://express-quote.com/professional/dashboard',
-            supportEmail: 'support@express-quote.com',
-            supportPhone: '+33 1 23 45 67 89'
-          }
+            scheduledDate: "15 mars 2024",
+            scheduledTime: "09:00",
+            clientName: "Marie Martin",
+            clientPhone: "+33 1 23 45 67 89",
+            clientEmail: "marie.martin@example.com",
+            serviceAddress: "123 Rue de la Paix, 75001 Paris",
+            instructions: "Sonnez au 2ème étage, code d'accès 1234",
+            dashboardUrl: "https://express-quote.com/professional/dashboard",
+            supportEmail: "support@express-quote.com",
+            supportPhone: "+33 1 23 45 67 89",
+          },
         });
 
       default:
         return NextResponse.json(
-          { success: false, error: 'Type de notification non reconnu' },
-          { status: 400 }
+          { success: false, error: "Type de notification non reconnu" },
+          { status: 400 },
         );
     }
-
   } catch (error) {
-    console.error('❌ Erreur API business notifications:', error);
-    
+    console.error("❌ Erreur API business notifications:", error);
+
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Erreur serveur',
-        details: error instanceof Error ? error.message : 'Erreur inconnue'
+      {
+        success: false,
+        error: "Erreur serveur",
+        details: error instanceof Error ? error.message : "Erreur inconnue",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -14,11 +14,11 @@ import { NotificationMetricsService } from "@/quotation/infrastructure/services/
 import { WhatsAppAnalytics } from "@/quotation/infrastructure/services/whatsapp/WhatsAppAnalytics";
 import { AnalyticsService } from "@/quotation/application/services/AnalyticsService";
 import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 // Configuration du container de dépendances
 export function configureDependencyInjection() {
   // Base de données
-  const prisma = new PrismaClient();
   container.registerInstance(PrismaClient, prisma);
 
   // Repositories
