@@ -4,16 +4,24 @@
  * Phase 5: Système de versions et workflow d'approbation
  */
 
-import { PrismaClient } from '@prisma/client';
-import { ApprovalWorkflow, WorkflowType } from '../../domain/entities/ApprovalWorkflow';
-import { IApprovalWorkflowRepository, WorkflowSearchCriteria } from '../../domain/repositories/IApprovalWorkflowRepository';
-import { logger } from '@/lib/logger';
+import {
+  ApprovalWorkflow,
+  WorkflowType,
+} from "../../domain/entities/ApprovalWorkflow";
+import {
+  IApprovalWorkflowRepository,
+  WorkflowSearchCriteria,
+} from "../../domain/repositories/IApprovalWorkflowRepository";
+import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
-export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowRepository {
+export class PrismaApprovalWorkflowRepository
+  implements IApprovalWorkflowRepository
+{
   private prisma: PrismaClient;
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma;
   }
 
   async save(workflow: ApprovalWorkflow): Promise<ApprovalWorkflow> {
@@ -34,14 +42,16 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
           createdBy: workflow.createdBy,
           version: workflow.version,
           tags: JSON.stringify(workflow.tags),
-          metadata: JSON.stringify(workflow.metadata || {})
-        }
+          metadata: JSON.stringify(workflow.metadata || {}),
+        },
       });
 
       return this.mapPrismaToWorkflow(savedWorkflow);
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la sauvegarde du workflow', error as Error);
+      logger.error(
+        "❌ Erreur lors de la sauvegarde du workflow",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -49,18 +59,22 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
   async findById(id: string): Promise<ApprovalWorkflow | null> {
     try {
       const workflow = await this.prisma.approvalWorkflow.findUnique({
-        where: { id }
+        where: { id },
       });
 
       return workflow ? this.mapPrismaToWorkflow(workflow) : null;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la recherche de workflow par ID', error as Error);
+      logger.error(
+        "❌ Erreur lors de la recherche de workflow par ID",
+        error as Error,
+      );
       throw error;
     }
   }
 
-  async findByCriteria(criteria: WorkflowSearchCriteria): Promise<ApprovalWorkflow[]> {
+  async findByCriteria(
+    criteria: WorkflowSearchCriteria,
+  ): Promise<ApprovalWorkflow[]> {
     try {
       const where: any = {};
 
@@ -79,7 +93,7 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
       if (criteria.name) {
         where.name = {
           contains: criteria.name,
-          mode: 'insensitive'
+          mode: "insensitive",
         };
       }
 
@@ -90,8 +104,8 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
       // Pour les tags, on utilise une requête JSON
       if (criteria.tags && criteria.tags.length > 0) {
         where.tags = {
-          path: '$',
-          string_contains: criteria.tags[0] // Simplifié pour l'exemple
+          path: "$",
+          string_contains: criteria.tags[0], // Simplifié pour l'exemple
         };
       }
 
@@ -99,15 +113,19 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
         where,
         take: criteria.limit,
         skip: criteria.offset,
-        orderBy: criteria.sortBy ? {
-          [criteria.sortBy]: criteria.sortOrder || 'asc'
-        } : { priority: 'desc' } // Par défaut, trier par priorité décroissante
+        orderBy: criteria.sortBy
+          ? {
+              [criteria.sortBy]: criteria.sortOrder || "asc",
+            }
+          : { priority: "desc" }, // Par défaut, trier par priorité décroissante
       });
 
-      return workflows.map(workflow => this.mapPrismaToWorkflow(workflow));
-
+      return workflows.map((workflow) => this.mapPrismaToWorkflow(workflow));
     } catch (error) {
-      logger.error('❌ Erreur lors de la recherche de workflows par critères', error as Error);
+      logger.error(
+        "❌ Erreur lors de la recherche de workflows par critères",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -117,15 +135,17 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
       const workflow = await this.prisma.approvalWorkflow.findFirst({
         where: {
           isDefault: true,
-          isActive: true
+          isActive: true,
         },
-        orderBy: { priority: 'desc' }
+        orderBy: { priority: "desc" },
       });
 
       return workflow ? this.mapPrismaToWorkflow(workflow) : null;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la recherche du workflow par défaut', error as Error);
+      logger.error(
+        "❌ Erreur lors de la recherche du workflow par défaut",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -142,10 +162,12 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
       // Récupérer tous les workflows actifs triés par priorité
       const workflows = await this.prisma.approvalWorkflow.findMany({
         where: { isActive: true },
-        orderBy: { priority: 'desc' }
+        orderBy: { priority: "desc" },
       });
 
-      const mappedWorkflows = workflows.map(workflow => this.mapPrismaToWorkflow(workflow));
+      const mappedWorkflows = workflows.map((workflow) =>
+        this.mapPrismaToWorkflow(workflow),
+      );
 
       // Tester chaque workflow pour voir s'il s'applique au contexte
       for (const workflow of mappedWorkflows) {
@@ -156,9 +178,11 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
 
       // Si aucun workflow spécifique ne s'applique, retourner le workflow par défaut
       return await this.findDefaultWorkflow();
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la recherche du meilleur workflow', error as Error);
+      logger.error(
+        "❌ Erreur lors de la recherche du meilleur workflow",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -178,14 +202,16 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
           updatedAt: new Date(),
           version: workflow.version,
           tags: JSON.stringify(workflow.tags),
-          metadata: JSON.stringify(workflow.metadata || {})
-        }
+          metadata: JSON.stringify(workflow.metadata || {}),
+        },
       });
 
       return this.mapPrismaToWorkflow(updatedWorkflow);
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la mise à jour du workflow', error as Error);
+      logger.error(
+        "❌ Erreur lors de la mise à jour du workflow",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -193,13 +219,15 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
   async delete(id: string): Promise<boolean> {
     try {
       await this.prisma.approvalWorkflow.delete({
-        where: { id }
+        where: { id },
       });
 
       return true;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la suppression du workflow', error as Error);
+      logger.error(
+        "❌ Erreur lors de la suppression du workflow",
+        error as Error,
+      );
       return false;
     }
   }
@@ -210,14 +238,16 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
         where: { id },
         data: {
           isActive,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       return true;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la modification du statut du workflow', error as Error);
+      logger.error(
+        "❌ Erreur lors de la modification du statut du workflow",
+        error as Error,
+      );
       return false;
     }
   }
@@ -231,8 +261,8 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
           where: { isDefault: true },
           data: {
             isDefault: false,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
 
         // Activer le nouveau workflow par défaut
@@ -241,15 +271,17 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
           data: {
             isDefault: true,
             isActive: true, // Un workflow par défaut doit être actif
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
       });
 
       return true;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la définition du workflow par défaut', error as Error);
+      logger.error(
+        "❌ Erreur lors de la définition du workflow par défaut",
+        error as Error,
+      );
       return false;
     }
   }
@@ -263,9 +295,8 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
 
       const clonedWorkflow = originalWorkflow.clone(newName);
       return await this.save(clonedWorkflow);
-
     } catch (error) {
-      logger.error('❌ Erreur lors du clonage du workflow', error as Error);
+      logger.error("❌ Erreur lors du clonage du workflow", error as Error);
       throw error;
     }
   }
@@ -289,7 +320,7 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
       if (criteria.name) {
         where.name = {
           contains: criteria.name,
-          mode: 'insensitive'
+          mode: "insensitive",
         };
       }
 
@@ -299,9 +330,8 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
 
       const count = await this.prisma.approvalWorkflow.count({ where });
       return count;
-
     } catch (error) {
-      logger.error('❌ Erreur lors du comptage des workflows', error as Error);
+      logger.error("❌ Erreur lors du comptage des workflows", error as Error);
       throw error;
     }
   }
@@ -310,13 +340,15 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
     try {
       const result = await this.prisma.approvalWorkflow.findMany({
         select: { type: true },
-        distinct: ['type']
+        distinct: ["type"],
       });
 
-      return result.map(r => r.type as WorkflowType);
-
+      return result.map((r) => r.type as WorkflowType);
     } catch (error) {
-      logger.error('❌ Erreur lors de la récupération des types de workflows', error as Error);
+      logger.error(
+        "❌ Erreur lors de la récupération des types de workflows",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -325,22 +357,24 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
     try {
       // Récupérer tous les workflows et extraire les tags
       const workflows = await this.prisma.approvalWorkflow.findMany({
-        select: { tags: true }
+        select: { tags: true },
       });
 
       const allTags = new Set<string>();
 
-      workflows.forEach(workflow => {
+      workflows.forEach((workflow) => {
         if (workflow.tags) {
           const tags = JSON.parse(workflow.tags as string) as string[];
-          tags.forEach(tag => allTags.add(tag));
+          tags.forEach((tag) => allTags.add(tag));
         }
       });
 
       return Array.from(allTags).sort();
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la récupération des tags', error as Error);
+      logger.error(
+        "❌ Erreur lors de la récupération des tags",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -349,39 +383,40 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
     try {
       const workflows = await this.prisma.approvalWorkflow.findMany({
         where: { isActive: true },
-        orderBy: [
-          { priority: 'desc' },
-          { createdAt: 'desc' }
-        ]
+        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
       });
 
-      return workflows.map(workflow => this.mapPrismaToWorkflow(workflow));
-
+      return workflows.map((workflow) => this.mapPrismaToWorkflow(workflow));
     } catch (error) {
-      logger.error('❌ Erreur lors de la récupération des workflows par priorité', error as Error);
+      logger.error(
+        "❌ Erreur lors de la récupération des workflows par priorité",
+        error as Error,
+      );
       throw error;
     }
   }
 
-  async canBeDeleted(id: string): Promise<{ canDelete: boolean; reason?: string }> {
+  async canBeDeleted(
+    id: string,
+  ): Promise<{ canDelete: boolean; reason?: string }> {
     try {
       // Vérifier si le workflow est utilisé par des versions en cours
       const versionsUsingWorkflow = await this.prisma.documentVersion.count({
         where: {
           customData: {
-            path: '$.workflowId',
-            string_contains: id
+            path: "$.workflowId",
+            string_contains: id,
           },
           status: {
-            in: ['draft', 'pending_review', 'under_review']
-          }
-        }
+            in: ["draft", "pending_review", "under_review"],
+          },
+        },
       });
 
       if (versionsUsingWorkflow > 0) {
         return {
           canDelete: false,
-          reason: `Ce workflow est utilisé par ${versionsUsingWorkflow} version(s) en cours`
+          reason: `Ce workflow est utilisé par ${versionsUsingWorkflow} version(s) en cours`,
         };
       }
 
@@ -390,17 +425,19 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
       if (workflow?.isDefault) {
         return {
           canDelete: false,
-          reason: 'Le workflow par défaut ne peut pas être supprimé'
+          reason: "Le workflow par défaut ne peut pas être supprimé",
         };
       }
 
       return { canDelete: true };
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la vérification de suppression', error as Error);
+      logger.error(
+        "❌ Erreur lors de la vérification de suppression",
+        error as Error,
+      );
       return {
         canDelete: false,
-        reason: 'Erreur lors de la vérification'
+        reason: "Erreur lors de la vérification",
       };
     }
   }
@@ -423,8 +460,8 @@ export class PrismaApprovalWorkflowRepository implements IApprovalWorkflowReposi
       prismaWorkflow.updatedAt,
       prismaWorkflow.createdBy,
       prismaWorkflow.version,
-      JSON.parse(prismaWorkflow.tags || '[]'),
-      JSON.parse(prismaWorkflow.metadata || '{}')
+      JSON.parse(prismaWorkflow.tags || "[]"),
+      JSON.parse(prismaWorkflow.metadata || "{}"),
     );
   }
 }

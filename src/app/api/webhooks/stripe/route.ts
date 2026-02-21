@@ -1,32 +1,34 @@
 // @ts-nocheck
-import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import { PrismaClient } from '@prisma/client';
-import Stripe from 'stripe';
-import { logger } from '@/lib/logger';
-import { abandonTracker } from '@/lib/abandonTracking';
-import { incentiveSystem } from '@/lib/incentiveSystem';
-import { abandonAnalytics } from '@/lib/abandonAnalytics';
-import { BookingService } from '@/quotation/application/services/BookingService';
-import { CustomerService } from '@/quotation/application/services/CustomerService';
-import { PrismaBookingRepository } from '@/quotation/infrastructure/repositories/PrismaBookingRepository';
-import { PrismaCustomerRepository } from '@/quotation/infrastructure/repositories/PrismaCustomerRepository';
-import { PrismaMovingRepository } from '@/quotation/infrastructure/repositories/PrismaMovingRepository';
-import { PrismaQuoteRequestRepository } from '@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository';
+import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import Stripe from "stripe";
+import { logger } from "@/lib/logger";
+import { abandonTracker } from "@/lib/abandonTracking";
+import { incentiveSystem } from "@/lib/incentiveSystem";
+import { abandonAnalytics } from "@/lib/abandonAnalytics";
+import { BookingService } from "@/quotation/application/services/BookingService";
+import { CustomerService } from "@/quotation/application/services/CustomerService";
+import { PrismaBookingRepository } from "@/quotation/infrastructure/repositories/PrismaBookingRepository";
+import { PrismaCustomerRepository } from "@/quotation/infrastructure/repositories/PrismaCustomerRepository";
+import { PrismaMovingRepository } from "@/quotation/infrastructure/repositories/PrismaMovingRepository";
+import { PrismaQuoteRequestRepository } from "@/quotation/infrastructure/repositories/PrismaQuoteRequestRepository";
+import { prisma } from "@/lib/prisma";
 
 // Rendre cette route dynamique pour éviter l'initialisation pendant le build
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 // Initialiser Stripe uniquement si la clé est disponible
 function getStripeInstance(): Stripe | null {
   const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey || secretKey.trim() === '') {
-    logger.warn('⚠️ STRIPE_SECRET_KEY non définie - Les webhooks Stripe ne fonctionneront pas');
+  if (!secretKey || secretKey.trim() === "") {
+    logger.warn(
+      "⚠️ STRIPE_SECRET_KEY non définie - Les webhooks Stripe ne fonctionneront pas",
+    );
     return null;
   }
   return new Stripe(secretKey, {
-    apiVersion: '2025-08-27.basil'
+    apiVersion: "2025-08-27.basil",
   });
 }
 
@@ -36,23 +38,21 @@ let notificationSystemPromise: Promise<any> | null = null;
 async function getNotificationSystem() {
   if (!notificationSystemPromise) {
     try {
-      const { default: NotificationSystem } = await import('@/notifications');
+      const { default: NotificationSystem } = await import("@/notifications");
       notificationSystemPromise = NotificationSystem.initialize();
     } catch (error) {
-      console.warn('⚠️ Système de notifications non disponible:', error);
+      console.warn("⚠️ Système de notifications non disponible:", error);
       return null;
     }
   }
-  
+
   try {
     return await notificationSystemPromise;
   } catch (error) {
-    console.warn('⚠️ Erreur initialisation notifications:', error);
+    console.warn("⚠️ Erreur initialisation notifications:", error);
     return null;
   }
 }
-
-const prisma = new PrismaClient();
 
 // Instance partagée du BookingService pour le webhook
 let bookingServiceInstance: BookingService | null = null;
@@ -69,12 +69,12 @@ function getBookingService(): BookingService {
       bookingRepository,
       customerRepository,
       quoteRequestRepository,
-      customerService
+      customerService,
     );
 
-    logger.info('🏗️ BookingService initialisé pour webhook Stripe');
+    logger.info("🏗️ BookingService initialisé pour webhook Stripe");
   }
-  
+
   return bookingServiceInstance;
 }
 
@@ -85,7 +85,7 @@ function getBookingService(): BookingService {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text();
-    const signature = headers().get('stripe-signature') || '';
+    const signature = headers().get("stripe-signature") || "";
 
     // 🔒 SÉCURITÉ: Vérification de la signature Stripe
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -96,65 +96,69 @@ export async function POST(req: NextRequest) {
     const stripe = getStripeInstance();
     if (!stripe) {
       return NextResponse.json(
-        { error: 'Configuration Stripe manquante' },
-        { status: 500 }
+        { error: "Configuration Stripe manquante" },
+        { status: 500 },
       );
     }
 
-    if (endpointSecret && endpointSecret.trim() !== '') {
+    if (endpointSecret && endpointSecret.trim() !== "") {
       try {
         event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
-        logger.info('✅ Signature Stripe vérifiée');
+        logger.info("✅ Signature Stripe vérifiée");
       } catch (err) {
         const error = err as Error;
-        logger.error('❌ SÉCURITÉ: Signature Stripe invalide', {
+        logger.error("❌ SÉCURITÉ: Signature Stripe invalide", {
           error: error.message,
-          signature: signature.substring(0, 20) + '...'
+          signature: signature.substring(0, 20) + "...",
         });
         return NextResponse.json(
-          { error: 'Signature invalide' },
-          { status: 400 }
+          { error: "Signature invalide" },
+          { status: 400 },
         );
       }
     } else {
       // ⚠️ MODE DÉVELOPPEMENT: Accepter sans vérification (NON RECOMMANDÉ EN PRODUCTION)
-      logger.warn('⚠️ STRIPE_WEBHOOK_SECRET non configuré - webhook accepté sans vérification de signature');
-      logger.warn('⚠️ CONFIGUREZ STRIPE_WEBHOOK_SECRET pour activer la sécurité en production');
+      logger.warn(
+        "⚠️ STRIPE_WEBHOOK_SECRET non configuré - webhook accepté sans vérification de signature",
+      );
+      logger.warn(
+        "⚠️ CONFIGUREZ STRIPE_WEBHOOK_SECRET pour activer la sécurité en production",
+      );
       event = JSON.parse(body);
     }
 
     logger.info(`📥 Webhook Stripe reçu: ${event.type}`, {
       eventId: event.id,
-      objectId: event.data.object.id
+      objectId: event.data.object.id,
     });
 
     // Traitement selon le type d'événement
     switch (event.type) {
-      case 'checkout.session.completed':
+      case "checkout.session.completed":
         await handleCheckoutCompleted(event);
         break;
 
-      case 'payment_intent.payment_failed':
+      case "payment_intent.payment_failed":
         await handlePaymentFailed(event);
         break;
 
-      case 'payment_intent.canceled':
+      case "payment_intent.canceled":
         await handlePaymentCanceled(event);
         break;
 
-      case 'checkout.session.expired':
+      case "checkout.session.expired":
         await handleCheckoutExpired(event);
         break;
 
-      case 'payment_intent.succeeded':
+      case "payment_intent.succeeded":
         await handlePaymentSucceeded(event);
         break;
 
-      case 'payment_method.attached':
+      case "payment_method.attached":
         await handlePaymentMethodAttached(event);
         break;
 
-      case 'customer.subscription.deleted':
+      case "customer.subscription.deleted":
         await handleSubscriptionDeleted(event);
         break;
 
@@ -163,10 +167,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ received: true });
-
   } catch (error) {
-    logger.error('Erreur webhook Stripe:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    logger.error("Erreur webhook Stripe:", error);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
 
@@ -178,11 +181,11 @@ async function handleCheckoutCompleted(event: any): Promise<void> {
   try {
     const session = event.data.object;
 
-    logger.info('💳 Checkout completed:', {
+    logger.info("💳 Checkout completed:", {
       sessionId: session.id,
       paymentStatus: session.payment_status,
       amount: session.amount_total / 100,
-      metadata: session.metadata
+      metadata: session.metadata,
     });
 
     // Récupérer les métadonnées
@@ -193,26 +196,28 @@ async function handleCheckoutCompleted(event: any): Promise<void> {
       customerEmail,
       customerPhone,
       quoteType,
-      amount
+      amount,
     } = session.metadata;
 
     // Validation: vérifier que le paiement est bien réussi
-    if (session.payment_status !== 'paid') {
-      logger.warn(`⚠️ Paiement non confirmé (status: ${session.payment_status})`);
+    if (session.payment_status !== "paid") {
+      logger.warn(
+        `⚠️ Paiement non confirmé (status: ${session.payment_status})`,
+      );
       return;
     }
 
     // Validation: temporaryId requis
     if (!temporaryId) {
-      logger.error('❌ temporaryId manquant dans les métadonnées Stripe');
+      logger.error("❌ temporaryId manquant dans les métadonnées Stripe");
       return;
     }
 
     // Appeler /api/bookings/finalize pour créer le Booking
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const response = await fetch(`${baseUrl}/api/bookings/finalize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sessionId: session.id,
         temporaryId,
@@ -223,34 +228,33 @@ async function handleCheckoutCompleted(event: any): Promise<void> {
           firstName: customerFirstName,
           lastName: customerLastName,
           email: customerEmail,
-          phone: customerPhone
+          phone: customerPhone,
         },
         quoteType,
-        metadata: session.metadata
-      })
+        metadata: session.metadata,
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      logger.error('❌ Erreur création Booking:', errorData);
+      logger.error("❌ Erreur création Booking:", errorData);
       throw new Error(`Échec création Booking: ${errorData.error}`);
     }
 
     const bookingData = await response.json();
 
-    logger.info('✅ Booking créé avec succès:', {
+    logger.info("✅ Booking créé avec succès:", {
       bookingId: bookingData.data?.id,
       temporaryId,
-      sessionId: session.id
+      sessionId: session.id,
     });
 
     // 📧 Les notifications sont envoyées dans createBookingAfterPayment:
     // - Email client (confirmation + reçu)
     // - Email professionnel (nouvelle mission)
     // - Notification admin (monitoring)
-
   } catch (error) {
-    logger.error('❌ Erreur handleCheckoutCompleted:', error);
+    logger.error("❌ Erreur handleCheckoutCompleted:", error);
     throw error;
   }
 }
@@ -262,16 +266,16 @@ async function handlePaymentFailed(event: any): Promise<void> {
   try {
     const paymentIntent = event.data.object;
     const bookingId = paymentIntent.metadata?.bookingId;
-    
+
     if (!bookingId) {
-      logger.warn('Booking ID manquant dans les métadonnées du paiement');
+      logger.warn("Booking ID manquant dans les métadonnées du paiement");
       return;
     }
 
     // Récupérer la réservation
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { Customer: true }
+      include: { Customer: true },
     });
 
     if (!booking) {
@@ -282,7 +286,7 @@ async function handlePaymentFailed(event: any): Promise<void> {
     // Mettre à jour le statut de la réservation
     await prisma.booking.update({
       where: { id: bookingId },
-      data: { status: 'PAYMENT_FAILED' }
+      data: { status: "PAYMENT_FAILED" },
     });
 
     // Enregistrer la transaction échouée
@@ -291,10 +295,11 @@ async function handlePaymentFailed(event: any): Promise<void> {
         bookingId,
         amount: paymentIntent.amount / 100, // Convertir centimes en euros
         currency: paymentIntent.currency,
-        status: 'FAILED',
+        status: "FAILED",
         paymentIntentId: paymentIntent.id,
-        errorMessage: paymentIntent.last_payment_error?.message || 'Échec de paiement'
-      }
+        errorMessage:
+          paymentIntent.last_payment_error?.message || "Échec de paiement",
+      },
     });
 
     // Tracking d'abandon
@@ -303,22 +308,22 @@ async function handlePaymentFailed(event: any): Promise<void> {
       currency: paymentIntent.currency,
       errorCode: paymentIntent.last_payment_error?.code,
       errorMessage: paymentIntent.last_payment_error?.message,
-      paymentMethod: paymentIntent.payment_method_types?.[0]
+      paymentMethod: paymentIntent.payment_method_types?.[0],
     });
 
     // Analytics
     await abandonAnalytics.recordAbandonEvent({
       id: `payment_failed_${bookingId}`,
       sessionId: booking.customer.id,
-      stage: 'payment_failed',
+      stage: "payment_failed",
       timestamp: new Date(),
       timeSpent: 0,
       data: {
         bookingId,
         amount: paymentIntent.amount / 100,
-        errorCode: paymentIntent.last_payment_error?.code
+        errorCode: paymentIntent.last_payment_error?.code,
       },
-      userAgent: 'stripe-webhook',
+      userAgent: "stripe-webhook",
       recoveryAttempts: 0,
       isRecovered: false,
       metadata: {
@@ -326,18 +331,17 @@ async function handlePaymentFailed(event: any): Promise<void> {
         priceAtAbandon: paymentIntent.amount / 100,
         contactInfo: {
           hasEmail: !!booking.customer.email,
-          hasPhone: !!booking.customer.phone
-        }
-      }
+          hasPhone: !!booking.customer.phone,
+        },
+      },
     });
 
     // Déclencher la récupération d'urgence
     await triggerPaymentFailureRecovery(booking, paymentIntent);
 
     logger.info(`💳 Échec de paiement traité pour la réservation ${bookingId}`);
-
   } catch (error) {
-    logger.error('Erreur lors du traitement d\'échec de paiement:', error);
+    logger.error("Erreur lors du traitement d'échec de paiement:", error);
   }
 }
 
@@ -348,12 +352,12 @@ async function handlePaymentCanceled(event: any): Promise<void> {
   try {
     const paymentIntent = event.data.object;
     const bookingId = paymentIntent.metadata?.bookingId;
-    
+
     if (!bookingId) return;
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { Customer: true }
+      include: { Customer: true },
     });
 
     if (!booking) return;
@@ -361,23 +365,22 @@ async function handlePaymentCanceled(event: any): Promise<void> {
     // Mettre à jour le statut
     await prisma.booking.update({
       where: { id: bookingId },
-      data: { status: 'PAYMENT_FAILED' }
+      data: { status: "PAYMENT_FAILED" },
     });
 
     // Tracking d'abandon
     await abandonTracker.trackPaymentAbandon(bookingId, {
       amount: paymentIntent.amount / 100,
       currency: paymentIntent.currency,
-      reason: 'user_canceled'
+      reason: "user_canceled",
     });
 
     // Déclencher la récupération
     await triggerPaymentCancelRecovery(booking, paymentIntent);
 
     logger.info(`🚫 Paiement annulé traité pour la réservation ${bookingId}`);
-
   } catch (error) {
-    logger.error('Erreur lors du traitement d\'annulation de paiement:', error);
+    logger.error("Erreur lors du traitement d'annulation de paiement:", error);
   }
 }
 
@@ -388,12 +391,12 @@ async function handleCheckoutExpired(event: any): Promise<void> {
   try {
     const session = event.data.object;
     const bookingId = session.metadata?.bookingId;
-    
+
     if (!bookingId) return;
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { Customer: true }
+      include: { Customer: true },
     });
 
     if (!booking) return;
@@ -401,23 +404,24 @@ async function handleCheckoutExpired(event: any): Promise<void> {
     // Mettre à jour le statut
     await prisma.booking.update({
       where: { id: bookingId },
-      data: { status: 'PAYMENT_FAILED' }
+      data: { status: "PAYMENT_FAILED" },
     });
 
     // Tracking d'abandon
     await abandonTracker.trackPaymentAbandon(bookingId, {
       amount: session.amount_total / 100,
       currency: session.currency,
-      reason: 'session_expired'
+      reason: "session_expired",
     });
 
     // Déclencher la récupération
     await triggerSessionExpiredRecovery(booking, session);
 
-    logger.info(`⏰ Session checkout expirée traitée pour la réservation ${bookingId}`);
-
+    logger.info(
+      `⏰ Session checkout expirée traitée pour la réservation ${bookingId}`,
+    );
   } catch (error) {
-    logger.error('Erreur lors du traitement de session expirée:', error);
+    logger.error("Erreur lors du traitement de session expirée:", error);
   }
 }
 
@@ -430,12 +434,12 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
     const paymentIntent = event.data.object;
     const { temporaryId, bookingId } = paymentIntent.metadata || {};
 
-    logger.info('💳 PaymentIntent succeeded:', {
+    logger.info("💳 PaymentIntent succeeded:", {
       paymentIntentId: paymentIntent.id,
       amount: paymentIntent.amount / 100,
       temporaryId,
       bookingId,
-      metadata: paymentIntent.metadata
+      metadata: paymentIntent.metadata,
     });
 
     // CAS 1: Nouveau flux - temporaryId présent → créer le Booking
@@ -445,31 +449,36 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
         where: {
           transactions: {
             some: {
-              paymentIntentId: paymentIntent.id
-            }
-          }
+              paymentIntentId: paymentIntent.id,
+            },
+          },
         },
         include: {
-          transactions: true
-        }
+          transactions: true,
+        },
       });
 
       if (existingBooking) {
-        logger.info('✅ Booking déjà créé via checkout.session.completed, ignorer payment_intent.succeeded', {
-          bookingId: existingBooking.id,
-          paymentIntentId: paymentIntent.id
-        });
+        logger.info(
+          "✅ Booking déjà créé via checkout.session.completed, ignorer payment_intent.succeeded",
+          {
+            bookingId: existingBooking.id,
+            paymentIntentId: paymentIntent.id,
+          },
+        );
         return;
       }
 
-      logger.info('🆕 Nouveau flux détecté - création du Booking après paiement');
+      logger.info(
+        "🆕 Nouveau flux détecté - création du Booking après paiement",
+      );
 
       // 🔒 VALIDATION SÉCURITÉ: Recalculer le prix côté serveur et vérifier le montant payé
       const {
         serverCalculatedPrice,
         depositAmount,
         calculationId,
-        quoteType: paymentIntentQuoteType
+        quoteType: paymentIntentQuoteType,
       } = paymentIntent.metadata;
 
       // Si le prix serveur est présent dans les metadata, valider le montant
@@ -480,109 +489,158 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
 
         // Tolérance de 1€ pour arrondis (100 centimes)
         if (difference > 100) {
-          logger.error('🚨 ALERTE SÉCURITÉ: Montant payé différent du montant attendu', {
-            temporaryId,
-            expectedAmount: expectedAmount / 100,
-            actualAmount: actualAmount / 100,
-            difference: difference / 100,
-            paymentIntentId: paymentIntent.id,
-            calculationId
-          });
+          logger.error(
+            "🚨 ALERTE SÉCURITÉ: Montant payé différent du montant attendu",
+            {
+              temporaryId,
+              expectedAmount: expectedAmount / 100,
+              actualAmount: actualAmount / 100,
+              difference: difference / 100,
+              paymentIntentId: paymentIntent.id,
+              calculationId,
+            },
+          );
 
           // ⚠️ BLOQUER LA CRÉATION DU BOOKING
           throw new Error(
             `Montant invalide: attendu ${expectedAmount / 100}€, reçu ${actualAmount / 100}€. ` +
-            `Différence: ${difference / 100}€. PaymentIntent: ${paymentIntent.id}`
+              `Différence: ${difference / 100}€. PaymentIntent: ${paymentIntent.id}`,
           );
         }
 
-        logger.info('✅ Montant validé', {
+        logger.info("✅ Montant validé", {
           expectedAmount: expectedAmount / 100,
           actualAmount: actualAmount / 100,
-          difference: difference / 100
+          difference: difference / 100,
         });
       } else {
-        logger.warn('⚠️ Prix serveur absent des metadata - impossible de valider le montant', {
-          temporaryId,
-          paymentIntentId: paymentIntent.id
-        });
+        logger.warn(
+          "⚠️ Prix serveur absent des metadata - impossible de valider le montant",
+          {
+            temporaryId,
+            paymentIntentId: paymentIntent.id,
+          },
+        );
       }
 
       // ✅ CORRECTION: Récupérer le PaymentIntent complet avec TOUTES les données
       // ⚠️ NOTE: charges.data.payment_method ne peut PAS être expansé (erreur Stripe)
       // On récupère les données depuis latest_charge et payment_method directement
-      const fullPaymentIntent = await stripe.paymentIntents.retrieve(paymentIntent.id, {
-        expand: [
-          'charges.data.billing_details',
-          'charges.data.payment_method_details',
-          'payment_method',                    // ✅ PaymentMethod attaché au PaymentIntent
-          'latest_charge',                     // ✅ Charge la plus récente
-          'latest_charge.billing_details'      // ✅ Billing details de la charge
-          // ❌ 'charges.data.payment_method' - NE PEUT PAS ÊTRE EXPANSÉ
-        ]
-      }) as any;
-      
-      console.log('🔍 [WEBHOOK] PaymentIntent récupéré:', {
+      const fullPaymentIntent = (await stripe.paymentIntents.retrieve(
+        paymentIntent.id,
+        {
+          expand: [
+            "charges.data.billing_details",
+            "charges.data.payment_method_details",
+            "payment_method", // ✅ PaymentMethod attaché au PaymentIntent
+            "latest_charge", // ✅ Charge la plus récente
+            "latest_charge.billing_details", // ✅ Billing details de la charge
+            // ❌ 'charges.data.payment_method' - NE PEUT PAS ÊTRE EXPANSÉ
+          ],
+        },
+      )) as any;
+
+      console.log("🔍 [WEBHOOK] PaymentIntent récupéré:", {
         id: fullPaymentIntent.id,
         payment_method: fullPaymentIntent.payment_method,
         has_charges: !!fullPaymentIntent.charges?.data?.length,
-        latest_charge: fullPaymentIntent.latest_charge ? {
-          id: fullPaymentIntent.latest_charge.id,
-          billing_details: fullPaymentIntent.latest_charge.billing_details,
-          payment_method: fullPaymentIntent.latest_charge.payment_method
-        } : null
+        latest_charge: fullPaymentIntent.latest_charge
+          ? {
+              id: fullPaymentIntent.latest_charge.id,
+              billing_details: fullPaymentIntent.latest_charge.billing_details,
+              payment_method: fullPaymentIntent.latest_charge.payment_method,
+            }
+          : null,
       });
 
       // ✅ CORRECTION: Récupérer les infos client depuis MULTIPLES sources
       // 1. latest_charge.billing_details (le plus récent et fiable)
       const latestCharge = fullPaymentIntent.latest_charge;
-      let latestChargeBillingDetails: { name?: string; email?: string; phone?: string } = {};
-      if (latestCharge && typeof latestCharge === 'object' && 'billing_details' in latestCharge) {
-        latestChargeBillingDetails = (latestCharge as any).billing_details || {};
+      let latestChargeBillingDetails: {
+        name?: string;
+        email?: string;
+        phone?: string;
+      } = {};
+      if (
+        latestCharge &&
+        typeof latestCharge === "object" &&
+        "billing_details" in latestCharge
+      ) {
+        latestChargeBillingDetails =
+          (latestCharge as any).billing_details || {};
       }
-      
+
       // 2. charges.data[0].billing_details (première charge)
       const charge = fullPaymentIntent.charges?.data?.[0];
       const billingDetails = charge?.billing_details || {};
-      
+
       // 3. PaymentMethod attaché au PaymentIntent (peut être expansé)
       const paymentMethod = fullPaymentIntent.payment_method;
-      let paymentMethodBillingDetails: { name?: string; email?: string; phone?: string } = {};
-      if (paymentMethod && typeof paymentMethod === 'object' && 'billing_details' in paymentMethod) {
-        paymentMethodBillingDetails = (paymentMethod as any).billing_details || {};
+      let paymentMethodBillingDetails: {
+        name?: string;
+        email?: string;
+        phone?: string;
+      } = {};
+      if (
+        paymentMethod &&
+        typeof paymentMethod === "object" &&
+        "billing_details" in paymentMethod
+      ) {
+        paymentMethodBillingDetails =
+          (paymentMethod as any).billing_details || {};
       }
-      
+
       // 4. Si latest_charge a un payment_method ID, on peut le récupérer séparément
-      let latestChargePaymentMethodBillingDetails: { name?: string; email?: string; phone?: string } = {};
-      if (latestCharge && typeof latestCharge === 'object' && 'payment_method' in latestCharge) {
-        const latestChargePaymentMethodId = (latestCharge as any).payment_method;
+      const latestChargePaymentMethodBillingDetails: {
+        name?: string;
+        email?: string;
+        phone?: string;
+      } = {};
+      if (
+        latestCharge &&
+        typeof latestCharge === "object" &&
+        "payment_method" in latestCharge
+      ) {
+        const latestChargePaymentMethodId = (latestCharge as any)
+          .payment_method;
         // Si c'est un ID (string), on peut le récupérer séparément si nécessaire
         // Pour l'instant, on utilise les autres sources
       }
 
       // ✅ Combiner les sources par ordre de priorité (le plus récent en premier)
       const combinedBillingDetails = {
-        name: latestChargeBillingDetails.name || 
-              paymentMethodBillingDetails.name || 
-              billingDetails.name || '',
-        email: latestChargeBillingDetails.email || 
-               paymentMethodBillingDetails.email || 
-               billingDetails.email || '',
-        phone: latestChargeBillingDetails.phone || 
-               paymentMethodBillingDetails.phone || 
-               billingDetails.phone || ''
+        name:
+          latestChargeBillingDetails.name ||
+          paymentMethodBillingDetails.name ||
+          billingDetails.name ||
+          "",
+        email:
+          latestChargeBillingDetails.email ||
+          paymentMethodBillingDetails.email ||
+          billingDetails.email ||
+          "",
+        phone:
+          latestChargeBillingDetails.phone ||
+          paymentMethodBillingDetails.phone ||
+          billingDetails.phone ||
+          "",
       };
-      
-      console.log('🔍 [WEBHOOK] Billing details récupérés depuis toutes les sources:', {
-        latestCharge: latestChargeBillingDetails,
-        paymentMethod: paymentMethodBillingDetails,
-        charge: billingDetails,
-        combined: combinedBillingDetails
-      });
 
-      const customerName = combinedBillingDetails.name || '';
-      const [firstName, ...lastNameParts] = customerName.split(' ').filter(Boolean);
-      const lastName = lastNameParts.join(' ') || '';
+      console.log(
+        "🔍 [WEBHOOK] Billing details récupérés depuis toutes les sources:",
+        {
+          latestCharge: latestChargeBillingDetails,
+          paymentMethod: paymentMethodBillingDetails,
+          charge: billingDetails,
+          combined: combinedBillingDetails,
+        },
+      );
+
+      const customerName = combinedBillingDetails.name || "";
+      const [firstName, ...lastNameParts] = customerName
+        .split(" ")
+        .filter(Boolean);
+      const lastName = lastNameParts.join(" ") || "";
 
       // Fallback sur metadata si pas de billing_details
       const {
@@ -591,7 +649,7 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
         customerEmail,
         customerPhone,
         quoteType,
-        amount
+        amount,
       } = paymentIntent.metadata;
 
       // 🔒 SÉCURITÉ: Les données client (email, téléphone) sont collectées sur la BookingPage
@@ -600,122 +658,155 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
       // Sources fiables: 1) billing_details Stripe  2) metadata PaymentIntent
       // Si les deux sont absentes, c'est un cas anormal → log d'alerte.
       if (!(combinedBillingDetails.email || customerEmail)) {
-        logger.error('🚨 ALERTE: Email client absent de Stripe billing_details ET metadata', {
-          temporaryId,
-          paymentIntentId: paymentIntent.id,
-          note: 'Les données client sont collectées sur BookingPage, pas dans le formulaire catalogue'
-        });
+        logger.error(
+          "🚨 ALERTE: Email client absent de Stripe billing_details ET metadata",
+          {
+            temporaryId,
+            paymentIntentId: paymentIntent.id,
+            note: "Les données client sont collectées sur BookingPage, pas dans le formulaire catalogue",
+          },
+        );
       }
       if (!(combinedBillingDetails.phone || customerPhone)) {
-        logger.warn('⚠️ Téléphone client absent de Stripe billing_details ET metadata', {
-          temporaryId,
-          paymentIntentId: paymentIntent.id,
-          note: 'Le SMS ne sera pas envoyé'
-        });
+        logger.warn(
+          "⚠️ Téléphone client absent de Stripe billing_details ET metadata",
+          {
+            temporaryId,
+            paymentIntentId: paymentIntent.id,
+            note: "Le SMS ne sera pas envoyé",
+          },
+        );
       }
 
       // Log détaillé pour tracer l'origine des données utilisateur
-      console.log('═══════════════════════════════════════════════════════════════');
-      console.log('📋 [TRACE UTILISATEUR] Données client récupérées depuis Stripe');
-      console.log('═══════════════════════════════════════════════════════════════');
-      logger.info('📋 [TRACE UTILISATEUR] Données client récupérées depuis Stripe:', {
-        source: 'payment_intent.succeeded webhook',
-        paymentIntentId: paymentIntent.id,
-        chargeBillingDetails: {
-          name: billingDetails.name,
-          email: billingDetails.email,
-          phone: billingDetails.phone,
-          address: billingDetails.address,
-          exists: !!charge
+      console.log(
+        "═══════════════════════════════════════════════════════════════",
+      );
+      console.log(
+        "📋 [TRACE UTILISATEUR] Données client récupérées depuis Stripe",
+      );
+      console.log(
+        "═══════════════════════════════════════════════════════════════",
+      );
+      logger.info(
+        "📋 [TRACE UTILISATEUR] Données client récupérées depuis Stripe:",
+        {
+          source: "payment_intent.succeeded webhook",
+          paymentIntentId: paymentIntent.id,
+          chargeBillingDetails: {
+            name: billingDetails.name,
+            email: billingDetails.email,
+            phone: billingDetails.phone,
+            address: billingDetails.address,
+            exists: !!charge,
+          },
+          paymentMethodBillingDetails: {
+            name: paymentMethodBillingDetails.name,
+            email: paymentMethodBillingDetails.email,
+            phone: paymentMethodBillingDetails.phone,
+            exists: !!paymentMethod,
+          },
+          combined: {
+            name: combinedBillingDetails.name,
+            email: combinedBillingDetails.email,
+            phone: combinedBillingDetails.phone,
+            isEmpty:
+              !combinedBillingDetails.name &&
+              !combinedBillingDetails.email &&
+              !combinedBillingDetails.phone,
+          },
+          metadata: {
+            customerFirstName,
+            customerLastName,
+            customerEmail,
+            customerPhone,
+            hasMetadata: !!(
+              customerFirstName ||
+              customerLastName ||
+              customerEmail ||
+              customerPhone
+            ),
+          },
+          extracted: {
+            firstName: firstName || customerFirstName || "Client",
+            lastName: lastName || customerLastName || "",
+            email: combinedBillingDetails.email || customerEmail || "(ABSENT)",
+            phone: combinedBillingDetails.phone || customerPhone || "(ABSENT)",
+            phoneIsEmpty: !(combinedBillingDetails.phone || customerPhone),
+          },
+          warning: !(combinedBillingDetails.phone || customerPhone)
+            ? "⚠️ Téléphone manquant - utilisation de valeur par défaut"
+            : null,
         },
-        paymentMethodBillingDetails: {
-          name: paymentMethodBillingDetails.name,
-          email: paymentMethodBillingDetails.email,
-          phone: paymentMethodBillingDetails.phone,
-          exists: !!paymentMethod
-        },
-        combined: {
-          name: combinedBillingDetails.name,
-          email: combinedBillingDetails.email,
-          phone: combinedBillingDetails.phone,
-          isEmpty: !combinedBillingDetails.name && !combinedBillingDetails.email && !combinedBillingDetails.phone
+      );
+
+      // Log console pour visibilité immédiate
+      console.log("📋 [TRACE UTILISATEUR] Données extraites:", {
+        firstName: firstName || customerFirstName || "Client",
+        lastName: lastName || customerLastName || "",
+        email: combinedBillingDetails.email || customerEmail || "(ABSENT)",
+        phone: combinedBillingDetails.phone || customerPhone || "(ABSENT)",
+        phoneIsEmpty: !(combinedBillingDetails.phone || customerPhone),
+        sources: {
+          latestCharge: latestChargeBillingDetails,
+          paymentMethod: paymentMethodBillingDetails,
+          charge: billingDetails,
         },
         metadata: {
           customerFirstName,
           customerLastName,
           customerEmail,
           customerPhone,
-          hasMetadata: !!(customerFirstName || customerLastName || customerEmail || customerPhone)
         },
-        extracted: {
-          firstName: firstName || customerFirstName || 'Client',
-          lastName: lastName || customerLastName || '',
-          email: combinedBillingDetails.email || customerEmail || '(ABSENT)',
-          phone: combinedBillingDetails.phone || customerPhone || '(ABSENT)',
-          phoneIsEmpty: !(combinedBillingDetails.phone || customerPhone)
-        },
-        warning: !(combinedBillingDetails.phone || customerPhone) ? '⚠️ Téléphone manquant - utilisation de valeur par défaut' : null
-      });
-      
-      // Log console pour visibilité immédiate
-      console.log('📋 [TRACE UTILISATEUR] Données extraites:', {
-        firstName: firstName || customerFirstName || 'Client',
-        lastName: lastName || customerLastName || '',
-        email: combinedBillingDetails.email || customerEmail || '(ABSENT)',
-        phone: combinedBillingDetails.phone || customerPhone || '(ABSENT)',
-        phoneIsEmpty: !(combinedBillingDetails.phone || customerPhone),
-        sources: {
-          latestCharge: latestChargeBillingDetails,
-          paymentMethod: paymentMethodBillingDetails,
-          charge: billingDetails
-        },
-        metadata: {
-          customerFirstName,
-          customerLastName,
-          customerEmail,
-          customerPhone
-        },
-        warning: !(combinedBillingDetails.email || customerEmail) ? '⚠️ Email manquant' : null,
-        warningPhone: !(combinedBillingDetails.phone || customerPhone) ? '⚠️ Téléphone manquant' : null
+        warning: !(combinedBillingDetails.email || customerEmail)
+          ? "⚠️ Email manquant"
+          : null,
+        warningPhone: !(combinedBillingDetails.phone || customerPhone)
+          ? "⚠️ Téléphone manquant"
+          : null,
       });
 
       // Résoudre l'email et le téléphone (billing_details Stripe > metadata PaymentIntent)
-      const resolvedEmail = combinedBillingDetails.email || customerEmail || '';
-      const resolvedPhone = combinedBillingDetails.phone || customerPhone || '';
+      const resolvedEmail = combinedBillingDetails.email || customerEmail || "";
+      const resolvedPhone = combinedBillingDetails.phone || customerPhone || "";
 
       if (!resolvedEmail) {
-        logger.error('🚨 ALERTE: Email client introuvable (Stripe, metadata, QuoteRequest)', {
-          temporaryId,
-          paymentIntentId: paymentIntent.id
-        });
+        logger.error(
+          "🚨 ALERTE: Email client introuvable (Stripe, metadata, QuoteRequest)",
+          {
+            temporaryId,
+            paymentIntentId: paymentIntent.id,
+          },
+        );
         // Continuer quand même — le booking doit être créé, mais les notifications email échoueront
       }
 
       // Appeler /api/bookings/finalize pour créer le Booking
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
       const response = await fetch(`${baseUrl}/api/bookings/finalize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: paymentIntent.id, // PaymentIntent ID utilisé comme sessionId
           paymentIntentId: paymentIntent.id,
           temporaryId,
-          paymentStatus: 'paid',
+          paymentStatus: "paid",
           amount: paymentIntent.amount / 100, // ⚠️ ATTENTION: C'est l'ACOMPTE, pas le prix total!
           customerData: {
-            firstName: firstName || customerFirstName || 'Client',
-            lastName: lastName || customerLastName || '',
+            firstName: firstName || customerFirstName || "Client",
+            lastName: lastName || customerLastName || "",
             email: resolvedEmail,
-            phone: resolvedPhone
+            phone: resolvedPhone,
           },
           quoteType,
-          metadata: paymentIntent.metadata
-        })
+          metadata: paymentIntent.metadata,
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        logger.error('❌ Erreur création Booking:', errorData);
+        logger.error("❌ Erreur création Booking:", errorData);
         throw new Error(`Échec création Booking: ${errorData.error}`);
       }
 
@@ -724,13 +815,14 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
       // La structure de réponse est : { success: true, data: { success: true, data: { id: ... } } }
       // ou : { success: true, data: { id: ... } }
       const bookingId = bookingData.data?.data?.id || bookingData.data?.id;
-      const bookingTotalAmount = bookingData.data?.data?.totalAmount || bookingData.data?.totalAmount;
+      const bookingTotalAmount =
+        bookingData.data?.data?.totalAmount || bookingData.data?.totalAmount;
 
-      logger.info('✅ Booking créé avec succès:', {
+      logger.info("✅ Booking créé avec succès:", {
         bookingId: bookingId,
         bookingTotalAmount,
         temporaryId,
-        paymentIntentId: paymentIntent.id
+        paymentIntentId: paymentIntent.id,
       });
 
       // 🔒 VALIDATION FINALE: Vérifier que le prix total du Booking correspond au prix serveur
@@ -741,31 +833,38 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
         const tolerance = expectedTotal * 0.01; // 1% de tolérance
 
         if (priceDifference > tolerance) {
-          logger.error('🚨 ALERTE SÉCURITÉ: Prix total du Booking diverge du prix serveur', {
-            temporaryId,
-            bookingId,
-            expectedTotal,
-            actualTotal,
-            difference: priceDifference.toFixed(2),
-            differencePercent: ((priceDifference / expectedTotal) * 100).toFixed(2) + '%',
-            paymentIntentId: paymentIntent.id,
-            calculationId
-          });
+          logger.error(
+            "🚨 ALERTE SÉCURITÉ: Prix total du Booking diverge du prix serveur",
+            {
+              temporaryId,
+              bookingId,
+              expectedTotal,
+              actualTotal,
+              difference: priceDifference.toFixed(2),
+              differencePercent:
+                ((priceDifference / expectedTotal) * 100).toFixed(2) + "%",
+              paymentIntentId: paymentIntent.id,
+              calculationId,
+            },
+          );
 
           // ⚠️ NE PAS bloquer (le paiement est déjà validé) mais ALERTER
           // TODO: Envoyer une notification à l'admin pour investigation manuelle
         } else {
-          logger.info('✅ Prix total du Booking validé', {
+          logger.info("✅ Prix total du Booking validé", {
             expectedTotal,
             actualTotal,
-            difference: priceDifference.toFixed(2)
+            difference: priceDifference.toFixed(2),
           });
         }
       } else {
-        logger.warn('⚠️ Impossible de valider le prix total - données manquantes', {
-          serverCalculatedPrice,
-          bookingTotalAmount
-        });
+        logger.warn(
+          "⚠️ Impossible de valider le prix total - données manquantes",
+          {
+            serverCalculatedPrice,
+            bookingTotalAmount,
+          },
+        );
       }
 
       return;
@@ -773,7 +872,7 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
 
     // CAS 2: Ancien flux - bookingId présent → mettre à jour le Booking existant
     if (!bookingId) {
-      logger.warn('⚠️ Ni temporaryId ni bookingId dans les métadonnées');
+      logger.warn("⚠️ Ni temporaryId ni bookingId dans les métadonnées");
       return;
     }
 
@@ -786,10 +885,10 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
           select: {
             id: true,
             type: true,
-            temporaryId: true
-          }
-        }
-      }
+            temporaryId: true,
+          },
+        },
+      },
     });
 
     if (!booking) {
@@ -800,30 +899,30 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
     // Mettre à jour le statut de la réservation
     await prisma.booking.update({
       where: { id: bookingId },
-      data: { status: 'PAYMENT_COMPLETED' }
+      data: { status: "PAYMENT_COMPLETED" },
     });
 
     // Enregistrer la transaction réussie
     await prisma.transaction.upsert({
       where: { paymentIntentId: paymentIntent.id },
-      update: { status: 'COMPLETED' },
+      update: { status: "COMPLETED" },
       create: {
         bookingId,
         amount: paymentIntent.amount / 100,
         currency: paymentIntent.currency,
-        status: 'COMPLETED',
+        status: "COMPLETED",
         paymentIntentId: paymentIntent.id,
-        paymentMethod: paymentIntent.payment_method_types?.[0]
-      }
+        paymentMethod: paymentIntent.payment_method_types?.[0],
+      },
     });
 
     // Marquer les abandons antérieurs comme récupérés
     await abandonAnalytics.recordRecoveryEvent(
       `payment_failed_${bookingId}`,
-      'payment_retry',
-      'stripe_retry',
+      "payment_retry",
+      "stripe_retry",
       true,
-      0
+      0,
     );
 
     // 🚀 UTILISER BOOKINGSERVICE POUR GÉRER LE PAIEMENT AVEC DOCUMENTORCHESTRATIONSERVICE
@@ -832,26 +931,30 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
       await bookingService.confirmPaymentSuccess(bookingId, {
         paymentIntentId: paymentIntent.id,
         amount: paymentIntent.amount / 100, // Convertir centimes en euros
-        status: 'completed'
+        status: "completed",
       });
 
-      logger.info('🎉 Paiement traité via BookingService avec génération de documents');
+      logger.info(
+        "🎉 Paiement traité via BookingService avec génération de documents",
+      );
     } catch (serviceError) {
-      logger.warn('⚠️ Erreur lors du traitement via BookingService, fallback vers notifications directes:', serviceError);
+      logger.warn(
+        "⚠️ Erreur lors du traitement via BookingService, fallback vers notifications directes:",
+        serviceError,
+      );
 
       // Fallback : utiliser l'ancien système si BookingService échoue
       try {
         await sendPaymentConfirmationNotifications(booking, paymentIntent);
-        logger.info('✅ Fallback notifications envoyées');
+        logger.info("✅ Fallback notifications envoyées");
       } catch (fallbackError) {
-        logger.error('❌ Même le fallback a échoué:', fallbackError);
+        logger.error("❌ Même le fallback a échoué:", fallbackError);
       }
     }
 
     logger.info(`✅ Paiement réussi traité pour la réservation ${bookingId}`);
-
   } catch (error) {
-    logger.error('Erreur lors du traitement de paiement réussi:', error);
+    logger.error("Erreur lors du traitement de paiement réussi:", error);
   }
 }
 
@@ -861,17 +964,16 @@ async function handlePaymentSucceeded(event: any): Promise<void> {
 async function handlePaymentMethodAttached(event: any): Promise<void> {
   try {
     const paymentMethod = event.data.object;
-    
+
     logger.info(`💳 Méthode de paiement attachée: ${paymentMethod.type}`, {
       paymentMethodId: paymentMethod.id,
-      customerId: paymentMethod.customer
+      customerId: paymentMethod.customer,
     });
 
     // Potentiellement déclencher des actions spécifiques
     // Par exemple, proposer des offres pour fidéliser
-    
   } catch (error) {
-    logger.error('Erreur lors du traitement de méthode de paiement:', error);
+    logger.error("Erreur lors du traitement de méthode de paiement:", error);
   }
 }
 
@@ -881,77 +983,106 @@ async function handlePaymentMethodAttached(event: any): Promise<void> {
 async function handleSubscriptionDeleted(event: any): Promise<void> {
   try {
     const subscription = event.data.object;
-    
+
     logger.info(`🔚 Abonnement supprimé: ${subscription.id}`, {
       customerId: subscription.customer,
-      reason: subscription.cancellation_details?.reason
+      reason: subscription.cancellation_details?.reason,
     });
 
     // Déclencher la récupération d'abonnement
     await triggerSubscriptionRecovery(subscription);
-    
   } catch (error) {
-    logger.error('Erreur lors du traitement de suppression d\'abonnement:', error);
+    logger.error(
+      "Erreur lors du traitement de suppression d'abonnement:",
+      error,
+    );
   }
 }
 
 /**
  * Déclencher la récupération d'urgence pour échec de paiement
  */
-async function triggerPaymentFailureRecovery(booking: any, paymentIntent: any): Promise<void> {
+async function triggerPaymentFailureRecovery(
+  booking: any,
+  paymentIntent: any,
+): Promise<void> {
   try {
     const customer = booking.customer;
     const amount = paymentIntent.amount / 100;
-    const errorMessage = paymentIntent.last_payment_error?.message || 'Échec de paiement';
+    const errorMessage =
+      paymentIntent.last_payment_error?.message || "Échec de paiement";
 
     // Évaluer les incentives d'urgence
     const incentives = await incentiveSystem.evaluateIncentives({
-      trigger: 'payment_abandoned',
+      trigger: "payment_abandoned",
       userId: customer.id,
       bookingId: booking.id,
       originalAmount: amount,
       serviceType: booking.type,
-      customerSegment: 'payment_failed'
+      customerSegment: "payment_failed",
     });
 
     // Envoyer notification de paiement échoué (HTML inline — pas de template dédié)
     if (customer.email) {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const baseUrl =
+          process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
         const customerName = `${customer.firstName} ${customer.lastName}`;
         const retryUrl = `${baseUrl}/booking/${booking.quoteRequest?.temporaryId || booking.id}`;
         const supportUrl = `${baseUrl}/contact`;
 
         await fetch(`${baseUrl}/api/notifications/email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: customer.email,
-            subject: 'Problème avec votre paiement - Express Quote',
-            html: buildPaymentFailedHtml({ customerName, amount, errorMessage, retryUrl, supportUrl })
-          })
+            subject: "Problème avec votre paiement - Express Quote",
+            html: buildPaymentFailedHtml({
+              customerName,
+              amount,
+              errorMessage,
+              retryUrl,
+              supportUrl,
+            }),
+          }),
         });
-        logger.info('✅ Notification paiement échoué envoyée', { bookingId: booking.id, email: customer.email });
+        logger.info("✅ Notification paiement échoué envoyée", {
+          bookingId: booking.id,
+          email: customer.email,
+        });
       } catch (notifError) {
-        logger.error('❌ Erreur envoi notification paiement échoué', {
-          error: notifError instanceof Error ? notifError.message : 'Erreur inconnue'
+        logger.error("❌ Erreur envoi notification paiement échoué", {
+          error:
+            notifError instanceof Error
+              ? notifError.message
+              : "Erreur inconnue",
         });
       }
     } else {
-      logger.warn('⚠️ Pas d\'email client pour envoyer la notification d\'échec de paiement', { bookingId: booking.id });
+      logger.warn(
+        "⚠️ Pas d'email client pour envoyer la notification d'échec de paiement",
+        { bookingId: booking.id },
+      );
     }
 
-    logger.info(`🚨 Récupération d'urgence déclenchée pour échec de paiement: ${booking.id}`);
-
+    logger.info(
+      `🚨 Récupération d'urgence déclenchée pour échec de paiement: ${booking.id}`,
+    );
   } catch (error) {
-    logger.error('Erreur lors du déclenchement de récupération d\'échec:', error);
+    logger.error(
+      "Erreur lors du déclenchement de récupération d'échec:",
+      error,
+    );
   }
 }
 
 /**
  * Déclencher la récupération pour paiement annulé
  */
-async function triggerPaymentCancelRecovery(booking: any, paymentIntent: any): Promise<void> {
+async function triggerPaymentCancelRecovery(
+  booking: any,
+  paymentIntent: any,
+): Promise<void> {
   try {
     const customer = booking.customer;
     const amount = paymentIntent.amount / 100;
@@ -959,39 +1090,58 @@ async function triggerPaymentCancelRecovery(booking: any, paymentIntent: any): P
     // Envoyer notification de relance (HTML inline — pas de template dédié)
     if (customer.email) {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const baseUrl =
+          process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
         const customerName = `${customer.firstName} ${customer.lastName}`;
         const retryUrl = `${baseUrl}/booking/${booking.quoteRequest?.temporaryId || booking.id}`;
         const supportUrl = `${baseUrl}/contact`;
 
         await fetch(`${baseUrl}/api/notifications/email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: customer.email,
-            subject: 'Reprenez votre réservation - Express Quote',
-            html: buildPaymentRecoveryHtml({ customerName, amount, retryUrl, supportUrl, reason: 'canceled' })
-          })
+            subject: "Reprenez votre réservation - Express Quote",
+            html: buildPaymentRecoveryHtml({
+              customerName,
+              amount,
+              retryUrl,
+              supportUrl,
+              reason: "canceled",
+            }),
+          }),
         });
-        logger.info('✅ Notification relance paiement annulé envoyée', { bookingId: booking.id });
+        logger.info("✅ Notification relance paiement annulé envoyée", {
+          bookingId: booking.id,
+        });
       } catch (notifError) {
-        logger.error('❌ Erreur envoi notification relance', {
-          error: notifError instanceof Error ? notifError.message : 'Erreur inconnue'
+        logger.error("❌ Erreur envoi notification relance", {
+          error:
+            notifError instanceof Error
+              ? notifError.message
+              : "Erreur inconnue",
         });
       }
     }
 
-    logger.info(`🔄 Récupération déclenchée pour paiement annulé: ${booking.id}`);
-
+    logger.info(
+      `🔄 Récupération déclenchée pour paiement annulé: ${booking.id}`,
+    );
   } catch (error) {
-    logger.error('Erreur lors du déclenchement de récupération d\'annulation:', error);
+    logger.error(
+      "Erreur lors du déclenchement de récupération d'annulation:",
+      error,
+    );
   }
 }
 
 /**
  * Déclencher la récupération pour session expirée
  */
-async function triggerSessionExpiredRecovery(booking: any, session: any): Promise<void> {
+async function triggerSessionExpiredRecovery(
+  booking: any,
+  session: any,
+): Promise<void> {
   try {
     const customer = booking.customer;
     const amount = session.amount_total / 100;
@@ -999,32 +1149,48 @@ async function triggerSessionExpiredRecovery(booking: any, session: any): Promis
     // Envoyer notification de session expirée (HTML inline — pas de template dédié)
     if (customer.email) {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const baseUrl =
+          process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
         const customerName = `${customer.firstName} ${customer.lastName}`;
         const retryUrl = `${baseUrl}/booking/${booking.quoteRequest?.temporaryId || booking.id}`;
         const supportUrl = `${baseUrl}/contact`;
 
         await fetch(`${baseUrl}/api/notifications/email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: customer.email,
-            subject: 'Votre session de paiement a expiré - Express Quote',
-            html: buildPaymentRecoveryHtml({ customerName, amount, retryUrl, supportUrl, reason: 'expired' })
-          })
+            subject: "Votre session de paiement a expiré - Express Quote",
+            html: buildPaymentRecoveryHtml({
+              customerName,
+              amount,
+              retryUrl,
+              supportUrl,
+              reason: "expired",
+            }),
+          }),
         });
-        logger.info('✅ Notification session expirée envoyée', { bookingId: booking.id });
+        logger.info("✅ Notification session expirée envoyée", {
+          bookingId: booking.id,
+        });
       } catch (notifError) {
-        logger.error('❌ Erreur envoi notification session expirée', {
-          error: notifError instanceof Error ? notifError.message : 'Erreur inconnue'
+        logger.error("❌ Erreur envoi notification session expirée", {
+          error:
+            notifError instanceof Error
+              ? notifError.message
+              : "Erreur inconnue",
         });
       }
     }
 
-    logger.info(`⏰ Récupération déclenchée pour session expirée: ${booking.id}`);
-
+    logger.info(
+      `⏰ Récupération déclenchée pour session expirée: ${booking.id}`,
+    );
   } catch (error) {
-    logger.error('Erreur lors du déclenchement de récupération de session:', error);
+    logger.error(
+      "Erreur lors du déclenchement de récupération de session:",
+      error,
+    );
   }
 }
 
@@ -1035,122 +1201,137 @@ async function triggerSubscriptionRecovery(subscription: any): Promise<void> {
   try {
     // Récupérer le client
     const customerId = subscription.customer;
-    
+
     // Créer une offre de retour
     const notification = {
       id: `subscription_recovery_${subscription.id}`,
-      type: 'incentive_offer' as const,
-      priority: 'medium' as const,
-      channels: ['email', 'whatsapp'] as const,
+      type: "incentive_offer" as const,
+      priority: "medium" as const,
+      channels: ["email", "whatsapp"] as const,
       recipient: {
-        userId: customerId
+        userId: customerId,
       },
       content: {
-        title: 'Nous vous manquons déjà !',
-        message: 'Revenez avec une offre spéciale de 3 mois gratuits.',
-        actionText: 'Réactiver mon abonnement',
-        incentive: '3 mois gratuits'
+        title: "Nous vous manquons déjà !",
+        message: "Revenez avec une offre spéciale de 3 mois gratuits.",
+        actionText: "Réactiver mon abonnement",
+        incentive: "3 mois gratuits",
       },
       schedule: {
-        delay: 24 * 60 * 60 * 1000 // 24 heures
-      }
+        delay: 24 * 60 * 60 * 1000, // 24 heures
+      },
     };
 
     // Ancien système de notification supprimé
 
     logger.info(`🔄 Récupération d'abonnement déclenchée: ${subscription.id}`);
-
   } catch (error) {
-    logger.error('Erreur lors du déclenchement de récupération d\'abonnement:', error);
+    logger.error(
+      "Erreur lors du déclenchement de récupération d'abonnement:",
+      error,
+    );
   }
 }
 
 /**
  * Programmer une séquence de récupération de paiement
  */
-async function schedulePaymentRecoverySequence(booking: any, amount: number, errorMessage: string): Promise<void> {
+async function schedulePaymentRecoverySequence(
+  booking: any,
+  amount: number,
+  errorMessage: string,
+): Promise<void> {
   try {
     const customer = booking.customer;
     const recoverySteps = [
       {
         delay: 5 * 60 * 1000, // 5 minutes
-        type: 'immediate_help',
-        channels: ['email', 'sms'],
-        message: 'Besoin d\'aide avec votre paiement ? Notre équipe est disponible.'
+        type: "immediate_help",
+        channels: ["email", "sms"],
+        message:
+          "Besoin d'aide avec votre paiement ? Notre équipe est disponible.",
       },
       {
         delay: 30 * 60 * 1000, // 30 minutes
-        type: 'alternative_payment',
-        channels: ['email', 'call'],
-        message: 'Essayez un autre moyen de paiement ou contactez-nous.'
+        type: "alternative_payment",
+        channels: ["email", "call"],
+        message: "Essayez un autre moyen de paiement ou contactez-nous.",
       },
       {
         delay: 2 * 60 * 60 * 1000, // 2 heures
-        type: 'manager_outreach',
-        channels: ['call', 'email'],
-        message: 'Notre responsable vous contactera pour résoudre le problème.'
+        type: "manager_outreach",
+        channels: ["call", "email"],
+        message: "Notre responsable vous contactera pour résoudre le problème.",
       },
       {
         delay: 24 * 60 * 60 * 1000, // 24 heures
-        type: 'final_offer',
-        channels: ['email', 'sms'],
-        message: 'Dernière chance : finalisez avec une remise exceptionnelle.'
-      }
+        type: "final_offer",
+        channels: ["email", "sms"],
+        message: "Dernière chance : finalisez avec une remise exceptionnelle.",
+      },
     ];
 
     for (const step of recoverySteps) {
       setTimeout(async () => {
         const notification = {
           id: `recovery_${step.type}_${booking.id}`,
-          type: 'payment_recovery' as const,
-          priority: 'high' as const,
+          type: "payment_recovery" as const,
+          priority: "high" as const,
           channels: step.channels as any,
           recipient: {
             email: customer.email,
             phone: customer.phone,
-            userId: customer.id
+            userId: customer.id,
           },
           content: {
-            title: 'Assistance paiement',
+            title: "Assistance paiement",
             message: step.message,
-            actionText: 'Réessayer le paiement',
+            actionText: "Réessayer le paiement",
             actionUrl: `/payment/${booking.id}`,
-            incentive: step.type === 'final_offer' ? '15% de réduction' : undefined
+            incentive:
+              step.type === "final_offer" ? "15% de réduction" : undefined,
           },
-          metadata: { bookingId: booking.id, amount, step: step.type }
+          metadata: { bookingId: booking.id, amount, step: step.type },
         };
 
         // Ancien système de notification supprimé
-        
+
         // Enregistrer la tentative de récupération
         await abandonAnalytics.recordRecoveryEvent(
           `payment_failed_${booking.id}`,
           step.type,
           step.channels[0],
           false,
-          5 // Coût approximatif
+          5, // Coût approximatif
         );
       }, step.delay);
     }
 
     logger.info(`📅 Séquence de récupération programmée pour: ${booking.id}`);
-
   } catch (error) {
-    logger.error('Erreur lors de la programmation de séquence de récupération:', error);
+    logger.error(
+      "Erreur lors de la programmation de séquence de récupération:",
+      error,
+    );
   }
 }
 
 /**
  * Envoie les notifications de confirmation de paiement
  */
-async function sendPaymentConfirmationNotifications(booking: any, paymentIntent: any): Promise<void> {
-  console.log(`💳 Envoi notifications de confirmation de paiement pour réservation ${booking.id}`);
-  
+async function sendPaymentConfirmationNotifications(
+  booking: any,
+  paymentIntent: any,
+): Promise<void> {
+  console.log(
+    `💳 Envoi notifications de confirmation de paiement pour réservation ${booking.id}`,
+  );
+
   try {
     // Récupérer le système de notifications
     const notificationSystem = await getNotificationSystem();
     if (!notificationSystem) {
-      console.warn('⚠️ Système de notifications non disponible');
+      console.warn("⚠️ Système de notifications non disponible");
       return;
     }
 
@@ -1161,48 +1342,58 @@ async function sendPaymentConfirmationNotifications(booking: any, paymentIntent:
       customerPhone: booking.customer.phone,
       amount: paymentIntent.amount / 100, // Stripe en centimes
       currency: paymentIntent.currency,
-      paymentMethod: getPaymentMethodDisplayName(paymentIntent.payment_method_types?.[0]),
+      paymentMethod: getPaymentMethodDisplayName(
+        paymentIntent.payment_method_types?.[0],
+      ),
       transactionId: paymentIntent.id,
       paymentDate: new Date().toISOString(),
       bookingId: booking.id,
       bookingReference: `EQ-${booking.id.slice(-8).toUpperCase()}`,
-      serviceType: booking.quoteRequest?.type || 'MOVING',
-      serviceName: getServiceDisplayName(booking.quoteRequest?.type || 'MOVING'),
-      serviceDate: booking.scheduledDate ? booking.scheduledDate.toISOString().split('T')[0] : null,
-      serviceTime: booking.scheduledDate ? booking.scheduledDate.toTimeString().slice(0, 5) : null,
-      invoiceNumber: `INV-${booking.id.slice(-8).toUpperCase()}-${new Date().getFullYear()}`
+      serviceType: booking.quoteRequest?.type || "MOVING",
+      serviceName: getServiceDisplayName(
+        booking.quoteRequest?.type || "MOVING",
+      ),
+      serviceDate: booking.scheduledDate
+        ? booking.scheduledDate.toISOString().split("T")[0]
+        : null,
+      serviceTime: booking.scheduledDate
+        ? booking.scheduledDate.toTimeString().slice(0, 5)
+        : null,
+      invoiceNumber: `INV-${booking.id.slice(-8).toUpperCase()}-${new Date().getFullYear()}`,
     };
 
     // 1. Email de confirmation avec template React
     await notificationSystem.sendEmail({
       to: booking.customer.email,
       subject: `Paiement confirmé - ${paymentData.bookingReference}`,
-      template: 'PaymentConfirmation',
+      template: "PaymentConfirmation",
       data: {
         ...paymentData,
         viewBookingUrl: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${booking.id}`,
         downloadInvoiceUrl: `${process.env.NEXT_PUBLIC_APP_URL}/bookings/${booking.id}/invoice`,
         supportUrl: `${process.env.NEXT_PUBLIC_APP_URL}/support`,
-        companyName: 'Express Quote',
-        companyAddress: process.env.COMPANY_ADDRESS || '123 Avenue des Services, 75001 Paris',
-        companyPhone: process.env.SUPPORT_PHONE || '01 23 45 67 89',
-        companyEmail: process.env.SUPPORT_EMAIL || 'support@expressquote.fr',
-        refundPolicy: 'Remboursement possible sous 14 jours selon nos conditions générales',
-        cancellationPolicy: 'Annulation gratuite jusqu\'à 24h avant le service'
-      }
+        companyName: "Express Quote",
+        companyAddress:
+          process.env.COMPANY_ADDRESS || "123 Avenue des Services, 75001 Paris",
+        companyPhone: process.env.SUPPORT_PHONE || "01 23 45 67 89",
+        companyEmail: process.env.SUPPORT_EMAIL || "support@expressquote.fr",
+        refundPolicy:
+          "Remboursement possible sous 14 jours selon nos conditions générales",
+        cancellationPolicy: "Annulation gratuite jusqu'à 24h avant le service",
+      },
     });
 
     // 2. WhatsApp si numéro disponible
     if (booking.customer.phone) {
       await notificationSystem.sendWhatsApp({
         to: booking.customer.phone,
-        template: 'payment_confirmation',
+        template: "payment_confirmation",
         variables: {
           client_name: paymentData.customerName,
           amount: paymentData.amount,
           booking_id: paymentData.bookingReference,
-          service_date: paymentData.serviceDate || 'À définir'
-        }
+          service_date: paymentData.serviceDate || "À définir",
+        },
       });
     }
 
@@ -1210,17 +1401,19 @@ async function sendPaymentConfirmationNotifications(booking: any, paymentIntent:
     if (booking.customer.phone) {
       await notificationSystem.sendSMS({
         to: booking.customer.phone,
-        message: `✅ Paiement de ${paymentData.amount}€ confirmé ! Votre service du ${paymentData.serviceDate || 'date à définir'} est validé. Facture par email.`
+        message: `✅ Paiement de ${paymentData.amount}€ confirmé ! Votre service du ${paymentData.serviceDate || "date à définir"} est validé. Facture par email.`,
       });
     }
 
     // 4. Génération et envoi de la facture PDF
     try {
-      const documentService = await import('@/documents/application/services/DocumentService');
+      const documentService = await import(
+        "@/documents/application/services/DocumentService"
+      );
       const docService = new documentService.DocumentService();
-      
+
       const invoiceBuffer = await docService.generateDocument({
-        type: 'INVOICE',
+        type: "INVOICE",
         bookingId: booking.id,
         customerEmail: booking.customer.email,
         additionalData: {
@@ -1229,30 +1422,36 @@ async function sendPaymentConfirmationNotifications(booking: any, paymentIntent:
             transactionId: paymentData.transactionId,
             paymentMethod: paymentData.paymentMethod,
             amount: paymentData.amount,
-            paymentDate: paymentData.paymentDate
-          }
-        }
+            paymentDate: paymentData.paymentDate,
+          },
+        },
       });
 
       // Envoyer la facture par email
       await notificationSystem.sendEmail({
         to: booking.customer.email,
         subject: `Facture - ${paymentData.bookingReference}`,
-        text: 'Veuillez trouver en pièce jointe votre facture de paiement.',
-        attachments: [{
-          filename: `facture_${paymentData.bookingReference}.pdf`,
-          content: invoiceBuffer,
-          contentType: 'application/pdf'
-        }]
+        text: "Veuillez trouver en pièce jointe votre facture de paiement.",
+        attachments: [
+          {
+            filename: `facture_${paymentData.bookingReference}.pdf`,
+            content: invoiceBuffer,
+            contentType: "application/pdf",
+          },
+        ],
       });
     } catch (pdfError) {
-      console.warn('⚠️ Erreur génération facture PDF:', pdfError);
+      console.warn("⚠️ Erreur génération facture PDF:", pdfError);
     }
 
-    console.log(`✅ Notifications de confirmation de paiement envoyées pour réservation ${booking.id}`);
-
+    console.log(
+      `✅ Notifications de confirmation de paiement envoyées pour réservation ${booking.id}`,
+    );
   } catch (error) {
-    console.error('❌ Erreur lors de l\'envoi des notifications de paiement:', error);
+    console.error(
+      "❌ Erreur lors de l'envoi des notifications de paiement:",
+      error,
+    );
     throw error;
   }
 }
@@ -1262,12 +1461,18 @@ async function sendPaymentConfirmationNotifications(booking: any, paymentIntent:
  */
 function getPaymentMethodDisplayName(paymentMethod: string): string {
   switch (paymentMethod) {
-    case 'card': return 'Carte bancaire';
-    case 'sepa_debit': return 'Prélèvement SEPA';
-    case 'paypal': return 'PayPal';
-    case 'apple_pay': return 'Apple Pay';
-    case 'google_pay': return 'Google Pay';
-    default: return 'Paiement en ligne';
+    case "card":
+      return "Carte bancaire";
+    case "sepa_debit":
+      return "Prélèvement SEPA";
+    case "paypal":
+      return "PayPal";
+    case "apple_pay":
+      return "Apple Pay";
+    case "google_pay":
+      return "Google Pay";
+    default:
+      return "Paiement en ligne";
   }
 }
 
@@ -1276,9 +1481,12 @@ function getPaymentMethodDisplayName(paymentMethod: string): string {
  */
 function getServiceDisplayName(serviceType: string): string {
   switch (serviceType) {
-    case 'MOVING': return 'Déménagement';
-    case 'MOVING_PREMIUM': return 'Déménagement sur mesure';
-    default: return 'Déménagement';
+    case "MOVING":
+      return "Déménagement";
+    case "MOVING_PREMIUM":
+      return "Déménagement sur mesure";
+    default:
+      return "Déménagement";
   }
 }
 
@@ -1318,14 +1526,16 @@ function buildPaymentRecoveryHtml(data: {
   amount: number;
   retryUrl: string;
   supportUrl: string;
-  reason: 'canceled' | 'expired';
+  reason: "canceled" | "expired";
 }): string {
-  const title = data.reason === 'expired'
-    ? 'Votre session de paiement a expiré'
-    : 'Votre paiement n\'a pas été finalisé';
-  const message = data.reason === 'expired'
-    ? 'Votre session de paiement a expiré avant la finalisation. Votre réservation est toujours disponible.'
-    : 'Votre paiement a été annulé. Votre réservation est toujours disponible si vous souhaitez la reprendre.';
+  const title =
+    data.reason === "expired"
+      ? "Votre session de paiement a expiré"
+      : "Votre paiement n'a pas été finalisé";
+  const message =
+    data.reason === "expired"
+      ? "Votre session de paiement a expiré avant la finalisation. Votre réservation est toujours disponible."
+      : "Votre paiement a été annulé. Votre réservation est toujours disponible si vous souhaitez la reprendre.";
 
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"></head>

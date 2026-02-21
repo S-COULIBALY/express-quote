@@ -20,12 +20,13 @@
  * 4. Délègue la distribution aux services spécialisés selon les destinataires
  */
 
-import { DocumentService } from './DocumentService';
-import { DocumentNotificationService } from './DocumentNotificationService';
-import { DocumentType } from '../../domain/entities/Document';
-import { Booking, BookingType } from '@/quotation/domain/entities/Booking';
-import { InternalStaffNotificationService } from '@/internalStaffNotification/InternalStaffNotificationService';
-import { logger } from '@/lib/logger';
+import { DocumentService } from "./DocumentService";
+import { DocumentNotificationService } from "./DocumentNotificationService";
+import { DocumentType } from "../../domain/entities/Document";
+import { Booking, BookingType } from "@/quotation/domain/entities/Booking";
+import { InternalStaffNotificationService } from "@/internalStaffNotification/InternalStaffNotificationService";
+import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 /**
  * 🎯 ÉVÉNEMENTS DÉCLENCHEURS
@@ -34,15 +35,15 @@ import { logger } from '@/lib/logger';
  * Chaque trigger active des règles spécifiques définies dans defaultRules[].
  */
 export enum DocumentTrigger {
-  QUOTE_CREATED = 'quote_created',           // Création d'un devis
-  QUOTE_ACCEPTED = 'quote_accepted',         // Acceptation du devis par le client
-  PAYMENT_COMPLETED = 'payment_completed',   // ✨ Paiement validé (PDF reçu/facture)
-  BOOKING_CONFIRMED = 'booking_confirmed',   // ✨ Réservation confirmée (PDF devis)
-  BOOKING_SCHEDULED = 'booking_scheduled',   // Planification du service
-  SERVICE_STARTED = 'service_started',       // Début du service
-  SERVICE_COMPLETED = 'service_completed',   // Fin du service
-  BOOKING_CANCELLED = 'booking_cancelled',   // Annulation
-  BOOKING_MODIFIED = 'booking_modified'      // Modification
+  QUOTE_CREATED = "quote_created", // Création d'un devis
+  QUOTE_ACCEPTED = "quote_accepted", // Acceptation du devis par le client
+  PAYMENT_COMPLETED = "payment_completed", // ✨ Paiement validé (PDF reçu/facture)
+  BOOKING_CONFIRMED = "booking_confirmed", // ✨ Réservation confirmée (PDF devis)
+  BOOKING_SCHEDULED = "booking_scheduled", // Planification du service
+  SERVICE_STARTED = "service_started", // Début du service
+  SERVICE_COMPLETED = "service_completed", // Fin du service
+  BOOKING_CANCELLED = "booking_cancelled", // Annulation
+  BOOKING_MODIFIED = "booking_modified", // Modification
 }
 
 /**
@@ -52,13 +53,13 @@ export enum DocumentTrigger {
  * Les règles sont évaluées par ordre de priorité (1 = urgent, 3 = normal).
  */
 interface DocumentRule {
-  trigger: DocumentTrigger;                    // Événement déclencheur
-  documentType: DocumentType;                 // Type de document à générer
-  recipients: DocumentRecipient[];            // Qui doit recevoir le document
+  trigger: DocumentTrigger; // Événement déclencheur
+  documentType: DocumentType; // Type de document à générer
+  recipients: DocumentRecipient[]; // Qui doit recevoir le document
   conditions?: (booking: Booking) => boolean; // Conditions optionnelles (ex: type service)
-  autoGenerate: boolean;                      // Génération automatique activée
-  requiresApproval: boolean;                  // Approbation manuelle requise
-  priority: number;                           // 1 = haute priorité, 3 = basse
+  autoGenerate: boolean; // Génération automatique activée
+  requiresApproval: boolean; // Approbation manuelle requise
+  priority: number; // 1 = haute priorité, 3 = basse
 }
 
 /**
@@ -68,10 +69,10 @@ interface DocumentRule {
  * Chaque type déclenche une logique de distribution spécialisée.
  */
 export enum DocumentRecipient {
-  CUSTOMER = 'customer',        // 🎯 Client final (via DocumentNotificationService)
-  PROFESSIONAL = 'professional', // 👥 Équipe interne + 🚚 Prestataires externes
-  ADMIN = 'admin',              // 🏢 Administration (fallback email)
-  ACCOUNTING = 'accounting'     // 💰 Comptabilité (via équipe interne)
+  CUSTOMER = "customer", // 🎯 Client final (via DocumentNotificationService)
+  PROFESSIONAL = "professional", // 👥 Équipe interne + 🚚 Prestataires externes
+  ADMIN = "admin", // 🏢 Administration (fallback email)
+  ACCOUNTING = "accounting", // 💰 Comptabilité (via équipe interne)
 }
 
 /**
@@ -82,9 +83,9 @@ export enum DocumentRecipient {
  */
 interface DistributionMatrix {
   [key: string]: {
-    recipients: DocumentRecipient[];           // Destinataires par défaut
-    channel: 'email' | 'sms' | 'both';        // Canal de communication
-    attachPdf: boolean;                       // Inclure le PDF en pièce jointe
+    recipients: DocumentRecipient[]; // Destinataires par défaut
+    channel: "email" | "sms" | "both"; // Canal de communication
+    attachPdf: boolean; // Inclure le PDF en pièce jointe
   };
 }
 
@@ -111,7 +112,7 @@ interface DistributionMatrix {
  * - Architecture cohérente avec le système d'attribution
  */
 export class DocumentOrchestrationService {
-  private documentLogger = logger.withContext('DocumentOrchestrator');
+  private documentLogger = logger.withContext("DocumentOrchestrator");
   private documentService: DocumentService;
   private notificationService: DocumentNotificationService;
   private internalStaffNotificationService: InternalStaffNotificationService;
@@ -127,20 +128,20 @@ export class DocumentOrchestrationService {
     {
       trigger: DocumentTrigger.QUOTE_CREATED,
       documentType: DocumentType.QUOTE,
-      recipients: [DocumentRecipient.CUSTOMER],    // → Client uniquement
+      recipients: [DocumentRecipient.CUSTOMER], // → Client uniquement
       autoGenerate: true,
       requiresApproval: false,
-      priority: 2
+      priority: 2,
     },
 
     // 💰 PHASE DE PAIEMENT (documents financiers)
     {
       trigger: DocumentTrigger.PAYMENT_COMPLETED,
       documentType: DocumentType.PAYMENT_RECEIPT,
-      recipients: [DocumentRecipient.CUSTOMER],    // → Reçu pour le client
+      recipients: [DocumentRecipient.CUSTOMER], // → Reçu pour le client
       autoGenerate: true,
       requiresApproval: false,
-      priority: 1
+      priority: 1,
     },
     {
       trigger: DocumentTrigger.PAYMENT_COMPLETED,
@@ -148,17 +149,17 @@ export class DocumentOrchestrationService {
       recipients: [DocumentRecipient.CUSTOMER, DocumentRecipient.ACCOUNTING], // → Facture client + comptabilité
       autoGenerate: true,
       requiresApproval: false,
-      priority: 1
+      priority: 1,
     },
 
     // ✅ PHASE DE CONFIRMATION (devis confirmé)
     {
       trigger: DocumentTrigger.BOOKING_CONFIRMED,
       documentType: DocumentType.QUOTE,
-      recipients: [DocumentRecipient.CUSTOMER],    // → Devis confirmé pour client
+      recipients: [DocumentRecipient.CUSTOMER], // → Devis confirmé pour client
       autoGenerate: true,
       requiresApproval: false,
-      priority: 1
+      priority: 1,
     },
     {
       trigger: DocumentTrigger.BOOKING_CONFIRMED,
@@ -166,7 +167,7 @@ export class DocumentOrchestrationService {
       recipients: [DocumentRecipient.PROFESSIONAL], // → Devis pour équipe interne
       autoGenerate: true,
       requiresApproval: false,
-      priority: 1
+      priority: 1,
     },
 
     // Phase logistique (déménagement uniquement)
@@ -177,7 +178,7 @@ export class DocumentOrchestrationService {
       conditions: (booking) => booking.getType() === BookingType.MOVING_QUOTE,
       autoGenerate: true,
       requiresApproval: false,
-      priority: 2
+      priority: 2,
     },
     {
       trigger: DocumentTrigger.SERVICE_STARTED,
@@ -186,7 +187,7 @@ export class DocumentOrchestrationService {
       conditions: (booking) => booking.getType() === BookingType.MOVING_QUOTE,
       autoGenerate: true,
       requiresApproval: false,
-      priority: 3
+      priority: 3,
     },
 
     // Documents administratifs
@@ -196,7 +197,7 @@ export class DocumentOrchestrationService {
       recipients: [DocumentRecipient.CUSTOMER, DocumentRecipient.PROFESSIONAL],
       autoGenerate: true,
       requiresApproval: false,
-      priority: 1
+      priority: 1,
     },
     {
       trigger: DocumentTrigger.BOOKING_MODIFIED,
@@ -204,63 +205,66 @@ export class DocumentOrchestrationService {
       recipients: [DocumentRecipient.CUSTOMER],
       autoGenerate: false, // Génération manuelle pour éviter le spam
       requiresApproval: true,
-      priority: 2
-    }
+      priority: 2,
+    },
   ];
 
   // Matrice de distribution par type de document
   private distributionMatrix: DistributionMatrix = {
     [DocumentType.QUOTE]: {
       recipients: [DocumentRecipient.CUSTOMER],
-      channel: 'email',
-      attachPdf: true
+      channel: "email",
+      attachPdf: true,
     },
     [DocumentType.PAYMENT_RECEIPT]: {
       recipients: [DocumentRecipient.CUSTOMER],
-      channel: 'both',
-      attachPdf: true
+      channel: "both",
+      attachPdf: true,
     },
     [DocumentType.INVOICE]: {
       recipients: [DocumentRecipient.CUSTOMER, DocumentRecipient.ACCOUNTING],
-      channel: 'email',
-      attachPdf: true
+      channel: "email",
+      attachPdf: true,
     },
     [DocumentType.BOOKING_CONFIRMATION]: {
       recipients: [DocumentRecipient.CUSTOMER],
-      channel: 'both',
-      attachPdf: true
+      channel: "both",
+      attachPdf: true,
     },
     [DocumentType.CONTRACT]: {
       recipients: [DocumentRecipient.CUSTOMER, DocumentRecipient.PROFESSIONAL],
-      channel: 'email',
-      attachPdf: true
+      channel: "email",
+      attachPdf: true,
     },
     [DocumentType.DELIVERY_NOTE]: {
       recipients: [DocumentRecipient.PROFESSIONAL, DocumentRecipient.CUSTOMER],
-      channel: 'email',
-      attachPdf: true
+      channel: "email",
+      attachPdf: true,
     },
     [DocumentType.TRANSPORT_MANIFEST]: {
       recipients: [DocumentRecipient.PROFESSIONAL],
-      channel: 'email',
-      attachPdf: true
+      channel: "email",
+      attachPdf: true,
     },
     [DocumentType.CANCELLATION_NOTICE]: {
       recipients: [DocumentRecipient.CUSTOMER, DocumentRecipient.PROFESSIONAL],
-      channel: 'both',
-      attachPdf: true
+      channel: "both",
+      attachPdf: true,
     },
     [DocumentType.MODIFICATION_NOTICE]: {
       recipients: [DocumentRecipient.CUSTOMER],
-      channel: 'email',
-      attachPdf: true
-    }
+      channel: "email",
+      attachPdf: true,
+    },
   };
 
   constructor(documentService?: DocumentService) {
     this.documentService = documentService || new DocumentService();
-    this.notificationService = new DocumentNotificationService(this.documentService);
-    this.internalStaffNotificationService = new InternalStaffNotificationService();
+    this.notificationService = new DocumentNotificationService(
+      this.documentService,
+    );
+    this.internalStaffNotificationService =
+      new InternalStaffNotificationService();
   }
 
   /**
@@ -284,30 +288,35 @@ export class DocumentOrchestrationService {
     trigger: DocumentTrigger,
     booking: Booking,
     options?: {
-      forceGeneration?: boolean;    // Force la génération même si autoGenerate = false
-      skipApproval?: boolean;       // Ignore le système d'approbation
-      customOptions?: any;          // Options personnalisées pour génération
-    }
-  ): Promise<Array<{
-    documentType: DocumentType;
-    success: boolean;
-    documentId?: string;
-    error?: string;
-  }>> {
-    this.documentLogger.info('🎯 Traitement du déclencheur de document', {
+      forceGeneration?: boolean; // Force la génération même si autoGenerate = false
+      skipApproval?: boolean; // Ignore le système d'approbation
+      customOptions?: any; // Options personnalisées pour génération
+    },
+  ): Promise<
+    Array<{
+      documentType: DocumentType;
+      success: boolean;
+      documentId?: string;
+      error?: string;
+    }>
+  > {
+    this.documentLogger.info("🎯 Traitement du déclencheur de document", {
       trigger,
       bookingId: booking.getId(),
       bookingType: booking.getType(),
-      options
+      options,
     });
 
     // 📋 ÉTAPE 1: Sélection des règles applicables
     const applicableRules = this.getApplicableRules(trigger, booking);
     const results = [];
 
-    this.documentLogger.info('📋 Règles applicables trouvées', {
+    this.documentLogger.info("📋 Règles applicables trouvées", {
       rulesCount: applicableRules.length,
-      rules: applicableRules.map(r => ({ type: r.documentType, recipients: r.recipients }))
+      rules: applicableRules.map((r) => ({
+        type: r.documentType,
+        recipients: r.recipients,
+      })),
     });
 
     // 🔄 ÉTAPE 2: Traitement de chaque règle
@@ -315,84 +324,89 @@ export class DocumentOrchestrationService {
       try {
         // 🔍 Validation : Génération automatique
         if (!rule.autoGenerate && !options?.forceGeneration) {
-          this.documentLogger.info('📋 Génération automatique désactivée', {
+          this.documentLogger.info("📋 Génération automatique désactivée", {
             documentType: rule.documentType,
-            trigger
+            trigger,
           });
           continue;
         }
 
         // 🔍 Validation : Système d'approbation
         if (rule.requiresApproval && !options?.skipApproval) {
-          this.documentLogger.info('⏳ Document en attente d\'approbation', {
+          this.documentLogger.info("⏳ Document en attente d'approbation", {
             documentType: rule.documentType,
-            trigger
+            trigger,
           });
           // TODO: Implémenter le système d'approbation avec workflow
           continue;
         }
 
         // 📄 ÉTAPE 3: Génération du document
-        this.documentLogger.info('📄 Génération document', {
+        this.documentLogger.info("📄 Génération document", {
           documentType: rule.documentType,
-          trigger
+          trigger,
         });
 
         const result = await this.generateDocument(rule.documentType, booking, {
           ...(options?.customOptions || {}),
-          trigger: trigger
+          trigger: trigger,
         });
 
         if (result.success) {
           // 📡 ÉTAPE 4: Distribution aux destinataires
-          this.documentLogger.info('📡 Distribution aux destinataires', {
+          this.documentLogger.info("📡 Distribution aux destinataires", {
             documentType: rule.documentType,
             recipients: rule.recipients,
-            documentId: result.document!.getId()
+            documentId: result.document!.getId(),
           });
 
           await this.distributeDocumentWithNotification(
             result.document!,
             booking,
             rule.recipients,
-            trigger
+            trigger,
           );
 
           results.push({
             documentType: rule.documentType,
             success: true,
-            documentId: result.document!.getId()
+            documentId: result.document!.getId(),
           });
 
-          this.documentLogger.info('✅ Document généré et distribué avec succès', {
-            documentType: rule.documentType,
-            documentId: result.document!.getId(),
-            recipients: rule.recipients
-          });
+          this.documentLogger.info(
+            "✅ Document généré et distribué avec succès",
+            {
+              documentType: rule.documentType,
+              documentId: result.document!.getId(),
+              recipients: rule.recipients,
+            },
+          );
         } else {
           results.push({
             documentType: rule.documentType,
             success: false,
-            error: result.error
+            error: result.error,
           });
 
-          this.documentLogger.error('❌ Erreur lors de la génération de document', {
-            documentType: rule.documentType,
-            error: result.error
-          });
+          this.documentLogger.error(
+            "❌ Erreur lors de la génération de document",
+            {
+              documentType: rule.documentType,
+              error: result.error,
+            },
+          );
         }
-
       } catch (error) {
         results.push({
           documentType: rule.documentType,
           success: false,
-          error: error instanceof Error ? error.message : 'Erreur inconnue'
+          error: error instanceof Error ? error.message : "Erreur inconnue",
         });
 
-        this.documentLogger.error('❌ Erreur lors du traitement de la règle', {
+        this.documentLogger.error("❌ Erreur lors du traitement de la règle", {
           documentType: rule.documentType,
           trigger,
-          error
+          error,
         });
       }
     }
@@ -413,12 +427,12 @@ export class DocumentOrchestrationService {
   async generateDocumentManually(
     documentType: DocumentType,
     booking: Booking,
-    options?: any
+    options?: any,
   ) {
-    this.documentLogger.info('📝 Génération manuelle de document', {
+    this.documentLogger.info("📝 Génération manuelle de document", {
       documentType,
       bookingId: booking.getId(),
-      options
+      options,
     });
 
     const result = await this.generateDocument(documentType, booking, options);
@@ -430,7 +444,7 @@ export class DocumentOrchestrationService {
         await this.distributeDocument(
           result.document!,
           booking,
-          distributionConfig.recipients
+          distributionConfig.recipients,
         );
       }
     }
@@ -452,11 +466,14 @@ export class DocumentOrchestrationService {
    * @param booking - Réservation pour évaluation des conditions
    * @returns Règles applicables triées par priorité
    */
-  private getApplicableRules(trigger: DocumentTrigger, booking: Booking): DocumentRule[] {
+  private getApplicableRules(
+    trigger: DocumentTrigger,
+    booking: Booking,
+  ): DocumentRule[] {
     const applicableRules = this.defaultRules
-      .filter(rule => rule.trigger === trigger)                    // Filtre par trigger
-      .filter(rule => !rule.conditions || rule.conditions(booking)) // Évalue les conditions
-      .sort((a, b) => a.priority - b.priority);                    // Trie par priorité (1 = haute)
+      .filter((rule) => rule.trigger === trigger) // Filtre par trigger
+      .filter((rule) => !rule.conditions || rule.conditions(booking)) // Évalue les conditions
+      .sort((a, b) => a.priority - b.priority); // Trie par priorité (1 = haute)
 
     return applicableRules;
   }
@@ -467,12 +484,12 @@ export class DocumentOrchestrationService {
   private async generateDocument(
     documentType: DocumentType,
     booking: Booking,
-    options?: any
+    options?: any,
   ) {
     return await this.documentService.generateDocument({
       type: documentType,
       booking,
-      options: options || {}
+      options: options || {},
     });
   }
 
@@ -483,13 +500,13 @@ export class DocumentOrchestrationService {
     document: any,
     booking: Booking,
     recipients: DocumentRecipient[],
-    trigger: DocumentTrigger
+    trigger: DocumentTrigger,
   ): Promise<void> {
-    this.documentLogger.info('📤 Distribution du document avec notifications', {
+    this.documentLogger.info("📤 Distribution du document avec notifications", {
       documentId: document.getId(),
       documentType: document.getType(),
       recipients,
-      trigger
+      trigger,
     });
 
     for (const recipient of recipients) {
@@ -505,15 +522,23 @@ export class DocumentOrchestrationService {
 
           case DocumentRecipient.ADMIN:
           case DocumentRecipient.ACCOUNTING:
-            await this.sendToAdministration(document, booking, recipient, trigger);
+            await this.sendToAdministration(
+              document,
+              booking,
+              recipient,
+              trigger,
+            );
             break;
         }
       } catch (error) {
-        this.documentLogger.error('❌ Erreur lors de l\'envoi à un destinataire', {
-          recipient,
-          documentId: document.getId(),
-          error
-        });
+        this.documentLogger.error(
+          "❌ Erreur lors de l'envoi à un destinataire",
+          {
+            recipient,
+            documentId: document.getId(),
+            error,
+          },
+        );
         // Continue avec les autres destinataires
       }
     }
@@ -529,16 +554,22 @@ export class DocumentOrchestrationService {
    * @param booking - Réservation
    * @param trigger - Événement pour contexte
    */
-  private async sendToCustomer(document: any, booking: Booking, trigger: DocumentTrigger): Promise<void> {
+  private async sendToCustomer(
+    document: any,
+    booking: Booking,
+    trigger: DocumentTrigger,
+  ): Promise<void> {
     const customer = booking.getCustomer();
     if (!customer) {
-      this.documentLogger.warn('⚠️ Aucun client trouvé pour l\'envoi de document');
+      this.documentLogger.warn(
+        "⚠️ Aucun client trouvé pour l'envoi de document",
+      );
       return;
     }
 
-    this.documentLogger.info('📧 Envoi de document au client', {
+    this.documentLogger.info("📧 Envoi de document au client", {
       customerEmail: customer.getContactInfo().getEmail(),
-      documentType: document.getType()
+      documentType: document.getType(),
     });
 
     await this.notificationService.sendDocumentGenerationNotification(
@@ -547,8 +578,8 @@ export class DocumentOrchestrationService {
       [document],
       {
         trigger: trigger,
-        reason: `Document ${document.getType()} généré suite à: ${trigger}`
-      }
+        reason: `Document ${document.getType()} généré suite à: ${trigger}`,
+      },
     );
   }
 
@@ -573,42 +604,57 @@ export class DocumentOrchestrationService {
    * @param booking - Réservation
    * @param trigger - Événement déclencheur
    */
-  private async sendToProfessional(document: any, booking: Booking, trigger: DocumentTrigger): Promise<void> {
+  private async sendToProfessional(
+    document: any,
+    booking: Booking,
+    trigger: DocumentTrigger,
+  ): Promise<void> {
     try {
       // 👥 PARTIE 1: ÉQUIPE INTERNE (données complètes)
-      this.documentLogger.info('👥 Envoi aux responsables internes via service spécialisé', {
-        trigger: trigger.toString()
-      });
+      this.documentLogger.info(
+        "👥 Envoi aux responsables internes via service spécialisé",
+        {
+          trigger: trigger.toString(),
+        },
+      );
 
       await this.internalStaffNotificationService.sendInternalStaffNotifications(
         booking,
         trigger.toString(),
         {
           // Context riche selon le trigger
-          confirmationDate: trigger === DocumentTrigger.BOOKING_CONFIRMED ? new Date() : undefined,
-          paymentDate: trigger === DocumentTrigger.PAYMENT_COMPLETED ? new Date() : undefined
-        }
+          confirmationDate:
+            trigger === DocumentTrigger.BOOKING_CONFIRMED
+              ? new Date()
+              : undefined,
+          paymentDate:
+            trigger === DocumentTrigger.PAYMENT_COMPLETED
+              ? new Date()
+              : undefined,
+        },
       );
 
       // 🚚 PARTIE 2: PRESTATAIRES EXTERNES (données restreintes si attribution active)
-      this.documentLogger.info('🚚 Vérification prestataires externes', {
-        trigger: trigger.toString()
+      this.documentLogger.info("🚚 Vérification prestataires externes", {
+        trigger: trigger.toString(),
       });
 
       await this.sendToExternalProfessionals(document, booking, trigger);
 
-      this.documentLogger.info('✅ Distribution professionnelle terminée', {
+      this.documentLogger.info("✅ Distribution professionnelle terminée", {
         bookingId: booking.getId(),
-        trigger: trigger.toString()
-      });
-
-    } catch (error) {
-      this.documentLogger.error('❌ Erreur lors de l\'envoi aux professionnels', {
-        bookingType: booking.getType(),
-        documentType: document.getType(),
         trigger: trigger.toString(),
-        error
       });
+    } catch (error) {
+      this.documentLogger.error(
+        "❌ Erreur lors de l'envoi aux professionnels",
+        {
+          bookingType: booking.getType(),
+          documentType: document.getType(),
+          trigger: trigger.toString(),
+          error,
+        },
+      );
     }
   }
 
@@ -630,37 +676,39 @@ export class DocumentOrchestrationService {
    * @param booking - Réservation concernée
    * @param trigger - Événement déclencheur
    */
-  private async sendToExternalProfessionals(document: any, booking: Booking, trigger: DocumentTrigger): Promise<void> {
+  private async sendToExternalProfessionals(
+    document: any,
+    booking: Booking,
+    trigger: DocumentTrigger,
+  ): Promise<void> {
     try {
       // Récupérer les attributions actives pour cette réservation
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-
       const activeAttributions = await prisma.booking_attributions.findMany({
         where: {
           booking_id: booking.getId(),
           status: {
-            in: ['BROADCASTING', 'PENDING_RESPONSE', 'ACCEPTED']
-          }
+            in: ["BROADCASTING", "PENDING_RESPONSE", "ACCEPTED"],
+          },
         },
         include: {
           responses: {
             where: {
-              responseType: 'ACCEPTED'
+              responseType: "ACCEPTED",
             },
             include: {
-              professional: true
-            }
-          }
-        }
+              professional: true,
+            },
+          },
+        },
       });
 
-      await prisma.$disconnect();
-
       if (activeAttributions.length === 0) {
-        this.documentLogger.info('ℹ️ Aucune attribution active trouvée pour envoi aux professionnels externes', {
-          bookingId: booking.getId()
-        });
+        this.documentLogger.info(
+          "ℹ️ Aucune attribution active trouvée pour envoi aux professionnels externes",
+          {
+            bookingId: booking.getId(),
+          },
+        );
         return;
       }
 
@@ -674,22 +722,32 @@ export class DocumentOrchestrationService {
               booking,
               response.professional,
               attribution,
-              trigger
+              trigger,
             );
           }
         }
 
         // Si attribution en cours de diffusion, envoyer aux professionnels éligibles
-        if (attribution.status === 'BROADCASTING' && this.shouldSendToAll(trigger)) {
-          await this.sendToAllEligibleProfessionals(document, booking, attribution, trigger);
+        if (
+          attribution.status === "BROADCASTING" &&
+          this.shouldSendToAll(trigger)
+        ) {
+          await this.sendToAllEligibleProfessionals(
+            document,
+            booking,
+            attribution,
+            trigger,
+          );
         }
       }
-
     } catch (error) {
-      this.documentLogger.error('❌ Erreur lors de l\'envoi aux professionnels externes', {
-        bookingId: booking.getId(),
-        error
-      });
+      this.documentLogger.error(
+        "❌ Erreur lors de l'envoi aux professionnels externes",
+        {
+          bookingId: booking.getId(),
+          error,
+        },
+      );
     }
   }
 
@@ -701,24 +759,27 @@ export class DocumentOrchestrationService {
     booking: Booking,
     professional: any,
     attribution: any,
-    trigger: DocumentTrigger
+    trigger: DocumentTrigger,
   ): Promise<void> {
     try {
-      this.documentLogger.info('📧 Envoi de document à un professionnel EXTERNE', {
-        professionalId: professional.id,
-        companyName: professional.companyName,
-        email: professional.email.replace(/(.{3}).*(@.*)/, '$1***$2'),
-        documentType: document.getType()
-      });
+      this.documentLogger.info(
+        "📧 Envoi de document à un professionnel EXTERNE",
+        {
+          professionalId: professional.id,
+          companyName: professional.companyName,
+          email: professional.email.replace(/(.{3}).*(@.*)/, "$1***$2"),
+          documentType: document.getType(),
+        },
+      );
 
       // Préparer les données pour l'API externe
       const customer = booking.getCustomer();
       const attachmentData = {
         filename: `${document.getType().toLowerCase()}_${booking.getId().slice(-8)}.pdf`,
-        content: document.getContent().toString('base64'),
-        mimeType: 'application/pdf',
+        content: document.getContent().toString("base64"),
+        mimeType: "application/pdf",
         documentId: document.getId(),
-        documentType: document.getType()
+        documentType: document.getType(),
       };
 
       const attributionData = {
@@ -739,9 +800,11 @@ export class DocumentOrchestrationService {
         customerPhone: customer.getPhone(),
 
         // Détails mission (à adapter selon les données disponibles)
-        serviceDate: booking.getScheduledDate()?.toISOString().split('T')[0] || 'À planifier',
-        serviceTime: '09:00', // Par défaut
-        pickupAddress: 'Voir détails dans les documents',
+        serviceDate:
+          booking.getScheduledDate()?.toISOString().split("T")[0] ||
+          "À planifier",
+        serviceTime: "09:00", // Par défaut
+        pickupAddress: "Voir détails dans les documents",
 
         // Attribution
         attributionId: attribution.id,
@@ -751,22 +814,27 @@ export class DocumentOrchestrationService {
 
         // Documents
         attachments: [attachmentData],
-        attachedDocuments: [{
-          type: document.getType(),
-          filename: attachmentData.filename,
-          size: document.getContent().length
-        }]
+        attachedDocuments: [
+          {
+            type: document.getType(),
+            filename: attachmentData.filename,
+            size: document.getContent().length,
+          },
+        ],
       };
 
       // Appeler l'API d'attribution externe
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notifications/business/external-professional-attribution`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DocumentOrchestrationService/1.0'
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL}/api/notifications/business/external-professional-attribution`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "DocumentOrchestrationService/1.0",
+          },
+          body: JSON.stringify(attributionData),
         },
-        body: JSON.stringify(attributionData)
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${await response.text()}`);
@@ -774,17 +842,19 @@ export class DocumentOrchestrationService {
 
       const result = await response.json();
 
-      this.documentLogger.info('✅ Document envoyé au professionnel externe', {
+      this.documentLogger.info("✅ Document envoyé au professionnel externe", {
         professionalId: professional.id,
         messageId: result.messageId,
-        success: result.success
+        success: result.success,
       });
-
     } catch (error) {
-      this.documentLogger.error('❌ Erreur envoi document professionnel externe', {
-        professionalId: professional.id,
-        error
-      });
+      this.documentLogger.error(
+        "❌ Erreur envoi document professionnel externe",
+        {
+          professionalId: professional.id,
+          error,
+        },
+      );
     }
   }
 
@@ -796,7 +866,7 @@ export class DocumentOrchestrationService {
     return [
       DocumentTrigger.BOOKING_CONFIRMED,
       DocumentTrigger.PAYMENT_COMPLETED,
-      DocumentTrigger.SERVICE_STARTED
+      DocumentTrigger.SERVICE_STARTED,
     ].includes(trigger);
   }
 
@@ -807,42 +877,49 @@ export class DocumentOrchestrationService {
     document: any,
     booking: Booking,
     attribution: any,
-    trigger: DocumentTrigger
+    trigger: DocumentTrigger,
   ): Promise<void> {
     try {
       // Cette fonctionnalité nécessiterait l'intégration avec AttributionService
       // Pour l'instant, on log seulement
-      this.documentLogger.info('📡 Envoi de document à tous les professionnels éligibles', {
-        attributionId: attribution.id,
-        documentType: document.getType(),
-        trigger,
-        note: 'Fonctionnalité à implémenter avec AttributionService'
-      });
-
+      this.documentLogger.info(
+        "📡 Envoi de document à tous les professionnels éligibles",
+        {
+          attributionId: attribution.id,
+          documentType: document.getType(),
+          trigger,
+          note: "Fonctionnalité à implémenter avec AttributionService",
+        },
+      );
     } catch (error) {
-      this.documentLogger.error('❌ Erreur envoi global professionnels externes', {
-        error
-      });
+      this.documentLogger.error(
+        "❌ Erreur envoi global professionnels externes",
+        {
+          error,
+        },
+      );
     }
   }
 
   /**
    * Détermine la priorité selon le trigger
    */
-  private getPriorityFromTrigger(trigger: DocumentTrigger): 'normal' | 'high' | 'urgent' {
+  private getPriorityFromTrigger(
+    trigger: DocumentTrigger,
+  ): "normal" | "high" | "urgent" {
     const urgentTriggers = [
       DocumentTrigger.PAYMENT_COMPLETED,
-      DocumentTrigger.SERVICE_STARTED
+      DocumentTrigger.SERVICE_STARTED,
     ];
 
     const highTriggers = [
       DocumentTrigger.BOOKING_CONFIRMED,
-      DocumentTrigger.BOOKING_SCHEDULED
+      DocumentTrigger.BOOKING_SCHEDULED,
     ];
 
-    if (urgentTriggers.includes(trigger)) return 'urgent';
-    if (highTriggers.includes(trigger)) return 'high';
-    return 'normal';
+    if (urgentTriggers.includes(trigger)) return "urgent";
+    if (highTriggers.includes(trigger)) return "high";
+    return "normal";
   }
 
   /**
@@ -866,15 +943,18 @@ export class DocumentOrchestrationService {
     document: any,
     booking: Booking,
     recipient: DocumentRecipient,
-    trigger: DocumentTrigger
+    trigger: DocumentTrigger,
   ): Promise<void> {
     try {
       if (recipient === DocumentRecipient.ACCOUNTING) {
         // 💰 COMPTABILITÉ → Service équipe interne (architecture unifiée)
-        this.documentLogger.info('💰 Notification comptabilité via service équipe interne', {
-          documentType: document.getType(),
-          trigger: trigger.toString()
-        });
+        this.documentLogger.info(
+          "💰 Notification comptabilité via service équipe interne",
+          {
+            documentType: document.getType(),
+            trigger: trigger.toString(),
+          },
+        );
 
         // La comptabilité fait partie de l'équipe interne, utiliser le service unifié
         // qui sélectionnera automatiquement les membres avec rôle ACCOUNTING
@@ -882,38 +962,48 @@ export class DocumentOrchestrationService {
           booking,
           trigger.toString(),
           {
-            paymentDate: trigger === DocumentTrigger.PAYMENT_COMPLETED ? new Date() : undefined
-          }
+            paymentDate:
+              trigger === DocumentTrigger.PAYMENT_COMPLETED
+                ? new Date()
+                : undefined,
+          },
         );
 
-        this.documentLogger.info('✅ Notification comptabilité déléguée avec succès', {
-          documentType: document.getType(),
-          trigger: trigger.toString()
-        });
-
+        this.documentLogger.info(
+          "✅ Notification comptabilité déléguée avec succès",
+          {
+            documentType: document.getType(),
+            trigger: trigger.toString(),
+          },
+        );
       } else {
         // 🏢 ADMIN → Fallback email d'administration (configuration environnement)
         const adminEmail = process.env.ADMIN_EMAIL;
 
         if (!adminEmail) {
-          this.documentLogger.warn('⚠️ ADMIN_EMAIL non configuré dans les variables d\'environnement');
+          this.documentLogger.warn(
+            "⚠️ ADMIN_EMAIL non configuré dans les variables d'environnement",
+          );
           return;
         }
 
-        this.documentLogger.info('🏢 Envoi document admin via fallback email', {
-          adminEmail: adminEmail.replace(/(.{3}).*(@.*)/, '$1***$2'),
-          documentType: document.getType()
+        this.documentLogger.info("🏢 Envoi document admin via fallback email", {
+          adminEmail: adminEmail.replace(/(.{3}).*(@.*)/, "$1***$2"),
+          documentType: document.getType(),
         });
 
         // TODO: Implémenter l'envoi direct via service email avec template admin
         // await this.sendDirectAdminEmail(adminEmail, document, booking, trigger);
       }
     } catch (error) {
-      this.documentLogger.error('❌ Erreur lors de l\'envoi à l\'administration', {
-        recipient,
-        documentType: document.getType(),
-        error
-      });
+      this.documentLogger.error(
+        "❌ Erreur lors de l'envoi à l'administration",
+        {
+          recipient,
+          documentType: document.getType(),
+          error,
+        },
+      );
     }
   }
 
@@ -928,9 +1018,9 @@ export class DocumentOrchestrationService {
   public configureCustomRules(customRules: DocumentRule[]): void {
     // Fusionner avec les règles par défaut
     this.defaultRules = [...this.defaultRules, ...customRules];
-    this.documentLogger.info('⚙️ Règles personnalisées configurées', {
+    this.documentLogger.info("⚙️ Règles personnalisées configurées", {
       totalRules: this.defaultRules.length,
-      customRulesAdded: customRules.length
+      customRulesAdded: customRules.length,
     });
   }
 

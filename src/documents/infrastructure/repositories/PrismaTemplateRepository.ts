@@ -4,16 +4,19 @@
  * Phase 4: Templates avancés et personnalisation
  */
 
-import { PrismaClient } from '@prisma/client';
-import { Template } from '../../domain/entities/Template';
-import { ITemplateRepository, TemplateSearchCriteria } from '../../domain/repositories/ITemplateRepository';
-import { logger } from '@/lib/logger';
+import { Template } from "../../domain/entities/Template";
+import {
+  ITemplateRepository,
+  TemplateSearchCriteria,
+} from "../../domain/repositories/ITemplateRepository";
+import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 export class PrismaTemplateRepository implements ITemplateRepository {
   private prisma: PrismaClient;
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = prisma;
   }
 
   async save(template: Template): Promise<Template> {
@@ -34,14 +37,16 @@ export class PrismaTemplateRepository implements ITemplateRepository {
           updatedAt: template.updatedAt,
           createdBy: template.createdBy,
           tags: JSON.stringify(template.tags),
-          metadata: JSON.stringify(template.metadata)
-        }
+          metadata: JSON.stringify(template.metadata),
+        },
       });
 
       return this.mapPrismaToTemplate(savedTemplate);
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la sauvegarde du template', error as Error);
+      logger.error(
+        "❌ Erreur lors de la sauvegarde du template",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -49,13 +54,15 @@ export class PrismaTemplateRepository implements ITemplateRepository {
   async findById(id: string): Promise<Template | null> {
     try {
       const template = await this.prisma.documentTemplate.findUnique({
-        where: { id }
+        where: { id },
       });
 
       return template ? this.mapPrismaToTemplate(template) : null;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la recherche du template par ID', error as Error);
+      logger.error(
+        "❌ Erreur lors de la recherche du template par ID",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -83,15 +90,15 @@ export class PrismaTemplateRepository implements ITemplateRepository {
       if (criteria.nameContains) {
         where.name = {
           contains: criteria.nameContains,
-          mode: 'insensitive'
+          mode: "insensitive",
         };
       }
 
       // Pour les tags, on utilise une requête JSON
       if (criteria.tags && criteria.tags.length > 0) {
         where.tags = {
-          path: '$',
-          string_contains: criteria.tags[0] // Simplifié pour l'exemple
+          path: "$",
+          string_contains: criteria.tags[0], // Simplifié pour l'exemple
         };
       }
 
@@ -99,33 +106,41 @@ export class PrismaTemplateRepository implements ITemplateRepository {
         where,
         take: criteria.limit,
         skip: criteria.offset,
-        orderBy: criteria.sortBy ? {
-          [criteria.sortBy]: criteria.sortOrder || 'asc'
-        } : undefined
+        orderBy: criteria.sortBy
+          ? {
+              [criteria.sortBy]: criteria.sortOrder || "asc",
+            }
+          : undefined,
       });
 
-      return templates.map(template => this.mapPrismaToTemplate(template));
-
+      return templates.map((template) => this.mapPrismaToTemplate(template));
     } catch (error) {
-      logger.error('❌ Erreur lors de la recherche des templates', error as Error);
+      logger.error(
+        "❌ Erreur lors de la recherche des templates",
+        error as Error,
+      );
       throw error;
     }
   }
 
-  async findDefaultByDocumentType(documentType: string): Promise<Template | null> {
+  async findDefaultByDocumentType(
+    documentType: string,
+  ): Promise<Template | null> {
     try {
       const template = await this.prisma.documentTemplate.findFirst({
         where: {
           documentType,
           isDefault: true,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
 
       return template ? this.mapPrismaToTemplate(template) : null;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la recherche du template par défaut', error as Error);
+      logger.error(
+        "❌ Erreur lors de la recherche du template par défaut",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -145,14 +160,16 @@ export class PrismaTemplateRepository implements ITemplateRepository {
           version: template.version,
           updatedAt: new Date(),
           tags: JSON.stringify(template.tags),
-          metadata: JSON.stringify(template.metadata)
-        }
+          metadata: JSON.stringify(template.metadata),
+        },
       });
 
       return this.mapPrismaToTemplate(updatedTemplate);
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la mise à jour du template', error as Error);
+      logger.error(
+        "❌ Erreur lors de la mise à jour du template",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -160,13 +177,15 @@ export class PrismaTemplateRepository implements ITemplateRepository {
   async delete(id: string): Promise<boolean> {
     try {
       await this.prisma.documentTemplate.delete({
-        where: { id }
+        where: { id },
       });
 
       return true;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la suppression du template', error as Error);
+      logger.error(
+        "❌ Erreur lors de la suppression du template",
+        error as Error,
+      );
       return false;
     }
   }
@@ -180,9 +199,8 @@ export class PrismaTemplateRepository implements ITemplateRepository {
 
       const clonedTemplate = originalTemplate.clone(newName);
       return await this.save(clonedTemplate);
-
     } catch (error) {
-      logger.error('❌ Erreur lors du clonage du template', error as Error);
+      logger.error("❌ Erreur lors du clonage du template", error as Error);
       throw error;
     }
   }
@@ -201,12 +219,12 @@ export class PrismaTemplateRepository implements ITemplateRepository {
         await prisma.documentTemplate.updateMany({
           where: {
             documentType: template.documentType,
-            isDefault: true
+            isDefault: true,
           },
           data: {
             isDefault: false,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
 
         // Activer le nouveau template par défaut
@@ -214,15 +232,17 @@ export class PrismaTemplateRepository implements ITemplateRepository {
           where: { id },
           data: {
             isDefault: true,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
       });
 
       return true;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la définition du template par défaut', error as Error);
+      logger.error(
+        "❌ Erreur lors de la définition du template par défaut",
+        error as Error,
+      );
       return false;
     }
   }
@@ -233,14 +253,16 @@ export class PrismaTemplateRepository implements ITemplateRepository {
         where: { id },
         data: {
           isActive,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       return true;
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la modification du statut', error as Error);
+      logger.error(
+        "❌ Erreur lors de la modification du statut",
+        error as Error,
+      );
       return false;
     }
   }
@@ -268,15 +290,14 @@ export class PrismaTemplateRepository implements ITemplateRepository {
       if (criteria.nameContains) {
         where.name = {
           contains: criteria.nameContains,
-          mode: 'insensitive'
+          mode: "insensitive",
         };
       }
 
       const count = await this.prisma.documentTemplate.count({ where });
       return count;
-
     } catch (error) {
-      logger.error('❌ Erreur lors du comptage des templates', error as Error);
+      logger.error("❌ Erreur lors du comptage des templates", error as Error);
       throw error;
     }
   }
@@ -285,13 +306,15 @@ export class PrismaTemplateRepository implements ITemplateRepository {
     try {
       const result = await this.prisma.documentTemplate.findMany({
         select: { documentType: true },
-        distinct: ['documentType']
+        distinct: ["documentType"],
       });
 
-      return result.map(r => r.documentType);
-
+      return result.map((r) => r.documentType);
     } catch (error) {
-      logger.error('❌ Erreur lors de la récupération des types de documents', error as Error);
+      logger.error(
+        "❌ Erreur lors de la récupération des types de documents",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -300,22 +323,24 @@ export class PrismaTemplateRepository implements ITemplateRepository {
     try {
       // Récupérer tous les templates et extraire les tags
       const templates = await this.prisma.documentTemplate.findMany({
-        select: { tags: true }
+        select: { tags: true },
       });
 
       const allTags = new Set<string>();
 
-      templates.forEach(template => {
+      templates.forEach((template) => {
         if (template.tags) {
           const tags = JSON.parse(template.tags as string) as string[];
-          tags.forEach(tag => allTags.add(tag));
+          tags.forEach((tag) => allTags.add(tag));
         }
       });
 
       return Array.from(allTags).sort();
-
     } catch (error) {
-      logger.error('❌ Erreur lors de la récupération des tags', error as Error);
+      logger.error(
+        "❌ Erreur lors de la récupération des tags",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -338,8 +363,8 @@ export class PrismaTemplateRepository implements ITemplateRepository {
       prismaTemplate.createdAt,
       prismaTemplate.updatedAt,
       prismaTemplate.createdBy,
-      JSON.parse(prismaTemplate.tags || '[]'),
-      JSON.parse(prismaTemplate.metadata || '{}')
+      JSON.parse(prismaTemplate.tags || "[]"),
+      JSON.parse(prismaTemplate.metadata || "{}"),
     );
   }
 }
