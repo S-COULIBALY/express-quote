@@ -168,6 +168,14 @@ export default function Navbar() {
               </NavLink>
 
               <NavLink
+                href="/faq"
+                isActive={isActive("/faq")}
+                onClick={closeMobileMenu}
+              >
+                FAQ
+              </NavLink>
+
+              <NavLink
                 href="/a-propos"
                 isActive={isActive("/a-propos")}
                 onClick={closeMobileMenu}
@@ -277,6 +285,13 @@ export default function Navbar() {
             onClick={closeMobileMenu}
           >
             Réservations
+          </NavLink>
+          <NavLink
+            href="/faq"
+            isActive={isActive("/faq")}
+            onClick={closeMobileMenu}
+          >
+            FAQ
           </NavLink>
           <NavLink
             href="/a-propos"
