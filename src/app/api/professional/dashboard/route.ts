@@ -201,6 +201,11 @@ function formatMyMission(attribution: any) {
     status: attribution.status,
     acceptedAt: new Date(attribution.updated_at).toLocaleDateString("fr-FR"),
     canCancel: true, // Pour l'instant, toujours possible
+    // Solde (70%)
+    balanceAmount: Math.round(booking.totalAmount * 0.7 * 100) / 100,
+    balance_paid: booking.balance_paid ?? false,
+    balance_paid_at: booking.balance_paid_at ?? null,
+    balance_payment_method: booking.balance_payment_method ?? null,
   };
 }
 

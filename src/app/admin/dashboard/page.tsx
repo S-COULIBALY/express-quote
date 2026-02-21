@@ -3,12 +3,12 @@
  * Route: /admin/dashboard
  */
 
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   UserGroupIcon,
   ClipboardDocumentCheckIcon,
@@ -19,9 +19,9 @@ import {
   RectangleStackIcon,
   BellIcon,
   Cog8ToothIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline';
-import Link from 'next/link';
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
+import Link from "next/link";
 
 interface DashboardStats {
   totalCustomers: number;
@@ -34,10 +34,22 @@ interface DashboardStats {
   pendingRequests?: number;
 }
 
+interface PendingBalance {
+  id: string;
+  reference: string;
+  totalAmount: number;
+  balanceAmount: number;
+  scheduledDate: string | null;
+  customer: { name: string; phone: string | null };
+  professional: { companyName: string; phone: string } | null;
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [pendingBalances, setPendingBalances] = useState<PendingBalance[]>([]);
+  const [totalPendingAmount, setTotalPendingAmount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
@@ -46,7 +58,7 @@ export default function AdminDashboard() {
 
     // Polling automatique toutes les 2 minutes
     const interval = setInterval(() => {
-      const token = localStorage.getItem('professionalToken');
+      const token = localStorage.getItem("professionalToken");
       if (token) {
         loadDashboardStats(token);
       }
@@ -57,32 +69,32 @@ export default function AdminDashboard() {
 
   const checkAuthAndLoadStats = async () => {
     try {
-      const token = localStorage.getItem('professionalToken');
+      const token = localStorage.getItem("professionalToken");
       if (!token) {
         setTimeout(() => {
-          router.push('/professional/login');
+          router.push("/professional/login");
         }, 100);
         return;
       }
 
       setIsAuthenticated(true);
       await loadDashboardStats(token);
+      await loadPendingBalances();
     } catch (err) {
-      console.error('Auth check error:', err);
+      console.error("Auth check error:", err);
       setTimeout(() => {
-        router.push('/professional/login');
+        router.push("/professional/login");
       }, 100);
     }
   };
 
   const loadDashboardStats = async (token: string) => {
     try {
-
-      const response = await fetch('/api/admin/stats', {
+      const response = await fetch("/api/admin/stats", {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
       const result = await response.json();
 
@@ -90,33 +102,46 @@ export default function AdminDashboard() {
         setStats(result.data);
       } else {
         if (response.status === 401) {
-          router.push('/professional/login');
+          router.push("/professional/login");
           return;
         }
-        setError(result.error || 'Erreur de chargement des statistiques');
+        setError(result.error || "Erreur de chargement des statistiques");
       }
     } catch (err) {
-      setError('Erreur de connexion');
-      console.error('Dashboard error:', err);
+      setError("Erreur de connexion");
+      console.error("Dashboard error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPendingBalances = async () => {
+    try {
+      const res = await fetch("/api/admin/balance?filter=pending");
+      const result = await res.json();
+      if (result.success) {
+        setPendingBalances(result.data);
+        setTotalPendingAmount(result.meta.totalPendingAmount);
+      }
+    } catch {
+      // Non bloquant
     }
   };
 
   const handleLogout = async () => {
     try {
       // Supprimer le token du localStorage
-      localStorage.removeItem('professionalToken');
+      localStorage.removeItem("professionalToken");
 
       // Appel API logout (optionnel)
-      await fetch('/api/professional/auth/logout', { method: 'POST' });
+      await fetch("/api/professional/auth/logout", { method: "POST" });
 
-      router.push('/professional/login');
+      router.push("/professional/login");
     } catch (err) {
-      console.error('Logout error:', err);
+      console.error("Logout error:", err);
       // Même en cas d'erreur, supprimer le token et rediriger
-      localStorage.removeItem('professionalToken');
-      router.push('/professional/login');
+      localStorage.removeItem("professionalToken");
+      router.push("/professional/login");
     }
   };
 
@@ -149,7 +174,7 @@ export default function AdminDashboard() {
         <Card className="p-8 text-center">
           <h2 className="text-xl font-bold text-red-600 mb-4">Erreur</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => router.push('/professional/login')}>
+          <Button onClick={() => router.push("/professional/login")}>
             Retour à la connexion
           </Button>
         </Card>
@@ -164,7 +189,10 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center gap-4">
-              <Link href="/admin" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <Link
+                href="/admin"
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              >
                 <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg">
                   <WrenchScrewdriverIcon className="h-6 w-6 text-white" />
                 </div>
@@ -180,7 +208,9 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">Administrateur</p>
+                <p className="text-sm font-medium text-gray-900">
+                  Administrateur
+                </p>
                 <p className="text-xs text-gray-500">Accès complet</p>
               </div>
               <Button
@@ -246,11 +276,17 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between p-3 hover:bg-blue-50 rounded-lg transition-all duration-200 group">
                   <div className="flex items-center gap-3">
                     <ClipboardDocumentCheckIcon className="h-5 w-5 text-cyan-600 group-hover:text-cyan-700" />
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">Demandes de Devis</span>
+                    <span className="font-medium text-gray-700 group-hover:text-gray-900">
+                      Demandes de Devis
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">3 nouvelles</span>
-                    <span className="text-sm text-gray-400 group-hover:text-gray-600">→</span>
+                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                      3 nouvelles
+                    </span>
+                    <span className="text-sm text-gray-400 group-hover:text-gray-600">
+                      →
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -259,11 +295,17 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between p-3 hover:bg-pink-50 rounded-lg transition-all duration-200 group">
                   <div className="flex items-center gap-3">
                     <BellIcon className="h-5 w-5 text-pink-600 group-hover:text-pink-700" />
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">Notifications</span>
+                    <span className="font-medium text-gray-700 group-hover:text-gray-900">
+                      Notifications
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">97.8%</span>
-                    <span className="text-sm text-gray-400 group-hover:text-gray-600">→</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                      97.8%
+                    </span>
+                    <span className="text-sm text-gray-400 group-hover:text-gray-600">
+                      →
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -272,9 +314,13 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between p-3 hover:bg-indigo-50 rounded-lg transition-all duration-200 group">
                   <div className="flex items-center gap-3">
                     <ChartBarIcon className="h-5 w-5 text-indigo-600 group-hover:text-indigo-700" />
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">Analytics Live</span>
+                    <span className="font-medium text-gray-700 group-hover:text-gray-900">
+                      Analytics Live
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-400 group-hover:text-gray-600">→</span>
+                  <span className="text-sm text-gray-400 group-hover:text-gray-600">
+                    →
+                  </span>
                 </div>
               </Link>
             </CardContent>
@@ -293,9 +339,13 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between p-3 hover:bg-purple-50 rounded-lg transition-all duration-200 group">
                   <div className="flex items-center gap-3">
                     <CurrencyDollarIcon className="h-5 w-5 text-purple-600 group-hover:text-purple-700" />
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">API Prix</span>
+                    <span className="font-medium text-gray-700 group-hover:text-gray-900">
+                      API Prix
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-400 group-hover:text-gray-600">→</span>
+                  <span className="text-sm text-gray-400 group-hover:text-gray-600">
+                    →
+                  </span>
                 </div>
               </Link>
             </CardContent>
@@ -314,23 +364,43 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all duration-200 group">
                   <div className="flex items-center gap-3">
                     <Cog8ToothIcon className="h-5 w-5 text-gray-600 group-hover:text-gray-700" />
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">Paramètres Généraux</span>
+                    <span className="font-medium text-gray-700 group-hover:text-gray-900">
+                      Paramètres Généraux
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-400 group-hover:text-gray-600">→</span>
+                  <span className="text-sm text-gray-400 group-hover:text-gray-600">
+                    →
+                  </span>
                 </div>
               </Link>
 
               <Link href="/admin/integrations" className="block">
                 <div className="flex items-center justify-between p-3 hover:bg-blue-50 rounded-lg transition-all duration-200 group">
                   <div className="flex items-center gap-3">
-                    <svg className="h-5 w-5 text-blue-600 group-hover:text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    <svg
+                      className="h-5 w-5 text-blue-600 group-hover:text-blue-700"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                      />
                     </svg>
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">Intégrations</span>
+                    <span className="font-medium text-gray-700 group-hover:text-gray-900">
+                      Intégrations
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Actives</span>
-                    <span className="text-sm text-gray-400 group-hover:text-gray-600">→</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                      Actives
+                    </span>
+                    <span className="text-sm text-gray-400 group-hover:text-gray-600">
+                      →
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -338,12 +408,26 @@ export default function AdminDashboard() {
               <Link href="/admin/documents" className="block">
                 <div className="flex items-center justify-between p-3 hover:bg-teal-50 rounded-lg transition-all duration-200 group">
                   <div className="flex items-center gap-3">
-                    <svg className="h-5 w-5 text-teal-600 group-hover:text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <svg
+                      className="h-5 w-5 text-teal-600 group-hover:text-teal-700"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
                     </svg>
-                    <span className="font-medium text-gray-700 group-hover:text-gray-900">Documents</span>
+                    <span className="font-medium text-gray-700 group-hover:text-gray-900">
+                      Documents
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-400 group-hover:text-gray-600">→</span>
+                  <span className="text-sm text-gray-400 group-hover:text-gray-600">
+                    →
+                  </span>
                 </div>
               </Link>
             </CardContent>
@@ -363,10 +447,14 @@ export default function AdminDashboard() {
               <Link href="/admin/abandons" className="block group">
                 <div className="text-center p-4 hover:bg-red-50 rounded-lg transition-all duration-200 hover:shadow-md border border-red-100">
                   <ExclamationTriangleIcon className="h-8 w-8 text-red-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-medium text-gray-900 mb-1">Dashboard Abandons</h3>
+                  <h3 className="font-medium text-gray-900 mb-1">
+                    Dashboard Abandons
+                  </h3>
                   <p className="text-sm text-gray-600">Suivi en temps réel</p>
                   <div className="mt-2">
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">3 nouveaux</span>
+                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                      3 nouveaux
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -374,23 +462,39 @@ export default function AdminDashboard() {
               <Link href="/admin/recovery" className="block group">
                 <div className="text-center p-4 hover:bg-orange-50 rounded-lg transition-all duration-200 hover:shadow-md border border-orange-100">
                   <ArrowPathIcon className="h-8 w-8 text-orange-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-medium text-gray-900 mb-1">Récupération</h3>
+                  <h3 className="font-medium text-gray-900 mb-1">
+                    Récupération
+                  </h3>
                   <p className="text-sm text-gray-600">Stratégies actives</p>
                   <div className="mt-2">
-                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">68% succès</span>
+                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                      68% succès
+                    </span>
                   </div>
                 </div>
               </Link>
 
               <Link href="/admin/incentives" className="block group">
                 <div className="text-center p-4 hover:bg-yellow-50 rounded-lg transition-all duration-200 hover:shadow-md border border-yellow-100">
-                  <svg className="h-8 w-8 text-yellow-600 mx-auto mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                  <svg
+                    className="h-8 w-8 text-yellow-600 mx-auto mb-2 group-hover:scale-110 transition-transform"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"
+                    />
                   </svg>
                   <h3 className="font-medium text-gray-900 mb-1">Incentives</h3>
                   <p className="text-sm text-gray-600">Offres spéciales</p>
                   <div className="mt-2">
-                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">5 actives</span>
+                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
+                      5 actives
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -398,10 +502,14 @@ export default function AdminDashboard() {
               <Link href="/admin/integrations" className="block group">
                 <div className="text-center p-4 hover:bg-blue-50 rounded-lg transition-all duration-200 hover:shadow-md border border-blue-100">
                   <Cog8ToothIcon className="h-8 w-8 text-blue-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-medium text-gray-900 mb-1">Intégrations</h3>
+                  <h3 className="font-medium text-gray-900 mb-1">
+                    Intégrations
+                  </h3>
                   <p className="text-sm text-gray-600">Statut système</p>
                   <div className="mt-2">
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Toutes OK</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                      Toutes OK
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -409,17 +517,74 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
+        {/* Soldes en attente */}
+        {pendingBalances.length > 0 && (
+          <Card className="mb-6 border-orange-200 bg-orange-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center justify-between text-orange-800">
+                <span className="flex items-center gap-2">
+                  <ExclamationTriangleIcon className="h-5 w-5" />
+                  Soldes en attente ({pendingBalances.length})
+                </span>
+                <span className="text-lg font-bold text-orange-700">
+                  {totalPendingAmount.toLocaleString("fr-FR")}€ à encaisser
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {pendingBalances.slice(0, 5).map((b) => (
+                  <div
+                    key={b.id}
+                    className="flex items-center justify-between bg-white rounded-lg p-3 border border-orange-100"
+                  >
+                    <div>
+                      <span className="font-mono text-xs text-gray-400">
+                        {b.reference}
+                      </span>
+                      <p className="font-medium text-gray-900 text-sm">
+                        {b.customer.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {b.professional?.companyName ??
+                          "Prestataire non attribué"}
+                        {b.scheduledDate &&
+                          ` — ${new Date(b.scheduledDate).toLocaleDateString("fr-FR")}`}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0 ml-4">
+                      <p className="text-xs text-gray-400">Solde 70%</p>
+                      <p className="text-xl font-bold text-orange-700">
+                        {b.balanceAmount.toLocaleString("fr-FR")}€
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {pendingBalances.length > 5 && (
+                  <p className="text-sm text-orange-600 text-center pt-1">
+                    + {pendingBalances.length - 5} autre
+                    {pendingBalances.length - 5 > 1 ? "s" : ""}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quick Actions */}
         <Card className="p-6">
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg font-semibold text-gray-900">Actions Rapides</CardTitle>
+            <CardTitle className="text-lg font-semibold text-gray-900">
+              Actions Rapides
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
               <Button
                 onClick={() => {
-                  const token = localStorage.getItem('professionalToken');
+                  const token = localStorage.getItem("professionalToken");
                   if (token) loadDashboardStats(token);
+                  loadPendingBalances();
                 }}
                 variant="outline"
                 className="flex items-center gap-2"
@@ -436,8 +601,18 @@ export default function AdminDashboard() {
               </Link>
 
               <Button variant="outline" className="flex items-center gap-2">
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
                 </svg>
                 Export Données
               </Button>
@@ -460,9 +635,7 @@ function StatCard({ title, value, icon, color }: StatCardProps) {
   return (
     <Card className="overflow-hidden">
       <div className={`${color} p-4 text-white`}>
-        <div className="flex items-center justify-between">
-          {icon}
-        </div>
+        <div className="flex items-center justify-between">{icon}</div>
       </div>
       <CardContent className="p-4">
         <h3 className="text-sm font-medium text-gray-500">{title}</h3>

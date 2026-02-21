@@ -38,12 +38,18 @@ model Booking {
   payments             payments[]
   scheduled_reminders  scheduled_reminders[]
 
+  balance_paid                    Boolean      @default(false)
+  balance_paid_at                 DateTime?
+  balance_payment_method          String?
+  balance_paid_by_professional_id String?
+
   @@index([customerId])
   @@index([professionalId])
   @@index([quoteRequestId])
   @@index([scheduledDate])
   @@index([status])
   @@index([type])
+  @@index([balance_paid])
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
