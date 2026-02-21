@@ -5,12 +5,45 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { AttributionService } from "@/bookingAttribution/AttributionService";
+import jwt from "jsonwebtoken";
 
 // Force le rendu dynamique (évite erreur de build Vercel)
 export const dynamic = "force-dynamic";
 
+async function authenticateProfessional(request: NextRequest): Promise<string> {
+  const token =
+    request.cookies.get("professional_token")?.value ||
+    request.headers.get("authorization")?.replace("Bearer ", "");
+
+  if (!token) {
+    throw new Error("Non authentifié");
+  }
+
+  const jwtSecret = process.env.JWT_SECRET || process.env.SIGNATURE_SECRET;
+  if (!jwtSecret) {
+    throw new Error("JWT_SECRET ou SIGNATURE_SECRET manquant");
+  }
+
+  const decoded = jwt.verify(token, jwtSecret) as any;
+  if (decoded.type !== "professional") {
+    throw new Error("Type de token invalide");
+  }
+
+  return decoded.professionalId;
+}
+
 export async function GET(request: NextRequest) {
   try {
+    let authenticatedProfessionalId: string;
+    try {
+      authenticatedProfessionalId = await authenticateProfessional(request);
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "Non authentifié" },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const professionalId = searchParams.get("professionalId");
     const limit = parseInt(searchParams.get("limit") || "20");
@@ -23,7 +56,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Vérifier l'authentification du professionnel
+    if (professionalId !== authenticatedProfessionalId) {
+      return NextResponse.json(
+        { success: false, error: "Accès non autorisé" },
+        { status: 403 },
+      );
+    }
 
     const attributionService = new AttributionService();
     const attributions = await attributionService.getProfessionalAttributions(
